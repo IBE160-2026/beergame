@@ -121,6 +121,8 @@ EXTENSION_TABLES = {"student_deadline_extensions"}
 """The table of revision 0130 (Story 11.13)."""
 CORRECTION_TABLES = {"completion_corrections"}
 """The table of revision 0301 (Story 13.3)."""
+MAKEUP_TABLES = {"makeup_games"}
+"""The table of revision 0302 (Story 13.4)."""
 RECLAIM_TABLES = {"seat_reclaims"}
 """The table of revision 0055 (Story 8.4)."""
 ADJUSTMENT_TABLES = {"student_adjustments"}
@@ -156,10 +158,11 @@ HEAD_TABLES = (
     | SITTING_TABLES
     | EXTENSION_TABLES
     | CORRECTION_TABLES
+    | MAKEUP_TABLES
     | RECLAIM_TABLES
     | ADJUSTMENT_TABLES
 )
-HEAD = "0301"  # 0301 adds Completion corrections (13.3); 0120-0130 follow main's 0064
+HEAD = "0302"  # 0301-0302 add Completion corrections (13.3) and Oppfølgingsspill (13.4)
 
 
 def reset_schema(url: str) -> None:
@@ -347,6 +350,14 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     # 0111 (Story 9.12): presence, the Students who go on alone and the 48-hour fallback.
     assert "last_seen_at" in columns(url, "debrief_members")
     assert {"fallback_due_at", "fallback_at"} <= columns(url, "debrief_sessions")
+
+    # 0302 (Story 13.4): each Student's one Oppfølgingsspill in a Class session.
+    assert {"user_id", "class_session_id", "game_id", "given_by", "given_at"} <= columns(
+        url, "makeup_games"
+    )
+    assert "UNIQUE (user_id, class_session_id)" in definition(url, "uq_makeup_games_student")
+    command.downgrade(cfg, "0301")
+    assert MAKEUP_TABLES.isdisjoint(tables(url))
 
     # 0301 (Story 13.3): a Lecturer's corrections of a Completion step, never changed.
     assert {"step", "done", "reason", "actor_user_id", "at"} <= columns(

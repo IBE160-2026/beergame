@@ -48,6 +48,9 @@ const weeksInWords = (weeks: number) => WEEK_WORDS[weeks] ?? `${weeks} uker`;
 const formula = (sum: string) => sum.replaceAll(" ", " ");
 
 /** «Spill 17», or «Testspill» for a test Game, which has no number (Story 6.20). */
+/** A day ending a sentence: «12. des.» keeps its full stop, «15. mai» gets one (Story 13.4). */
+const sentence = (text: string) => (text.endsWith(".") ? text : `${text}.`);
+
 const gameName = (number: number | null) => (number === null ? TEST_GAME : `Spill ${number}`);
 
 /** Story 6.5: a game the lock has not given its snapshot yet. [ASSUMPTION] */
@@ -600,6 +603,14 @@ export const nb = {
           quiz_required: "Bestå Debrief-quizen først.",
           test_deadline_passed: "Testfristen er ute. Replay kan ikke startes.",
         },
+      },
+      /** Story 13.4 (FR-17, EXPERIENCE.md → Fullføringsretting): the Oppfølgingsspill a Faglærer
+       * gave the Student. «Oppfølgingsspill» is the spine's; the rest is [ASSUMPTION] draft copy. */
+      makeup: {
+        /** «Oppfølgingsspill · Du er Grossist», above its Setene. */
+        title: (role: string) => `Oppfølgingsspill · Du er ${role}`,
+        /** The Spillkort's title while it runs (UX-DR28). */
+        card: "Oppfølgingsspill",
       },
       nextDeadline: "Neste frist",
       /** «Spillfrist ti. 8. des.» */
@@ -1888,6 +1899,8 @@ export const nb = {
       roleGame: (role: string, number: number | null) => `${role}, ${gameName(number)}`,
       /** Story 10.4: «Grossist, Replay» under the Uke in the Replay's Topplinje. [ASSUMPTION] */
       roleReplay: (role: string) => `${role}, Replay`,
+      /** Story 13.4: «Grossist, Oppfølgingsspill» in the Oppfølgingsspill's Topplinje. [ASSUMPTION] */
+      roleMakeup: (role: string) => `${role}, Oppfølgingsspill`,
       /** Story 6.20: a test Game leads back to where it was started. [ASSUMPTION] */
       toClassSession: "Tilbake til Klasseøkta",
       /** «Spillet er ferdig» (Story 6.18, FR-28, UX-DR30, EXPERIENCE.md → Spillet er ferdig): the
@@ -1920,6 +1933,12 @@ export const nb = {
         title: "Replay stengt",
         lead: "Testfristen er ute. Replay ble stengt før siste uke og er ikke fullført.",
         kept: "Ordrene du la inn, er lagret som de var.",
+      },
+      /** Story 13.4: an Oppfølgingsspill closed at the Testfrist without its last Uke, as the
+       * Replay's. [ASSUMPTION] */
+      makeupClosed: {
+        title: "Oppfølgingsspill stengt",
+        lead: "Testfristen er ute. Oppfølgingsspillet ble stengt før siste uke og er ikke fullført.",
       },
       /** Ordrefelt (Story 6.10, DESIGN.md → Ordrefelt, UX-DR20). The label is the spine's; the
        * Veiledet uke line is [ASSUMPTION] draft copy. It never says how many Veiledede uker are
@@ -3826,6 +3845,10 @@ export const nb = {
       } as Record<string, string>,
       /** «Bestilte i 70 % av ukene.» */
       ordered: (percent: string) => `Bestilte i ${percent} av ukene.`,
+      /** Story 13.4: with an Oppfølgingsspill the share names its game: «Bestilte i 100 % av ukene
+       * i Oppfølgingsspillet.» [ASSUMPTION] */
+      orderedIn: (percent: string, game: "class" | "makeup") =>
+        `Bestilte i ${percent} av ukene i ${game === "makeup" ? "Oppfølgingsspillet" : "Klassespillet"}.`,
       /** « Kravet er 80 %.», only when the Class session is obligatory. */
       required: (percent: string) => `Kravet er ${percent}.`,
       /** The Student's own share (Tilrettelegging): «Kravet er 60 % (tilrettelagt).» */
@@ -3870,6 +3893,33 @@ export const nb = {
         class_archived: "Klassen er arkivert, så ingenting kan rettes.",
       } as Record<string, string>,
       failed: "Rettingen ble ikke lagret. Prøv igjen.",
+      /** Story 13.4 (UX-DR54, EXPERIENCE.md → Fullføringsretting → Oppfølgingsspill): the spine's
+       * strings; the state lines, the refusals and the failure are [ASSUMPTION]. */
+      makeup: {
+        give: "Gi oppfølgingsspill",
+        /** «Jonas får et eget Klassespill mot tre KI-spillere, åpent til Testfristen fr. 18. des.
+         * Jonas får beskjed på Hjem og på e-post.» (the day ends in its own full stop) */
+        consequence: (name: string, day: string) =>
+          `${name} får et eget Klassespill mot tre KI-spillere, åpent til Testfristen ${sentence(day)} ${name} får beskjed på Hjem og på e-post.`,
+        /** «Oppfølgingsspill gitt 12. des. Åpent til fr. 18. des.» */
+        given: (given: string, until: string) => `Oppfølgingsspill gitt ${sentence(given)} Åpent til ${sentence(until)}`,
+        /** Without a Testfrist any more (it was removed after the Oppfølgingsspill was given). */
+        givenOn: (given: string) => `Oppfølgingsspill gitt ${sentence(given)}`,
+        state: {
+          ready: "Ikke startet ennå.",
+          running: "Pågår.",
+          finished: "Ferdig.",
+          ended: "Stengt ved Testfristen før siste uke.",
+        } as Record<string, string>,
+        cancel: "Avbryt",
+        refusals: {
+          session_not_locked: "Klasseøkta er ikke låst ennå, så det finnes ikke noe spill å gi.",
+          no_test_deadline: "Klasseøkta har ingen Testfrist.",
+          test_deadline_passed: "Testfristen er ute.",
+          class_archived: "Klassen er arkivert.",
+        } as Record<string, string>,
+        failed: "Oppfølgingsspillet ble ikke gitt. Prøv igjen.",
+      },
     },
     /** The record blocks of the Studentside (Story 13.2, FR-63). All [ASSUMPTION] draft copy. */
     record: {

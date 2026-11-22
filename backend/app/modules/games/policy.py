@@ -64,8 +64,13 @@ class GamePolicy(BaseModel):
     believability: Literal["never", "ai_held", "always"]
     """When a Student of the finished Game is asked how believable the AI players' ordering felt
     (Story 10.8, FR-70): `ai_held`, when an AI player held some Seat in some Week; `always`, every
-    Seat but the Student's is an AI player (the Replay); `never`, nobody is asked. A Game closed
-    at the Test deadline is never asked."""
+    Seat but the Student's is an AI player (the Replay, the Oppfølgingsspill); `never`, nobody is
+    asked. A Game closed at the Test deadline is never asked."""
+    own_round: Literal["none", "replay", "makeup"]
+    """Whether a Game is a Student's own round in its Class session outside the Class games, and
+    which: `replay` (Stories 10.4, 10.5) or `makeup`, the Oppfølgingsspill (Story 13.4). Such a
+    Game is the Student's while they hold its Seat (`games.service.own_game`); nobody else plays
+    it with them, so no time to play is agreed in it."""
 
 
 POLICIES: Mapping[Purpose, GamePolicy] = MappingProxyType(
@@ -88,6 +93,7 @@ POLICIES: Mapping[Purpose, GamePolicy] = MappingProxyType(
             staff_insight=False,
             closes_at_test_deadline=False,
             believability="never",
+            own_round="none",
         ),
         # A Class game (Story 5.9): created when the allocation is confirmed, its snapshot taken
         # at the Class session's lock.
@@ -109,6 +115,7 @@ POLICIES: Mapping[Purpose, GamePolicy] = MappingProxyType(
             staff_insight=True,
             closes_at_test_deadline=False,
             believability="ai_held",
+            own_round="none",
         ),
         # A Lecturer's private test Game (Story 6.20, FR-87): snapshot of its Class session's
         # current settings at creation, the Lecturer in one Seat and AI players in the others. It
@@ -132,6 +139,7 @@ POLICIES: Mapping[Purpose, GamePolicy] = MappingProxyType(
             staff_insight=False,
             closes_at_test_deadline=False,
             believability="never",
+            own_round="none",
         ),
         # A Student's Replay (Story 10.3, FR-48, AD-13): one round alone in the Class game's Role
         # against three AI players, on the Class session's frozen runtime with its own drawn
@@ -156,6 +164,34 @@ POLICIES: Mapping[Purpose, GamePolicy] = MappingProxyType(
             staff_insight=True,
             closes_at_test_deadline=True,
             believability="always",
+            own_round="replay",
+        ),
+        # A Student's Oppfølgingsspill (Story 13.4, FR-17, FR-20, AD-13): a Lecturer gives it to
+        # one Student; alone in their Class game's Role (or a drawn one) against three AI players,
+        # on the Class session's frozen snapshot unchanged, snapshotted at creation. No number, not
+        # on the overview wall, so no group result or Class session list counts it. Nobody waits on
+        # the Student, so no Takeover, Pause or playout; it is closed, never played out, at the
+        # Student's Test deadline. The Student passes the pre-play gate as in a Class game. Story
+        # 13.5 turns on `records_class_game_step`.
+        Purpose.MAKEUP: GamePolicy(
+            inactivity_takeover=False,
+            pause=False,
+            play_deadline_playout=False,
+            lecturer_overview=False,
+            guided_weeks="settings",
+            scripted_occupants=False,
+            snapshot="at_creation",
+            student_occupants=True,
+            class_session_game=True,
+            records_class_game_step=False,
+            pre_play_gate=True,
+            game_number=False,
+            played_by_staff=False,
+            projection=False,
+            staff_insight=False,
+            closes_at_test_deadline=True,
+            believability="always",
+            own_round="makeup",
         ),
     }
 )

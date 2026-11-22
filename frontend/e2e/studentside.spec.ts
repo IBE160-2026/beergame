@@ -249,6 +249,79 @@ test("a Lecturer corrects a step with a reason, and the Student's Hjem marks it"
   }
 });
 
+test("a Lecturer gives an Oppfølgingsspill, and the Student's Hjem shows it as a game of its own", async ({
+  browser,
+  lecturerSession,
+}) => {
+  test.slow(); // Invitations through the worker, a Class session and a lock
+  const game = await liveClassGame(browser, lecturerSession, 2, {
+    aiMode: "rule_based",
+    obligatory: true,
+    gameSettings: { weeks: 3, demand: { kind: "step", start: 4, new_level: 8, change_week: 2 } },
+  });
+  const [first, second] = game.students as [(typeof game.students)[0], (typeof game.students)[0]];
+  const page = await lecturerPage(browser, lecturerSession, VIEWPORTS[0]!);
+  const hjem = await second.context.newPage();
+  try {
+    await hjem.goto("/hjem");
+    await expect(hjem.getByRole("main").getByRole("region", { name: nb.homes.student.steps })).toBeVisible();
+    await untilLive(hjem);
+
+    await page.goto(`/klasseokter/${game.sessionId}/oversikt/spill/${game.gameId}`);
+    await page.locator("[data-insight-seats]").getByRole("link", { name: nb.reports.studentPage.linkLabel(second.name) }).click();
+    await expect(page.getByRole("heading", { level: 1, name: second.name })).toBeVisible();
+    const row = page.locator('[data-completion] [data-step="class_game"]');
+    const opener = row.getByRole("button", { name: copy.makeup.give });
+    const form = row.locator("[data-makeup-form]");
+
+    // In place, with the consequence; focus on the primary; «Avbryt» returns it to the opener.
+    await opener.click();
+    await expect(form).toBeVisible();
+    await expect(form.locator("p").first()).toHaveText(
+      new RegExp(`^${second.name} får et eget Klassespill mot tre KI-spillere, åpent til Testfristen .+\\. ${second.name} får beskjed på Hjem og på e-post\\.$`),
+    );
+    const give = form.getByRole("button", { name: copy.makeup.give });
+    await expect(give).toBeFocused();
+    await form.getByRole("button", { name: copy.makeup.cancel }).click();
+    await expect(form).toHaveCount(0);
+    await expect(opener).toBeFocused();
+
+    // One form at a time: opening «Rett Klassespill» closes it.
+    await opener.click();
+    await row.getByRole("button", { name: copy.correct("Klassespill") }).click();
+    await expect(form).toHaveCount(0);
+    await opener.click();
+    await expect(page.locator("[data-correct-form]")).toHaveCount(0);
+    await expectAccessible(page, true);
+
+    // Given: the line replaces the form and takes focus; nothing more to give.
+    await give.click();
+    const line = row.locator("[data-makeup-given]");
+    await expect(line).toHaveText(/^Oppfølgingsspill gitt \d{1,2}\. [a-zæøå]+\. Åpent til [a-zæøå]+\. \d{1,2}\. [a-zæøå]+\.$/);
+    await expect(line).toBeFocused();
+    await expect(row).toContainText(copy.makeup.state.ready!);
+    await expect(opener).toHaveCount(0);
+    await expectAccessible(page, true);
+
+    // The Student's Hjem reads it by itself: a block of its own, under the Class game.
+    const block = hjem.locator("[data-makeup]");
+    await expect(block.getByRole("heading", { level: 3 })).toHaveText(/^Oppfølgingsspill · Du er \S+$/, { timeout: 15_000 });
+    const rules = await block.getByRole("link", { name: nb.homes.student.rulesLink }).getAttribute("href");
+    const makeupId = rules!.split("/")[2]!;
+    // Started (the Starting task was done in the Class game): the Spillkort titled «Oppfølgingsspill».
+    const started = await second.context.request.post(`/api/me/games/${makeupId}/start`, { headers: CSRF });
+    expect(started.status()).toBe(200);
+    await expect(block.getByRole("heading", { level: 4, name: new RegExp(`^${nb.homes.student.makeup.card}`) })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expectAccessible(hjem, true);
+  } finally {
+    await page.context().close();
+    await first.context.close();
+    await second.context.close();
+  }
+});
+
 test("a Lecturer of another Class sees the permission-denied page, Student or not", async ({ page, browser }) => {
   const other = await freshLecturer(page, browser);
   for (const path of [

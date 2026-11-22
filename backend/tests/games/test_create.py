@@ -227,7 +227,7 @@ async def test_an_invalid_parameter_set_stores_nothing(games_db, monkeypatch):
     assert counts(games_db) == (0, 0, 0)
 
 
-@pytest.mark.parametrize("purpose", ["makeup", "party"])
+@pytest.mark.parametrize("purpose", ["party"])
 async def test_purposes_without_a_policy_cannot_be_created_yet(games_db, purpose):
     with pytest.raises(commands.CommandError) as caught:
         await commands.create(purpose, GameSettings(), seed=1)

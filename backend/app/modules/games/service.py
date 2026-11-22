@@ -502,6 +502,9 @@ class StudentGame:
     replay: bool = False
     """Whether it is the Student's own round outside the Class games: a Game of the Class session
     without a number that no Lecturer plays, the Replay (Story 10.4). Never `student_game`."""
+    makeup: bool = False
+    """Whether it is the Student's Oppfølgingsspill (`games.policy` `own_round`, Story 13.4): their
+    own round against AI players that a Lecturer gave them. Never `student_game` (Story 13.5)."""
     projection: bool = False
     """Whether the play screen draws the projection (`games.policy`, Story 10.4, UX-DR19)."""
 
@@ -846,9 +849,9 @@ async def turn_reminder_of(
 
 
 def _own_round(rules: GamePolicy) -> bool:
-    """Whether Games of this policy are a Student's own round outside the Class games: of a Class
-    session, without a number, and no Lecturer plays it — the Replay (Stories 10.4, 10.5)."""
-    return rules.class_session_game and not rules.game_number and not rules.played_by_staff
+    """Whether Games of this policy are the Student's Replay (Stories 10.4, 10.5): the policy's
+    `own_round`, so the Oppfølgingsspill (Story 13.4), also an own round, is never called one."""
+    return rules.own_round == "replay"
 
 
 async def own_game(
@@ -861,9 +864,10 @@ async def own_game(
     if game is None or game["class_session_id"] is None:
         return None
     game_policy = policy(game["purpose"])
-    if game_policy.played_by_staff or _own_round(game_policy):
-        # A Lecturer's test Game (Story 6.20) or a Student's Replay (Story 10.4): theirs while they
-        # hold its Seat; no Class game of the session is ever one (`student_game` leaves it out).
+    if game_policy.played_by_staff or game_policy.own_round != "none":
+        # A Lecturer's test Game (Story 6.20), a Student's Replay (Story 10.4) or Oppfølgingsspill
+        # (Story 13.4): theirs while they hold its Seat; no Class game of the session is ever one
+        # (`student_game` leaves it out).
         role = await repo.held_role(session, game_id, user_id)
         if role is None:
             return None
@@ -875,6 +879,7 @@ async def own_game(
             pre_play_gate=game_policy.pre_play_gate,
             test_game=game_policy.played_by_staff,
             replay=_own_round(game_policy),
+            makeup=game_policy.own_round == "makeup",
             projection=game_policy.projection,
         )
     found = await student_game(session, user_id, game["class_session_id"])

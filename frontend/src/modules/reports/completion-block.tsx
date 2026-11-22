@@ -13,11 +13,13 @@ import { ApiRequestError } from "@/lib/api/client";
 import { errorCode, useAction } from "@/lib/api/mutation";
 import { cn } from "@/lib/utils";
 
-import { correctCompletion, studentRecordKey } from "./api";
+import { correctCompletion, giveMakeup, studentRecordKey } from "./api";
 import {
   type CompletionRow,
   type CompletionStep,
   completionRows,
+  day,
+  makeupLines,
   participationLines,
   requirementLine,
   type StudentRecord,
@@ -65,6 +67,14 @@ export function CompletionBlock({
   useEffect(() => {
     if (saved) statuses.current.get(saved.step)?.focus();
   }, [saved]);
+  // Story 13.4: «Gi oppfølgingsspill», its opener and the line that takes focus once it is given.
+  const makeupOpener = useRef<HTMLButtonElement | null>(null);
+  const makeupLine = useRef<HTMLParagraphElement | null>(null);
+  const [given, setGiven] = useState(0);
+  useEffect(() => {
+    if (given > 0) makeupLine.current?.focus();
+  }, [given]);
+  const makeup = makeupLines(record.makeup);
   const steps = new Map<string, CompletionStep>((completion?.steps ?? []).map((step) => [step.step, step]));
   return (
     <section aria-labelledby={titleId} className="mt-8 max-w-2xl border-t border-hairline pt-4" data-completion="">
@@ -117,6 +127,50 @@ export function CompletionBlock({
                       {line}
                     </p>
                   ))}
+                  {row.step === "class_game" && makeup ? (
+                    <div data-makeup="" className="flex flex-col gap-1">
+                      <p
+                        ref={makeupLine}
+                        tabIndex={given > 0 ? -1 : undefined}
+                        role={given > 0 ? "status" : undefined}
+                        className="text-body-phone text-ink focus:outline-none lg:text-body"
+                        data-makeup-given=""
+                      >
+                        {makeup.given}
+                      </p>
+                      {makeup.state ? (
+                        <p className="text-body-phone text-ink-secondary lg:text-body">{makeup.state}</p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  {row.step === "class_game" && record.can_give_makeup ? (
+                    editing === MAKEUP ? (
+                      <MakeupForm
+                        record={record}
+                        onCancel={() => {
+                          onEditingChange(null);
+                          requestAnimationFrame(() => makeupOpener.current?.focus());
+                        }}
+                        onGiven={() => {
+                          onEditingChange(null);
+                          setGiven((n) => n + 1);
+                        }}
+                      />
+                    ) : (
+                      <Button
+                        ref={makeupOpener}
+                        data-makeup-open=""
+                        className="mt-1 w-full lg:w-auto lg:self-start"
+                        onClick={() => {
+                          setGiven(0);
+                          setSaved(null);
+                          onEditingChange(MAKEUP);
+                        }}
+                      >
+                        {copy.makeup.give}
+                      </Button>
+                    )
+                  ) : null}
                   {record.can_correct ? (
                     editing === row.step ? (
                       <CorrectionForm
@@ -172,6 +226,77 @@ export function CompletionBlock({
         ))}
       </div>
     </section>
+  );
+}
+
+/** The `editing` key of the Oppfølgingsspill form (Story 13.4); no step is named so. */
+const MAKEUP = "makeup";
+
+/** «Gi oppfølgingsspill» in place (Story 13.4, UX-DR54): the consequence, the primary «Gi
+ * oppfølgingsspill» and «Avbryt». Focus moves to the primary when the form opens. */
+function MakeupForm({
+  record,
+  onCancel,
+  onGiven,
+}: {
+  record: StudentRecord;
+  onCancel: () => void;
+  onGiven: () => void;
+}) {
+  const ids = useId();
+  const queryClient = useQueryClient();
+  const primary = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    primary.current?.focus();
+  }, []);
+  const send = useAction({
+    mutationFn: () => giveMakeup(record.class_session_id, record.user_id),
+    messages: copy.makeup.refusals,
+    fallback: copy.makeup.failed,
+    onSuccess: (next: StudentRecord) => {
+      queryClient.setQueryData(studentRecordKey(record.class_session_id, record.user_id), next);
+      onGiven();
+    },
+  });
+  const consequenceId = `${ids}-consequence`;
+  return (
+    <div
+      role="group"
+      aria-labelledby={consequenceId}
+      data-makeup-form=""
+      className="mt-2 flex w-full flex-col items-start gap-4 rounded-sm border border-axis bg-paper px-4 py-4"
+    >
+      <p id={consequenceId} className="text-body-phone text-ink [overflow-wrap:anywhere] lg:text-body">
+        {copy.makeup.consequence(record.name, record.test_deadline ? day(record.test_deadline) : "")}
+      </p>
+      <div className="flex w-full flex-col items-stretch gap-x-6 gap-y-2 lg:flex-row lg:items-center">
+        <Button
+          ref={primary}
+          variant="primary"
+          data-makeup-give=""
+          className="w-full lg:w-auto"
+          unavailable={send.isPending}
+          onClick={() => {
+            if (send.isPending) return;
+            send.reset();
+            send.mutate();
+          }}
+        >
+          {copy.makeup.give}
+        </Button>
+        <button
+          type="button"
+          data-makeup-cancel=""
+          className={cn(LINK_BUTTON, "self-start")}
+          onClick={() => {
+            if (!send.isPending) onCancel();
+          }}
+        >
+          {copy.makeup.cancel}
+        </button>
+      </div>
+      <ActionError message={send.errorMessage} />
+    </div>
   );
 }
 

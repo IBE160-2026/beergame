@@ -59,6 +59,27 @@ The minimums are configuration, `COMPLETION_EXPLANATION_MIN_LENGTH` (50 characte
   Lecturer's name now) and `can_correct`. Hjem's Stegene gets only `corrected` (no reason).
 - The reason is free text about a Student: personal data in `completion_corrections`.
 
+## Oppfølgingsspill (Story 13.4)
+
+- `POST /api/class-sessions/{id}/students/{user_id}/makeup` (`giveMakeup`, `makeup.py`), policy
+  `makeup.give`: the Lecturers of the Class only. 409 `session_not_locked` (no frozen snapshot),
+  `no_test_deadline`, `test_deadline_passed` (the Student's effective one, app clock),
+  `class_archived`; 403 `forbidden` for everyone else. Answers the Studentside's record.
+- One transaction under the session row's share lock: `games.commands.create("makeup",
+  snapshot=<the session's frozen snapshot, unchanged>)`, `assign_seat` (the Student's Class game
+  Role or a drawn one; AI players of the session's AI mode in the others), a `makeup_games` row
+  (this module's table, `repo.py`; one per Student and Class session, a second press answers it),
+  audit `makeup.given` (target `class_session_id`, `user_id`, `game_id`; change `role`), the digest
+  notice `makeup_given`, and `user:<student>`, `session:<id>` (registry `reports.give_makeup`).
+- Not started: the Student starts it from Hjem (`EnrolledSessionOut.makeup`) after the pre-play
+  gate. `games.policy` `makeup` closes it at the Test deadline through the sweep's
+  `games.close_at_test_deadline`; it records no `class_game` step until Story 13.5.
+- Completion: `completion_status` passes the make-up's Decision log beside the Class game's
+  (`reporting_games(…, [Purpose.MAKEUP])`); `share_game` names the game the figures come from.
+- `service.py` registers `repo.makeup_game_of` with `sessions` (Hjem, the mail); the worker loads
+  `reports.service` through `jobs.TASK_MODULES`.
+- `makeup_games` holds `user_id` and `given_by`: personal data.
+
 ## Waiting for Epic 12 on this branch
 
 Control test Class sessions (`kind=control_test`, Story 12.7) and test students

@@ -46,6 +46,7 @@ describe("Hjem's game card (Story 6.1)", () => {
       role: "wholesaler",
       test_game: false,
       replay: false,
+      makeup: false,
       class_session_id: "s",
       seats: [],
       obligatory: false,
@@ -75,6 +76,9 @@ describe("Hjem's game card (Story 6.1)", () => {
     expect(gameTitle({ ...game, number: null, replay: true })).toBe("Replay · Du er Grossist");
     expect(roleGameText({ ...game, number: null, replay: true })).toBe("Grossist, Replay");
     expect(roleGameText(game)).toBe("Grossist, Spill 17");
+    // Story 13.4: the Oppfølgingsspill has no number and reads «Oppfølgingsspill».
+    expect(gameTitle({ ...game, number: null, makeup: true })).toBe("Oppfølgingsspill · Du er Grossist");
+    expect(roleGameText({ ...game, number: null, makeup: true })).toBe("Grossist, Oppfølgingsspill");
   });
 
   it("says who holds each Seat in words, «KI-spiller» for every AI player", () => {

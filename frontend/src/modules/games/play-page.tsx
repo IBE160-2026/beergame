@@ -159,7 +159,7 @@ function PlayView({ gameId, user, updatedAt }: { gameId: string; user: SessionUs
         shown ? (
           <Running game={game} envelope={shown} userId={user.id} allRows={allRows} />
         ) : closed ? (
-          <ReplayClosed />
+          <ReplayClosed makeup={game.makeup ?? false} />
         ) : result ? (
           // Story 10.5: a Replay ends on its own screen, never the Class game's Debrief line.
           game.replay ? (

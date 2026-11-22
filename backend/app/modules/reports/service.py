@@ -27,7 +27,7 @@ from app.modules.debrief import service as debrief
 from app.modules.games import service as games
 from app.modules.games.service import Purpose
 from app.modules.progress import service as progress
-from app.modules.reports import scope
+from app.modules.reports import repo, scope
 from app.modules.sessions import service as sessions
 from app.modules.tests import service as tests
 from app.platform.config import get_settings
@@ -70,13 +70,22 @@ async def completion_status(
         if game is not None:
             counted = await scope.reporting_games(s, class_session_id, [Purpose.CLASS])
             if any(each.game_id == game.game_id for each in counted):
-                seat = await games.seat_log(s, game.game_id, game.role)
-                if seat is not None:
-                    log = DecisionLogSummary(
-                        weeks=seat.weeks,
-                        guided_weeks=seat.guided_weeks,
-                        rows=tuple(LoggedWeek(*row) for row in seat.rows),
-                    )
+                log = await _log_of(s, game.game_id, game.role)
+        # Story 13.4: the Oppfølgingsspill's Decision log beside the Class game's, finished or
+        # partly played; a Week it never played counts as not ordered.
+        makeup_log = None
+        makeup = await repo.makeup_of(s, user_id, class_session_id)
+        if makeup is not None:
+            counted = await scope.reporting_games(s, class_session_id, [Purpose.MAKEUP])
+            own = await games.own_game(s, user_id, makeup.game_id)
+            # Not before it has started: a share of 0 % in a game not yet played says nothing.
+            started = (await games.play_status(s, makeup.game_id)).status in ("running", "finished")
+            if (
+                own is not None
+                and started
+                and any(each.game_id == makeup.game_id for each in counted)
+            ):
+                makeup_log = await _log_of(s, makeup.game_id, own.role)
     test_status = await tests.attempt_status(user_id, class_session_id)
     config = get_settings()
     return completion(
@@ -99,6 +108,18 @@ async def completion_status(
             explanation_min_length=config.completion_explanation_min_length,
             test_required_parts=_required_parts(),
         ),
+        makeup_log,
+    )
+
+
+async def _log_of(s: AsyncSession, game_id: uuid.UUID, role: str) -> DecisionLogSummary | None:
+    seat = await games.seat_log(s, game_id, role)
+    if seat is None:
+        return None
+    return DecisionLogSummary(
+        weeks=seat.weeks,
+        guided_weeks=seat.guided_weeks,
+        rows=tuple(LoggedWeek(*row) for row in seat.rows),
     )
 
 
@@ -117,3 +138,5 @@ async def _funnel_in(session: AsyncSession, class_session_id: uuid.UUID) -> prog
 
 
 sessions.register_completion(completion_status, _funnel_in)
+# Story 13.4: Hjem and the `makeup_given` mail find the Student's Oppfølgingsspill here.
+sessions.register_makeup_game(repo.makeup_game_of)

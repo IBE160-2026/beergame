@@ -675,6 +675,9 @@ class StudentGameOut(BaseModel):
     replay: bool = False
     """Story 10.4: the Student's Replay, with no number, its own rules (`rules`) and no Debrief,
     reached from Hjem's Replay block and Stegene."""
+    makeup: bool = False
+    """Story 13.4: the Student's Oppfølgingsspill, with no number, which a Lecturer gave them;
+    Hjem titles it «Oppfølgingsspill» and the play screen ends it like any game."""
     class_session_id: uuid.UUID
     seats: list[TableSeatOut]
     briefing_first: bool
@@ -872,6 +875,9 @@ class EnrolledSessionOut(BaseModel):
     """Story 8.9: the Student's own Tilrettelegging, None without one (FR-17)."""
     replay: StudentReplayOut | None = None
     """Story 10.3: the Replay, once the Student has passed the Debrief quiz; None before."""
+    makeup: StudentGameOut | None = None
+    """Story 13.4: the Oppfølgingsspill a Lecturer gave the Student, as a game card; None
+    without one."""
     requirement_met: bool | None = None
     """Story 13.1 (FR-17): in an Obligatory class session where the Student has a game, whether
     their Completion status meets the requirement (`reports.service.completion_status`); None

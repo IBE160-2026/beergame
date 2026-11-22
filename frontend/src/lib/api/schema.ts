@@ -1239,6 +1239,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/class-sessions/{session_id}/students/{user_id}/makeup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give Makeup
+         * @description «Gi oppfølgingsspill» (Story 13.4, FR-17, FR-20, FR-30, AD-13): a Lecturer of the Class
+         *     gives the Student a make-up game: a Class game of their own against three AI players on the
+         *     Class session's frozen snapshot, open until the Student's Test deadline. Recorded in the audit
+         *     log; the Student is told on Hjem and by mail. One per Student: a second press answers the
+         *     existing one and writes nothing. Answers the Studentside's record. 409 `session_not_locked`
+         *     before the Class session's lock, `no_test_deadline`, `test_deadline_passed`,
+         *     `class_archived`; 403 `forbidden` for an Assistant lecturer and anyone else as
+         *     `getStudentRecord`.
+         */
+        post: operations["giveMakeup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/class-sessions/{session_id}/students/{user_id}/record": {
         parameters: {
             query?: never;
@@ -4052,6 +4079,8 @@ export interface components {
             required_share: number;
             /** Requirement Met */
             requirement_met: boolean | null;
+            /** Share Game */
+            share_game?: ("class" | "makeup") | null;
             /** Steps */
             steps: components["schemas"]["CompletionStepOut"][];
         };
@@ -4447,6 +4476,7 @@ export interface components {
             id: string;
             /** Lab Hours */
             lab_hours: components["schemas"]["EnrolledLabHourOut"][];
+            makeup?: components["schemas"]["StudentGameOut"] | null;
             next_deadline: components["schemas"]["NextDeadline"] | null;
             /** Number */
             number: number;
@@ -6243,6 +6273,31 @@ export interface components {
             state: "not_ready" | "ready" | "running" | "finished" | "ended";
         };
         /**
+         * RecordMakeupOut
+         * @description The Student's Oppfølgingsspill (Story 13.4): its Game, when it was given, the Student's
+         *     effective Test deadline it is open until, and where it stands (`ended`: closed at that
+         *     deadline without its last Week).
+         */
+        RecordMakeupOut: {
+            /**
+             * Game Id
+             * Format: uuid
+             */
+            game_id: string;
+            /**
+             * Given At
+             * Format: date-time
+             */
+            given_at: string;
+            /** Open Until */
+            open_until: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "not_ready" | "ready" | "running" | "finished" | "ended";
+        };
+        /**
          * RecordQuizAttemptOut
          * @description A Debrief quiz attempt: its number, time and result; never the answers.
          */
@@ -7745,6 +7800,11 @@ export interface components {
              */
             id: string;
             in_room?: components["schemas"]["InRoomOut"] | null;
+            /**
+             * Makeup
+             * @default false
+             */
+            makeup: boolean;
             /** Number */
             number: number | null;
             /**
@@ -7836,6 +7896,11 @@ export interface components {
              * @default false
              */
             can_correct: boolean;
+            /**
+             * Can Give Makeup
+             * @default false
+             */
+            can_give_makeup: boolean;
             /** Can Manage */
             can_manage: boolean;
             /**
@@ -7853,6 +7918,7 @@ export interface components {
             completion: components["schemas"]["CompletionOut"] | null;
             debrief: components["schemas"]["RecordDebriefOut"];
             game: components["schemas"]["RecordGameOut"] | null;
+            makeup?: components["schemas"]["RecordMakeupOut"] | null;
             /** Name */
             name: string;
             participation: components["schemas"]["ParticipationOut"] | null;
@@ -7864,6 +7930,8 @@ export interface components {
             /** Session Number */
             session_number: number;
             test: components["schemas"]["RecordTestOut"] | null;
+            /** Test Deadline */
+            test_deadline?: string | null;
             /**
              * User Id
              * Format: uuid
@@ -11745,6 +11813,65 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    giveMakeup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentRecordOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

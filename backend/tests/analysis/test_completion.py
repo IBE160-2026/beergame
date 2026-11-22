@@ -304,6 +304,61 @@ def test_the_shares_and_the_playout_figures():
     assert completion(inputs(), None, (), settings()).ordered_share is None
 
 
+SHORT = ("llm", "takeover_inactivity")
+PLAYED_OUT = ("llm", "playout")
+
+
+@pytest.mark.parametrize(
+    ("events", "class_log", "makeup_log", "done", "shares"),
+    [
+        # Short in the Class game (60 %), enough in the Oppfølgingsspill: done, its figures.
+        (ALL, log(*[OWN] * 6, *[PLAYED_OUT] * 4), log(*[OWN] * 10), True, (100, 0, "makeup")),
+        # Enough in the Class game, short in the Oppfølgingsspill: done, the Class game's figures.
+        (ALL, log(*[OWN] * 9, SHORT), log(*[OWN] * 2, weeks=12), True, (90, 0, "class")),
+        # Short in both: not done, the higher share (the Class game's 70 % with its playout).
+        (
+            ALL,
+            log(*[OWN] * 7, *[PLAYED_OUT] * 3),
+            log(*[OWN] * 5, weeks=12),
+            False,
+            (70, 30, "class"),
+        ),
+        # A partly played Oppfølgingsspill: the Weeks it never played count as not ordered.
+        (ALL, log(*[OWN] * 5, *[SHORT] * 5), log(*[OWN] * 7, weeks=12), False, (70, 0, "makeup")),
+        # Equal shares: the Class game's figures.
+        (
+            ALL,
+            log(*[OWN] * 5, *[SHORT] * 5),
+            log(*[OWN] * 5, *[SHORT] * 5),
+            False,
+            (50, 0, "class"),
+        ),
+        # No Class game (registered late): the Oppfølgingsspill's figures; the step stays not
+        # done without its step event, which Story 13.5 records.
+        (
+            {k: v for k, v in ALL.items() if k != "class_game"},
+            None,
+            log(*[OWN] * 10),
+            False,
+            (100, 0, "makeup"),
+        ),
+    ],
+    ids=["makeup-meets", "class-meets", "neither", "partly-played", "tie", "no-class-game"],
+)
+def test_the_class_game_step_reads_the_makeup_beside_the_class_game(
+    events, class_log, makeup_log, done, shares
+):
+    """Story 13.4 (FR-17): done when either game meets the share; the figures shown are the game
+    with the higher share, named in `share_game`."""
+    status = completion(inputs(events=events), class_log, (), settings(), makeup_log)
+    assert status.step("class_game").done is done
+    assert (status.ordered_share, status.playout_share, status.share_game) == shares
+
+
+def test_without_a_makeup_no_game_is_named():
+    assert completion(inputs(), log(*[OWN] * 10), (), settings()).share_game is None
+
+
 def test_a_recorded_assessment_ready_step_changes_nothing():
     """AD-16, C-2: the AI assessment is never an input; its step event is ignored."""
     for logged in (log(*[OWN] * 10), log(*[OWN] * 5, *[("llm", "initial")] * 5)):

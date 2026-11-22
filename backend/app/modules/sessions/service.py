@@ -1512,6 +1512,12 @@ async def enrolled_sessions(user: authz.Principal) -> EnrolledSessionListOut:
             if cards.get(row["id"]) is not None
             and progress.Step.QUIZ_PASSED in done.get(row["id"], set())
         }
+        # Story 13.4: the Oppfølgingsspill a Lecturer gave the Student, as a game card.
+        makeups = {
+            row["id"]: card
+            for row in locked
+            if (card := await _makeup_card(s, user.id, row, done.get(row["id"], set()))) is not None
+        }
     # Story 13.1 (FR-17): in an Obligatory class session where the Student has a game, which steps
     # count and whether the requirement is met, from the one assembler.
     completions = {
@@ -1560,6 +1566,7 @@ async def enrolled_sessions(user: authz.Principal) -> EnrolledSessionListOut:
                 requirement_met=_requirement_met(completions.get(row["id"])),
                 adjustment=own_adjustment(adjustments.get(row["id"])),
                 replay=replays.get(row["id"]),
+                makeup=makeups.get(row["id"]),
             )
             for row in rows
             if row["class_id"] in names
@@ -1857,6 +1864,64 @@ def _replay_closed(
     return replay.game is None or replay.game.end_reason is not None
 
 
+# Story 13.4: the Student's Oppfølgingsspill in a Class session, as `reports` stores it. `reports`
+# imports `sessions`, so it registers its lookup here instead of `sessions` importing it (AD-25).
+
+MakeupGameProvider = Callable[[AsyncSession, uuid.UUID, uuid.UUID], Awaitable[uuid.UUID | None]]
+"""`(session, user_id, class_session_id)` → the id of the Student's Oppfølgingsspill, or None."""
+
+_makeup_game: list[MakeupGameProvider] = []
+
+
+def register_makeup_game(provider: MakeupGameProvider) -> None:
+    """`reports.makeup` registers its one lookup at import; another is refused."""
+    if _makeup_game and _makeup_game[0] is not provider:
+        raise ValueError("an Oppfølgingsspill provider is registered already")
+    _makeup_game[:] = [provider]
+
+
+async def _makeup_card(
+    s: AsyncSession, user_id: uuid.UUID, row: Mapping[str, Any], done: set[progress.Step]
+) -> StudentGameOut | None:
+    """The Student's Oppfølgingsspill on Hjem (Story 13.4) as a game card, while they hold its
+    Seat (`games.service.own_game`); None without one, or before `reports` has registered its
+    lookup."""
+    game_id = await _makeup_game[0](s, user_id, row["id"]) if _makeup_game else None
+    if game_id is None:
+        return None
+    found = await games_service.own_game(s, user_id, game_id)
+    if found is None or not found.makeup:
+        return None
+    return await _game_out(s, user_id, found, row, done)
+
+
+async def makeup_given_mail_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    """The template variables of a `makeup_given` notice (Story 13.4, AD-9), for `messaging` at
+    send time: the Class's name and the Student's Test deadline in Europe/Oslo, until which the
+    Oppfølgingsspill is open. None, so the notice is left out, when the Class session or the
+    Oppfølgingsspill is gone or has ended, the deadline has passed, the Class is archived, or the
+    User is no longer a registered Student of it."""
+    if ref is None or not _makeup_game:
+        return None
+    row = await repo.session_row(session, ref)
+    if row is None:
+        return None
+    game_id = await _makeup_game[0](session, user_id, ref)
+    if game_id is None or (await games_service.play_status(session, game_id)).status == "finished":
+        return None
+    deadline = effective_test_deadline(user_id, await _student_row(session, row, user_id))
+    if deadline is None or deadline <= now:
+        return None
+    label = await classes.label_of_class(session, row["class_id"])
+    if label is None or label.archived:
+        return None
+    if user_id not in await classes.registered_students(row["class_id"]):
+        return None
+    return {"class_name": label.name, "at": deadline.astimezone(OSLO)}
+
+
 async def group_debrief_opened_mail_context(
     session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
 ) -> Mapping[str, object] | None:
@@ -2064,6 +2129,17 @@ async def debrief_session_of(
         hold=row["debrief_release"] == DebriefRelease.hold.value,
         group=row["debrief_mode"] == DebriefMode.group.value,
     )
+
+
+async def makeup_session_row(
+    s: AsyncSession, class_session_id: uuid.UUID, user_id: uuid.UUID, *, share: bool = False
+) -> Mapping[str, Any] | None:
+    """The whole Class session row with the Student's own deadlines, read in `s` (share-locked
+    with `share`, so its snapshot and Test deadline hold while an Oppfølgingsspill is made, Story
+    13.4); None for no such session. The caller has reached the Student through `student_target`
+    and reads the row only through `effective_test_deadline` and its frozen `snapshot`."""
+    row = await repo.session_row(s, class_session_id, share=share)
+    return None if row is None else await _student_row(s, row, user_id)
 
 
 async def student_deadlines(
@@ -2456,6 +2532,7 @@ async def _game_out(
         role=found.role,
         test_game=found.test_game,
         replay=found.replay,
+        makeup=found.makeup,
         class_session_id=found.class_session_id,
         seats=_seats_out(table),
         # Story 6.2: the briefing comes first until the Starting task is done (AD-16), where
@@ -2475,8 +2552,13 @@ async def _game_out(
         pause=_pause_out(table),
         in_room=_in_room_out(table),
         played_out=play.played_out,
-        # Story 9.2: a Lecturer's test Game has no Debrief (Story 6.20), nor has a Replay (10.4).
-        debrief=None if found.test_game or found.replay else await _debrief_of(s, user_id, row),
+        # Story 9.2: a Lecturer's test Game has no Debrief (Story 6.20), nor has a Replay (10.4);
+        # the Oppfølgingsspill's Debrief is Story 13.5's.
+        debrief=(
+            None
+            if found.test_game or found.replay or found.makeup
+            else await _debrief_of(s, user_id, row)
+        ),
     )
 
 
@@ -2968,8 +3050,8 @@ async def propose_own_time(
     deadline. Returns the game as it now stands."""
     async with get_sessionmaker()() as s:
         own = await _own_locked_game(s, user, game_id)
-    # A test Game has no group to agree a time with (Story 6.20).
-    if own is None or own[0].test_game or own[0].replay:
+    # A test Game has no group to agree a time with (Story 6.20), nor has an own round.
+    if own is None or own[0].test_game or own[0].replay or own[0].makeup:
         return None
     found, row = own
     try:
@@ -3002,7 +3084,7 @@ async def accept_own_time(
     alike). An acceptance already stored counts as done. Returns the game as it now stands."""
     async with get_sessionmaker()() as s:
         own = await _own_locked_game(s, user, game_id)
-    if own is None or own[0].test_game or own[0].replay:
+    if own is None or own[0].test_game or own[0].replay or own[0].makeup:
         return None
     found, _ = own
     try:

@@ -56,6 +56,9 @@ TASK_MODULES = (
     "app.modules.debrief.jobs",
     "app.modules.replay.jobs",  # no task yet: its finish hook (Story 10.5)
     "app.modules.tests.jobs",
+    # No task: it registers the Completion assembler and the lookup of a Student's
+    # Oppfølgingsspill with `sessions` (Stories 13.1, 13.4), which the `makeup_given` mail reads.
+    "app.modules.reports.service",
 )
 """The modules that register tasks on `app`; a worker imports them before it runs."""
 

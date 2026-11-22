@@ -166,6 +166,9 @@ POLICIES: dict[str, frozenset[str]] = {
     # A correction of a Student's Completion status with a reason (Story 13.3, FR-17, AD-12):
     # only the Class's owners; never an Assistant lecturer.
     "completion.correct": frozenset({LECTURER}),
+    # An Oppfølgingsspill given to one Student (Story 13.4, FR-17, AD-12): only the Class's
+    # owners; never an Assistant lecturer.
+    "makeup.give": frozenset({LECTURER}),
     # The «KI-vurdering» switch of a Class session (Story 12.1, FR-61, AD-12): its Class's staff
     # read it with the Class session (`class_sessions.read`); only its owners change it.
     "ai_assessment.change": frozenset({LECTURER}),
@@ -204,6 +207,7 @@ CLASS_STAFF_ROLES: dict[str, frozenset[str]] = {
     "debrief_quiz.exclude": frozenset({OWNER}),
     "student_page.read": frozenset({OWNER, ASSISTANT_STAFF}),
     "completion.correct": frozenset({OWNER}),
+    "makeup.give": frozenset({OWNER}),
     "ai_assessment.change": frozenset({OWNER}),
     "question_set.change": frozenset({OWNER}),
     "scoring_guide.change": frozenset({OWNER}),

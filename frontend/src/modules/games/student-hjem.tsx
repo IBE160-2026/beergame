@@ -112,9 +112,16 @@ export function StudentHjem() {
   const listed = items.flatMap((item) => all.filter((session) => session.class_id === item.id));
   const primaryGame =
     listed.find((session) => (session.game ? wantsPrimary(session.game) : false))?.id ?? null;
+  // Story 13.4: the Oppfølgingsspill's action is the primary only when no Class game's is.
+  const primaryMakeup =
+    primaryGame === null
+      ? (listed.find((session) => (session.makeup ? wantsPrimary(session.makeup) : false))?.id ?? null)
+      : null;
   // Story 10.3: «Start Replay» is the primary only when no game action is.
   const primaryReplay =
-    primaryGame === null ? (listed.find((session) => wantsReplayPrimary(session.replay))?.id ?? null) : null;
+    primaryGame === null && primaryMakeup === null
+      ? (listed.find((session) => wantsReplayPrimary(session.replay))?.id ?? null)
+      : null;
   return (
     <>
       <ul className="mt-8 flex max-w-md flex-col border-t border-hairline">
@@ -134,6 +141,7 @@ export function StudentHjem() {
                     session={session}
                     labelled={own.length > 1}
                     primary={session.id === primaryGame && proposing.size === 0}
+                    makeupPrimary={session.id === primaryMakeup && proposing.size === 0}
                     replayPrimary={session.id === primaryReplay && proposing.size === 0}
                     onProposing={(open) =>
                       setProposing((was) => {
@@ -163,12 +171,14 @@ function SessionBlock({
   session,
   labelled,
   primary,
+  makeupPrimary,
   replayPrimary,
   onProposing,
 }: {
   session: EnrolledSession;
   labelled: boolean;
   primary: boolean;
+  makeupPrimary: boolean;
   replayPrimary: boolean;
   onProposing: (open: boolean) => void;
 }) {
@@ -189,6 +199,12 @@ function SessionBlock({
       ) : (
         <BeforeStart session={session} />
       )}
+      {/* Story 13.4: the Oppfølgingsspill a Faglærer gave the Student, with its own Spillkort. */}
+      {session.makeup ? (
+        <div className="mt-6 border-t border-hairline pt-4" data-makeup="">
+          <GameBlock game={session.makeup} session={session} primary={makeupPrimary} onProposing={onProposing} />
+        </div>
+      ) : null}
       {/* Story 10.3: the Replay, once the Debrief quiz is passed. */}
       {session.replay ? <ReplayBlock replay={session.replay} sessionId={session.id} primary={replayPrimary} /> : null}
       <Stegene title={copy.steps} titleId={`steps-${session.id}`} items={stepItems(session.steps, session.id, session.replay)} />
@@ -242,7 +258,7 @@ function GameBlock({
   primary: boolean;
   onProposing: (open: boolean) => void;
 }) {
-  const seatsId = `seats-${session.id}`;
+  const seatsId = game.makeup ? `seats-makeup-${session.id}` : `seats-${session.id}`;
   const now = useServerNow(game.server_now);
   const drawn = homeLine(session);
   const card = cardState(game);
@@ -265,11 +281,17 @@ function GameBlock({
     <div className="mt-2">
       <h3 className="text-step-title font-semibold text-ink">{gameTitle(game)}</h3>
       {/* Story 5.17: a Student the lock drew a Seat for is told so under the game. */}
-      {drawn?.kind === "drawn" ? (
+      {drawn?.kind === "drawn" && !game.makeup ? (
         <p className="mt-1 text-body-phone text-ink-secondary lg:text-body">{drawn.text}</p>
       ) : null}
       {card && game.seat_state ? (
-        <PlayCard game={game} state={game.seat_state} card={card} primary={primary} titleId={`card-${session.id}`} />
+        <PlayCard
+          game={game}
+          state={game.seat_state}
+          card={card}
+          primary={primary}
+          titleId={game.makeup ? `card-makeup-${session.id}` : `card-${session.id}`}
+        />
       ) : null}
       {/* Story 8.2: an AI player took the Student's Seat over while the game runs. */}
       {game.status === "running" && !game.played_out && ownSeatTakenOver(game.seats) ? (
@@ -290,7 +312,8 @@ function GameBlock({
       />
       {/* Story 6.19: the proposed time to play, and «Foreslå tidspunkt» while the game is not over;
           after the Play deadline playout took it over, none (Story 8.14). */}
-      {game.played_out ? null : (
+      {/* Story 13.4: nobody plays an Oppfølgingsspill with the Student, so no time is agreed. */}
+      {game.played_out || game.makeup ? null : (
         <TimeProposalBlock
           game={game}
           now={now}
@@ -345,7 +368,7 @@ function PlayCard({
   return (
     <GameCard
       className="mt-4"
-      title={card === "waitsForYou" ? copy.card.waitsForYou : copy.card.ordered}
+      title={game.makeup ? copy.makeup.card : card === "waitsForYou" ? copy.card.waitsForYou : copy.card.ordered}
       titleId={titleId}
       week={copy.card.week(state.week)}
       figure={

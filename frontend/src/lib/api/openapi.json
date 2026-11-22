@@ -2276,6 +2276,21 @@
             ],
             "title": "Requirement Met"
           },
+          "share_game": {
+            "anyOf": [
+              {
+                "enum": [
+                  "class",
+                  "makeup"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Share Game"
+          },
           "steps": {
             "items": {
               "$ref": "#/components/schemas/CompletionStepOut"
@@ -3133,6 +3148,16 @@
             },
             "title": "Lab Hours",
             "type": "array"
+          },
+          "makeup": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StudentGameOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "next_deadline": {
             "anyOf": [
@@ -7287,6 +7312,52 @@
         "title": "RecordGameOut",
         "type": "object"
       },
+      "RecordMakeupOut": {
+        "description": "The Student's Oppfølgingsspill (Story 13.4): its Game, when it was given, the Student's\neffective Test deadline it is open until, and where it stands (`ended`: closed at that\ndeadline without its last Week).",
+        "properties": {
+          "game_id": {
+            "format": "uuid",
+            "title": "Game Id",
+            "type": "string"
+          },
+          "given_at": {
+            "format": "date-time",
+            "title": "Given At",
+            "type": "string"
+          },
+          "open_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Open Until"
+          },
+          "state": {
+            "enum": [
+              "not_ready",
+              "ready",
+              "running",
+              "finished",
+              "ended"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "game_id",
+          "given_at",
+          "open_until",
+          "state"
+        ],
+        "title": "RecordMakeupOut",
+        "type": "object"
+      },
       "RecordQuizAttemptOut": {
         "description": "A Debrief quiz attempt: its number, time and result; never the answers.",
         "properties": {
@@ -10648,6 +10719,11 @@
               }
             ]
           },
+          "makeup": {
+            "default": false,
+            "title": "Makeup",
+            "type": "boolean"
+          },
           "number": {
             "anyOf": [
               {
@@ -10849,6 +10925,11 @@
             "title": "Can Correct",
             "type": "boolean"
           },
+          "can_give_makeup": {
+            "default": false,
+            "title": "Can Give Makeup",
+            "type": "boolean"
+          },
           "can_manage": {
             "title": "Can Manage",
             "type": "boolean"
@@ -10884,6 +10965,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/RecordGameOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "makeup": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecordMakeupOut"
               },
               {
                 "type": "null"
@@ -10938,6 +11029,18 @@
                 "type": "null"
               }
             ]
+          },
+          "test_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test Deadline"
           },
           "user_id": {
             "format": "uuid",
@@ -16783,6 +16886,88 @@
         "summary": "Extend Test Deadline",
         "tags": [
           "tests"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/students/{user_id}/makeup": {
+      "post": {
+        "description": "«Gi oppfølgingsspill» (Story 13.4, FR-17, FR-20, FR-30, AD-13): a Lecturer of the Class\ngives the Student a make-up game: a Class game of their own against three AI players on the\nClass session's frozen snapshot, open until the Student's Test deadline. Recorded in the audit\nlog; the Student is told on Hjem and by mail. One per Student: a second press answers the\nexisting one and writes nothing. Answers the Studentside's record. 409 `session_not_locked`\nbefore the Class session's lock, `no_test_deadline`, `test_deadline_passed`,\n`class_archived`; 403 `forbidden` for an Assistant lecturer and anyone else as\n`getStudentRecord`.",
+        "operationId": "giveMakeup",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentRecordOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Give Makeup",
+        "tags": [
+          "reports"
         ]
       }
     },

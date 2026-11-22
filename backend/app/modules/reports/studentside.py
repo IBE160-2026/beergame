@@ -20,7 +20,7 @@ from app.modules.debrief import service as debrief
 from app.modules.games import service as games
 from app.modules.progress import service as progress
 from app.modules.replay import service as replay
-from app.modules.reports import service
+from app.modules.reports import makeup, repo, service
 from app.modules.reports.schemas import (
     CompletionOut,
     CompletionStepOut,
@@ -29,6 +29,7 @@ from app.modules.reports.schemas import (
     RecordAssessmentOut,
     RecordDebriefOut,
     RecordGameOut,
+    RecordMakeupOut,
     RecordQuizAttemptOut,
     RecordReplayOut,
     RecordTestOut,
@@ -36,7 +37,7 @@ from app.modules.reports.schemas import (
 )
 from app.modules.sessions import service as sessions
 from app.modules.tests import service as tests
-from app.platform import authz
+from app.platform import auth, authz
 from app.platform.db import get_sessionmaker
 
 __all__ = ["CORRECT", "READ", "student_record"]
@@ -56,6 +57,7 @@ def _completion(found, adjusted: bool, corrections: dict[str, CorrectionOut]) ->
         adjusted=adjusted,
         ordered_share=found.ordered_share,
         playout_share=found.playout_share,
+        share_game=found.share_game,
         steps=[
             CompletionStepOut(
                 step=step.step,
@@ -88,8 +90,21 @@ async def student_record(
         return None
     can_manage = await sessions.class_staff_may(user, class_session_id, "class_sessions.manage")
     may_correct = await sessions.class_staff_may(user, class_session_id, CORRECT)
-    game_out = participation_out = replay_out = None
+    may_give = await sessions.class_staff_may(user, class_session_id, makeup.GIVE)
+    game_out = participation_out = replay_out = makeup_out = None
     async with get_sessionmaker()() as s:
+        row = await sessions.makeup_session_row(s, class_session_id, user_id)
+        if row is None:
+            return None
+        test_deadline = sessions.effective_test_deadline(user_id, row)
+        given = await repo.makeup_of(s, user_id, class_session_id)
+        if given is not None:
+            makeup_out = RecordMakeupOut(
+                game_id=given.game_id,
+                given_at=given.given_at,
+                open_until=test_deadline,
+                state=_game_state(await games.play_status(s, given.game_id)),
+            )
         latest = {
             each.step: each
             for each in await progress.corrections(
@@ -160,6 +175,15 @@ async def student_record(
             and completion is not None
             and completion.obligatory
         ),
+        can_give_makeup=(
+            may_give
+            and not staffed.archived
+            and completion is not None
+            and given is None
+            and makeup.refusal(row, user_id, auth.utcnow()) is None
+        ),
+        test_deadline=test_deadline,
+        makeup=makeup_out,
         completion=(
             None
             if completion is None

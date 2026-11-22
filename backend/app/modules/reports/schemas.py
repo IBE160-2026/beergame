@@ -60,6 +60,9 @@ class CompletionOut(BaseModel):
     adjusted: bool
     ordered_share: int | None
     playout_share: int | None
+    share_game: Literal["class", "makeup"] | None = None
+    """Story 13.4: which game the shares come from when the Student has an Oppfølgingsspill (the
+    one with the higher share); None without one."""
     steps: list[CompletionStepOut]
 
 
@@ -117,6 +120,17 @@ class RecordReplayOut(BaseModel):
     finished_at: datetime | None
 
 
+class RecordMakeupOut(BaseModel):
+    """The Student's Oppfølgingsspill (Story 13.4): its Game, when it was given, the Student's
+    effective Test deadline it is open until, and where it stands (`ended`: closed at that
+    deadline without its last Week)."""
+
+    game_id: uuid.UUID
+    given_at: datetime
+    open_until: datetime | None
+    state: GameState
+
+
 class RecordTestOut(BaseModel):
     """The Student's Individual test attempt (`tests.service.attempt_summary`): its status, when it
     was handed in and which parts hold content. Never an answer."""
@@ -152,9 +166,18 @@ class StudentRecordOut(BaseModel):
     can_correct: bool = False
     """Story 13.3: the reader may correct a step («Rett Klassespill»): a Lecturer of the Class,
     the Class session obligatory and the Class not archived."""
+    can_give_makeup: bool = False
+    """Story 13.4: the reader may give an Oppfølgingsspill («Gi oppfølgingsspill»): a Lecturer of
+    the Class, the Class not archived, the Class session locked, the Student's Test deadline set
+    and not passed, the Student counted by the reports and without one already."""
+    test_deadline: datetime | None = None
+    """Story 13.4: the Student's effective Test deadline, which an Oppfølgingsspill is open
+    until."""
     completion: CompletionOut | None
     participation: ParticipationOut | None
     game: RecordGameOut | None
+    makeup: RecordMakeupOut | None = None
+    """Story 13.4: the Oppfølgingsspill a Lecturer gave the Student; None without one."""
     debrief: RecordDebriefOut
     quiz: list[RecordQuizAttemptOut]
     replay: RecordReplayOut | None

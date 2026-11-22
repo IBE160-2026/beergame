@@ -11,7 +11,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse, Response
 
-from app.modules.reports import corrections, studentside
+from app.modules.reports import corrections, makeup, studentside
 from app.modules.reports.schemas import CorrectionIn, StudentRecordOut
 from app.platform import authz
 from app.platform.errors import documented, error_response
@@ -78,6 +78,39 @@ async def correct_completion(
         return error_response(422, refused.code, "The correction breaks a rule.", refused.fields)
     except corrections.NotObligatory as refused:
         return error_response(409, refused.code, "The Class session is not obligatory.")
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"), headers=PERSONAL)
+
+
+@router.post(
+    "/class-sessions/{session_id}/students/{user_id}/makeup",
+    response_model=StudentRecordOut,
+    responses=documented(401, 403, 409),
+    operation_id="giveMakeup",
+)
+async def give_makeup(
+    session_id: str,
+    user_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require(makeup.GIVE))],
+) -> Response:
+    """«Gi oppfølgingsspill» (Story 13.4, FR-17, FR-20, FR-30, AD-13): a Lecturer of the Class
+    gives the Student a make-up game: a Class game of their own against three AI players on the
+    Class session's frozen snapshot, open until the Student's Test deadline. Recorded in the audit
+    log; the Student is told on Hjem and by mail. One per Student: a second press answers the
+    existing one and writes nothing. Answers the Studentside's record. 409 `session_not_locked`
+    before the Class session's lock, `no_test_deadline`, `test_deadline_passed`,
+    `class_archived`; 403 `forbidden` for an Assistant lecturer and anyone else as
+    `getStudentRecord`."""
+    student_id = _id(user_id)
+    class_session_id = _id(session_id)
+    try:
+        given = await makeup.give(user, class_session_id, student_id)
+    except makeup.MakeupRefused as refused:
+        return error_response(409, refused.code, "No Oppfølgingsspill can be given now.")
+    if given is None:
+        raise authz.Forbidden
+    found = await studentside.student_record(user, class_session_id, student_id)
     if found is None:
         raise authz.Forbidden
     return JSONResponse(found.model_dump(mode="json"), headers=PERSONAL)

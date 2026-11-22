@@ -68,10 +68,13 @@ export function completionRows(completion: Completion): CompletionRow[] {
 
 /** «Bestilte i 70 % av ukene. Kravet er 80 %.» (the requirement only when obligatory) and, where
  * some Weeks were played out, «20 % av ukene ble spilt i utspillingen ved Spillfristen.» Nothing
- * before the game has its snapshot. */
+ * before the game has its snapshot. With an Oppfølgingsspill (Story 13.4) the line names the game
+ * the share comes from: «Bestilte i 100 % av ukene i Oppfølgingsspillet.» */
 export function shareLines(completion: Completion): string[] {
   if (completion.ordered_share == null) return [];
-  const ordered = copy.ordered(percent(completion.ordered_share));
+  const ordered = completion.share_game
+    ? copy.orderedIn(percent(completion.ordered_share), completion.share_game)
+    : copy.ordered(percent(completion.ordered_share));
   const required = completion.adjusted
     ? copy.requiredAdjusted(percent(completion.required_share))
     : copy.required(percent(completion.required_share));
@@ -149,4 +152,17 @@ export function testLines(test: StudentRecord["test"]): { lines: string[]; parts
     text: answered ? record.test.answered : record.test.unanswered,
   }));
   return { lines: lines.filter(Boolean), parts };
+}
+
+/** The Oppfølgingsspill on the Klassespill row (Story 13.4): «Oppfølgingsspill gitt 12. des. Åpent
+ * til fr. 18. des.», then where it stands. */
+export function makeupLines(makeup: StudentRecord["makeup"]): { given: string; state: string } | null {
+  if (!makeup) return null;
+  const given = dayOfMonth(makeup.given_at);
+  return {
+    given: makeup.open_until
+      ? copy.makeup.given(given, day(makeup.open_until))
+      : copy.makeup.givenOn(given),
+    state: copy.makeup.state[makeup.state] ?? "",
+  };
 }

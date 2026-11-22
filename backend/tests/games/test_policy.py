@@ -16,13 +16,9 @@ def test_simulation_has_no_takeover_pause_playout_or_overview(purpose):
     assert rules.scripted_occupants is True
 
 
-def test_simulation_class_lecturer_test_and_replay_have_a_row_so_far():
-    assert set(POLICIES) == {
-        Purpose.SIMULATION,
-        Purpose.CLASS,
-        Purpose.LECTURER_TEST,
-        Purpose.REPLAY,
-    }
+def test_every_purpose_has_a_row():
+    """Story 13.4 adds the last one, `makeup`."""
+    assert set(POLICIES) == set(Purpose)
 
 
 def test_simulation_takes_its_snapshot_at_creation_and_seats_no_student():
@@ -47,7 +43,7 @@ def test_a_class_game_has_every_lecturer_behaviour_and_its_snapshot_at_the_lock(
     )
 
 
-@pytest.mark.parametrize("purpose", ["makeup", "other"])
+@pytest.mark.parametrize("purpose", ["other", "party"])
 def test_other_purposes_raise(purpose):
     with pytest.raises(PurposeNotSupportedError):
         service.policy(purpose)
@@ -127,10 +123,11 @@ def test_staff_open_class_games_and_replays_on_spillinnsikt_and_nothing_else():
     assert set(purposes_with("lecturer_overview")) <= set(purposes_with("staff_insight"))
 
 
-def test_only_the_replay_is_closed_at_the_test_deadline_and_never_played_out():
+def test_only_the_own_rounds_are_closed_at_the_test_deadline_and_never_played_out():
     """Story 10.6 (FR-18, AD-13): an unfinished Replay is closed at the Test deadline, not played
-    out, since a played-out Replay would not be the Student's own; a Class game is played out."""
-    assert purposes_with("closes_at_test_deadline") == ["replay"]
+    out, since a played-out Replay would not be the Student's own; a Class game is played out.
+    Story 13.4: so is an unfinished Oppfølgingsspill, through the same sweep action."""
+    assert purposes_with("closes_at_test_deadline") == ["makeup", "replay"]
     assert not set(purposes_with("closes_at_test_deadline")) & set(
         purposes_with("play_deadline_playout")
     )
@@ -144,4 +141,40 @@ def test_students_rate_the_ai_players_of_class_games_with_one_and_of_every_repla
         "class": "ai_held",
         "lecturer_test": "never",
         "replay": "always",
+        "makeup": "always",
+    }
+
+
+def test_the_makeup_row_is_a_class_game_of_its_own_against_ai_players():
+    """AD-13 (Story 13.4): the `makeup` row. Snapshot at creation (else `start` answers
+    `game_not_ready`), no Takeover, Pause or playout, not on the overview wall, Guided Weeks from
+    the settings, the pre-play gate on and no `class_game` step until Story 13.5."""
+    rules = policy("makeup")
+    assert (rules.snapshot, rules.student_occupants, rules.class_session_game) == (
+        "at_creation",
+        True,
+        True,
+    )
+    assert not any(
+        (
+            rules.inactivity_takeover,
+            rules.pause,
+            rules.play_deadline_playout,
+            rules.lecturer_overview,
+            rules.records_class_game_step,
+            rules.game_number,
+            rules.scripted_occupants,
+            rules.played_by_staff,
+            rules.projection,
+            rules.staff_insight,
+        )
+    )
+    assert rules.pre_play_gate and rules.closes_at_test_deadline
+    assert rules.guided_weeks == "settings"
+    assert {purpose.value: row.own_round for purpose, row in POLICIES.items()} == {
+        "simulation": "none",
+        "class": "none",
+        "lecturer_test": "none",
+        "replay": "replay",
+        "makeup": "makeup",
     }

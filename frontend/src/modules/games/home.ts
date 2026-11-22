@@ -11,13 +11,19 @@ const copy = nb.homes.student;
 type StudentGame = NonNullable<EnrolledSession["game"]>;
 type TableSeat = StudentGame["seats"][number];
 
-/** «Spill 17 · Du er Grossist»; «Replay · Du er Grossist» for the Replay (Story 10.4). */
-export function gameTitle(game: Pick<StudentGame, "number" | "role" | "replay" | "test_game">): string {
+type Titled = Pick<StudentGame, "number" | "role" | "replay" | "test_game"> & { makeup?: boolean };
+
+/** «Spill 17 · Du er Grossist»; «Replay · Du er Grossist» for the Replay (Story 10.4);
+ * «Oppfølgingsspill · Du er Grossist» for the Oppfølgingsspill (Story 13.4). */
+export function gameTitle(game: Titled): string {
+  if (game.makeup) return copy.makeup.title(roleName(game.role));
   return game.replay ? copy.replay.title(roleName(game.role)) : copy.game(game.number, roleName(game.role));
 }
 
-/** «Grossist, Spill 17» under the Uke on the play screen; «Grossist, Replay» for the Replay. */
-export function roleGameText(game: Pick<StudentGame, "number" | "role" | "replay" | "test_game">): string {
+/** «Grossist, Spill 17» under the Uke on the play screen; «Grossist, Replay» for the Replay;
+ * «Grossist, Oppfølgingsspill» for the Oppfølgingsspill. */
+export function roleGameText(game: Titled): string {
+  if (game.makeup) return nb.games.play.roleMakeup(roleName(game.role));
   return game.replay ? nb.games.play.roleReplay(roleName(game.role)) : nb.games.play.roleGame(roleName(game.role), game.number);
 }
 

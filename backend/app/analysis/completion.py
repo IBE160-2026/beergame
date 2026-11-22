@@ -9,7 +9,8 @@ A step is `recorded` when `modules/progress` holds its step event, and `done` wh
 - `class_game`: recorded, and the Student's own Orders over the Weeks after the Guided Weeks are
   at least the required share (the adjusted share where the Student has one). An own Order is a
   Decision log row with `decided_by = student` that no Takeover or playout placed; a Week never
-  played counts as not ordered.
+  played counts as not ordered. With an Oppfølgingsspill (Story 13.4) the share is met when it is
+  met in either game; the figures shown are the game with the higher share.
 - `debrief`: recorded, and the Explanation has at least the minimum length.
 - `test_submitted`: recorded, and an auto-submitted attempt has content in each required part it
   holds. A Student's own submit counts as it is.
@@ -135,6 +136,9 @@ class CompletionStatus:
     ordered_weeks: int | None = None
     weeks_after_guided: int | None = None
     playout_weeks: int | None = None
+    share_game: Literal["class", "makeup"] | None = None
+    """Story 13.4: which game the share figures come from when the Student has an
+    Oppfølgingsspill (the one with the higher share, the Class game on a tie); None without one."""
 
     def step(self, name: str) -> CompletionStep:
         """The step named `name` (a value of `COMPLETION_STEPS`)."""
@@ -145,15 +149,36 @@ def _percent(part: int, whole: int) -> int:
     return part * 100 // whole
 
 
-def _class_game_counts(log: DecisionLogSummary | None, required: int) -> tuple[bool, dict]:
-    """Whether the own Orders reach the share, and the figures behind it."""
-    if log is None:
-        return False, {}
+def _own_weeks(log: DecisionLogSummary) -> tuple[int, int]:
+    """The own Orders over the Weeks after the Guided Weeks, and how many such Weeks there are."""
     after = max(log.weeks - log.guided_weeks, 0)
     later = [row for row in log.rows if log.guided_weeks < row.week <= log.weeks]
     own = sum(
         1 for row in later if row.decided_by == "student" and row.reason not in NOT_OWN_REASONS
     )
+    return own, after
+
+
+def _better(makeup: DecisionLogSummary, log: DecisionLogSummary | None) -> bool:
+    """Whether the Oppfølgingsspill's share of own Orders is higher than the Class game's, exactly
+    (no rounding); a game with no Week after the Guided Weeks asks nothing, so it is the best."""
+    if log is None:
+        return True
+    own, after = _own_weeks(log)
+    makeup_own, makeup_after = _own_weeks(makeup)
+    if after == 0:
+        return False
+    if makeup_after == 0:
+        return True
+    return makeup_own * after > own * makeup_after
+
+
+def _class_game_counts(log: DecisionLogSummary | None, required: int) -> tuple[bool, dict]:
+    """Whether the own Orders reach the share, and the figures behind it."""
+    if log is None:
+        return False, {}
+    own, after = _own_weeks(log)
+    later = [row for row in log.rows if log.guided_weeks < row.week <= log.weeks]
     played_out = sum(1 for row in later if row.reason == "playout")
     if after == 0:
         # No Week after the Guided Weeks to order in: nothing is asked of the Student.
@@ -181,12 +206,21 @@ def completion(
     decision_log_summary: DecisionLogSummary | None,
     corrections: Sequence[Correction],
     settings: CompletionSettings,
+    makeup_log: DecisionLogSummary | None = None,
 ) -> CompletionStatus:
-    """The Student's Completion status (FR-17). See the module docstring for the rules."""
+    """The Student's Completion status (FR-17). See the module docstring for the rules.
+    `makeup_log` is the Student's Oppfølgingsspill (Story 13.4), finished or partly played."""
     required = (
         settings.adjusted_share if settings.adjusted_share is not None else settings.required_share
     )
     game_counts, figures = _class_game_counts(decision_log_summary, required)
+    if makeup_log is not None:
+        makeup_counts, makeup_figures = _class_game_counts(makeup_log, required)
+        game_counts = game_counts or makeup_counts
+        if _better(makeup_log, decision_log_summary):
+            figures = {**makeup_figures, "share_game": "makeup"}
+        else:
+            figures = {**figures, "share_game": "class"}
     rule = {
         "class_game": game_counts,
         "debrief": (steps.explanation_length or 0) >= settings.explanation_min_length,

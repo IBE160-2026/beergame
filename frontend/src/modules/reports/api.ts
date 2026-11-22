@@ -89,3 +89,14 @@ export function correctCompletion(sessionId: string, userId: string, body: Corre
     }),
   );
 }
+
+/** «Gi oppfølgingsspill» (Story 13.4): the Student gets an Oppfølgingsspill; answers the
+ * Studentside's record as it now stands (a second press answers the same one). 409
+ * `session_not_locked`, `no_test_deadline`, `test_deadline_passed` or `class_archived`. */
+export function giveMakeup(sessionId: string, userId: string) {
+  return request(() =>
+    api.POST("/api/class-sessions/{session_id}/students/{user_id}/makeup", {
+      params: { path: { session_id: sessionId, user_id: userId } },
+    }),
+  );
+}

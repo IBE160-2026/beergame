@@ -220,11 +220,15 @@ def test_messaging_reaches_other_modules_only_through_their_service():
 def test_reports_reaches_other_modules_only_through_their_service_and_nothing_imports_it():
     """Story 13.1 (AD-16, AD-25): the Completion assembler gathers its inputs through each
     module's `service.py`; `sessions` reaches it through the provider it registers, so only the
-    app factory imports `reports`."""
+    app factory imports `reports`. Story 13.4: the Oppfølgingsspill is made through
+    `games.commands`, the one write path for Games, as the Replay is."""
     found = imports(APP / "modules" / "reports")
     assert found
     for path, line, name in found:
         if name.startswith("app.modules.") and not name.startswith("app.modules.reports"):
+            if name == "app.modules.games.commands":
+                assert path.name == "makeup.py", f"{path.name}:{line} imports {name}"
+                continue
             assert name.split(".")[3] == "service", f"{path.name}:{line} imports {name}"
     for path, line, name in imports(APP):
         if name.startswith("app.modules.reports") and (APP / "modules" / "reports") not in (

@@ -8,6 +8,7 @@ import {
   debriefLines,
   duration,
   gameLines,
+  makeupLines,
   participationLines,
   quizLines,
   replayLine,
@@ -100,6 +101,38 @@ describe("the «Fullføring» block (Story 13.2, UX-DR54)", () => {
     expect(requirementLine(completion())).toBe("Kravet er oppfylt.");
     expect(requirementLine(completion({ requirement_met: false }))).toBe("Kravet er ikke oppfylt.");
     expect(requirementLine(completion({ obligatory: false, requirement_met: null }))).toBeNull();
+  });
+});
+
+describe("the Oppfølgingsspill on the Klassespill row (Story 13.4)", () => {
+  it("names the game the share comes from once the Student has one", () => {
+    expect(shareLines(completion({ share_game: "makeup", ordered_share: 100, playout_share: 0 }))).toEqual([
+      "Bestilte i 100 % av ukene i Oppfølgingsspillet. Kravet er 80 %.",
+    ]);
+    expect(shareLines(completion({ share_game: "class" }))[0]).toBe(
+      "Bestilte i 70 % av ukene i Klassespillet. Kravet er 80 %.",
+    );
+  });
+
+  it("says when it was given, until when it is open and where it stands", () => {
+    expect(makeupLines(null)).toBeNull();
+    const given = { game_id: "g", given_at: AT, open_until: "2026-12-18T22:59:00Z", state: "ready" as const };
+    expect(makeupLines(given)).toEqual({
+      given: "Oppfølgingsspill gitt 12. des. Åpent til fr. 18. des.",
+      state: "Ikke startet ennå.",
+    });
+    expect(makeupLines({ ...given, state: "ended", open_until: null })).toEqual({
+      given: "Oppfølgingsspill gitt 12. des.",
+      state: "Stengt ved Testfristen før siste uke.",
+    });
+  });
+
+  it("states the consequence in the spine's words, with a full stop after a month that has none", () => {
+    expect(copy.makeup.consequence("Jonas", "fr. 18. des.")).toBe(
+      "Jonas får et eget Klassespill mot tre KI-spillere, åpent til Testfristen fr. 18. des. Jonas får beskjed på Hjem og på e-post.",
+    );
+    expect(copy.makeup.consequence("Jonas", "fr. 15. mai")).toContain("Testfristen fr. 15. mai. Jonas får");
+    expect(copy.makeup.given("12. mai", "fr. 15. mai")).toBe("Oppfølgingsspill gitt 12. mai. Åpent til fr. 15. mai.");
   });
 });
 
