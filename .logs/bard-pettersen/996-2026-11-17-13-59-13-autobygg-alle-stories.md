@@ -3631,3 +3631,22 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den vis
 
 ### Åpne punkter
 - Issue #223: beslutninger og risiko.
+
+## Story 12.2: Få en KI-vurdering med poeng og vektet sum (spor 3)
+
+### Oppgave
+Bygge Story 12.2 på `epic-12` i spor 3.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Kun AI-mock.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-12-2-get-an-ai-assessment-with-scores-and-a-weighted-total.md`.
+- Commit: 39dc046. Migrasjon 0202.
+- Når testen lukkes og KI-vurderingen er på, vurderer en jobb hvert langsvar og hver tilpassede oppgave (0–4). Summen regnes bare av `analysis.total_score`. Studenten leser «KI-vurdering» fra Hjem.
+- Tester: backend 3709, Vitest 1179, tsc, `lint:colours`, `check:copy`, bygg, Playwright 131 med axe.
+- Gjennomgang: 48 funn, 14 rettet; oppfølgende gjennomgang anbefalt.
+- Status: done.
+
+### Åpne punkter
+- Issue #226: beslutninger, at OpenRouter-konfigurasjonene mangler `assessment`-prompten, og ny tabell med persondata.
