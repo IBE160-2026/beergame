@@ -3476,3 +3476,22 @@ Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet; gjennomga
 
 ### Åpne punkter
 - Issue #215: driftsverdiene og beslutningene.
+
+## Story 11.10: Se over og lever den individuelle testen (spor 2)
+
+### Oppgave
+Bygge Story 11.10 på `epic-11` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den visuelle kontrollen gjøres i avslutningen av Epic 11.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-11-10-review-and-submit-the-individual-test.md`.
+- Commit: 5d1e7e5. Migrasjon 0127.
+- «Lever testen» åpner en oversikt på siden over ubesvarte oppgaver. Leveringen låser forsøket, lagrer poeng for flervalg, tabell og tall, og viser svarene skrivebeskyttet.
+- Tester: backend 3357, Vitest 1074, tsc, `lint:colours`, `check:copy`, bygg, Playwright 130 med axe og en ekte levering.
+- Gjennomgang: 29 funn, 5 rettet, 1 utsatt.
+- Status: done.
+
+### Åpne punkter
+- Issue #216: beslutninger og påminnelsen som kan komme etter levering.
