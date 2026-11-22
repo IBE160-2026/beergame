@@ -150,6 +150,30 @@
         "title": "AccountRole",
         "type": "string"
       },
+      "AdaptedOut": {
+        "description": "The Adapted items' one line: their total weight in force and its default (30 % in the\nshipped set), and how many replacement Core items a Student with fewer than 10 own Orders\ngets in their place, with the same total weight (FR-53).",
+        "properties": {
+          "default_weight": {
+            "title": "Default Weight",
+            "type": "integer"
+          },
+          "replacements": {
+            "title": "Replacements",
+            "type": "integer"
+          },
+          "weight": {
+            "title": "Weight",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "weight",
+          "default_weight",
+          "replacements"
+        ],
+        "title": "AdaptedOut",
+        "type": "object"
+      },
       "AddressProblem": {
         "description": "Why a value is not an address (Story 4.3, FR-7). The web app words each one.",
         "enum": [
@@ -1566,6 +1590,17 @@
             "default": false,
             "title": "Lock Refused",
             "type": "boolean"
+          },
+          "lock_refused_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lock Refused Reason"
           },
           "locked": {
             "title": "Locked",
@@ -5398,6 +5433,154 @@
           "mine"
         ],
         "title": "ProposalPersonOut",
+        "type": "object"
+      },
+      "QuestionItemOut": {
+        "description": "One Core item as the Lecturer reviews it: its type, its title (placeholder until issue\n#16), its weight in force and its default, whether it is taken out, and whether it measures\nquantities (taking it out warns, FR-52).",
+        "properties": {
+          "default_weight": {
+            "title": "Default Weight",
+            "type": "integer"
+          },
+          "excluded": {
+            "title": "Excluded",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "boolean"
+          },
+          "starting_task": {
+            "title": "Starting Task",
+            "type": "boolean"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "choice",
+              "table",
+              "number",
+              "long"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "weight": {
+            "title": "Weight",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "title",
+          "weight",
+          "default_weight",
+          "excluded",
+          "quantity",
+          "starting_task"
+        ],
+        "title": "QuestionItemOut",
+        "type": "object"
+      },
+      "QuestionSetIn": {
+        "additionalProperties": false,
+        "description": "«Lagre vekter»: every Core item's weight, the items taken out and the Adapted total weight.\nThe weights of the items left in plus the Adapted total must be 100.",
+        "properties": {
+          "adapted_weight": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Adapted Weight",
+            "type": "integer"
+          },
+          "excluded": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 60,
+            "title": "Excluded",
+            "type": "array"
+          },
+          "weights": {
+            "additionalProperties": {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "maxProperties": 60,
+            "title": "Weights",
+            "type": "object"
+          }
+        },
+        "required": [
+          "weights",
+          "excluded",
+          "adapted_weight"
+        ],
+        "title": "QuestionSetIn",
+        "type": "object"
+      },
+      "QuestionSetOut": {
+        "description": "The Class session's question set selection (Story 11.1): the version it uses, whether that\nversion is a draft (issue #16), whether a selection saved on an older version no longer\napplies (`outdated`: the latest version's defaults are shown, and pinned at the lock),\nwhether the lock has pinned it, whether it can still change (before the Start date), whether\nthe User may change it, the items and the Adapted line, and the sum of the weights in force.",
+        "properties": {
+          "adapted": {
+            "$ref": "#/components/schemas/AdaptedOut"
+          },
+          "can_change": {
+            "title": "Can Change",
+            "type": "boolean"
+          },
+          "draft": {
+            "title": "Draft",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/QuestionItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "open": {
+            "title": "Open",
+            "type": "boolean"
+          },
+          "outdated": {
+            "title": "Outdated",
+            "type": "boolean"
+          },
+          "pinned": {
+            "title": "Pinned",
+            "type": "boolean"
+          },
+          "sum": {
+            "title": "Sum",
+            "type": "integer"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "draft",
+          "outdated",
+          "pinned",
+          "open",
+          "can_change",
+          "items",
+          "adapted",
+          "sum"
+        ],
+        "title": "QuestionSetOut",
         "type": "object"
       },
       "QuizAnswerIn": {
@@ -12855,6 +13038,150 @@
         "summary": "Get Wall Aggregates",
         "tags": [
           "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/question-set": {
+      "get": {
+        "description": "The Klasseøkt's «Spørsmål og vekter» block (Story 11.1, FR-52, FR-53): every Core item of\nthe question set with its type, weight in force and whether it is taken out, the Adapted\nitems' total weight, the sum, whether the set is a draft and whether it can still change\n(before the Start date). Once locked, the selection the lock pinned.",
+        "operationId": "getSessionQuestionSet",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionSetOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Session Question Set",
+        "tags": [
+          "tests"
+        ]
+      },
+      "put": {
+        "description": "«Lagre vekter» (Story 11.1, FR-52, AD-15): the whole selection, stored on the latest\nquestion set version and recorded in the audit log. 422 `weights_not_100` when the weights\nof the items left in plus the Adapted total are not 100, `validation_error` for an unknown\nitem, a missing weight or every item taken out; 409 `session_locked` from the Start date,\n`class_archived` for an archived Class; 403 `forbidden` for an Assistant lecturer and every\nother caller.",
+        "operationId": "setSessionQuestionSet",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuestionSetIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionSetOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Set Session Question Set",
+        "tags": [
+          "tests"
         ]
       }
     },

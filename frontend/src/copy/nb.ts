@@ -1255,6 +1255,9 @@ export const nb = {
       // [ASSUMPTION] GitHub issue 109: the lock was refused, LLM players and no provider key.
       refused:
         "Klasseøkten kan ikke starte: KI-leverandøren for LLM-spillerne er ikke satt opp. Be en Admin ordne det. Låsen prøves igjen hvert minutt.",
+      // [ASSUMPTION] Story 11.1 (issue #16): refused in production on a draft question set.
+      refusedDraft:
+        "Klasseøkten kan ikke starte: spørsmålene til den individuelle testen er et utkast som ikke er godkjent. En Admin må legge inn godkjente spørsmål. Låsen prøves igjen hvert minutt.",
       open: "Frister som ikke er passert, og Labtimer, kan fortsatt endres.",
       /** Story 12.1: while KI-vurdering can still change too. [ASSUMPTION] */
       openWithAssessment: "Frister som ikke er passert, Labtimer og KI-vurdering kan fortsatt endres.",
@@ -2765,6 +2768,53 @@ export const nb = {
   },
 
   /** The AI assessment (Epic 12). */
+  tests: {
+    /** Story 11.1 (FR-52, FR-53, UX-DR49): the Klasseøkt's block «Spørsmål og vekter». The title,
+     * «Ta ut», «Vekt», the sum line and the quantity warning are the spine's; the rest is
+     * [ASSUMPTION] draft copy for the founder's review. */
+    questionSet: {
+      heading: "Spørsmål og vekter",
+      help: "Vektene gjelder alle studentene i Klasseøkten. Et spørsmål du tar ut, kommer ikke med i Individuell test. Spørsmål og vekter låses ved startdatoen.",
+      /** A draft set (issue #16). */
+      draft: "Spørsmålene er et utkast og ikke godkjent. De byttes ut før kurset tar dem i bruk.",
+      /** The vekter saved on an older version of the questions no longer apply. */
+      outdated: "Spørsmålene er endret siden vektene ble lagret. Vektene er satt tilbake til standard.",
+      types: {
+        choice: "Flervalg",
+        table: "Tabell",
+        number: "Tall",
+        long: "Langsvar",
+      } as Record<string, string>,
+      startingTask: "Fra Startoppgaven",
+      quantity: "Måler mengder",
+      weight: "Vekt i %",
+      /** Read-only weight, «Vekt 10 %». */
+      weightText: (n: number) => `Vekt ${n} %`,
+      takeOut: "Ta ut",
+      putBack: "Ta med igjen",
+      takenOut: "Tatt ut",
+      adaptedTitle: "Tilpassede oppgaver",
+      adaptedHelp: "Lages fra hver students eget spill og Replay. Samme samlede vekt for alle studentene.",
+      replacements: (n: number) =>
+        `Studenter med færre enn 10 egne ordrer får ${n} vanlige oppgaver med samme samlede vekt i stedet.`,
+      /** The live sum; «Sum 95 %. Vektene må bli 100 %.» blocks the save. */
+      sum: (n: number) => (n === 100 ? "Sum 100 %." : `Sum ${n} %. Vektene må bli 100 %.`),
+      quantityWarning: "Du tar ut en oppgave som måler mengder.",
+      invalidWeight: "Skriv et helt tall fra 0 til 100.",
+      save: "Lagre vekter",
+      saving: "Lagrer …",
+      saved: "Vektene er lagret.",
+      /** Read-only reasons. */
+      assistant: "Bare Faglærerne i Klassen kan endre spørsmål og vekter.",
+      closed: "Startdatoen er passert. Spørsmål og vekter er låst.",
+      /** Refusals beside «Lagre vekter». */
+      notHundred: "Vektene må bli 100 %. Ingenting ble lagret.",
+      archived: "Klassen er arkivert, så spørsmål og vekter kan ikke endres.",
+      failed: "Vektene ble ikke lagret. Prøv igjen.",
+      loadFailed: "Spørsmål og vekter kunne ikke hentes.",
+    },
+  },
+
   assessment: {
     /** Story 12.1 (FR-61, UX-DR49): the block «KI-vurdering» on the Klasseøkt. The title and the
      * help text are the spine's; the rest is [ASSUMPTION] draft copy for the founder's review. */

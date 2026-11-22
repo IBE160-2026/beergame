@@ -331,9 +331,16 @@ async def set_test_locked(session: AsyncSession, session_id: uuid.UUID, at: date
     return bool(result.rowcount)
 
 
-async def set_lock_refused(session: AsyncSession, session_id: uuid.UUID, at: datetime) -> bool:
+async def set_lock_refused(
+    session: AsyncSession, session_id: uuid.UUID, at: datetime, reason: str
+) -> bool:
     """Mark the first refusal of an unlocked session's lock (GitHub issue 109); a later refusal
-    keeps the first time. True when this call marked it."""
+    keeps the first time but stores its reason (Story 11.1). True when this call marked it."""
+    await session.execute(
+        update(class_sessions)
+        .where(class_sessions.c.id == session_id, class_sessions.c.locked_at.is_(None))
+        .values(lock_refused_reason=reason)
+    )
     result = await session.execute(
         update(class_sessions)
         .where(

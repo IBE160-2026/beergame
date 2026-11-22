@@ -62,6 +62,8 @@ class_sessions = Table(
     # When the sweep first refused the lock for a missing provider key (GitHub issue 109); NULL
     # otherwise. A refused lock shows on the Klasseøkt while `locked_at` is NULL.
     Column("lock_refused_at", DateTime(timezone=True), nullable=True),
+    # Why the sweep last refused it (Story 11.1): `provider_key_missing` or `question_set_draft`.
+    Column("lock_refused_reason", Text, nullable=True),
     # How the Students get their Seats (Story 5.17, FR-21): `random` (Stories 5.8 to 5.13) or
     # `student_choice`, final once saved.
     Column("allocation_method", Text, nullable=False, server_default="random"),

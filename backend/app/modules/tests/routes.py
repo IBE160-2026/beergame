@@ -1,14 +1,27 @@
 """The Starting task routes (Story 6.3, FR-85): `/api/me/games/{game_id}/starting-task`. Any game
 that is not the Student's own locked Class game answers 403 `forbidden`, the same for one that
-does not exist (FR-5)."""
+does not exist (FR-5).
 
+The question set selection, «Spørsmål og vekter» (Story 11.1, FR-52):
+`GET /api/class-sessions/{id}/question-set` for the Class's owners and Assistant lecturers and
+`PUT …` («Lagre vekter») for its owners; 403 `forbidden` for every other caller and for a session
+that does not exist."""
+
+import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse, Response
 
-from app.modules.tests import service
-from app.modules.tests.schemas import AnswerIn, FinalIn, StartingTaskOut
+from app.modules.sessions import service as sessions
+from app.modules.tests import selection, service
+from app.modules.tests.schemas import (
+    AnswerIn,
+    FinalIn,
+    QuestionSetIn,
+    QuestionSetOut,
+    StartingTaskOut,
+)
 from app.platform import auth, authz
 from app.platform.errors import documented, error_response
 
@@ -74,3 +87,70 @@ async def finish_starting_task(
     except service.ItemsOpen:
         return error_response(409, "items_open", "Answer every item first.")
     return _state(found)
+
+
+def _id(value: str) -> uuid.UUID:
+    try:
+        return uuid.UUID(value)
+    except ValueError:
+        raise authz.Forbidden from None
+
+
+_SET = "/class-sessions/{session_id}/question-set"
+
+
+@router.get(
+    _SET,
+    response_model=QuestionSetOut,
+    responses=documented(401, 403),
+    operation_id="getSessionQuestionSet",
+)
+async def get_session_question_set(
+    session_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("class_sessions.read"))],
+) -> Response:
+    """The Klasseøkt's «Spørsmål og vekter» block (Story 11.1, FR-52, FR-53): every Core item of
+    the question set with its type, weight in force and whether it is taken out, the Adapted
+    items' total weight, the sum, whether the set is a draft and whether it can still change
+    (before the Start date). Once locked, the selection the lock pinned."""
+    found = await selection.read_block(user, _id(session_id), auth.utcnow())
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.put(
+    _SET,
+    response_model=QuestionSetOut,
+    responses=documented(401, 403, 409, 422),
+    operation_id="setSessionQuestionSet",
+)
+async def set_session_question_set(
+    session_id: str,
+    body: QuestionSetIn,
+    user: Annotated[authz.Principal, Depends(authz.require("question_set.change"))],
+) -> Response:
+    """«Lagre vekter» (Story 11.1, FR-52, AD-15): the whole selection, stored on the latest
+    question set version and recorded in the audit log. 422 `weights_not_100` when the weights
+    of the items left in plus the Adapted total are not 100, `validation_error` for an unknown
+    item, a missing weight or every item taken out; 409 `session_locked` from the Start date,
+    `class_archived` for an archived Class; 403 `forbidden` for an Assistant lecturer and every
+    other caller."""
+    try:
+        found = await selection.save(user, _id(session_id), body, auth.utcnow())
+    except selection.WeightsNot100 as refused:
+        return error_response(
+            422,
+            "weights_not_100",
+            f"The weights sum to {refused.total}, not 100.",
+            {"weights": "sum"},
+        )
+    except selection.UnknownItems as refused:
+        return error_response(
+            422, "validation_error", "The selection does not fit the question set.", refused.fields
+        )
+    except sessions.SessionLocked as refused:
+        return error_response(409, refused.code, "The Class session has started.", refused.fields)
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))

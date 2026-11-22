@@ -1,0 +1,167 @@
+{
+  "status": "draft",
+  "adapted_weight": 30,
+  "items": [
+    {
+      "id": "startoppgave-sende",
+      "type": "number",
+      "title": "Utkast: Startoppgaven, enheter å sende",
+      "weight": 3,
+      "options": [],
+      "answer_key": null,
+      "scoring_rule": "starting-task-sum",
+      "tags": [
+        "quantity"
+      ],
+      "starting_task_item": "to-ship"
+    },
+    {
+      "id": "startoppgave-restordre",
+      "type": "number",
+      "title": "Utkast: Startoppgaven, restordre etter uka",
+      "weight": 3,
+      "options": [],
+      "answer_key": null,
+      "scoring_rule": "starting-task-sum",
+      "tags": [
+        "quantity"
+      ],
+      "starting_task_item": "backlog"
+    },
+    {
+      "id": "startoppgave-posisjon",
+      "type": "number",
+      "title": "Utkast: Startoppgaven, posisjonen for én uke",
+      "weight": 4,
+      "options": [],
+      "answer_key": null,
+      "scoring_rule": "starting-task-sum",
+      "tags": [
+        "quantity"
+      ],
+      "starting_task_item": "position"
+    },
+    {
+      "id": "flervalg-forklaring",
+      "type": "choice",
+      "title": "Utkast: flervalg med ordene fra Forklaringen",
+      "weight": 5,
+      "options": [
+        "a",
+        "b",
+        "c"
+      ],
+      "answer_key": "b",
+      "scoring_rule": null,
+      "tags": [
+        "explanation-wording"
+      ],
+      "starting_task_item": null
+    },
+    {
+      "id": "flervalg-arsaker",
+      "type": "choice",
+      "title": "Utkast: flervalg om årsaker",
+      "weight": 5,
+      "options": [
+        "a",
+        "b",
+        "c",
+        "d"
+      ],
+      "answer_key": "c",
+      "scoring_rule": null,
+      "tags": [],
+      "starting_task_item": null
+    },
+    {
+      "id": "tabell-nytt-monster",
+      "type": "table",
+      "title": "Utkast: tabell med et etterspørselsmønster du ikke har sett",
+      "weight": 10,
+      "options": [],
+      "answer_key": null,
+      "scoring_rule": "units-balance",
+      "tags": [
+        "unseen-demand",
+        "quantity"
+      ],
+      "starting_task_item": null
+    },
+    {
+      "id": "tabell-annen-bransje",
+      "type": "table",
+      "title": "Utkast: tabell fra en annen bransje",
+      "weight": 10,
+      "options": [],
+      "answer_key": null,
+      "scoring_rule": "stock-flow",
+      "tags": [
+        "other-business",
+        "quantity"
+      ],
+      "starting_task_item": null
+    },
+    {
+      "id": "tall-annen-bransje",
+      "type": "number",
+      "title": "Utkast: tall fra en annen bransje",
+      "weight": 10,
+      "options": [],
+      "answer_key": null,
+      "scoring_rule": "units-balance",
+      "tags": [
+        "other-business"
+      ],
+      "starting_task_item": null
+    },
+    {
+      "id": "langsvar-forsinkelse",
+      "type": "long",
+      "title": "Utkast: langsvar om forsinkelse",
+      "weight": 10,
+      "options": [],
+      "answer_key": null,
+      "scoring_rule": "guide-langsvar-forsinkelse",
+      "tags": [],
+      "starting_task_item": null
+    },
+    {
+      "id": "langsvar-informasjon",
+      "type": "long",
+      "title": "Utkast: langsvar om informasjon i kjeden",
+      "weight": 10,
+      "options": [],
+      "answer_key": null,
+      "scoring_rule": "guide-langsvar-informasjon",
+      "tags": [],
+      "starting_task_item": null
+    }
+  ],
+  "replacements": [
+    {
+      "id": "erstatning-tabell",
+      "type": "table",
+      "title": "Utkast: erstatningsoppgave, tabell",
+      "weight": 15,
+      "options": [],
+      "answer_key": null,
+      "scoring_rule": "units-balance",
+      "tags": [
+        "quantity"
+      ],
+      "starting_task_item": null
+    },
+    {
+      "id": "erstatning-langsvar",
+      "type": "long",
+      "title": "Utkast: erstatningsoppgave, langsvar",
+      "weight": 15,
+      "options": [],
+      "answer_key": null,
+      "scoring_rule": "guide-erstatning-langsvar",
+      "tags": [],
+      "starting_task_item": null
+    }
+  ]
+}

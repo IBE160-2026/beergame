@@ -292,6 +292,9 @@ class ClassSessionOut(BaseModel):
     lock_refused: bool = False
     """Not locked, and the sweep has refused the lock for a missing provider key (GitHub issue
     109): LLM players and no key for the model's provider. The sweep tries again each minute."""
+    lock_refused_reason: str | None = None
+    """Why the sweep refused the lock, while `lock_refused`: `provider_key_missing` or
+    `question_set_draft` (Story 11.1)."""
     passed_dates: list[DateName]
     """The dates that are set and have passed by the server's clock; they no longer move."""
     play_time_warning: bool

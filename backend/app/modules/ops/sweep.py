@@ -20,6 +20,7 @@ from app.modules.games import service as games
 from app.modules.identity import service as identity
 from app.modules.messaging import service as messaging
 from app.modules.sessions import service as sessions
+from app.modules.tests import selection as _question_set  # noqa: F401  (registers its pin)
 from app.platform import ratelimit
 from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker

@@ -24,7 +24,11 @@ __all__ = [
     "MomentTemplates",
     "NarrationTemplates",
     "REFLECTION_KINDS",
+    "ITEM_TAGS",
+    "ITEM_TYPES",
     "PatternSet",
+    "QuestionSet",
+    "QuestionSetItem",
     "ReflectionQuestion",
     "ReflectionQuestions",
     "SentenceTemplates",
@@ -141,6 +145,115 @@ class ReflectionQuestions(BaseModel):
         for question in self.questions:
             if "!" in question.prompt or "!" in (question.hint or ""):
                 raise ValueError(f"a reflection question may not say {question.prompt!r}")
+        return self
+
+
+ITEM_TYPES = ("choice", "table", "number", "long")
+"""The Core item types of the Individual test (Story 11.1, FR-52): multiple choice, a table and a
+number Interactive item, and a long answer. No diagram item in v1; a drawn graph (Story 11.14)
+adds its type here."""
+
+INTERACTIVE_TYPES = frozenset({"table", "number"})
+
+ITEM_TAGS = ("quantity", "explanation-wording", "unseen-demand", "other-business")
+"""The closed set of question tags (FR-52, FR-53, FR-80): an item that measures quantities, the one
+item using the Explanation's wording, an unseen Demand pattern, and an Interactive item set in a
+business other than the beer chain."""
+
+
+class QuestionSetItem(BaseModel):
+    """One Core item of the question set (Story 11.1): its type, its default Item weight in whole
+    percent, its answer key (a choice item: the right option's id) or the id of the computed
+    scoring rule or Scoring guide entry (every other type), and its tags. An item that is a
+    Starting task item names it by id (`starting_task_item`) and takes its text from the Starting
+    task record; nothing is copied (FR-52)."""
+
+    model_config = _FROZEN
+
+    id: _Key
+    type: Literal["choice", "table", "number", "long"]
+    title: _Text
+    weight: Annotated[int, Field(strict=True, ge=0, le=100)]
+    options: Annotated[tuple[_Key, ...], Field(max_length=8)] = ()
+    answer_key: _Key | None = None
+    scoring_rule: _Key | None = None
+    tags: Annotated[
+        tuple[Literal["quantity", "explanation-wording", "unseen-demand", "other-business"], ...],
+        Field(max_length=4),
+    ] = ()
+    starting_task_item: _Key | None = None
+
+    @model_validator(mode="after")
+    def _key_or_rule(self) -> QuestionSetItem:
+        if self.type == "choice":
+            if len(self.options) < 2 or self.answer_key not in self.options:
+                raise ValueError(f"choice item {self.id!r} needs options and its answer among them")
+            if self.scoring_rule is not None:
+                raise ValueError(f"choice item {self.id!r} is scored by its answer key")
+        elif self.scoring_rule is None or self.answer_key is not None or self.options:
+            raise ValueError(f"{self.type} item {self.id!r} names a scoring rule and no answer key")
+        if len(set(self.options)) != len(self.options):
+            raise ValueError(f"item {self.id!r} repeats an option")
+        if self.starting_task_item is not None and self.type != "number":
+            raise ValueError(f"item {self.id!r} names a Starting task item, a number item")
+        if len(set(self.tags)) != len(self.tags):
+            raise ValueError(f"item {self.id!r} repeats a tag")
+        if "!" in self.title:
+            raise ValueError(f"an item may not say {self.title!r}")
+        return self
+
+
+class QuestionSet(BaseModel):
+    """The Individual test's question set (Story 11.1, FR-52, FR-53, FR-80, AD-23): its Core items
+    with default weights, the default total weight of the Adapted items, and the replacement Core
+    items a Student with fewer than 10 own Orders gets in their place, whose weights add up to that
+    total. `draft` until the founder approves the real questions (issue #16); in production a Class
+    session cannot lock on a draft (`tests.selection`). The rule that every Starting task item is
+    referenced needs the stored Starting task: `content.service.publish` checks it.
+
+    The replacement items' weights are given at the default Adapted total; when a Class session
+    sets another total, the reader that serves them (Story 11.7) scales them to it, so they always
+    carry the session's Adapted total (FR-53)."""
+
+    model_config = _FROZEN
+
+    status: Literal["draft", "approved"]
+    adapted_weight: Annotated[int, Field(strict=True, ge=0, le=100)]
+    items: Annotated[tuple[QuestionSetItem, ...], Field(min_length=1, max_length=60)]
+    replacements: Annotated[tuple[QuestionSetItem, ...], Field(min_length=1, max_length=20)]
+
+    @model_validator(mode="after")
+    def _ids_unique(self) -> QuestionSet:
+        ids = [item.id for item in (*self.items, *self.replacements)]
+        if len(set(ids)) != len(ids):
+            raise ValueError("item ids repeat")
+        refs = [item.starting_task_item for item in self.items if item.starting_task_item]
+        if len(set(refs)) != len(refs):
+            raise ValueError("a Starting task item is referenced twice")
+        if any(item.starting_task_item for item in self.replacements):
+            raise ValueError("a replacement item may not be a Starting task item")
+        return self
+
+    @model_validator(mode="after")
+    def _the_set_is_complete(self) -> QuestionSet:
+        """What every set must hold (FR-52, FR-53, FR-80)."""
+
+        def tagged(tag: str) -> list[QuestionSetItem]:
+            return [item for item in self.items if tag in item.tags]
+
+        if len(tagged("explanation-wording")) != 1:
+            raise ValueError("exactly one item uses the Explanation's wording")
+        if not tagged("unseen-demand"):
+            raise ValueError("one item has an unseen Demand pattern")
+        if not tagged("quantity"):
+            raise ValueError("at least one item measures quantities")
+        other = tagged("other-business")
+        if not 2 <= len(other) <= 3 or any(i.type not in INTERACTIVE_TYPES for i in other):
+            raise ValueError("two or three Interactive items are set in another business")
+        if sum(item.weight for item in self.items) + self.adapted_weight != 100:
+            raise ValueError("the default weights and the Adapted total weight sum to 100")
+        if sum(item.weight for item in self.replacements) != self.adapted_weight:
+            raise ValueError("the replacement items carry the Adapted total weight")
         return self
 
 

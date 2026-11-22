@@ -63,3 +63,63 @@ class FinalIn(BaseModel):
     model_config = _IN
 
     choice: Choice
+
+
+# The «Spørsmål og vekter» block (Story 11.1, FR-52, FR-53, UX-DR49).
+
+Weight = Annotated[int, Field(strict=True, ge=0, le=100)]
+"""An Item weight in whole percent."""
+
+
+class QuestionItemOut(BaseModel):
+    """One Core item as the Lecturer reviews it: its type, its title (placeholder until issue
+    #16), its weight in force and its default, whether it is taken out, and whether it measures
+    quantities (taking it out warns, FR-52)."""
+
+    id: str
+    type: Literal["choice", "table", "number", "long"]
+    title: str
+    weight: int
+    default_weight: int
+    excluded: bool
+    quantity: bool
+    starting_task: bool
+
+
+class AdaptedOut(BaseModel):
+    """The Adapted items' one line: their total weight in force and its default (30 % in the
+    shipped set), and how many replacement Core items a Student with fewer than 10 own Orders
+    gets in their place, with the same total weight (FR-53)."""
+
+    weight: int
+    default_weight: int
+    replacements: int
+
+
+class QuestionSetOut(BaseModel):
+    """The Class session's question set selection (Story 11.1): the version it uses, whether that
+    version is a draft (issue #16), whether a selection saved on an older version no longer
+    applies (`outdated`: the latest version's defaults are shown, and pinned at the lock),
+    whether the lock has pinned it, whether it can still change (before the Start date), whether
+    the User may change it, the items and the Adapted line, and the sum of the weights in force."""
+
+    version: int
+    draft: bool
+    outdated: bool
+    pinned: bool
+    open: bool
+    can_change: bool
+    items: list[QuestionItemOut]
+    adapted: AdaptedOut
+    sum: int
+
+
+class QuestionSetIn(BaseModel):
+    """«Lagre vekter»: every Core item's weight, the items taken out and the Adapted total weight.
+    The weights of the items left in plus the Adapted total must be 100."""
+
+    model_config = _IN
+
+    weights: Annotated[dict[str, Weight], Field(max_length=60)]
+    excluded: Annotated[list[str], Field(max_length=60)]
+    adapted_weight: Weight

@@ -17,10 +17,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.content.models import Kind, content_records
 from app.modules.content.schemas import (
+    ITEM_TYPES,
     DebriefQuiz,
     MomentTemplates,
     NarrationTemplates,
     PatternSet,
+    QuestionSet,
     ReflectionQuestion,
     ReflectionQuestions,
     SentenceTemplates,
@@ -30,11 +32,13 @@ from app.platform.db import get_sessionmaker
 
 __all__ = [
     "ContentNotFound",
+    "ContentRejected",
     "DebriefQuiz",
     "Kind",
     "MomentTemplates",
     "NarrationTemplates",
     "PatternSet",
+    "QuestionSet",
     "ReflectionQuestion",
     "ReflectionQuestions",
     "SentenceTemplates",
@@ -44,13 +48,17 @@ __all__ = [
     "detected_patterns",
     "detected_patterns_pin",
     "get",
+    "latest_body",
+    "stored_version_of",
     "latest_version",
     "moment_templates",
     "moment_templates_pin",
     "narration_templates",
     "narration_templates_pin",
+    "normalised",
     "pinned_version",
     "publish",
+    "question_set",
     "reflection_questions",
     "reflection_questions_pin",
     "sentence_templates",
@@ -67,6 +75,7 @@ type Body = (
     | MomentTemplates
     | DebriefQuiz
     | NarrationTemplates
+    | QuestionSet
 )
 
 _SCHEMAS: dict[
@@ -77,7 +86,8 @@ _SCHEMAS: dict[
     | type[ReflectionQuestions]
     | type[MomentTemplates]
     | type[DebriefQuiz]
-    | type[NarrationTemplates],
+    | type[NarrationTemplates]
+    | type[QuestionSet],
 ] = {
     Kind.STARTING_TASK: StartingTask,
     Kind.DETECTED_PATTERNS: PatternSet,
@@ -86,11 +96,57 @@ _SCHEMAS: dict[
     Kind.MOMENT_TEMPLATES: MomentTemplates,
     Kind.DEBRIEF_QUIZ: DebriefQuiz,
     Kind.NARRATION_TEMPLATES: NarrationTemplates,
+    Kind.QUESTION_SET: QuestionSet,
 }
 
 
 class ContentNotFound(Exception):
     """No record of that kind and version."""
+
+
+class ContentRejected(Exception):
+    """A body refused with a stable code (Story 11.1): `unknown_item_type` for a question-set
+    item whose type the product does not know, `starting_task_items_missing` for a question set
+    that does not reference every item of the latest Starting task. Nothing is stored."""
+
+    def __init__(self, code: str, detail: str) -> None:
+        super().__init__(f"{code}: {detail}")
+        self.code = code
+        self.detail = detail
+
+
+def _item_types_known(body: Any) -> None:
+    """A question-set item of an unknown type is refused by its own code, before the schema."""
+    if not isinstance(body, dict):
+        return
+    for group in ("items", "replacements"):
+        items = body.get(group)
+        if not isinstance(items, list):
+            continue  # the schema refuses it (`invalid_record`)
+        for item in items:
+            if not isinstance(item, dict) or "type" not in item:
+                continue
+            if item["type"] not in ITEM_TYPES:
+                raise ContentRejected("unknown_item_type", f"{group}: {item['type']!r}")
+
+
+async def _starting_task_referenced(session: AsyncSession, question_set: QuestionSet) -> None:
+    """Every item of the latest Starting task is referenced by the question set (FR-52)."""
+    version = await _latest(session, Kind.STARTING_TASK)
+    body = await session.scalar(
+        select(content_records.c.body).where(
+            content_records.c.kind == Kind.STARTING_TASK.value,
+            content_records.c.version == version,
+        )
+    )
+    task = StartingTask.model_validate(body)
+    referenced = {item.starting_task_item for item in question_set.items}
+    missing = [item.id for item in task.items if item.id not in referenced]
+    unknown = sorted(referenced - {item.id for item in task.items} - {None})
+    if missing or unknown:
+        raise ContentRejected(
+            "starting_task_items_missing", f"missing {missing}, unknown {unknown}"
+        )
 
 
 def _validated(kind: Kind, body: Any) -> Body:
@@ -100,12 +156,17 @@ def _validated(kind: Kind, body: Any) -> Body:
 async def publish(kind: Kind | str, body: Any) -> int:
     """Validate `body` and store it as the next version of `kind`; the new version number."""
     kind = Kind(kind)
-    stored = _validated(kind, body).model_dump(mode="json")
+    if kind == Kind.QUESTION_SET:
+        _item_types_known(body)
+    validated = _validated(kind, body)
+    stored = validated.model_dump(mode="json")
     async with get_sessionmaker().begin() as session:
         # One publisher of a kind at a time, so two never take the same number.
         await session.execute(
             text("SELECT pg_advisory_xact_lock(hashtext(:key))"), {"key": f"content:{kind}"}
         )
+        if isinstance(validated, QuestionSet):
+            await _starting_task_referenced(session, validated)
         version = (await _latest(session, kind) or 0) + 1
         await session.execute(
             insert(content_records).values(
@@ -207,6 +268,51 @@ async def narration_templates(version: int | None) -> tuple[int, NarrationTempla
         version = await latest_version(Kind.NARRATION_TEMPLATES)
     templates: NarrationTemplates = await get(Kind.NARRATION_TEMPLATES, version)
     return version, templates
+
+
+async def latest_body(kind: Kind | str) -> Any | None:
+    """The stored JSON of the newest version of `kind`, None when none is stored: what the
+    content load compares a file with (Story 11.1)."""
+    kind = Kind(kind)
+    async with get_sessionmaker()() as session:
+        version = await _latest(session, kind)
+        if version is None:
+            return None
+        return await session.scalar(
+            select(content_records.c.body).where(
+                content_records.c.kind == kind.value, content_records.c.version == version
+            )
+        )
+
+
+def normalised(kind: Kind | str, body: Any) -> Any:
+    """`body` validated and dumped as `publish` would store it (Story 11.1)."""
+    kind = Kind(kind)
+    if kind == Kind.QUESTION_SET:
+        _item_types_known(body)
+    return _validated(kind, body).model_dump(mode="json")
+
+
+async def stored_version_of(kind: Kind | str, body: Any) -> int | None:
+    """The version of `kind` whose stored body equals `body` (as stored), the newest such; None
+    when none does. The content load never publishes a body that is stored already (Story
+    11.1), so an older file never supersedes a newer version."""
+    kind = Kind(kind)
+    async with get_sessionmaker()() as session:
+        return await session.scalar(
+            select(func.max(content_records.c.version)).where(
+                content_records.c.kind == kind.value,
+                content_records.c.body == body,
+            )
+        )
+
+
+async def question_set(version: int | None) -> tuple[int, QuestionSet]:
+    """The question set at `version`, or the latest when None: (version, body) (Story 11.1)."""
+    if version is None:
+        version = await latest_version(Kind.QUESTION_SET)
+    found: QuestionSet = await get(Kind.QUESTION_SET, version)
+    return version, found
 
 
 async def starting_task_pin(session: AsyncSession, _class_session: Any) -> dict[str, int]:

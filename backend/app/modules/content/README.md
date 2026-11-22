@@ -46,3 +46,15 @@ schema (`schemas.py`). Kinds: `starting_task` (Story 6.3), `detected_patterns` (
   and may hold the hint ids (`analysis.narration.HINT_TEMPLATES`); a Class session locked on
   version 1 has no follow-up questions.
 
+- Version 1 of the question set (Story 11.1) is stored by migration 0121 and shipped as
+  `files/question_set.json` (a test keeps them equal): placeholder Core items marked
+  `status: "draft"` until issue #16, each with a type (`choice`, `table`, `number`, `long`; no
+  diagram in v1), a default Item weight, an answer key or scoring rule id and tags; the Starting
+  task items are referenced by id (`starting_task_item`), never copied, and `publish` refuses a set
+  that misses one of the latest Starting task's items (`starting_task_items_missing`). Its shape
+  and rules are `schemas.QuestionSet`. The selection per Class session and its pin belong to
+  `modules/tests` (`selection.py`, `SessionRuntime.pins["question_set"]`).
+- The content load (Story 11.1): `uv run python -m app.modules.content load [folder]` publishes
+  every `<kind>.json` of `files/` (or the folder) that differs from its kind's newest version;
+  a second run publishes nothing. A refused file prints a stable code (`unknown_kind`,
+  `unknown_item_type`, `starting_task_items_missing`, `invalid_record`) and the command exits 1.

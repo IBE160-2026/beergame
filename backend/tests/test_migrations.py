@@ -107,6 +107,8 @@ RATING_TABLES = {"believability_ratings", "replay_another_round"}
 """The tables of revision 0119 (Story 10.8)."""
 ASSESSMENT_SWITCH_TABLES = {"assessment_switches"}
 """The tables of revision 0120 (Story 12.1)."""
+QUESTION_SET_TABLES = {"test_selections"}
+"""The tables of revision 0121 (Story 11.1)."""
 HEAD_TABLES = (
     PRE_SESSION_TABLES
     | SESSION_TABLES
@@ -131,8 +133,9 @@ HEAD_TABLES = (
     | WALKTHROUGH_TABLES
     | RATING_TABLES
     | ASSESSMENT_SWITCH_TABLES
+    | QUESTION_SET_TABLES
 )
-HEAD = "0120"  # 0120 holds the «KI-vurdering» switch and the Test-deadline lock (Story 12.1)
+HEAD = "0121"  # 0121 holds the question set and each Class session's selection (Story 11.1)
 
 
 def reset_schema(url: str) -> None:
@@ -320,6 +323,19 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     # 0111 (Story 9.12): presence, the Students who go on alone and the 48-hour fallback.
     assert "last_seen_at" in columns(url, "debrief_members")
     assert {"fallback_due_at", "fallback_at"} <= columns(url, "debrief_sessions")
+
+    # 0121 (Story 11.1): the question set kind with its draft version 1, a Class session's
+    # selection of it, and why the lock was refused.
+    assert "question_set" in definition(url, "ck_content_records_kind")
+    assert {"question_set_version", "excluded", "weights", "adapted_weight"} <= columns(
+        url, "test_selections"
+    )
+    assert "lock_refused_reason" in columns(url, "class_sessions")
+    command.downgrade(cfg, "0120")
+    assert QUESTION_SET_TABLES.isdisjoint(tables(url))
+    assert "question_set" not in definition(url, "ck_content_records_kind")
+    assert "lock_refused_reason" not in columns(url, "class_sessions")
+    assert not rows(url, "SELECT 1 FROM content_records WHERE kind = 'question_set'")
 
     # 0120 (Story 12.1): the «KI-vurdering» switch per Class session, unchangeable once pinned,
     # and when the Test-deadline lock ran.

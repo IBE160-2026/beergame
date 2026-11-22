@@ -18,6 +18,7 @@ import { AccessDenied, GuardedPage } from "@/modules/identity/home-page";
 import { useClass } from "@/modules/classes/api";
 import { AiAssessmentBlock } from "@/modules/assessment/switch-block";
 import { QuizExclusionsBlock } from "@/modules/debrief/quiz-exclusions";
+import { QuestionSetBlock } from "@/modules/tests/question-set-block";
 import { classOverviewPath, classPath, classSessionPath, HOME_PATH } from "@/modules/identity/homes";
 import { PageLink, PageShell } from "@/modules/identity/page-shell";
 import { LINK_BUTTON } from "@/modules/classes/roster-entry-forms";
@@ -346,7 +347,9 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
           {/* The sweep refused the lock for a missing provider key (GitHub issue 109): the owner
               learns it here too, not only from the mail. */}
           {!item.locked_at && item.lock_refused && item.can_manage ? (
-            <p className="mt-1 text-body-phone font-semibold text-ink lg:text-body">{copy.lock.refused}</p>
+            <p className="mt-1 text-body-phone font-semibold text-ink lg:text-body">
+              {item.lock_refused_reason === "question_set_draft" ? copy.lock.refusedDraft : copy.lock.refused}
+            </p>
           ) : null}
           {item.can_manage ? (
             <p className="mt-1 text-body-phone text-ink-secondary lg:text-body">
@@ -452,6 +455,8 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
       {saveShown && !lockedSaveUnderDates ? saveRow : null}
       {/* Story 9.10: its own save, since exclusions stay open after the lock until the Test deadline. */}
       <QuizExclusionsBlock classSessionId={item.id} />
+      {/* Story 11.1: its own save, the selection belongs to the Individual test; locks at the Start date. */}
+      <QuestionSetBlock classSessionId={item.id} />
       <TestGameBlock item={item} />
     </>
   );

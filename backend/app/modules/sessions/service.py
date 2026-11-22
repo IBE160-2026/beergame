@@ -889,6 +889,11 @@ async def get_session(user: authz.Principal, session_id: uuid.UUID) -> ClassSess
         locked=is_locked(row, now=now),
         locked_at=row["locked_at"],
         lock_refused=row["locked_at"] is None and row["lock_refused_at"] is not None,
+        lock_refused_reason=(
+            row["lock_refused_reason"]
+            if row["locked_at"] is None and row["lock_refused_at"] is not None
+            else None
+        ),
         passed_dates=_passed(row, now),
         play_time_warning=_play_time_warning(row, settings),
         settings_warnings=[
@@ -1756,6 +1761,59 @@ async def lock_for_quiz_exclusions(
         raise LookupError(f"no Class session {class_session_id}")
     await _writable(s, row["class_id"])
     return await repo.session_pins(s, class_session_id), row["test_deadline"]
+
+
+@dataclass(frozen=True)
+class QuestionSetSession:
+    """A Class session as the «Spørsmål og vekter» block reads it (Story 11.1): its row (the
+    Start date, the lock), the pins its lock stored (None before) and whether the User may change
+    the selection (an owner of a Class that is not archived)."""
+
+    id: uuid.UUID
+    row: Mapping[str, Any]
+    pins: Any
+    may_change: bool
+    """An owner of the Class (`question_set.change`)."""
+    can_change: bool
+    """An owner, and the Class is not archived."""
+
+
+async def question_set_session(
+    user: authz.Principal, class_session_id: uuid.UUID
+) -> QuestionSetSession | None:
+    """The Class session for its staff's «Spørsmål og vekter» block (`class_sessions.read`); None
+    for every other caller and for a session that does not exist alike (FR-5)."""
+    async with get_sessionmaker()() as s:
+        row = await repo.session_row(s, class_session_id)
+        pins = await repo.session_pins(s, class_session_id) if row is not None else None
+    if row is None:
+        return None
+    found = await _class_for(user, row["class_id"], "class_sessions.read")
+    if found is None:
+        return None
+    return QuestionSetSession(
+        id=row["id"],
+        row=row,
+        pins=pins,
+        may_change=authz.can(user, "question_set.change", found),
+        can_change=authz.can(user, "question_set.change", found) and not found.archived,
+    )
+
+
+async def lock_for_question_set(
+    s: AsyncSession, class_session_id: uuid.UUID, *, now: datetime
+) -> Mapping[str, Any]:
+    """In the caller's transaction (Story 11.1): locks the Class session row, refuses an archived
+    Class (`classes.ClassArchived`, 409 `class_archived`) and a session past its Start-date lock
+    point (`SessionLocked`, 409 `session_locked`, FR-18), and answers the row. The caller has
+    checked `question_set.change`."""
+    row = await repo.session_row(s, class_session_id, lock=True)
+    if row is None:
+        raise LookupError(f"no Class session {class_session_id}")
+    await _writable(s, row["class_id"])
+    if is_locked(row, now=now):
+        raise SessionLocked({"question_set": "locked"})
+    return row
 
 
 async def student_name(class_session_id: uuid.UUID, user_id: uuid.UUID) -> str | None:
@@ -3586,6 +3644,16 @@ class ProviderKeyMissing(Exception):
     code = "provider_key_missing"
 
 
+class PinRefused(Exception):
+    """A pin provider refuses the lock with a stable code (Story 11.1: `question_set_draft`, a
+    draft question set in production). Raised from `build_snapshot` inside the lock's
+    transaction, so nothing is frozen; the sweep tells the owners as for `ProviderKeyMissing`."""
+
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
+
+
 async def build_snapshot(
     class_session: Mapping[str, Any], *, session: AsyncSession | None = None
 ) -> dict[str, Any]:
@@ -3787,12 +3855,12 @@ async def lock_due(class_session_id: object, now: datetime) -> bool:
     assert isinstance(class_session_id, uuid.UUID)
     try:
         return await lock(class_session_id, now=now, due_only=True)
-    except ProviderKeyMissing:
-        told = await _tell_lock_refused(class_session_id, now)
+    except (ProviderKeyMissing, PinRefused) as refused:
+        told = await _tell_lock_refused(class_session_id, now, refused.code)
         log.warning(
             "class_session_lock_refused",
             class_session_id=str(class_session_id),
-            error_code=ProviderKeyMissing.code,
+            error_code=refused.code,
             told=told,
         )
         return False
@@ -3836,17 +3904,20 @@ async def lock_test_due(class_session_id: object, now: datetime) -> bool:
     return await lock_test(class_session_id, now=now)
 
 
-async def _tell_lock_refused(class_session_id: uuid.UUID, now: datetime) -> int:
+async def _tell_lock_refused(
+    class_session_id: uuid.UUID, now: datetime, reason: str = ProviderKeyMissing.code
+) -> int:
     """Mark the session's lock refused (`lock_refused_at`, the first time only, so the Klasseøkt
-    can say so), and one `LOCK_REFUSED_NOTICE` per owner of the Class and per active Admin, keyed
-    by the session and the User, so each is told once. No notice for a Class that is archived.
+    can say so, and `lock_refused_reason`, the latest reason), and one `LOCK_REFUSED_NOTICE` per
+    owner of the Class and per active Admin, keyed by the session and the User, so each is told
+    once. No notice for a Class that is archived.
     Returns how many notices were stored now."""
     told = 0
     async with get_sessionmaker().begin() as s:
         row = await repo.session_row(s, class_session_id)
         if row is None:
             return 0
-        await repo.set_lock_refused(s, class_session_id, now)
+        await repo.set_lock_refused(s, class_session_id, now, reason)
         if not await classes.is_writable(row["class_id"], session=s):
             return 0
         recipients = set(await classes.owners_of(s, row["class_id"]))
@@ -3875,6 +3946,7 @@ async def lock_refused_mail_context(
     return {
         "class_name": label.name,
         "session_number": await repo.number_of(session, ref, row["class_id"]),
+        "reason": row["lock_refused_reason"] or ProviderKeyMissing.code,
     }
 
 
@@ -4908,6 +4980,20 @@ def _copied_settings(source: Mapping[str, Any], *, keep_seed: bool) -> GameSetti
     return copied
 
 
+Copier = Callable[[AsyncSession, Mapping[str, Any], uuid.UUID, datetime], Awaitable[None]]
+"""`(session, source_row, new_session_id, now)`: copies what its module keeps of a Class session
+into the copy, in `copy_from`'s transaction (FR-66)."""
+
+_copiers: list[Copier] = []
+
+
+def register_copier(copier: Copier) -> None:
+    """Add a copier `copy_from` runs (Story 11.1: `tests` copies the question set selection), for
+    a module `sessions` may not import. Registering the same one again changes nothing."""
+    if copier not in _copiers:
+        _copiers.append(copier)
+
+
 async def copy_from(
     user: authz.Principal,
     source_id: uuid.UUID,
@@ -4926,8 +5012,9 @@ async def copy_from(
     with its share are not copied. Raises `FeatureDisabled` while `FEATURE_RERUN` is off,
     `InvalidSettings`, `ClassArchived`; None when the User may not manage the target Class or may
     not read the source. It copies the settings of Epic 5, the Replay scenario
-    (`_copied_replay`, Story 10.2) and the «KI-vurdering» switch (Story 12.1); the later stories
-    that own more session settings (FR-66) add theirs here."""
+    (`_copied_replay`, Story 10.2), the «KI-vurdering» switch (Story 12.1) and, through each
+    copier of `register_copier`, the question set selection (Story 11.1); the later stories that
+    own more session settings (FR-66) add theirs here."""
     if not rerun_enabled():
         raise FeatureDisabled(dict(RERUN_DISABLED))
     if await _class_for(user, target_class_id, "class_sessions.manage") is None:
@@ -4991,6 +5078,9 @@ async def copy_from(
             await budget.set_budget(budget.BudgetScope.class_session(session_id), session=s)
         # Story 12.1 (FR-66): the «KI-vurdering» switch's value, never its pin.
         await assessment.copy_switch(s, source_id, session_id, now=now)
+        # Story 11.1 (FR-66): what the modules `sessions` may not import copy themselves.
+        for copier in _copiers:
+            await copier(s, source, session_id, now)
         await events.emit(s, "session", str(session_id))
     log.info(
         "class_session_copied",

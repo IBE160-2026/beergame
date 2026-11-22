@@ -928,6 +928,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/class-sessions/{session_id}/question-set": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Session Question Set
+         * @description The Klasseøkt's «Spørsmål og vekter» block (Story 11.1, FR-52, FR-53): every Core item of
+         *     the question set with its type, weight in force and whether it is taken out, the Adapted
+         *     items' total weight, the sum, whether the set is a draft and whether it can still change
+         *     (before the Start date). Once locked, the selection the lock pinned.
+         */
+        get: operations["getSessionQuestionSet"];
+        /**
+         * Set Session Question Set
+         * @description «Lagre vekter» (Story 11.1, FR-52, AD-15): the whole selection, stored on the latest
+         *     question set version and recorded in the audit log. 422 `weights_not_100` when the weights
+         *     of the items left in plus the Adapted total are not 100, `validation_error` for an unknown
+         *     item, a missing weight or every item taken out; 409 `session_locked` from the Start date,
+         *     `class_archived` for an archived Class; 403 `forbidden` for an Assistant lecturer and every
+         *     other caller.
+         */
+        put: operations["setSessionQuestionSet"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/class-sessions/{session_id}/replay-scenario-check": {
         parameters: {
             query?: never;
@@ -2616,6 +2648,20 @@ export interface components {
          */
         AccountRole: "admin" | "lecturer";
         /**
+         * AdaptedOut
+         * @description The Adapted items' one line: their total weight in force and its default (30 % in the
+         *     shipped set), and how many replacement Core items a Student with fewer than 10 own Orders
+         *     gets in their place, with the same total weight (FR-53).
+         */
+        AdaptedOut: {
+            /** Default Weight */
+            default_weight: number;
+            /** Replacements */
+            replacements: number;
+            /** Weight */
+            weight: number;
+        };
+        /**
          * AddressProblem
          * @description Why a value is not an address (Story 4.3, FR-7). The web app words each one.
          * @enum {string}
@@ -3229,6 +3275,8 @@ export interface components {
              * @default false
              */
             lock_refused: boolean;
+            /** Lock Refused Reason */
+            lock_refused_reason?: string | null;
             /** Locked */
             locked: boolean;
             /** Locked At */
@@ -4879,6 +4927,75 @@ export interface components {
             mine: boolean;
             /** Name */
             name: string | null;
+        };
+        /**
+         * QuestionItemOut
+         * @description One Core item as the Lecturer reviews it: its type, its title (placeholder until issue
+         *     #16), its weight in force and its default, whether it is taken out, and whether it measures
+         *     quantities (taking it out warns, FR-52).
+         */
+        QuestionItemOut: {
+            /** Default Weight */
+            default_weight: number;
+            /** Excluded */
+            excluded: boolean;
+            /** Id */
+            id: string;
+            /** Quantity */
+            quantity: boolean;
+            /** Starting Task */
+            starting_task: boolean;
+            /** Title */
+            title: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "choice" | "table" | "number" | "long";
+            /** Weight */
+            weight: number;
+        };
+        /**
+         * QuestionSetIn
+         * @description «Lagre vekter»: every Core item's weight, the items taken out and the Adapted total weight.
+         *     The weights of the items left in plus the Adapted total must be 100.
+         */
+        QuestionSetIn: {
+            /** Adapted Weight */
+            adapted_weight: number;
+            /** Excluded */
+            excluded: string[];
+            /** Weights */
+            weights: {
+                [key: string]: number;
+            };
+        };
+        /**
+         * QuestionSetOut
+         * @description The Class session's question set selection (Story 11.1): the version it uses, whether that
+         *     version is a draft (issue #16), whether a selection saved on an older version no longer
+         *     applies (`outdated`: the latest version's defaults are shown, and pinned at the lock),
+         *     whether the lock has pinned it, whether it can still change (before the Start date), whether
+         *     the User may change it, the items and the Adapted line, and the sum of the weights in force.
+         */
+        QuestionSetOut: {
+            adapted: components["schemas"]["AdaptedOut"];
+            /** Can Change */
+            can_change: boolean;
+            /** Draft */
+            draft: boolean;
+            /** Items */
+            items: components["schemas"]["QuestionItemOut"][];
+            /** Open */
+            open: boolean;
+            /** Outdated */
+            outdated: boolean;
+            /** Pinned */
+            pinned: boolean;
+            /** Sum */
+            sum: number;
+            /** Version */
+            version: number;
         };
         /** QuizAnswerIn */
         QuizAnswerIn: {
@@ -9101,6 +9218,117 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getSessionQuestionSet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionSetOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    setSessionQuestionSet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuestionSetIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionSetOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
