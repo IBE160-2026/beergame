@@ -24,6 +24,7 @@ from app.modules.content.schemas import (
     CRITERIA_MAX,
     CRITERIA_MIN,
     ITEM_TYPES,
+    TABLE_TYPES,
     AdaptedTemplates,
     DebriefQuiz,
     MomentTemplates,
@@ -154,9 +155,9 @@ def _item_types_known(body: Any) -> None:
                 continue
             if item["type"] not in ITEM_TYPES:
                 raise ContentRejected("unknown_item_type", f"{group}: {item['type']!r}")
-            # A table item, and a number item that is not a Starting task item, is answered on
-            # its own table (Story 11.5): it is refused without one.
-            own_table = item["type"] == "table" or (
+            # A table or drawn item, and a number item that is not a Starting task item, is
+            # answered on its own table (Stories 11.5, 11.14): it is refused without one.
+            own_table = item["type"] in TABLE_TYPES or (
                 item["type"] == "number" and item.get("starting_task_item") is None
             )
             if own_table and item.get("interactive") is None:

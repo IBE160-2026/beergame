@@ -19,6 +19,7 @@ import { PageLink, PageShell } from "@/modules/identity/page-shell";
 import { type MyTest, myTestKey, openMyTest, submitMyTest, useMyTest } from "./api";
 import { draftPrefix } from "./autosave";
 import { ChoiceItem } from "./choice-item";
+import { DrawnItem } from "./drawn-item";
 import {
   deadlineLine,
   itemAnchor,
@@ -289,6 +290,8 @@ function Items({
                   <ChoiceItem classSessionId={classSessionId} userId={userId} item={item} />
                 ) : item.type === "table" && item.table ? (
                   <TableItem classSessionId={classSessionId} userId={userId} item={item} table={item.table} />
+                ) : item.type === "drawn" && item.table ? (
+                  <DrawnItem classSessionId={classSessionId} userId={userId} item={item} table={item.table} />
                 ) : item.type === "number" && item.column ? (
                   <NumberItem classSessionId={classSessionId} userId={userId} item={item} column={item.column} />
                 ) : item.type === "long" || item.type === "adapted" ? (

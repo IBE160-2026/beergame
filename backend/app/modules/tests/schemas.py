@@ -82,7 +82,7 @@ class QuestionItemOut(BaseModel):
     quantities (taking it out warns, FR-52)."""
 
     id: str
-    type: Literal["choice", "table", "number", "long"]
+    type: Literal["choice", "table", "number", "long", "drawn"]
     title: str
     weight: int
     default_weight: int
@@ -237,10 +237,18 @@ class TableColumnOut(BaseModel):
     values: list[int]
 
 
+class AxisOut(BaseModel):
+    """A drawn item's value axis (Story 11.14): the range its graph's points are placed in."""
+
+    min: int
+    max: int
+
+
 class TableOut(BaseModel):
     """A «Fyll inn kolonnen» item's value table (Story 11.5, FR-80, UX-DR38): its prompt and
     hint, the table's caption, one row label per Uke, the given columns, the asked column's label
-    (one answer cell per Uke) and whether a value may be negative. No expected value."""
+    (one answer cell per Uke) and whether a value may be negative. A drawn item (Story 11.14) has
+    the same table and its graph's value `axis` (null for a table item). No expected value."""
 
     prompt: str
     hint: str | None
@@ -249,6 +257,7 @@ class TableOut(BaseModel):
     columns: list[TableColumnOut]
     asked_label: str
     negative: bool
+    axis: AxisOut | None = None
 
 
 class ColumnRowOut(BaseModel):
@@ -284,16 +293,16 @@ class WordingOut(BaseModel):
 
 class IndividualItemOut(BaseModel):
     """One item of the Student's frozen Individual test (Story 11.3), in order: its number from 1,
-    its type and its text; a choice item's option ids (Story 11.4, `[]` for other types), a table
-    item's value table or a number item's column (Story 11.5, null otherwise or when the item has
-    none) and the Student's saved answer (null before the first save). An Adapted item (Story
-    11.7) is answered as a long answer; its `title` is its frozen text, and `wording` carries that
-    text with whether an AI wrote it (null for every other type). No weight, no answer key, no
-    rule, no fact and no score are sent to the Student."""
+    its type and its text; a choice item's option ids (Story 11.4, `[]` for other types), a table or
+    drawn item's value table (Story 11.14) or a number item's column (Story 11.5, null otherwise or
+    when the item has none) and the Student's saved answer (null before the first save). An Adapted
+    item (Story 11.7) is answered as a long answer; its `title` is its frozen text, and `wording`
+    carries that text with whether an AI wrote it (null for every other type). No weight, no answer
+    key, no rule, no fact and no score are sent to the Student."""
 
     id: str
     number: int
-    type: Literal["choice", "table", "number", "long", "adapted"]
+    type: Literal["choice", "table", "number", "long", "drawn", "adapted"]
     title: str
     options: list[str]
     table: TableOut | None
@@ -307,9 +316,9 @@ TEST_REVISION_MAX = 1_000_000
 
 class TestAnswerIn(BaseModel):
     """One autosave of an item's answer (Story 11.4, AD-10): the value (a choice item: one of its
-    option ids; a table item: one whole number or null per row; a number item: a whole number or
-    null, Story 11.5; a long-answer item: its text as typed, Story 11.6; an Adapted item: the
-    same, Story 11.7) and the answer's revision, which rises by one per change on the Student's
+    option ids; a table or drawn item: one whole number or null per row; a number item: a whole
+    number or null, Story 11.5; a long-answer item: its text as typed, Story 11.6; an Adapted item:
+    the same, Story 11.7) and the answer's revision, which rises by one per change on the Student's
     device."""
 
     __test__ = False  # not a pytest class

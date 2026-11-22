@@ -13,7 +13,8 @@ import { cn } from "@/lib/utils";
  * The fields are rows of the same `<table>` as the week rows, so a graph spans exactly the week
  * columns and scrolls with them; its y-axis labels sit in the sticky row-label column. The graph
  * rows are `aria-hidden`: the table is the graph's alternative and the graph adds no second
- * reading of the same numbers (NFR-6). A field's caption row (title, key) is read.
+ * reading of the same numbers (NFR-6). A field's caption row (title, key) is read. An
+ * `interactive` field (a drawn item's points, Story 11.14) is not hidden: its controls are read.
  *
  * Two layouts give the charts their fixed width (AD-18):
  * - In the browser the component measures each week column's centre (`th[scope=col]`, keyed by
@@ -61,6 +62,9 @@ export type GraphField = {
   /** The field's height in em of the `caption` text size, so it grows with the text. */
   heightEm: number;
   render: (size: FieldSize) => { plot: ReactNode; axis?: ReactNode };
+  /** The plot holds controls (a drawn item's point sliders, Story 11.14): its row is not
+   * `aria-hidden`, so they can be reached; the axis labels stay hidden. */
+  interactive?: boolean;
 };
 
 /** Every width in px, for a render without measuring (print). */
@@ -360,13 +364,17 @@ export function GraphOverTable({
                           </td>
                         </tr>
                       ) : null}
-                      <tr aria-hidden="true" data-field={field.key} data-variant={variant.name} className={variant.rowClass}>
+                      <tr aria-hidden={field.interactive ? undefined : "true"} data-field={field.key} data-variant={variant.name} className={variant.rowClass}>
                         <td
                           data-axis=""
                           className={cn(STICKY_LABEL, "text-caption")}
                           style={fixed ? { ...fixedCell(fixed, "week"), width: fixed.labelWidth, minWidth: fixed.labelWidth, maxWidth: fixed.labelWidth } : undefined}
                         >
-                          {drawn?.axis ? <div className={fixed ? undefined : "absolute inset-0"}>{drawn.axis}</div> : null}
+                          {drawn?.axis ? (
+                            <div aria-hidden={field.interactive ? true : undefined} className={fixed ? undefined : "absolute inset-0"}>
+                              {drawn.axis}
+                            </div>
+                          ) : null}
                         </td>
                         <td
                           data-plot=""

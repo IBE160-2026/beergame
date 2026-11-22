@@ -60,6 +60,11 @@ schema (`schemas.py`). Kinds: `starting_task` (Story 6.3), `detected_patterns` (
   label, `negative`, coded criteria whose shape is `analysis.scoring.InteractiveRule`); the load
   refuses one without it (`interactive_missing`). Version 1 stays as it was for sessions pinned to
   it. Interactive text says «enheter», never «øl».
+- A drawn item (`type: "drawn"`, Story 11.14) is a table item answered in a graph over its table
+  as well: the same `interactive` table and rule, one value per row, plus the graph's value `axis`
+  (`{min, max}`, `min < max`, below zero only with `negative`), required on a drawn item and
+  refused on every other (`invalid_record`). `axis` is left out of a stored body when absent, so
+  version 2 is unchanged. The shipped set holds no drawn item; real ones come with issue #16.
 - The content load (Story 11.1): `uv run python -m app.modules.content load [folder]` publishes
   every `<kind>.json` of `files/` (or the folder) that differs from its kind's newest version;
   a second run publishes nothing. A refused file prints a stable code (`unknown_kind`,

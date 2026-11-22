@@ -1,15 +1,15 @@
 """The Student's Individual test as their page reads it (Story 11.3, FR-51, FR-5, AD-12, AD-16).
 
 `read` answers the state: `statement` before the Student has accepted the own-work statement (no
-item is served; in one timed sitting it carries the Student's time limit, Story 11.12), `open`
-with the items of their attempt in its frozen order, `closed` when their
-Test deadline has passed with no attempt. `open_` accepts the statement through
-`commands.open_attempt`. Each open item carries a choice item's option ids, a table item's value
-table or a number item's column (Story 11.5; a Starting task item's from the Class session's
-pinned Starting task), an Adapted item's frozen text (Story 11.7) and the Student's saved
-answer; `save` autosaves one answer through `commands.save_answer` (Story 11.4). Only the
-Student's own locked Class session is reached; every other caller gets None (the route's 403
-`forbidden`), whether or not an attempt exists."""
+item is served; in one timed sitting it carries the Student's time limit, Story 11.12), `open` with
+the items of their attempt in its frozen order, `closed` when their Test deadline has passed with no
+attempt. `open_` accepts the statement through `commands.open_attempt`. Each open item carries a
+choice item's option ids, a table item's value table (a drawn item's with its graph's axis, Story
+11.14) or a number item's column (Story 11.5; a Starting task item's from the Class session's pinned
+Starting task), an Adapted item's frozen text (Story 11.7) and the Student's saved answer; `save`
+autosaves one answer through `commands.save_answer` (Story 11.4). Only the Student's own locked
+Class session is reached; every other caller gets None (the route's 403 `forbidden`), whether or not
+an attempt exists."""
 
 import math
 import uuid
@@ -20,13 +20,14 @@ from typing import Any
 from sqlalchemy import select
 
 from app.modules.content import service as content
-from app.modules.content.schemas import QuestionSet, QuestionSetItem, StartingTask
+from app.modules.content.schemas import TABLE_TYPES, QuestionSet, QuestionSetItem, StartingTask
 from app.modules.progress import service as progress
 from app.modules.sessions import service as sessions
 from app.modules.tests import commands, rules, sitting
 from app.modules.tests.adapted import ADAPTED
 from app.modules.tests.models import AttemptStatus, test_answers
 from app.modules.tests.schemas import (
+    AxisOut,
     ColumnOut,
     ColumnRowOut,
     IndividualItemOut,
@@ -62,8 +63,9 @@ async def _answers(attempt_id: uuid.UUID) -> dict[str, StoredAnswerOut]:
 
 
 def _table(item: QuestionSetItem) -> TableOut | None:
+    """A table item's value table; a drawn item's too, with its graph's axis (Story 11.14)."""
     spec = item.interactive
-    if item.type != "table" or spec is None:
+    if item.type not in TABLE_TYPES or spec is None:
         return None
     return TableOut(
         prompt=spec.prompt,
@@ -73,6 +75,7 @@ def _table(item: QuestionSetItem) -> TableOut | None:
         columns=[TableColumnOut(label=c.label, values=list(c.values)) for c in spec.given],
         asked_label=spec.asked,
         negative=spec.negative,
+        axis=None if spec.axis is None else AxisOut(min=spec.axis.min, max=spec.axis.max),
     )
 
 

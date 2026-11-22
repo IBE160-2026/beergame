@@ -41,6 +41,7 @@ async def test_table_and_number_items_carry_their_table_and_never_a_rule(klass):
         ],
         "asked_label": "Lager",
         "negative": False,
+        "axis": None,  # a drawn item's only (Story 11.14)
     }
     number = item_of(test, "tall-annen-bransje")
     assert number["table"] is None

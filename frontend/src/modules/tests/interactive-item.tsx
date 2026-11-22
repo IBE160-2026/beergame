@@ -24,7 +24,7 @@ type Column = NonNullable<MyTestItem["column"]>;
  * (another device, a refusal that brings back the stored one) replaces them. `send` hands a value
  * to the autosave and remembers it, so the answer coming back as stored changes no text.
  */
-function useFieldTexts(value: AnswerValue, toTexts: (value: AnswerValue) => string[], pick: (value: AnswerValue) => void) {
+export function useFieldTexts(value: AnswerValue, toTexts: (value: AnswerValue) => string[], pick: (value: AnswerValue) => void) {
   const [texts, setTexts] = useState(() => toTexts(value));
   const [errors, setErrors] = useState<ReadonlySet<number>>(() => new Set());
   const [sent, setSent] = useState<AnswerValue>(value);
@@ -40,6 +40,45 @@ function useFieldTexts(value: AnswerValue, toTexts: (value: AnswerValue) => stri
     pick(next);
   };
   return { texts, setTexts, errors, setErrors, sent, send };
+}
+
+/**
+ * One outlined numeric cell of a value table (Story 11.5; a drawn item's table too, Story 11.14):
+ * named «<asked>, <Uke>», marked invalid with the error border and described by the error line.
+ */
+export function CellInput({
+  label,
+  text,
+  negative,
+  invalid,
+  errorId,
+  onChange,
+  onBlur,
+}: {
+  label: string;
+  text: string;
+  negative: boolean;
+  invalid: boolean;
+  errorId: string;
+  onChange: (text: string) => void;
+  onBlur: () => void;
+}) {
+  return (
+    <input
+      type="text"
+      // A phone's numeric keypad has no minus: a table that takes negative values gets the full
+      // keyboard.
+      inputMode={negative ? "text" : "numeric"}
+      autoComplete="off"
+      aria-label={label}
+      value={text}
+      onChange={(event) => onChange(event.target.value)}
+      onBlur={onBlur}
+      aria-invalid={invalid ? true : undefined}
+      aria-describedby={invalid ? errorId : undefined}
+      className="min-h-control-height-phone w-24 rounded-sm border border-ink-muted bg-paper px-3 py-2 text-right text-button font-bold text-ink tabular-nums hover:border-ink aria-invalid:border-[1.4px] aria-invalid:border-restordre"
+    />
+  );
 }
 
 /**
@@ -116,19 +155,14 @@ export function ValueTable({
                   </td>
                 ))}
                 <td className="py-2 text-right">
-                  <input
-                    type="text"
-                    // A phone's numeric keypad has no minus: a table that takes negative values
-                    // gets the full keyboard.
-                    inputMode={table.negative ? "text" : "numeric"}
-                    autoComplete="off"
-                    aria-label={copy.cell(table.asked_label, label)}
-                    value={texts[row] ?? ""}
-                    onChange={(event) => onCellChange(row, event.target.value)}
+                  <CellInput
+                    label={copy.cell(table.asked_label, label)}
+                    text={texts[row] ?? ""}
+                    negative={table.negative}
+                    invalid={errors.has(row)}
+                    errorId={errorId}
+                    onChange={(text) => onCellChange(row, text)}
                     onBlur={() => onCellBlur(row)}
-                    aria-invalid={errors.has(row) ? true : undefined}
-                    aria-describedby={errors.has(row) ? errorId : undefined}
-                    className="min-h-control-height-phone w-24 rounded-sm border border-ink-muted bg-paper px-3 py-2 text-right text-button font-bold text-ink tabular-nums hover:border-ink aria-invalid:border-[1.4px] aria-invalid:border-restordre"
                   />
                 </td>
               </tr>

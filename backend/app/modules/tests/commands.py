@@ -50,7 +50,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.analysis.scoring import INTERACTIVE_LIMIT
 from app.modules.content import service as content
-from app.modules.content.schemas import QuestionSet, QuestionSetItem
+from app.modules.content.schemas import TABLE_TYPES, QuestionSet, QuestionSetItem
 from app.modules.debrief import service as debrief
 from app.modules.progress import service as progress
 from app.modules.sessions import service as sessions
@@ -302,12 +302,12 @@ def _text(value: Any) -> bool:
 
 
 def _valid(item_type: str, item: QuestionSetItem | None, value: Any) -> bool:
-    """Whether `value` answers an item of this type: a choice item's option id (Story 11.4); a
-    table item's list of one whole number or null per row, and a number item's whole number or
-    null (cleared), negative only where the item allows it (Story 11.5; a Starting task item
-    always does); a long-answer item's text, stored as typed (Story 11.6), and so an Adapted
-    item's, whose text is frozen on the attempt rather than in the question set (Story 11.7). An
-    item with no table of its own (question set version 1) takes nothing."""
+    """Whether `value` answers an item of this type: a choice item's option id (Story 11.4); a table
+    or drawn item's list of one whole number or null per row, and a number item's whole number or
+    null (cleared), negative only where the item allows it (Story 11.5; a Starting task item always
+    does); a long-answer item's text, stored as typed (Story 11.6), and so an Adapted item's, whose
+    text is frozen on the attempt rather than in the question set (Story 11.7). An item with no
+    table of its own (question set version 1) takes nothing."""
     if item_type == adapted.ADAPTED:
         return _text(value)
     if item is None:
@@ -323,7 +323,7 @@ def _valid(item_type: str, item: QuestionSetItem | None, value: Any) -> bool:
         return False
     if item_type == "number":
         return value is None or _whole(value, spec.negative)
-    if item_type == "table":
+    if item_type in TABLE_TYPES:  # a drawn item's graph writes its table (Story 11.14)
         return (
             isinstance(value, list)
             and len(value) == len(spec.rows)

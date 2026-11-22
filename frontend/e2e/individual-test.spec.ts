@@ -500,7 +500,9 @@ for (const vp of VIEWPORTS) {
       });
       await page.goto(`/individuell-test/${SESSION}`);
       const item = page.locator("[data-test-item=flervalg-1]");
-      await item.getByRole("radio", { name: copy.option("b") }).check();
+      // `click`, not `check`: the refusal replaces the item with the handed-in test at once, so a
+      // check's read-back of the radio would race it.
+      await item.getByRole("radio", { name: copy.option("b") }).click();
       const main = page.getByRole("main");
       await expect(main.locator("[data-submitted-line]")).toHaveText(/^Levert fr\. 18\. des\. kl\.\s21:40\./u);
       await expect(main.locator("input, textarea")).toHaveCount(0);
