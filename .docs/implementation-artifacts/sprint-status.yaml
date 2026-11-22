@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-17-2026 12:28
-last_updated: 11-22-2026 12:52
+last_updated: 11-22-2026 13:22
 project: beergame
 project_key: NOKEY
 tracking_system: file-system
@@ -206,7 +206,7 @@ development_status:
 
   epic-11: in-progress
   11-1-review-the-question-set-and-item-weights: done
-  11-2-edit-the-scoring-guide-for-a-class-session: in-progress
+  11-2-edit-the-scoring-guide-for-a-class-session: done
   11-3-open-the-individual-test-with-the-own-work-statement: backlog
   11-4-answer-multiple-choice-items-with-autosave: backlog
   11-5-answer-table-and-number-interactive-items: backlog
