@@ -3190,3 +3190,22 @@ Avslutte Epic 8 på `epic-8`: hente inn `main`, visuell kontroll av 8.14 og kolo
 
 ### Åpne punkter
 - Issue #200: en tapt KI-tur uten frist blir aldri reddet, «Melding» ved 390 px, testen med 100 spill (17–29 s), en side som av og til står tom under last.
+
+## Story 11.1: Se gjennom spørsmålssettet og vektene (spor 2)
+
+### Oppgave
+Bygge Story 11.1 på `epic-11` i spor 2, den første storyen i Epic 11.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Den visuelle kontrollen gjøres i avslutningen av Epic 11.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-11-1-review-the-question-set-and-item-weights.md`. Epic-konteksten `epic-11-context.md` ble laget i samme kjøring.
+- Commit: 7359735. Migrasjon 0121.
+- Nytt innholdsslag `question_set` (utkast med plassholdere), kommandoen `python -m app.modules.content load`, blokken «Spørsmål og vekter» med egen lagring og levende sum, og låsen ved Startdato fester utvalget og avviser et utkast i produksjon.
+- Tester: backend 3203, Vitest 1047, tsc, `lint:colours`, `check:copy`, bygg, Playwright 138 med axe; etter rettingene 572 backend-tester og 26 spec-er på nytt.
+- Gjennomgang: 50 funn, 18 rettet.
+- Status: done.
+
+### Åpne punkter
+- Issue #201: beslutninger, og at spørsmålssettet er plassholdere som grunnleggeren må skrive før piloten.
