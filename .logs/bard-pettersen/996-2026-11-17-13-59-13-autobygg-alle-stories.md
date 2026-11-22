@@ -3153,3 +3153,23 @@ Avslutte Epic 10 på `epic-10`: visuell kontroll av 10.9, punktene som må gjør
 ### Åpne punkter
 - Issue #197: testfart, ustabile Playwright-kjøringer under last, lave funn fra gjennomgangen av 10.1 og eldre UX-punkter.
 - Story 10.7 står som review.
+
+## Story 12.1: Slå av KI-vurderingen for en Klasseøkt (spor 2)
+
+### Oppgave
+Bygge Story 12.1 på `epic-12` i spor 2, den første storyen etter compact.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Den visuelle kontrollen gjøres i avslutningen av epicen, for å spare minne og CPU.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-12-1-switch-the-ai-assessment-off-for-a-class-session.md`.
+- Commit: a753981. Migrasjon 0120.
+- Bryteren «KI-vurdering» lagres gjennom `assessment.service` og låses ved den opprinnelige Testfristen gjennom en minimal `sessions.lock_test`, som Epic 11 skal utvide. Bare eieren kan endre den.
+- Tester: hele backend-pakken (én feil rettet og kjørt på nytt), tsc, Vitest, `lint:colours`, `check:copy`, bygg, Playwright 186 før rettingene og 48 etter.
+- Gjennomgang: 19 funn, 6 rettet.
+- Status: done.
+- Omlegging av planen: 12.2–12.10 trenger Epic 11 (spørsmålssett, Sensorveiledning, svar). Spor 2 bygger derfor Epic 11 på `epic-11`, laget fra `epic-12`, og spor 1 tar Epic 15 etter avslutningen av Epic 8.
+
+### Åpne punkter
+- Issue #198: beslutninger og oppfølgende gjennomgang.
