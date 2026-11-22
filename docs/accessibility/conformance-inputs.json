@@ -1,0 +1,65 @@
+{
+  "manualChecks": [
+    {
+      "check": "Screen reader, desktop: NVDA with Chrome or Firefox on Windows, through Logg inn, Hjem, one played Uke (Order, «Vis som tabell»), the Debrief and the Replay as a Student, and the Oversikt as a Faglærer",
+      "owner": "founder",
+      "by": null,
+      "date": null,
+      "result": null
+    },
+    {
+      "check": "Screen reader, phone: VoiceOver with Safari on iOS, through Logg inn, Hjem and one played Uke as a Student",
+      "owner": "founder",
+      "by": null,
+      "date": null,
+      "result": null
+    },
+    {
+      "check": "Keyboard only, by a person: the same paths as the desktop screen reader check, with no mouse",
+      "owner": "founder",
+      "by": null,
+      "date": null,
+      "result": null
+    },
+    {
+      "check": "200 % text and 400 % zoom read by eye on a real phone and laptop: nothing cut off or overlapping",
+      "owner": "founder",
+      "by": null,
+      "date": null,
+      "result": null
+    }
+  ],
+  "independentReview": {
+    "by": "Independent review agent (autonomous build of Story 15.13)",
+    "date": "2026-11-22",
+    "tool": "Playwright CLI 0.1.24 (real Tab, Shift+Tab, Enter, Space and Escape presses) and axe-core 4.14.0",
+    "summary": "24 screens of every Role (public pages, Student Hjem, play screen, Regler, Debrief, Replay, Lecturer Lærerhjem, Klasse, Klasseøkt, Oversikt, Spillinnsikt, and the seven Admin pages) were walked with the keyboard at 1440 and 320 px, and checked with axe at both widths and for sideways scroll at 320 px. Every control was reachable in visual order, the focus ring (2 px solid navy, 2 px offset) was visible on each, no keyboard trap was found, toggles and disclosures worked with Enter and Space, and the footer link was the last tab stop on every screen. Every screen has lang=\"nb\", one h1, one main landmark, a banner and a footer. axe found no violation; SVG chart text that axe could not decide was measured by hand at 4.51:1 or more. No defect was found.",
+    "observations": [
+      "The inline panels on Klasse, Klasseøkt and the Student's Hjem («Legg til adresse», «Registrer manuelt», «Ny Labtime», «Foreslå tidspunkt») do not close on Escape; «Avbryt» closes them and returns focus to the opener. They are inline content, not dialogs.",
+      "There is no skip link. Bypass blocks (2.4.1) is met through the banner and main landmarks; the Lecturer screens have a two- to four-link breadcrumb before the content.",
+      "The Matrisevegg's cells are 32 × 18 px on the Landing and 36 × 18 px on the Oversikt. WCAG 2.1 AA sets no target size (2.5.8 is WCAG 2.2).",
+      "The order field's − and + buttons are named «Én færre» and «Én flere»; symbols are not text labels for 2.5.3, so this passes, but a person may want to confirm it.",
+      "Spillinnsikt: axe left th-has-data-cells undecided for one table; no table with header cells only was found.",
+      "The Landing's lowest SVG text contrast is 4.51:1, just above the 4.5:1 limit."
+    ],
+    "notChecked": [
+      "Screen reader output (no screen reader available to the agent).",
+      "Buttons that change state (Bekreft ordre, Pause spillet, Sett inn KI-spiller, delete, deactivate, archive, send) were not pressed, so any confirmation step they open was not walked.",
+      "Error states after a failed submit, empty and very long lists, forced colours, dark mode and reduced motion."
+    ]
+  },
+  "scanLimits": [
+    "the Student's play screen and the Replay in Uke 1 of a running game, with the table as drawn first (not after «Vis som tabell»);",
+    "the Debrief before it opens (the game is still running), so the open Debrief's steps, charts and quiz are not in this scan; their own specs check them with axe;",
+    "the Lecturer's pages of a Class with one locked Class session and its one game, and the Admin's pages as the local stack holds them;",
+    "no error state after a failed submit, no confirmation step of a button that changes state, no open inline panel."
+  ],
+  "notYetBuilt": [
+    "Individual test (Epic 11): the test, its Interactive items and the submit review.",
+    "AI assessment, feedback and the Control test (Epic 12).",
+    "Completion on Hjem, the Studentside with «Fullføring», Oppfølgingsspill and the Student report download (Epic 13).",
+    "The Student report as a tagged PDF (Epic 13): see the veraPDF section.",
+    "Class report, Tverrklasse-statistikk and the plenary of all Class games (Epic 14).",
+    "«Mine data» (Story 15.1)."
+  ]
+}

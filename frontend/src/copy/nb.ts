@@ -211,6 +211,54 @@ export const nb = {
     failed: "Forespørselen ble ikke sendt. Prøv igjen.",
   },
 
+  /** The accessibility statement at `/tilgjengelighet` and the footer's link to it (Story 15.13,
+   * NFR-6). [ASSUMPTION] Story 15.13, all of it, until the founder's copy review (Issue #31). The
+   * known deviations follow the conformance report in `docs/accessibility/`; revise both together. */
+  accessibility: {
+    footerLink: "Tilgjengelighetserklæring",
+    pageTitle: "Tilgjengelighetserklæring",
+    title: "Tilgjengelighetserklæring",
+    updated: "Sist oppdatert 22. november 2026.",
+    lead: "Erklæringen gjelder nettsidene til ØL-spillet: Landing, innlogging, spillet, Debrief og Replay for studenter, og sidene for faglærere og Admin.",
+    standard: {
+      title: "Krav og status",
+      body: "Målet er at alle sidene oppfyller WCAG 2.1 nivå AA. Kontrollene har ikke funnet brudd på kravene, men ikke alt er kontrollert ennå. Til det er gjort, regner vi sidene som delvis i samsvar med kravene.",
+    },
+    deviations: {
+      title: "Kjente avvik",
+      none: "Kontrollene har ikke funnet avvik på sidene som er kontrollert.",
+      /** The deviations the conformance report found; none so far. */
+      items: [] as readonly string[],
+    },
+    notYet: {
+      title: "Ikke kontrollert ennå",
+      items: [
+        "Ingen person har ennå gått gjennom sidene med skjermleser eller med tastatur alene. Til det er gjort, vet vi ikke sikkert om alt leses opp og virker riktig.",
+        "Feilmeldinger etter innsending og bekreftelsessteg er bare delvis kontrollert.",
+        "Den individuelle testen, Studentrapporten som PDF, klasserapporten og «Mine data» er ikke med i denne versjonen og er ikke kontrollert.",
+      ],
+    },
+    tested: {
+      title: "Slik er sidene kontrollert",
+      body: "Vurderingen er vår egen, gjort 22. november 2026. Hver side er kontrollert automatisk med axe i bredde 320, 360 og 1440 piksler, med 400 % zoom og med 200 % tekst. En programstyrt gjennomgang med tastatur alene fant ingen feil. Hver graf har en tabell med de samme tallene.",
+    },
+    contact: {
+      title: "Si fra om noe ikke virker",
+      student: "Er du student, sier du fra til faglæreren din. Faglæreren melder det videre til oss.",
+      others: "Andre skriver til oss på e-post:",
+      /** [ASSUMPTION] placeholder until the founder names the address (readiness record, R14). */
+      email: "tilgjengelighet@example.com",
+      answer: "Skriv hvilken side det gjelder, hvilken nettleser og hjelpemiddel du brukte, og hva som skjedde.",
+      alternative: "Trenger du innholdet på en annen måte, for eksempel tallene bak en graf, ber du om det på samme måte.",
+    },
+    complaint: {
+      title: "Klage",
+      body: "Får du ikke svar, eller er du ikke fornøyd med svaret, kan du melde fra til Tilsynet for universell utforming av ikt (Uutilsynet).",
+      link: "Uutilsynet",
+      href: "https://www.uutilsynet.no/",
+    },
+  },
+
   auth: {
     login: {
       pageTitle: "Logg inn",

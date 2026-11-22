@@ -215,7 +215,7 @@ export function UserList({ selfId }: { selfId: string }) {
                         {ROLES.map((role) => (
                           <Button
                             key={role}
-                            className="@max-[60em]:w-full @min-[60em]:px-3"
+                            className="@max-[60em]:w-full @max-[60em]:[overflow-wrap:anywhere] @min-[60em]:px-3"
                             unavailable={busy}
                             onClick={() => press(user, role)}
                           >
@@ -223,14 +223,14 @@ export function UserList({ selfId }: { selfId: string }) {
                           </Button>
                         ))}
                         <Button
-                          className="@max-[60em]:w-full @min-[60em]:max-w-[22em] @min-[60em]:px-3 @min-[60em]:text-left"
+                          className="@max-[60em]:w-full @max-[60em]:[overflow-wrap:anywhere] @min-[60em]:max-w-[22em] @min-[60em]:px-3 @min-[60em]:text-left"
                           unavailable={busy}
                           onClick={() => pressStatus(user)}
                         >
                           {statusButtonLabel(user)}
                         </Button>
                         <Button
-                          className="@max-[60em]:w-full @min-[60em]:px-3"
+                          className="@max-[60em]:w-full @max-[60em]:[overflow-wrap:anywhere] @min-[60em]:px-3"
                           unavailable={busy}
                           aria-expanded={deleting === user.id}
                           aria-controls={`delete-${user.id}`}
@@ -269,12 +269,13 @@ export function UserList({ selfId }: { selfId: string }) {
   );
 }
 
-/** A table cell; below laptop width it is a labelled line of the row's block. */
+/** A table cell; below laptop width it is a labelled line of the row's block. A long word (a
+ * name, «Testmåling») breaks rather than push a phone page sideways at 200 % text (Story 15.13). */
 export function Cell({ label, children }: { label: string; children: ReactNode }) {
   return (
     <td className="py-3 pr-6 @max-[60em]:flex @max-[60em]:gap-3 @max-[60em]:py-1 @max-[60em]:pr-0">
       <span className="w-20 shrink-0 text-ink-secondary @min-[60em]:hidden">{label}</span>
-      <span className="min-w-0">{children}</span>
+      <span className="min-w-0 @max-[60em]:[overflow-wrap:anywhere]">{children}</span>
     </td>
   );
 }

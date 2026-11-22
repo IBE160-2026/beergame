@@ -45,7 +45,7 @@ export function SegmentedChoice<T extends string>({
 }) {
   const quad = options.length === 4;
   return (
-    <fieldset className={cn("m-0 min-w-0 border-0 p-0", inline && "flex-none", className)} aria-describedby={describedBy}>
+    <fieldset className={cn("m-0 min-w-0 border-0 p-0", inline && "max-w-full flex-none", className)} aria-describedby={describedBy}>
       <legend
         className={cn(
           "text-label text-ink",
@@ -54,7 +54,8 @@ export function SegmentedChoice<T extends string>({
       >
         {legend}
       </legend>
-      <div className={cn(inline ? "inline-flex" : "flex flex-wrap gap-y-2", quad && "max-sm:grid max-sm:grid-cols-2 max-sm:gap-y-0")}>
+      {/* Inline segments wrap only when the line cannot hold them (a phone at 200 % text, Story 15.13). */}
+      <div className={cn(inline ? "inline-flex max-w-full flex-wrap gap-y-2" : "flex flex-wrap gap-y-2", quad && "max-sm:grid max-sm:grid-cols-2 max-sm:gap-y-0")}>
         {options.map((option, i) => (
           <label
             key={option.value}

@@ -18,6 +18,8 @@ The founder's go/no-go list before the first Class session with real Students (N
 | R10 | The contact named in the Lecturer material of Story 2.13 | founder | #28 | open | |
 | R11 | Sub-processor register (`docs/ops/sub-processors.md`) confirmed for the DPIA pack, its open rows filled in | founder | #28, #29 | open | |
 | R12 | The e-mail provider's data residency decided or listed as open (Story 15.14 completes it) | founder | #29 | open | |
+| R13 | Conformance report [conformance-report-2026-11-22.md](../accessibility/conformance-report-2026-11-22.md): its checks tools cannot make (screen reader, keyboard only) done and recorded (below) | founder | | open | |
+| R14 | The accessibility statement's contact address (`nb.accessibility.contact.email`, now the placeholder `tilgjengelighet@example.com`) set to an address someone reads | founder | | open | |
 
 ## R1 Backup level
 
@@ -80,6 +82,19 @@ During a rehearsal, outside Lab hours: stop the `backend` service in Railway (or
 - **R8.** How they are reached (the uptime tool's alert channel, a phone number), what they check first («Drift», the tracker, Railway's service status), and when they tell the Lecturer that the Class session moves to another hour.
 - **R9.** Availability is measured as the share of the uptime tool's checks during the Lab hours of the Class sessions that answered 200; the target is 99.5 % (NFR-4). Record where the figure is read and for which period.
 - **R10.** The Lecturer material (Story 2.13) names the contact and the route, so a Lecturer knows whom to call during a Lab hour.
+
+## R13–R14 Accessibility (Story 15.13)
+
+NFR-6: the statement is published at `/tilgjengelighet`, linked from the footer of every page, the Landing's included (not from the print route, which only WeasyPrint reads, nor from the shared projection screen `/delt-skjerm`); its copy is `nb.accessibility` in `frontend/src/copy/nb.ts`. The conformance report in `docs/accessibility/` lists every surface of the build at 320, 360 and 1440 px, 400 % zoom and 200 % text, with axe and the sideways-scroll check. Make it again before the pilot, once Epics 11–14 are built, from `frontend/` with the local stack running:
+
+```
+npm run conformance
+```
+
+It scans with fresh data, writes `docs/accessibility/conformance-report-<date>.md` and points R13 at it; commit both. `-- --from <dir>` makes the report from a CI run's `conformance-results` artifact instead, and `-- --verapdf <file>` adds a sample Student report's veraPDF result.
+
+- **R13.** Passed when every check in the report's "Checks tools cannot make" section shows who did it and when (fill `docs/accessibility/conformance-inputs.json` and run the command again), the surfaces show `pass` or a deviation the statement lists, and the statement's «Kjente avvik» says the same as the report. The independent review of the autonomous build did the keyboard and focus checks in the founder's place and found no defect; it closes nothing.
+- **R14.** The address Students' Faglærere and others write to. Until it is set, the statement shows the placeholder (Story 15.14's preflight should refuse it in production).
 
 ## Proposals
 
