@@ -3457,3 +3457,22 @@ Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Den visue
 
 ### Åpne punkter
 - Issue #214: beslutninger.
+
+## Story 15.9: Budsjettet for databasetilkoblinger er skrevet ned og sjekket (spor 1)
+
+### Oppgave
+Bygge Story 15.9 på `epic-15` i spor 1. Kjøreboka sier at en uavhengig gjennomgangsagent velger driftsverdiene i stedet for grunnleggeren.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet; gjennomgangsagenten for kanttilfeller valgte verdiene. Den blinde gjennomgangen kom ikke tilbake til byggeagenten og ble sendt videre fra fila.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-15-9-database-connection-budget-written-and-checked.md`.
+- Commit: c2c2b9d. Migrasjon 0070.
+- Budsjettet (25 tilkoblinger, 50 under utrulling) står i kode og i `docs/ops/connection-budget.md`, holdt like av en test. Hver prosess rapporterer sine tilkoblinger ved oppstart, og `/admin/drift` viser dem. Utrullingstesten nådde 33 av 50 tilkoblinger, og alle 24 175 forespørsler fikk svar.
+- Driftsverdier: plassholdere til lasttesten i Story 15.10; tallene for databasestørrelse må sjekkes mot leverandørens dokumentasjon.
+- Tester: backend 3502, Vitest 1144, bygg, Playwright 38 med axe.
+- Status: done.
+
+### Åpne punkter
+- Issue #215: driftsverdiene og beslutningene.
