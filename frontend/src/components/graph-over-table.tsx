@@ -259,6 +259,13 @@ export function GraphOverTable({
     setLaterHidden(element.scrollLeft + element.clientWidth < element.scrollWidth - 1);
   }, []);
 
+  // Only the «later» hint follows a changed layout; «Sveip for tidligere uker» follows the scroll
+  // alone, as before, so the play screen's line does not flicker while the layout settles.
+  const updateLater = useCallback(() => {
+    const element = region.current;
+    if (element && swipeLater) setLaterHidden(element.scrollLeft + element.clientWidth < element.scrollWidth - 1);
+  }, [swipeLater]);
+
   // Bring nå into view: nå at the left edge of the scrolled area, or as far right as the region
   // goes, whichever is less, so nå + 4 is the right edge whenever all columns from nå fit.
   const toNow = useCallback(() => {
@@ -325,7 +332,7 @@ export function GraphOverTable({
     const observer = new ResizeObserver(() => {
       measure();
       measureJoin();
-      update();
+      updateLater();
       const now = `${element.clientWidth}x${element.scrollWidth}x${table.offsetHeight}`;
       if (now !== size) {
         size = now;
@@ -335,7 +342,7 @@ export function GraphOverTable({
     observer.observe(element);
     observer.observe(table);
     return () => observer.disconnect();
-  }, [measure, measureJoin, toNow, update]);
+  }, [measure, measureJoin, toNow, updateLater]);
 
   return (
     <div className={fixed || !bleed ? undefined : "-mx-[calc(var(--spacing-gutter-phone)-var(--spacing-gutter-phone-chart))] lg:mx-0"}>
