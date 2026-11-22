@@ -133,6 +133,9 @@ __all__ = [
     "class_game_ids",
     "due_takeovers",
     "takeover_of",
+    "TurnReminderInfo",
+    "due_turn_reminders",
+    "turn_reminder_of",
     "class_games",
     "GameResult",
     "chain_result",
@@ -224,6 +227,18 @@ async def due_insert_times(now: datetime) -> list[tuple[str, str]]:
         return [
             (str(game_id), str(seat_id))
             for game_id, seat_id in await repo.due_insert_times(session, now)
+        ]
+
+
+async def due_turn_reminders(now: datetime) -> list[tuple[str, str]]:
+    """The sweep's finder for turn reminders (Story 8.13, FR-27, AD-9): (Game id, Seat id) of
+    each open-Week turn of a running Game with no Pause in force whose reminder time lies at or
+    before `now` and that is not queued yet, earliest first. `games.commands.queue_turn_reminder`
+    checks again under the Game row lock."""
+    async with get_sessionmaker()() as session:
+        return [
+            (str(game_id), str(seat_id))
+            for game_id, seat_id in await repo.due_turn_reminders(session, now)
         ]
 
 
@@ -552,6 +567,63 @@ async def takeover_of(session: AsyncSession, occupancy_id: uuid.UUID) -> Takeove
         number=game["game_number"],
         role=row["role"],
         student=row["student"],
+    )
+
+
+@dataclass(frozen=True)
+class TurnReminderInfo:
+    """A turn reminder as its mail tells it (Story 8.13): the Class game and the Seat's Role. Ids
+    only (AD-14); never the Week."""
+
+    game_id: uuid.UUID
+    class_session_id: uuid.UUID
+    number: int | None
+    role: str
+
+
+async def turn_reminder_of(
+    session: AsyncSession, turn_id: uuid.UUID, user_id: uuid.UUID
+) -> TurnReminderInfo | None:
+    """The turn `turn_id` while the game still waits for `user_id` on it, read in the caller's
+    session (Story 8.13, FR-27): the turn is in the open Week of a running Class game whose policy
+    has inactivity rules, `user_id` holds its Seat that Week and the game waits for it
+    (`rules.waited_for`). None otherwise: the Student ordered, an AI player took the Seat, the
+    Week moved on or the game no longer runs, so the mail leaves it out. A Pause that began after
+    the reminder was queued keeps it: the game still cannot go on without the Student's Order, and
+    the turn is marked, so it would get no other reminder that Week."""
+    row = await repo.turn_with_role(session, turn_id)
+    if row is None:
+        return None
+    game = await repo.get_game(session, row["game_id"])
+    if (
+        game is None
+        or game["class_session_id"] is None
+        or game["settings"] is None
+        or game["lifecycle"] != Lifecycle.RUNNING
+        or not policy(game["purpose"]).inactivity_takeover
+    ):
+        return None
+    week = await repo.open_week(session, game["id"])
+    if week != row["week"]:
+        return None
+    turn = next(
+        (
+            t
+            for t in await repo.week_turns_with_occupant(session, game["id"], week)
+            if t["id"] == turn_id
+        ),
+        None,
+    )
+    guided = rules.guided_week(
+        policy(game["purpose"]), GameSettings.model_validate(game["settings"]), week
+    )
+    if turn is None or turn["user_id"] != user_id or not rules.waited_for(turn, guided=guided):
+        return None
+    return TurnReminderInfo(
+        game_id=game["id"],
+        class_session_id=game["class_session_id"],
+        number=game["game_number"],
+        role=row["role"],
     )
 
 

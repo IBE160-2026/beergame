@@ -293,6 +293,20 @@ async def _run_announce_insert_time() -> str:
     return game_id
 
 
+async def _run_queue_turn_reminder() -> str:
+    """The sweep crosses an absent Seat's reminder time (Story 8.13): only the reminded Student
+    hears of it, through their notice."""
+    from tests.games.test_takeover import class_game
+    from tests.games.test_turn_reminder import reminder_of, seat_id
+
+    game_id, students = await class_game()
+    await commands.place_order(game_id, "retailer", 1, 4, "student", actor=students["retailer"])
+    due = reminder_of(game_id, "factory")
+    assert due is not None
+    assert await commands.queue_turn_reminder(game_id, seat_id(game_id, "factory"), now=due)
+    return game_id
+
+
 async def _run_recompute_turn_times() -> str:
     """A Student's Tilrettelegging moves the open Week's due time (Story 8.9): its Class session
     and both Students hear of it."""
@@ -357,6 +371,7 @@ RUNNERS = {
     "resume": _run_resume,
     "reach_agreed_time": _run_reach_agreed_time,
     "announce_insert_time": _run_announce_insert_time,
+    "queue_turn_reminder": _run_queue_turn_reminder,
     "recompute_turn_times": _run_recompute_turn_times,
     "mark_in_room": _run_mark_in_room,
     "end_in_room": _run_end_in_room,
@@ -390,6 +405,8 @@ CLASS_SETUP_EVENTS = {
     "resume": -4,
     "reach_agreed_time": -4,
     "announce_insert_time": -4,
+    # Counted from the end: the reminded Student's `user` alone.
+    "queue_turn_reminder": -1,
     "recompute_turn_times": -4,
     "mark_in_room": -4,
     "end_in_room": -4,
@@ -421,6 +438,7 @@ def test_every_command_is_exported_and_registered():
             "resume",
             "reach_agreed_time",
             "announce_insert_time",
+            "queue_turn_reminder",
             "recompute_turn_times",
             "mark_in_room",
             "end_in_room",
@@ -443,7 +461,8 @@ async def test_each_command_emits_exactly_its_registered_topics(games_db):
             # A Class game (its Class session hears of each command): only this command's events.
             received = received[CLASS_SETUP_EVENTS[name] :]
             assert {item["topic"] for item in received} == COMMAND_TOPICS[f"games.{name}"]
-            assert {item["id"] for item in received if item["topic"] == "game"} == {game_id}
+            if "game" in COMMAND_TOPICS[f"games.{name}"]:
+                assert {item["id"] for item in received if item["topic"] == "game"} == {game_id}
             continue
         if name != "create":
             received = received[1:]  # the first event is the setup's create

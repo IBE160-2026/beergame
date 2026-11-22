@@ -81,6 +81,7 @@ from app.platform.parameter_sets import UnknownParameterSetError, read_parameter
 __all__ = [
     "TAKEOVER_NOTICE",
     "TIME_PROPOSED_NOTICE",
+    "TURN_REMINDER_NOTICE",
     "CommandError",
     "accept_time",
     "advance",
@@ -95,6 +96,7 @@ __all__ = [
     "pause",
     "place_order",
     "propose_time",
+    "queue_turn_reminder",
     "reach_agreed_time",
     "recompute_turn_times",
     "request_reclaim",
@@ -1190,6 +1192,9 @@ async def _step(
     all_orders = await stored_orders(session, game_uuid)
     orders, week_orders = all_orders[: week - 1], all_orders[week - 1]
     following = engine_advance(settings, states[-1], week_orders, game["rules_version"])
+    # Story 8.13: no turn of the completed Week is waited for any more; its unqueued reminders are
+    # closed, so they leave the sweep's partial index.
+    await repo.close_reminders(session, game_uuid, week)
     if following.finished:
         # A Reclaim queued in the last Week has no Week to take effect in (Story 8.4).
         await repo.delete_reclaims(session, game_uuid)
@@ -1608,6 +1613,7 @@ async def _start_waits(session: AsyncSession, game: Mapping[str, Any], week: int
     clock_start = await repo.now(session)
     limit = _inactivity_limit(game)
     factors = await _time_factors(session, game, waiting)
+    reminder_delay = timedelta(minutes=get_settings().turn_reminder_delay_minutes)
     for turn in waiting:
         kind = OccupantKind(turn["occupant_kind"] or OccupantKind.RULE_BASED)
         seat = rules.TurnSeat(occupant_kind=kind, opened_at=turn["opened_at"])
@@ -1617,6 +1623,7 @@ async def _start_waits(session: AsyncSession, game: Mapping[str, Any], week: int
             time_factor=factors.get(turn["user_id"]),
             agreed_time=turn["insert_allowed_at"],
             in_room_limit=_in_room_limit(game),
+            reminder_delay=reminder_delay,
         )
         times = rules.turn_times(rules.TurnGame(guided_week=guided), seat, inputs)
         await repo.set_wait_times(
@@ -1625,6 +1632,7 @@ async def _start_waits(session: AsyncSession, game: Mapping[str, Any], week: int
             wait_started_at=times.wait_started_at,
             takeover_due_at=times.takeover_due_at,
             insert_allowed_at=times.insert_allowed_at,
+            reminder_due_at=times.reminder_due_at,
         )
 
 
@@ -2282,6 +2290,70 @@ async def announce_insert_time(game_id: str, seat_id: str, *, now: datetime) -> 
             await events.emit(session, "user", str(student))
     log.info("insert_time_reached", game_id=game_id, seat_id=str(seat_uuid))
     return True
+
+
+TURN_REMINDER_NOTICE = "turn_reminder"
+"""The notice kind a Student gets when the Class game has waited for their Order for the reminder
+delay, `digest` (Story 8.13, FR-27, AD-9). Its `ref` is the turn (`seat_turns.id`); the mail reads
+it at send time and leaves the game out once the Seat no longer waits."""
+
+
+async def queue_turn_reminder(game_id: str, seat_id: str, *, now: datetime) -> bool:
+    """The sweep crossed a turn's reminder time in the open Week (Story 8.13, FR-27, AD-9): while
+    the Game runs with no Pause in force and the game still waits for the Seat
+    (`rules.waited_for`), the Student holding it gets one `turn_reminder` notice through
+    `platform/notify.enqueue`, keyed per User, Game and Week, ids only; `notify` emits their
+    `user:<id>`. The turn is marked once (`reminder_queued_at`). `now` is the sweep's clock.
+
+    One transaction under the Game row lock; nothing a game view shows changes, so the version
+    stays. Idempotent: False, writing nothing, when the turn is no longer in the open Week, has
+    no reminder time, has not reached it at `now`, was marked already, or the Game is paused (the
+    reminder waits for the Pause to end, FR-27's assumption); False with only the mark written
+    when the Game no longer runs or the Seat is no longer waited for (it ordered, or an AI player
+    took it), and with the mark when its dedupe key was used already. Refuses `game_not_found`
+    (404)."""
+    game_uuid = _game_uuid(game_id)
+    seat_uuid = uuid.UUID(str(seat_id))
+    async with get_sessionmaker().begin() as session:
+        game = await repo.lock_game(session, game_uuid)
+        if game is None:
+            raise CommandError("game_not_found", f"no Game {game_id!r}", 404)
+        week = await repo.open_week(session, game_uuid) if game["settings"] is not None else None
+        if week is None:
+            return False
+        turns = await repo.week_turns_with_occupant(session, game_uuid, week)
+        turn = next((t for t in turns if t["seat_id"] == seat_uuid), None)
+        if (
+            turn is None
+            or turn["reminder_due_at"] is None
+            or turn["reminder_due_at"] > now
+            or turn["reminder_queued_at"] is not None
+            or rules.is_paused(game)
+        ):
+            return False
+        await repo.mark_reminder_queued(session, turn["id"], now)
+        guided = rules.guided_week(
+            _policy(game["purpose"]), GameSettings.model_validate(game["settings"]), week
+        )
+        if (
+            game["lifecycle"] != Lifecycle.RUNNING
+            or not _policy(game["purpose"]).inactivity_takeover
+            or not rules.waited_for(turn, guided=guided)
+            or turn["user_id"] is None
+        ):
+            return False
+        student = turn["user_id"]
+        queued = await notify.enqueue(
+            session,
+            student,
+            TURN_REMINDER_NOTICE,
+            f"{TURN_REMINDER_NOTICE}:{student}:{game_uuid}:{week}",
+            ref=turn["id"],
+            not_before=turn["reminder_due_at"],
+        )
+    if queued:
+        log.info("turn_reminder_queued", game_id=game_id, seat_id=str(seat_uuid))
+    return queued
 
 
 async def recompute_turn_times(game_id: str) -> bool:

@@ -90,7 +90,7 @@ HEAD_TABLES = (
     | RECLAIM_TABLES
     | ADJUSTMENT_TABLES
 )
-HEAD = "0061"  # 0061 adds the «I rommet» mark (Story 8.11)
+HEAD = "0062"  # 0062 adds the turn reminder's due time (Story 8.13)
 
 
 def reset_schema(url: str) -> None:

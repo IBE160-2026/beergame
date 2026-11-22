@@ -196,6 +196,9 @@ class TurnInputs:
     in_room_limit: timedelta | None = None
     """The shorter limit of a Game marked as in the room (FR-36, Story 8.11); it replaces the
     Inactivity limit. None when the Game is not marked."""
+    reminder_delay: timedelta | None = None
+    """How long the game waits for a Student before the turn reminder (Story 8.13, FR-27,
+    configuration); None for a call that does not ask for one."""
 
 
 @dataclass(frozen=True)
@@ -213,6 +216,10 @@ class TurnTimes:
     """From when another Student may put an AI player in the Seat (FR-89): the agreed time if one
     is set, never before the Student's own extended limit when they have a factor above 1;
     otherwise `takeover_due_at`."""
+    reminder_due_at: datetime | None = None
+    """When the Student is reminded by mail that the game waits for them (Story 8.13, FR-27): the
+    wait start plus the reminder delay, for a `student` occupant with a limit in force; None
+    otherwise. Neither the Student's factor nor the in-room limit moves it."""
 
 
 def turn_times(game: TurnGame, seat: TurnSeat, inputs: TurnInputs) -> TurnTimes:
@@ -223,11 +230,20 @@ def turn_times(game: TurnGame, seat: TurnSeat, inputs: TurnInputs) -> TurnTimes:
     start the Seat is waited for from then, or from when its occupant took it if that came later
     (Story 6.14, FR-25); the caller asks only for a turn that has not ordered. A `student`
     occupant waited for under a limit also gets its FR-36 due times (`_due_times`), in a Guided
-    Week too (FR-24)."""
+    Week too (FR-24), and its reminder time when the caller gives a reminder delay (Story 8.13).
+    A Game whose policy has no inactivity rules passes no limit, so it gets neither (AD-13)."""
     waiting = None
     if inputs.clock_start is not None:
         waiting = _later(inputs.clock_start, seat.occupied_since)
     takeover_due, insert_allowed = _due_times(seat, inputs, waiting)
+    reminder_due = None
+    if (
+        seat.occupant_kind is OccupantKind.STUDENT
+        and waiting is not None
+        and inputs.reminder_delay is not None
+        and (inputs.inactivity_limit is not None or inputs.in_room_limit is not None)
+    ):
+        reminder_due = waiting + inputs.reminder_delay
     ai_deadline = None
     if (
         seat.occupant_kind is OccupantKind.LLM
@@ -241,6 +257,7 @@ def turn_times(game: TurnGame, seat: TurnSeat, inputs: TurnInputs) -> TurnTimes:
         wait_started_at=waiting,
         takeover_due_at=takeover_due,
         insert_allowed_at=insert_allowed,
+        reminder_due_at=reminder_due,
     )
 
 

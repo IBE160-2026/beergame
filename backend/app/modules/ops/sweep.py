@@ -188,6 +188,20 @@ async def _announce_insert_time(item: object, now: datetime) -> bool:
     return await games_commands.announce_insert_time(game_id, seat_id, now=now)
 
 
+async def _due_turn_reminders(now: datetime) -> Sequence[tuple[str, str]]:
+    return await games.due_turn_reminders(now)
+
+
+async def _queue_turn_reminder(item: object, now: datetime) -> bool:
+    """Story 8.13 (FR-27, AD-9): one Seat's reminder time has passed. While the game still waits
+    for it, the command queues one `turn_reminder` digest notice for its Student; the next
+    minute's digest claim gathers it. A paused Game is not found; a Seat no longer waited for is
+    marked quietly by the command itself."""
+    assert isinstance(item, tuple)
+    game_id, seat_id = item
+    return await games_commands.queue_turn_reminder(game_id, seat_id, now=now)
+
+
 DUE_ACTIONS: tuple[DueAction, ...] = (
     # The first due action (Story 3.5): claim due notices into mails and defer their `mail` jobs.
     DueAction("messaging.mail", messaging.due_items, messaging.claim),  # type: ignore[arg-type]
@@ -232,6 +246,9 @@ DUE_ACTIONS: tuple[DueAction, ...] = (
     # Story 8.8: announce once that a Seat's insert time has passed (FR-89); after the Takeover,
     # so a Seat taken over this minute is not announced as waiting.
     DueAction("games.announce_insert_time", _due_insert_times, _announce_insert_time),
+    # Story 8.13: queue a turn reminder for each Seat the game has waited for since its reminder
+    # time (FR-27); after the Takeover, so a Seat taken over this minute is not reminded.
+    DueAction("games.queue_turn_reminder", _due_turn_reminders, _queue_turn_reminder),
     DueAction("games.verify_finished", _unchecked_finished_games, _verify_finished),
     # Story 5.14: remind every Student of a Play, Debrief or Test deadline 24 hours ahead, once
     # per deadline time (FR-18). The reminders join the next minute's digest claim.

@@ -2319,6 +2319,32 @@ async def takeover_mail_context(
     }
 
 
+async def turn_reminder_mail_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    """The template variables of a `turn_reminder`, for `messaging` when the digest is built
+    (Story 8.13, FR-27, FR-14, AD-9): the Class's name, the game number and the Seat's Role.
+    Never a number of Uker, demand or another Seat's numbers. None, so the game is left out of
+    the mail, when the game no longer waits for the User on that turn
+    (`games.service.turn_reminder_of`: they ordered, the Seat was taken over, the Week moved on,
+    the game no longer runs), the Class is archived or the User is no longer a registered
+    Student of it."""
+    if ref is None:
+        return None
+    info = await games_service.turn_reminder_of(session, ref, user_id)
+    if info is None:
+        return None
+    row = await repo.session_row(session, info.class_session_id)
+    if row is None:
+        return None
+    label = await classes.label_of_class(session, row["class_id"])
+    if label is None or label.archived:
+        return None
+    if user_id not in await classes.registered_students(row["class_id"]):
+        return None
+    return {"class_name": label.name, "game_number": info.number, "role": info.role}
+
+
 # The allocation draft (Story 5.8, FR-20, AD-12, AD-14).
 
 SEAT_ORDER: tuple[Role, ...] = tuple(reversed(ROLES))

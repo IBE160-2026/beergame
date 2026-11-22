@@ -268,6 +268,11 @@ seat_turns = Table(
     # Story 8.8 (AD-9): when the sweep announced that the insert time had passed, so it does so
     # once; cleared when a Lecturer's Pause command moves the insert time.
     Column("insert_announced_at", DateTime(timezone=True), nullable=True),
+    # Story 8.13 (FR-27, AD-9, AD-20): when the Student holding the Seat is reminded by mail that
+    # the game waits for them, set with `wait_started_at` from `games.rules.turn_times`; and when
+    # the sweep queued that reminder (or found the Seat no longer waited for), so it does so once.
+    Column("reminder_due_at", DateTime(timezone=True), nullable=True),
+    Column("reminder_queued_at", DateTime(timezone=True), nullable=True),
     CheckConstraint("week >= 1", name="ck_seat_turns_week"),
     CheckConstraint("rule_based_reference_order >= 0", name="ck_seat_turns_reference_order"),
     CheckConstraint("near_optimal_reference_order >= 0", name="ck_seat_turns_near_optimal_order"),
@@ -280,6 +285,11 @@ seat_turns = Table(
         "ix_seat_turns_ai_deadline",
         "ai_deadline_at",
         postgresql_where=text("ordered_at IS NULL AND ai_deadline_at IS NOT NULL"),
+    ),
+    Index(
+        "ix_seat_turns_reminder_due",
+        "reminder_due_at",
+        postgresql_where=text("reminder_queued_at IS NULL AND reminder_due_at IS NOT NULL"),
     ),
 )
 """One row per Seat per opened Week (AD-20). A trigger refuses DELETE and any UPDATE of the

@@ -1,0 +1,5 @@
+{# The Class game waits for the Student's Order (Story 8.13, FR-27), a digest kind. See the text
+   part for the variables. Draft copy. #}
+{% set roles = {"retailer": "Detaljist", "wholesaler": "Grossist", "distributor": "Distributør", "factory": "Fabrikk"} %}
+<p style="margin:0 0 12px;">Spill {{ game_number }} i Klassen {{ class_name }} venter på bestillingen din som {{ roles[role] }}. Gruppen spiller videre når du har bestilt.</p>
+<p style="margin:0;">Du bestiller fra <a href="{{ url('/hjem') }}" style="color:#2B6CA3;font-weight:600;">Hjem</a>.</p>

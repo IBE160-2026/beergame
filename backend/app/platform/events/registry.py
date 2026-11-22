@@ -45,6 +45,9 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # The sweep crossed a Seat's insert time (Story 8.8): every Student of the Game reads
         # «Sett inn KI-spiller for …» without a reload, and the Class session hears of it.
         "games.announce_insert_time": frozenset({"game", "session", "user"}),
+        # A turn reminder queued (Story 8.13): nothing a game view shows changes, so only the
+        # reminded Student's `user` topic, which `platform/notify.enqueue` emits.
+        "games.queue_turn_reminder": frozenset({"user"}),
         # A Student's Tilrettelegging moved the open Week's due times (Story 8.9): the Varselbånd
         # and every Student of the Game read the new times.
         "games.recompute_turn_times": frozenset({"game", "session", "user"}),

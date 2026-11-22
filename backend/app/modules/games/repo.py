@@ -612,6 +612,55 @@ async def due_insert_times(session: AsyncSession, now: Any) -> list[tuple[uuid.U
     return [(row.game_id, row.seat_id) for row in result]
 
 
+async def mark_reminder_queued(session: AsyncSession, turn_id: uuid.UUID, at: Any) -> None:
+    """Story 8.13: the sweep queued the turn's reminder at `at`, or found the Seat no longer
+    waited for."""
+    await session.execute(
+        update(seat_turns).where(seat_turns.c.id == turn_id).values(reminder_queued_at=at)
+    )
+
+
+async def close_reminders(session: AsyncSession, game_id: uuid.UUID, week: int) -> None:
+    """Story 8.13: `week` is complete, so none of its turns is waited for; each reminder not
+    queued yet is marked at the transaction's `now()`, which takes it out of the sweep's
+    partial index."""
+    await session.execute(
+        update(seat_turns)
+        .where(
+            seat_turns.c.game_id == game_id,
+            seat_turns.c.week == week,
+            seat_turns.c.reminder_due_at.is_not(None),
+            seat_turns.c.reminder_queued_at.is_(None),
+        )
+        .values(reminder_queued_at=func.now())
+    )
+
+
+async def due_turn_reminders(session: AsyncSession, now: Any) -> list[tuple[uuid.UUID, uuid.UUID]]:
+    """Story 8.13 (AD-9): (Game id, Seat id) of each turn in the open Week of a running Game with
+    no Pause in force whose reminder time lies at or before `now` and that the sweep has not
+    queued yet, the earliest first. A paused Game is left until its Pause ends (FR-27). Whether
+    the Seat still waits is the command's to judge under the lock."""
+    opened = (
+        select(func.max(game_weeks.c.week))
+        .where(game_weeks.c.game_id == seat_turns.c.game_id, game_weeks.c.finished.is_(False))
+        .scalar_subquery()
+    )
+    result = await session.execute(
+        select(seat_turns.c.game_id, seat_turns.c.seat_id)
+        .join(games, games.c.id == seat_turns.c.game_id)
+        .where(
+            games.c.lifecycle == "running",
+            games.c.paused_at.is_(None),
+            seat_turns.c.reminder_due_at <= now,
+            seat_turns.c.reminder_queued_at.is_(None),
+            seat_turns.c.week == opened,
+        )
+        .order_by(seat_turns.c.reminder_due_at, seat_turns.c.id)
+    )
+    return [(row.game_id, row.seat_id) for row in result]
+
+
 async def insert_week(
     session: AsyncSession,
     game_id: uuid.UUID,
@@ -675,6 +724,16 @@ async def turn(
     return result.mappings().one_or_none()
 
 
+async def turn_with_role(session: AsyncSession, turn_id: uuid.UUID) -> RowMapping | None:
+    """The `seat_turns` row `turn_id` with its Seat's `role` (Story 8.13); None for no such row."""
+    result = await session.execute(
+        select(seat_turns, seats.c.role)
+        .join(seats, seats.c.id == seat_turns.c.seat_id)
+        .where(seat_turns.c.id == turn_id)
+    )
+    return result.mappings().one_or_none()
+
+
 async def week_turns_with_occupant(
     session: AsyncSession, game_id: uuid.UUID, week: int
 ) -> list[RowMapping]:
@@ -718,9 +777,11 @@ async def set_wait_times(
     wait_started_at: Any,
     takeover_due_at: Any,
     insert_allowed_at: Any,
+    reminder_due_at: Any = None,
 ) -> None:
-    """Store when the game began to wait for the turn's Seat (Story 6.14) and its FR-36 due times
-    (Story 8.1), all from one `rules.turn_times` result, only while the wait start is unset."""
+    """Store when the game began to wait for the turn's Seat (Story 6.14), its FR-36 due times
+    (Story 8.1) and its reminder time (Story 8.13), all from one `rules.turn_times` result, only
+    while the wait start is unset."""
     await session.execute(
         update(seat_turns)
         .where(seat_turns.c.id == turn_id, seat_turns.c.wait_started_at.is_(None))
@@ -728,6 +789,7 @@ async def set_wait_times(
             wait_started_at=wait_started_at,
             takeover_due_at=takeover_due_at,
             insert_allowed_at=insert_allowed_at,
+            reminder_due_at=reminder_due_at,
         )
     )
 

@@ -177,3 +177,41 @@ def test_the_due_times_leave_the_ai_deadline_alone():
     times = turn_times(FREE, TurnSeat(LLM, OPENED), inputs)
     assert times.ai_deadline_at == OPENED + timedelta(seconds=8)
     assert times.takeover_due_at is None
+
+
+DELAY = timedelta(hours=2)
+LIMIT = timedelta(hours=24)
+
+
+@pytest.mark.parametrize(
+    ("game", "kind", "inputs", "reminder"),
+    [
+        # Story 8.13 (FR-27): a Student waited for under a limit is reminded the delay after the
+        # wait start, in a Guided Week too; neither the factor nor the in-room limit moves it.
+        (FREE, STUDENT, TurnInputs(clock_start=START, inactivity_limit=LIMIT), START + DELAY),
+        (GUIDED, STUDENT, TurnInputs(clock_start=START, inactivity_limit=LIMIT), START + DELAY),
+        (
+            FREE,
+            STUDENT,
+            TurnInputs(clock_start=START, inactivity_limit=LIMIT, time_factor=1.5),
+            START + DELAY,
+        ),
+        (
+            FREE,
+            STUDENT,
+            TurnInputs(clock_start=START, in_room_limit=timedelta(minutes=10)),
+            START + DELAY,
+        ),
+        # None: nobody else has ordered, no limit (no inactivity rules, AD-13), no delay asked,
+        # or an AI player in the Seat.
+        (FREE, STUDENT, TurnInputs(inactivity_limit=LIMIT), None),
+        (FREE, STUDENT, TurnInputs(clock_start=START), None),
+        (FREE, LLM, TurnInputs(clock_start=START, inactivity_limit=LIMIT), None),
+        (FREE, RULE, TurnInputs(clock_start=START, inactivity_limit=LIMIT), None),
+    ],
+)
+def test_the_reminder_is_due_the_delay_after_the_wait_start(game, kind, inputs, reminder):
+    seat = TurnSeat(occupant_kind=kind, opened_at=OPENED)
+    with_delay = TurnInputs(**{**inputs.__dict__, "reminder_delay": DELAY})
+    assert turn_times(game, seat, with_delay).reminder_due_at == reminder
+    assert turn_times(game, seat, inputs).reminder_due_at is None
