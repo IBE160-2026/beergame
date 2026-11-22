@@ -2443,6 +2443,22 @@
         "title": "DatesIn",
         "type": "object"
       },
+      "DeadlineExtensionIn": {
+        "additionalProperties": false,
+        "description": "«Lagre frist» on the Studentside (Story 11.13, FR-18): the Student's own Test deadline,\nwith its time zone. There is no field for a reason.",
+        "properties": {
+          "test_deadline": {
+            "format": "date-time",
+            "title": "Test Deadline",
+            "type": "string"
+          }
+        },
+        "required": [
+          "test_deadline"
+        ],
+        "title": "DeadlineExtensionIn",
+        "type": "object"
+      },
       "DebriefMode": {
         "description": "How the Debrief is held (FR-16): the four of a Class game together, or each alone.",
         "enum": [
@@ -9979,6 +9995,77 @@
         "title": "StoredAnswerOut",
         "type": "object"
       },
+      "StudentDeadlinesOut": {
+        "description": "The block «Frister» on the Studentside (Story 11.13, FR-18): the Student's Debrief and Test\ndeadlines beside the Class session's, for the Lecturers of its Class only.",
+        "properties": {
+          "class_debrief_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Class Debrief Deadline"
+          },
+          "class_test_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Class Test Deadline"
+          },
+          "debrief_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Debrief Deadline"
+          },
+          "extended": {
+            "title": "Extended",
+            "type": "boolean"
+          },
+          "submitted": {
+            "title": "Submitted",
+            "type": "boolean"
+          },
+          "test_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test Deadline"
+          }
+        },
+        "required": [
+          "class_debrief_deadline",
+          "class_test_deadline",
+          "debrief_deadline",
+          "test_deadline",
+          "extended",
+          "submitted"
+        ],
+        "title": "StudentDeadlinesOut",
+        "type": "object"
+      },
       "StudentGameOut": {
         "description": "The Student's Class game on Hjem (Story 6.1): «Spill 17 · Du er Grossist» and the four\nSeats, Fabrikk first (UX-DR73). Only from the Start date (`is_locked`).",
         "properties": {
@@ -10168,7 +10255,7 @@
         "type": "object"
       },
       "StudentPageOut": {
-        "description": "The Studentside of one Student of a Class session (Story 8.9, UX-DR53), for the Lecturers of\nits Class only: for now the block «Tilrettelegging»; Story 13.2 adds its own blocks.",
+        "description": "The Studentside of one Student of a Class session (Story 8.9, UX-DR53), for the Lecturers of\nits Class only: the blocks «Tilrettelegging» and «Frister» (Story 11.13); Story 13.2 adds its\nown blocks.",
         "properties": {
           "adjustment": {
             "anyOf": [
@@ -10198,6 +10285,9 @@
             "title": "Class Share",
             "type": "integer"
           },
+          "deadlines": {
+            "$ref": "#/components/schemas/StudentDeadlinesOut"
+          },
           "name": {
             "title": "Name",
             "type": "string"
@@ -10220,7 +10310,8 @@
           "user_id",
           "name",
           "class_share",
-          "adjustment"
+          "adjustment",
+          "deadlines"
         ],
         "title": "StudentPageOut",
         "type": "object"
@@ -15849,6 +15940,98 @@
         "summary": "Save Adjustment",
         "tags": [
           "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/students/{user_id}/deadline": {
+      "put": {
+        "description": "«Lagre frist» on the Studentside (Story 11.13, FR-18, AD-9): the Student's own Test\ndeadline, later than the Class session's, and their Debrief deadline moved by the same amount;\nan open Individual test attempt takes it at once (a timed sitting keeps its end). Recorded in\nthe audit log. Answers the block «Frister». 422 `invalid_extension` with `fields.test_deadline`\n(`not_later`, `passed`, `no_test_deadline`); 409 `attempt_submitted` when the Student has\nhanded the test in; 409 `class_archived`; 403 `forbidden` for anyone but a Lecturer of the\nClass (an Assistant lecturer too) and for a User who is no Student of it.",
+        "operationId": "extendTestDeadline",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeadlineExtensionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentDeadlinesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Extend Test Deadline",
+        "tags": [
+          "tests"
         ]
       }
     },

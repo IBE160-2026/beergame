@@ -3779,6 +3779,42 @@ export const nb = {
       } as Record<string, string>,
       failed: "Tilretteleggingen ble ikke lagret. Prøv igjen.",
     },
+    /** The block «Frister» (Story 11.13, FR-18): one Student's own Test deadline, the Debrief
+     * deadline moved with it. EXPERIENCE.md gives none of these strings: all [ASSUMPTION] draft
+     * copy, listed for the founder's review. Times are Europe/Oslo. */
+    deadline: {
+      title: "Frister",
+      /** «Testfrist: ti. 22. des. kl. 10:00.» */
+      test: (at: string) => `Testfrist: ${at}.`,
+      /** «Debrieffrist: …» */
+      debrief: (at: string) => `Debrieffrist: ${at}.`,
+      noTest: "Klasseøkta har ingen testfrist.",
+      /** Shown when extended: «Forlenget. Klassens testfrist: …» */
+      extended: (at: string) => `Forlenget. Klassens testfrist: ${at}.`,
+      asClass: "Som klassen.",
+      change: "Forleng testfrist",
+      submitted: (name: string) => `${name} har levert testen. Fristen kan ikke forlenges.`,
+      fieldLabel: "Ny testfrist",
+      /** The help line under the field: «Må være etter klassens testfrist, …» */
+      hint: (at: string) => `Må være etter klassens testfrist, ${at}.`,
+      /** «Debrieffristen flyttes like mye. Gjelder bare Jonas. Endringen logges.» */
+      scope: (name: string) => `Debrieffristen flyttes like mye. Gjelder bare ${name}. Endringen logges.`,
+      save: "Lagre frist",
+      cancel: "Avbryt",
+      /** The result line that replaces the form: «Lagret. Ny testfrist for Jonas: …» */
+      saved: (name: string, at: string) => `Lagret. Ny testfrist for ${name}: ${at}.`,
+      /** On the field. */
+      errors: {
+        required: "Velg dato og klokkeslett.",
+        not_later: (at: string) => `Velg en tid etter klassens testfrist, ${at}.`,
+        passed: "Velg en tid som ikke har passert.",
+      },
+      refusals: {
+        attempt_submitted: "Studenten har levert testen. Fristen kan ikke forlenges.",
+        no_test_deadline: "Klasseøkta har ingen testfrist å forlenge.",
+      } as Record<string, string>,
+      failed: "Fristen ble ikke lagret. Prøv igjen.",
+    },
   },
 
   /** Links between pages (Story 3.3). Each names where it goes. */

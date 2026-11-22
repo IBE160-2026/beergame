@@ -1565,9 +1565,26 @@ class AdjustmentOut(BaseModel):
     """The share of Weeks required of the Student; None: the Class session's own."""
 
 
+class StudentDeadlinesOut(BaseModel):
+    """The block «Frister» on the Studentside (Story 11.13, FR-18): the Student's Debrief and Test
+    deadlines beside the Class session's, for the Lecturers of its Class only."""
+
+    class_debrief_deadline: datetime | None
+    class_test_deadline: datetime | None
+    debrief_deadline: datetime | None
+    """The Student's own (`service.effective_debrief_deadline`)."""
+    test_deadline: datetime | None
+    """The Student's own (`service.effective_test_deadline`)."""
+    extended: bool
+    """The Student's Test deadline is their own, later than the Class session's as it now stands."""
+    submitted: bool
+    """The Student has handed in the Individual test: their deadline can no longer be extended."""
+
+
 class StudentPageOut(BaseModel):
     """The Studentside of one Student of a Class session (Story 8.9, UX-DR53), for the Lecturers of
-    its Class only: for now the block «Tilrettelegging»; Story 13.2 adds its own blocks."""
+    its Class only: the blocks «Tilrettelegging» and «Frister» (Story 11.13); Story 13.2 adds its
+    own blocks."""
 
     class_session_id: uuid.UUID
     class_id: uuid.UUID
@@ -1579,6 +1596,8 @@ class StudentPageOut(BaseModel):
     """The Class session's required share of Weeks (`service.required_share`, Story 5.7)."""
     adjustment: AdjustmentOut | None
     """None: no Tilrettelegging («Ingen tilrettelegging.»)."""
+    deadlines: StudentDeadlinesOut
+    """Story 11.13: the Student's deadlines and whether they are extended."""
 
 
 class AdjustmentIn(BaseModel):

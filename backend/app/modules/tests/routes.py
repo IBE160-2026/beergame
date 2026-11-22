@@ -17,7 +17,11 @@ for the Class's owners and Assistant lecturers, likewise.
 The Student's Individual test (Story 11.3, FR-51): `GET /api/me/class-sessions/{id}/test` and
 `POST …` (accepting the own-work statement). Any session that is not the Student's own locked
 Class session answers 403 `forbidden`, whether or not an attempt exists (FR-5). `PUT
-…/test/answers/{item_id}` autosaves one answer (Story 11.4, AD-10)."""
+…/test/answers/{item_id}` autosaves one answer (Story 11.4, AD-10).
+
+A Student's own Test deadline (Story 11.13, FR-18): `PUT
+/api/class-sessions/{id}/students/{user_id}/deadline` («Lagre frist» on the Studentside) for the
+Lecturers of the Class only (`class_sessions.manage`); 403 `forbidden` for every other caller."""
 
 import uuid
 from typing import Annotated
@@ -30,6 +34,7 @@ from app.modules.tests import attempt, commands, guide, preview, selection, serv
 from app.modules.tests.schemas import (
     AdaptedPreviewOut,
     AnswerIn,
+    DeadlineExtensionIn,
     FinalIn,
     MyTestOut,
     QuestionSetIn,
@@ -44,6 +49,9 @@ from app.platform import auth, authz
 from app.platform.errors import documented, error_response
 
 router = APIRouter(prefix="/api", tags=["tests"])
+
+_PERSONAL = {"Cache-Control": "no-store"}
+"""A Student's own deadline is personal data: no cache keeps it (Story 11.13)."""
 
 _PATH = "/me/games/{game_id}/starting-task"
 
@@ -365,3 +373,35 @@ async def save_my_test_answer(
     if saved is None:
         raise authz.Forbidden
     return JSONResponse(saved.model_dump(mode="json"))
+
+
+@router.put(
+    "/class-sessions/{session_id}/students/{user_id}/deadline",
+    response_model=sessions.StudentDeadlinesOut,
+    responses=documented(401, 403, 409, 422),
+    operation_id="extendTestDeadline",
+)
+async def extend_test_deadline(
+    session_id: str,
+    user_id: str,
+    body: DeadlineExtensionIn,
+    user: Annotated[authz.Principal, Depends(authz.require("class_sessions.manage"))],
+) -> Response:
+    """«Lagre frist» on the Studentside (Story 11.13, FR-18, AD-9): the Student's own Test
+    deadline, later than the Class session's, and their Debrief deadline moved by the same amount;
+    an open Individual test attempt takes it at once (a timed sitting keeps its end). Recorded in
+    the audit log. Answers the block «Frister». 422 `invalid_extension` with `fields.test_deadline`
+    (`not_later`, `passed`, `no_test_deadline`); 409 `attempt_submitted` when the Student has
+    handed the test in; 409 `class_archived`; 403 `forbidden` for anyone but a Lecturer of the
+    Class (an Assistant lecturer too) and for a User who is no Student of it."""
+    try:
+        found = await commands.extend_deadline(
+            user, _id(session_id), _id(user_id), body.test_deadline, auth.utcnow()
+        )
+    except commands.AttemptSubmitted:
+        return error_response(409, "attempt_submitted", "The test is handed in.")
+    except sessions.InvalidExtension as refused:
+        return error_response(422, refused.code, "The deadline must be later.", refused.fields)
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"), headers=_PERSONAL)

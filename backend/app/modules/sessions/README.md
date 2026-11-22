@@ -44,7 +44,10 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
 - A save that changes a date emits `user:<id>` for each registered Student of the Class.
 - `service.is_locked(class_session)` is the one lock predicate: the Start date has passed.
   `effective_debrief_deadline` and `effective_test_deadline` are the only way another module
-  reads a Student's deadline (Epic 11 adds per-Student values inside them).
+  reads a Student's deadline: the Class session's, or the Student's own extension where later
+  (Story 11.13). A Mapping row must come through a per-Student reader (`_with_own_deadlines`:
+  Hjem, `replay_session_of`, `individual_test_session_of`, `student_deadlines`, the Test-deadline
+  reader `games` judges the Replay by); one without the Student's keys raises.
 - `play_time_warning` needs `MIN_PLAY_MINUTES_PER_WEEK` (unset until SM-11), and is false
   while it is unset.
 - `GET /api/me/class-sessions`: a Student's sessions with dates and `next_deadline`, scoped by
@@ -340,7 +343,9 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
 ## Deadline reminders (Story 5.14)
 
 - `deadline_reminders` (migration 0041): one row per deadline time the Students were reminded
-  of, unique on `(class_session_id, deadline, deadline_at)`. Ids and times only.
+  of, unique on `(class_session_id, deadline, deadline_at, user_id)` NULLS NOT DISTINCT; `user_id`
+  (migration 0130) is NULL for the Class session's reminder and a Student's id for their own
+  (Story 11.13). Ids and times only.
 - The sweep's last due action, `sessions.send_deadline_reminder`
   (`service.due_deadline_reminders` → `send_deadline_reminder(class_session_id, deadline, now=)`),
   takes `(class_session_id, deadline)` for each Play, Debrief or Test deadline at most 24 hours
@@ -349,9 +354,16 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
   notice per Student of `reminder_recipients`, keyed
   `deadline_reminder:{session}:{play|debrief|test}:{deadline time}:{user}` with the row as `ref`.
   A second sweep finds nothing. A moved deadline has a new time, so it is reminded again.
-- `service.reminder_recipients(class_session_id, deadline)`: every registered Student of the
-  Class, sorted. The one place recipients are chosen; Epic 11 (extensions) and Epic 13
-  (`progress.has_step`) narrow it without changing the sweep.
+- `service.reminder_recipients(class_session_id, deadline, user_id=None)`: every registered Student
+  of the Class, sorted, less those who handed in (Test) and those with their own extension (Debrief
+  and Test, Story 11.13); with `user_id` that Student alone. Epic 13 (`progress.has_step`)
+  narrows it without changing the sweep.
+- Story 11.13: `sessions.send_own_deadline_reminder` (after the Class one) finds each extension's
+  own Debrief or Test deadline (the later of it and the Class's) at most 24 hours ahead with no row
+  of that Student at that time (`repo.due_own_deadlines`) and calls
+  `send_deadline_reminder(…, user_id=)`: same `digest` notice and key shape. The mail context keeps
+  a Student's row only for them at their own date, and drops a Class row for a Student with an
+  extension.
 - The kind is `digest` in `messaging.delivery`; `deadline_reminder_mail_context` reads at send
   time the Class's name, the deadline, its Europe/Oslo time and the obligatory mark, and drops the
   notice when the deadline moved from the reminded time or has passed, the Class is archived or
@@ -459,3 +471,13 @@ mine}` (names read now) and `can_accept` for a seated Student who neither propos
 - Each other seated Student gets a `time_proposed` notice (`digest`, one per proposal), whose
   mail `time_proposal_mail_context` reads at send time; a replaced or passed proposal sends none.
 - The proposal is never an input of `games.rules.turn_times` (AD-20).
+
+## One Student's own Test deadline (Story 11.13, FR-18)
+
+- `student_deadline_extensions` (migration 0130): per Class session and Student, `test_deadline`
+  (later than the Class session's when saved), `debrief_deadline` (the Class's moved by the same
+  amount, NULL without one), `updated_by`, `updated_at`. No reason. Personal data (`user_id`).
+- Written only by `tests.commands.extend_deadline` through `service.save_extension` (share lock on
+  the Class session, `ClassArchived`, `InvalidExtension`, row lock, upsert, audit
+  `deadline_extension.saved`). `service.student_target` is the Studentside's reach (also Story 8.9's).
+- The Studentside (`StudentPageOut.deadlines`, `service.deadlines_out`) shows the block «Frister».

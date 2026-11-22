@@ -341,6 +341,13 @@ DUE_ACTIONS: tuple[DueAction, ...] = (
         sessions.due_deadline_reminders,
         sessions.send_deadline_reminder_due,
     ),
+    # Story 11.13: remind a Student with their own Test deadline of their own Debrief and Test
+    # deadlines 24 hours ahead, once per time; the Class session's reminders leave them out.
+    DueAction(
+        "sessions.send_own_deadline_reminder",
+        sessions.due_own_deadline_reminders,
+        sessions.send_own_deadline_reminder_due,
+    ),
 )
 
 

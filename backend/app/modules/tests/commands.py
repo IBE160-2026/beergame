@@ -17,8 +17,8 @@ The decision (the Deferred item "Test attempt write path"):
   attempt row too when there is one.
 - `effective_deadline` is the Student's `sessions.effective_test_deadline` when the attempt is
   opened; a change of the Class session's Test deadline moves it for every attempt not yet closed
-  in the save's transaction (`move_deadline`, registered with `sessions`). Story 11.13 must leave a
-  Student with their own extension out.
+  in the save's transaction (`move_deadline`, registered with `sessions`); a Student with their
+  own extension (Story 11.13, `extend_deadline`) keeps the later of the two.
 - The order at the Test deadline (Story 11.11, AD-9): the sweep runs `sessions.lock_test` (the
   Scoring guide and the «KI-vurdering» switch pinned), then `close_attempt` per attempt whose
   `effective_deadline` has passed, one per transaction. `close_attempt` runs once for every
@@ -81,6 +81,7 @@ __all__ = [
     "due_sitting_ends",
     "end_due",
     "end_sitting",
+    "extend_deadline",
     "move_deadline",
     "open_attempt",
     "save_answer",
@@ -558,16 +559,91 @@ async def move_deadline(
     not yet closed takes the new Test deadline, in the save's transaction under the Class
     session's row lock: an open one, and one handed in early, so `close_attempt` never runs for it
     before the Class session's Test deadline (Story 11.11). A passed Test deadline is never
-    changed (`sessions.judge_dates`). Story 11.13 must leave Students with their own extension
-    out."""
+    changed (`sessions.judge_dates`). A Student with their own extension (Story 11.13) keeps the
+    later of it and the new date, as `sessions.effective_test_deadline` reads it."""
+    own = await sessions.own_test_deadlines(s, class_session_id)
     await s.execute(
         update(test_attempts)
         .where(
             test_attempts.c.class_session_id == class_session_id,
             test_attempts.c.closed_at.is_(None),
+            test_attempts.c.user_id.not_in(list(own)),
         )
         .values(effective_deadline=deadline)
     )
+    for user_id, extended in own.items():
+        await s.execute(
+            update(test_attempts)
+            .where(
+                test_attempts.c.class_session_id == class_session_id,
+                test_attempts.c.user_id == user_id,
+                test_attempts.c.closed_at.is_(None),
+            )
+            .values(effective_deadline=None if deadline is None else max(deadline, extended))
+        )
+
+
+async def extend_deadline(
+    user: authz.Principal,
+    class_session_id: uuid.UUID,
+    student_id: uuid.UUID,
+    test_deadline: datetime,
+    now: datetime,
+) -> sessions.StudentDeadlinesOut | None:
+    """«Lagre frist» on the Studentside (Story 11.13, FR-18, AD-8, AD-9, AD-12, AD-15): the
+    Student's own Test deadline, and their Debrief deadline moved by the same amount. None (the
+    route's 403) unless `user` is a Lecturer of the Class (`class_sessions.manage`) and
+    `student_id` a Student of it now (`sessions.student_target`).
+
+    One transaction: the Class session row share-locked (`sessions.test_session`), then the
+    Student's attempt row `FOR UPDATE` when there is one: a handed-in attempt raises
+    `AttemptSubmitted` before anything is stored. `sessions.save_extension` then judges the date
+    (`InvalidExtension`: after the Class session's Test deadline and after now; `ClassArchived`),
+    locks the Student's extension row, stores it and records the audit row. An open attempt not
+    yet closed takes the new `effective_deadline`; its `sitting_ends_at` (Story 11.12) stays, so
+    an extension never lengthens a running time limit. `user:<student>` and `session:<id>` are
+    emitted. The block «Frister» as it now stands is returned. Ids only are logged."""
+    target = await sessions.student_target(user, class_session_id, student_id)
+    if target is None:
+        return None
+    async with get_sessionmaker().begin() as s:
+        if await sessions.test_session(s, class_session_id) is None:
+            return None
+        attempt = (
+            (
+                await s.execute(
+                    select(test_attempts)
+                    .where(
+                        test_attempts.c.user_id == student_id,
+                        test_attempts.c.class_session_id == class_session_id,
+                    )
+                    .with_for_update()
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if attempt is not None and attempt["status"] != AttemptStatus.OPEN.value:
+            raise AttemptSubmitted
+        row = await sessions.save_extension(
+            s, user.id, class_session_id, student_id, test_deadline, now
+        )
+        moved = attempt is not None and attempt["closed_at"] is None
+        if moved:
+            await s.execute(
+                update(test_attempts)
+                .where(test_attempts.c.id == attempt["id"])
+                .values(effective_deadline=sessions.effective_test_deadline(student_id, row))
+            )
+        await events.emit(s, "user", str(student_id))
+        await events.emit(s, "session", str(class_session_id))
+        block = await sessions.deadlines_out(s, row, student_id)
+    log.info(
+        "test_deadline_extended",
+        class_session_id=str(class_session_id),
+        attempt_moved=moved,
+    )
+    return block
 
 
 CLOSES_PER_SWEEP = 200

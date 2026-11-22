@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, JsonValue
 
 from app.modules.content.schemas import GUIDE_TEXT_MAX
 from app.modules.tests.models import Choice
@@ -351,3 +351,12 @@ class MyTestOut(BaseModel):
     answering_ends_at: datetime | None = None
     server_now: datetime
     sitting_ended: bool = False
+
+
+class DeadlineExtensionIn(BaseModel):
+    """«Lagre frist» on the Studentside (Story 11.13, FR-18): the Student's own Test deadline,
+    with its time zone. There is no field for a reason."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    test_deadline: AwareDatetime

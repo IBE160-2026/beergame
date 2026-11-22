@@ -222,17 +222,48 @@ deadline_reminders = Table(
     # The deadline's time when it was reminded: a moved deadline has a new time and a new row.
     Column("deadline_at", DateTime(timezone=True), nullable=False),
     Column("created_at", DateTime(timezone=True), nullable=False),
+    # Story 11.13: NULL for the Class session's deadline; a Student's id for their own deadline.
+    Column("user_id", Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=True),
     CheckConstraint(
         "deadline IN ('play_deadline', 'debrief_deadline', 'test_deadline')",
         name="ck_deadline_reminders_deadline",
     ),
     UniqueConstraint(
-        "class_session_id", "deadline", "deadline_at", name="uq_deadline_reminders_deadline"
+        "class_session_id",
+        "deadline",
+        "deadline_at",
+        "user_id",
+        name="uq_deadline_reminders_deadline",
+        postgresql_nulls_not_distinct=True,
     ),
 )
 """One row per deadline time the Students were reminded of, 24 hours ahead (Story 5.14, FR-18):
 what the sweep's `sessions.send_deadline_reminder` finder skips, and the `ref` of each
-`deadline_reminder` notice. Ids and times only (AD-14)."""
+`deadline_reminder` notice. A row with a `user_id` is one Student's reminder of their own
+deadline (Story 11.13). Ids and times only (AD-14)."""
+
+student_deadline_extensions = Table(
+    "student_deadline_extensions",
+    metadata,
+    Column(
+        "class_session_id",
+        Uuid,
+        ForeignKey("class_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("user_id", Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+    Column("test_deadline", DateTime(timezone=True), nullable=False),
+    # NULL when the Class session has no Debrief deadline to move.
+    Column("debrief_deadline", DateTime(timezone=True), nullable=True),
+    Column("updated_by", Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+    PrimaryKeyConstraint("class_session_id", "user_id"),
+)
+"""One Student's own Test deadline in a Class session, later than the Class session's, and their
+Debrief deadline moved by the same amount (Story 11.13, FR-18). Only `sessions` reads it, through
+`service.effective_test_deadline` and `service.effective_debrief_deadline`; only
+`tests.commands.extend_deadline` writes it, through `service.save_extension`. No reason is stored.
+Personal data: never in a log line or another Student's view."""
 
 TIME_FACTORS = ("1.0", "1.5", "2.0", "3.0")
 """The factors «Mer tid før KI tar over» offers (Story 8.9, EXPERIENCE.md → Tilrettelegging):

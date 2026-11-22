@@ -117,6 +117,8 @@ PREPARED_TABLES = {"test_prepared_items"}
 """The tables of revision 0126 (Story 11.8)."""
 SITTING_TABLES = {"test_sittings"}
 """The tables of revision 0129 (Story 11.12)."""
+EXTENSION_TABLES = {"student_deadline_extensions"}
+"""The table of revision 0130 (Story 11.13)."""
 RECLAIM_TABLES = {"seat_reclaims"}
 """The table of revision 0055 (Story 8.4)."""
 ADJUSTMENT_TABLES = {"student_adjustments"}
@@ -150,10 +152,11 @@ HEAD_TABLES = (
     | ATTEMPT_TABLES
     | PREPARED_TABLES
     | SITTING_TABLES
+    | EXTENSION_TABLES
     | RECLAIM_TABLES
     | ADJUSTMENT_TABLES
 )
-HEAD = "0129"  # 0129 adds a Class session's one timed sitting (11.12), after main's 0064
+HEAD = "0130"  # 0130 adds one Student's own Test deadline (11.13); 0120-0130 follow main's 0064
 
 
 def reset_schema(url: str) -> None:
@@ -256,7 +259,7 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     assert "'student_choice'" in sessions["ck_class_sessions_allocation_method"]
     reminders = constraints(url, "deadline_reminders")
     assert "'test_deadline'" in reminders["ck_deadline_reminders_deadline"]
-    assert "deadline, deadline_at)" in reminders["uq_deadline_reminders_deadline"]
+    assert "deadline, deadline_at, user_id)" in reminders["uq_deadline_reminders_deadline"]
     assert "ON DELETE SET NULL" in definition(url, "fk_class_sessions_copied_from")
     steps = constraints(url, "progress_steps")
     assert "UNIQUE (user_id, class_session_id, step)" in steps["uq_progress_steps_step"]
@@ -341,6 +344,16 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     # 0111 (Story 9.12): presence, the Students who go on alone and the 48-hour fallback.
     assert "last_seen_at" in columns(url, "debrief_members")
     assert {"fallback_due_at", "fallback_at"} <= columns(url, "debrief_sessions")
+
+    # 0130 (Story 11.13): one Student's own Test deadline, and a reminder row may name a Student.
+    assert {"test_deadline", "debrief_deadline", "updated_by"} <= columns(
+        url, "student_deadline_extensions"
+    )
+    assert "NULLS NOT DISTINCT" in definition(url, "uq_deadline_reminders_deadline")
+    command.downgrade(cfg, "0129")
+    assert EXTENSION_TABLES.isdisjoint(tables(url))
+    assert "user_id" not in columns(url, "deadline_reminders")
+    assert "deadline, deadline_at)" in definition(url, "uq_deadline_reminders_deadline")
 
     # 0129 (Story 11.12): a Class session's one timed sitting.
     assert {"minutes", "updated_by", "updated_at"} <= columns(url, "test_sittings")

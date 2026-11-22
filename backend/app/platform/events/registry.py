@@ -131,6 +131,8 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         "sessions.replace_removed_student": frozenset({"game", "session", "user"}),
         # A deadline reminder (Story 5.14): one notice per Student, which emits `user`.
         "sessions.send_deadline_reminder": frozenset({"user"}),
+        # One Student's reminder of their own Debrief or Test deadline (Story 11.13), likewise.
+        "sessions.send_own_deadline_reminder": frozenset({"user"}),
         # The Play deadline playout of one Class game (Story 8.14), through `games.playout`.
         "sessions.playout": frozenset({"game", "session", "user"}),
         # Student choice (Story 5.17). A save that opens it creates the empty Class games
@@ -220,6 +222,9 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # A timed sitting ended before the Test deadline (Story 11.12, FR-51): the sweep hands the
         # attempt in, and its `test_submitted` step emits `user` and `session`, as at a hand-in.
         "tests.end_sitting": frozenset({"session", "user"}),
+        # A Student's own Test deadline saved, «Lagre frist» (Story 11.13, FR-18): the Student's
+        # Hjem and test read their own date (`user`), the Studentside reads its block (`session`).
+        "tests.extend_deadline": frozenset({"session", "user"}),
         # A Student's Replay made and started (Story 10.3, FR-48): its Game is created, seated and
         # started through `games.commands` (`game`), and the Student's Hjem reads it again
         # (`user`). No Lecturer overview lists a Replay, so no `session`.

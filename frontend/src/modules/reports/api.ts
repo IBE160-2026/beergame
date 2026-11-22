@@ -31,6 +31,18 @@ export function useStudentPage(sessionId: string, userId: string) {
   });
 }
 
+/** «Lagre frist» (Story 11.13): answers the block «Frister» as it now stands; 422
+ * `invalid_extension` names the reason in `fields.test_deadline`, 409 `attempt_submitted` once the
+ * Student has handed the test in. */
+export function extendTestDeadline(sessionId: string, userId: string, testDeadline: string) {
+  return request(() =>
+    api.PUT("/api/class-sessions/{session_id}/students/{user_id}/deadline", {
+      params: { path: { session_id: sessionId, user_id: userId } },
+      body: { test_deadline: testDeadline },
+    }),
+  );
+}
+
 /** «Lagre tilrettelegging» (Story 8.9): answers the Studentside as it now stands; 422
  * `invalid_adjustment` names the refused fields. */
 export function saveAdjustment(sessionId: string, userId: string, body: AdjustmentIn) {

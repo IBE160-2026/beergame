@@ -217,8 +217,29 @@ async def test_the_lock_predicate_and_the_effective_deadlines():
     assert service.is_locked(plan, now=START) is True
     assert service.is_locked({**plan, "start_at": None}, now=TEST) is False
     user = uuid.uuid4()
-    assert service.effective_debrief_deadline(user, plan) == DEBRIEF
-    assert service.effective_test_deadline(user, plan) == TEST
+    # Story 11.13: a Student's row carries their own deadlines; none means the Class session's.
+    mine = service._with_own_deadlines(plan, None)
+    assert service.effective_debrief_deadline(user, mine) == DEBRIEF
+    assert service.effective_test_deadline(user, mine) == TEST
+    later = service._with_own_deadlines(
+        plan,
+        {
+            "debrief_deadline": DEBRIEF + timedelta(days=2),
+            "test_deadline": TEST + timedelta(days=2),
+        },
+    )
+    assert service.effective_debrief_deadline(user, later) == DEBRIEF + timedelta(days=2)
+    assert service.effective_test_deadline(user, later) == TEST + timedelta(days=2)
+    # The later of the two; none while the Class session has none.
+    earlier = service._with_own_deadlines(
+        plan, {"debrief_deadline": None, "test_deadline": TEST - timedelta(days=1)}
+    )
+    assert service.effective_test_deadline(user, earlier) == TEST
+    assert service.effective_debrief_deadline(user, earlier) == DEBRIEF
+    assert service.effective_test_deadline(user, {**later, "test_deadline": None}) is None
+    # A row that did not come through a per-Student reader is refused.
+    with pytest.raises(KeyError):
+        service.effective_test_deadline(user, plan)
 
 
 async def test_a_short_play_time_warns_only_when_the_least_time_is_configured(klass, monkeypatch):

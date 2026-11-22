@@ -75,8 +75,8 @@ the unique key on User and Class session and returns the existing attempt on a c
 `extend_deadline` locks the Student's extension row in `modules/sessions`, and the attempt row too
 when there is one. A change of the Class session's Test deadline moves `effective_deadline` of its
 attempts not yet closed (open or handed in early, Story 11.11) in the save's transaction
-(`move_deadline`, `sessions.register_test_deadline_mover`);
-Story 11.13 must leave Students with their own extension out.
+(`move_deadline`, `sessions.register_test_deadline_mover`); a Student with their own extension
+(Story 11.13) keeps the later of it and the new date.
 
 - Routes: `GET /api/me/class-sessions/{id}/test` (`statement`, `open` with the items, `closed`
   when the Test deadline passed with no attempt) and `POST …` (accept the statement: 201 made, 200
@@ -253,7 +253,7 @@ The Deferred item "Timing of Adapted items", closed here (`prepare.py`, `jobs.py
   registers `sitting.minutes_of`/`sitting.write` with `sessions.register_test_sitting` and
   `sitting.copy_sitting` with `register_copier` (FR-66). `ClassSessionOut.test_sitting` reads it.
 - `open_attempt` sets `test_attempts.sitting_ends_at` = opening time + limit × the Student's time
-  factor (`sitting.time_factor`: Story 8.9's `sessions.get_adjustment` where it exists, else 1).
+  factor (`sitting.time_factor`: Story 8.9's `sessions.get_adjustment` above 1, else 1).
   `effective_deadline` never changes. `rules.answering_ends_at` is the earlier of the two;
   `save_answer` and `submit` answer 409 `sitting_ended` once the sitting ended before the deadline
   (`rules.sitting_ended`), else `test_deadline_passed`.
@@ -267,3 +267,17 @@ The Deferred item "Timing of Adapted items", closed here (`prepare.py`, `jobs.py
 - `GET …/test` carries `time_limit_minutes` (also on the statement), `sitting_ends_at`,
   `answering_ends_at`, `server_now` and `sitting_ended`; the page counts «Tid igjen N min» from
   them.
+
+## One Student's own Test deadline (Story 11.13, FR-18)
+
+- `PUT /api/class-sessions/{id}/students/{user_id}/deadline` («Lagre frist» on the Studentside,
+  operation `extendTestDeadline`, `class_sessions.manage`) runs `commands.extend_deadline`: target
+  through `sessions.student_target` (a Lecturer of the Class, the User a Student of it now; else
+  403 `forbidden`), then one transaction: the Class session share-locked (`sessions.test_session`),
+  the attempt `FOR UPDATE` (handed in: 409 `attempt_submitted`, nothing stored),
+  `sessions.save_extension` (422 `invalid_extension` `not_later`/`passed`/`no_test_deadline`,
+  409 `class_archived`; the extension row locked and upserted, audited), the open attempt's
+  `effective_deadline` set to the Student's `effective_test_deadline` (`sitting_ends_at` untouched),
+  `user:<student>` and `session:<id>` emitted. Answers `sessions.StudentDeadlinesOut`.
+- The sweep's `close_attempt` reads `effective_deadline`, so the extended Student's attempt closes at
+  their own date; `sessions.lock_test` still runs at the Class session's original Test deadline.

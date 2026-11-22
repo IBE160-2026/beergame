@@ -1187,6 +1187,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/class-sessions/{session_id}/students/{user_id}/deadline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Extend Test Deadline
+         * @description «Lagre frist» on the Studentside (Story 11.13, FR-18, AD-9): the Student's own Test
+         *     deadline, later than the Class session's, and their Debrief deadline moved by the same amount;
+         *     an open Individual test attempt takes it at once (a timed sitting keeps its end). Recorded in
+         *     the audit log. Answers the block «Frister». 422 `invalid_extension` with `fields.test_deadline`
+         *     (`not_later`, `passed`, `no_test_deadline`); 409 `attempt_submitted` when the Student has
+         *     handed the test in; 409 `class_archived`; 403 `forbidden` for anyone but a Lecturer of the
+         *     Class (an Assistant lecturer too) and for a User who is no Student of it.
+         */
+        put: operations["extendTestDeadline"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/class-sessions/{session_id}/test-game": {
         parameters: {
             query?: never;
@@ -4047,6 +4073,18 @@ export interface components {
             start_at: string | null;
             /** Test Deadline */
             test_deadline: string | null;
+        };
+        /**
+         * DeadlineExtensionIn
+         * @description «Lagre frist» on the Studentside (Story 11.13, FR-18): the Student's own Test deadline,
+         *     with its time zone. There is no field for a reason.
+         */
+        DeadlineExtensionIn: {
+            /**
+             * Test Deadline
+             * Format: date-time
+             */
+            test_deadline: string;
         };
         /**
          * DebriefMode
@@ -7390,6 +7428,25 @@ export interface components {
             value: components["schemas"]["JsonValue"];
         };
         /**
+         * StudentDeadlinesOut
+         * @description The block «Frister» on the Studentside (Story 11.13, FR-18): the Student's Debrief and Test
+         *     deadlines beside the Class session's, for the Lecturers of its Class only.
+         */
+        StudentDeadlinesOut: {
+            /** Class Debrief Deadline */
+            class_debrief_deadline: string | null;
+            /** Class Test Deadline */
+            class_test_deadline: string | null;
+            /** Debrief Deadline */
+            debrief_deadline: string | null;
+            /** Extended */
+            extended: boolean;
+            /** Submitted */
+            submitted: boolean;
+            /** Test Deadline */
+            test_deadline: string | null;
+        };
+        /**
          * StudentGameOut
          * @description The Student's Class game on Hjem (Story 6.1): «Spill 17 · Du er Grossist» and the four
          *     Seats, Fabrikk first (UX-DR73). Only from the Start date (`is_locked`).
@@ -7463,7 +7520,8 @@ export interface components {
         /**
          * StudentPageOut
          * @description The Studentside of one Student of a Class session (Story 8.9, UX-DR53), for the Lecturers of
-         *     its Class only: for now the block «Tilrettelegging»; Story 13.2 adds its own blocks.
+         *     its Class only: the blocks «Tilrettelegging» and «Frister» (Story 11.13); Story 13.2 adds its
+         *     own blocks.
          */
         StudentPageOut: {
             adjustment: components["schemas"]["AdjustmentOut"] | null;
@@ -7481,6 +7539,7 @@ export interface components {
             class_session_id: string;
             /** Class Share */
             class_share: number;
+            deadlines: components["schemas"]["StudentDeadlinesOut"];
             /** Name */
             name: string;
             /** Session Number */
@@ -11202,6 +11261,69 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StudentPageOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    extendTestDeadline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeadlineExtensionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentDeadlinesOut"];
                 };
             };
             /** @description Unauthorized */

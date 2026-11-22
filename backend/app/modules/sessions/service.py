@@ -191,6 +191,7 @@ from app.modules.sessions.schemas import (
     SettingsCheckOut,
     SettingWarning,
     StepOut,
+    StudentDeadlinesOut,
     StudentGameOut,
     StudentReplayOut,
     TableSeatOut,
@@ -202,7 +203,7 @@ from app.modules.sessions.schemas import (
     WaitingClass,
     WaitingReason,
 )
-from app.platform import auth, authz, events, notify
+from app.platform import audit, auth, authz, events, notify
 from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker
 
@@ -673,20 +674,61 @@ def adjustment_out(adjustment: Adjustment | None) -> AdjustmentOut | None:
     )
 
 
+OWN_DEADLINE_KEYS = {
+    "debrief_deadline": "own_debrief_deadline",
+    "test_deadline": "own_test_deadline",
+}
+"""Story 11.13: the keys a per-Student row carries the Student's own deadlines under
+(`_with_own_deadlines`), None where they have no extension."""
+
+
+def _with_own_deadlines(row: Mapping[str, Any], extension: Mapping[str, Any] | None) -> dict:
+    """The Class session row with the Student's own Debrief and Test deadlines (Story 11.13), as
+    every per-Student reader passes it to `effective_debrief_deadline`/`effective_test_deadline`."""
+    return dict(row) | {
+        own: None if extension is None else extension[name]
+        for name, own in OWN_DEADLINE_KEYS.items()
+    }
+
+
+async def _student_row(
+    s: AsyncSession, row: Mapping[str, Any], user_id: uuid.UUID
+) -> dict[str, Any]:
+    """`row` with the Student's own deadlines, read in `s`."""
+    return _with_own_deadlines(row, await repo.extension_row(s, row["id"], user_id))
+
+
+def _effective(class_session: ClassSessionLike, name: str) -> datetime | None:
+    """The Student's deadline `name` (Story 11.13, FR-18): the Class session's, or the Student's
+    own where it is later; None while the Class session has none. A row must come through a
+    per-Student reader (`_with_own_deadlines`), so no Student path reads the Class date silently;
+    a `ClassSessionOut` has no Student and reads the Class session's."""
+    if isinstance(class_session, ClassSessionOut):
+        return getattr(class_session, name)
+    own_key = OWN_DEADLINE_KEYS[name]
+    if own_key not in class_session:
+        raise KeyError(f"{own_key}: read the Class session through a per-Student reader")
+    at: datetime | None = class_session[name]
+    own: datetime | None = class_session[own_key]
+    if at is None or own is None:
+        return at
+    return max(at, own)
+
+
 def effective_debrief_deadline(
     user: authz.Principal | uuid.UUID, class_session: ClassSessionLike
 ) -> datetime | None:
-    """The Student's Debrief deadline, the only way another module reads it. For now the Class
-    session's own; Epic 11 adds a per-Student extension here without changing callers."""
-    return _value(class_session, "debrief_deadline")
+    """The Student's Debrief deadline, the only way another module reads it: the Class session's,
+    or the one their Test deadline extension moved (Story 11.13) where that is later."""
+    return _effective(class_session, "debrief_deadline")
 
 
 def effective_test_deadline(
     user: authz.Principal | uuid.UUID, class_session: ClassSessionLike
 ) -> datetime | None:
-    """The Student's Test deadline, the only way another module reads it. For now the Class
-    session's own; Epic 11 adds a per-Student extension here without changing callers."""
-    return _value(class_session, "test_deadline")
+    """The Student's Test deadline, the only way another module reads it: the Class session's, or
+    their own extension (Story 11.13) where that is later."""
+    return _effective(class_session, "test_deadline")
 
 
 def _passed(row: Mapping[str, Any], now: datetime) -> list[DateName]:
@@ -1405,7 +1447,9 @@ async def enrolled_sessions(user: authz.Principal) -> EnrolledSessionListOut:
     now = auth.utcnow()
     choice = student_choice_enabled()
     async with get_sessionmaker().begin() as s:
-        rows = await repo.enrolled_sessions(s, user)
+        found = await repo.enrolled_sessions(s, user)
+        extensions = await repo.extensions_of_user(s, user.id, [row["id"] for row in found])
+        rows = [_with_own_deadlines(row, extensions.get(row["id"])) for row in found]
         labs = await repo.lab_hours_of(s, [row["id"] for row in rows], ending_after=now)
         drafts = (
             await repo.drafts_of(
@@ -1661,7 +1705,9 @@ async def _test_deadline_of(
     """The Student's `effective_test_deadline` in the Class session, read in `s`; None for no such
     session. What `games` judges a Replay's close and its Orders by (Story 10.6, FR-18)."""
     row = await repo.session_row(s, class_session_id)
-    return None if row is None else effective_test_deadline(user_id, row)
+    if row is None:
+        return None
+    return effective_test_deadline(user_id, await _student_row(s, row, user_id))
 
 
 games_service.register_test_deadline(_test_deadline_of)
@@ -1785,7 +1831,8 @@ async def replay_session_of(
     only through `replay_template`, `test_deadline_passed` and its frozen `snapshot`."""
     if await enrolled_locked_row(s, user, class_session_id) is None:
         return None
-    return await repo.session_row(s, class_session_id, share=True)
+    row = await repo.session_row(s, class_session_id, share=True)
+    return None if row is None else await _student_row(s, row, user.id)
 
 
 @dataclass(frozen=True)
@@ -1809,7 +1856,9 @@ async def individual_test_session_of(
     row = await repo.session_row(s, class_session_id, share=True)
     if row is None:
         return None
-    return IndividualTestSession(row=row, pins=await repo.session_pins(s, class_session_id))
+    return IndividualTestSession(
+        row=await _student_row(s, row, user.id), pins=await repo.session_pins(s, class_session_id)
+    )
 
 
 async def test_locked_session(
@@ -1921,10 +1970,149 @@ async def student_deadlines(
     through `effective_debrief_deadline` and `effective_test_deadline`, so another module never
     reads the dates itself. (None, None) for a session that does not exist."""
     async with get_sessionmaker()() as s:
-        row = await repo.session_row(s, class_session_id)
+        found = await repo.session_row(s, class_session_id)
+        row = None if found is None else await _student_row(s, found, user_id)
     if row is None:
         return None, None
     return effective_debrief_deadline(user_id, row), effective_test_deadline(user_id, row)
+
+
+# One Student's own Test deadline (Story 11.13, FR-18, AD-8, AD-9, AD-12, AD-15).
+
+DEADLINE_EXTENSION_SAVED = "deadline_extension.saved"
+"""The audit action of «Lagre frist»: target the Class session and the Student, change the new
+Test and Debrief deadlines and the ones before (ids and times only, AD-15)."""
+
+
+class InvalidExtension(Exception):
+    """422 `invalid_extension`: `fields.test_deadline` says why the date is refused:
+    `no_test_deadline` (the Class session has none to extend), `not_later` (not after the Class
+    session's Test deadline: an extension only ever extends) or `passed` (not after now)."""
+
+    code = "invalid_extension"
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(self.code)
+        self.fields = {"test_deadline": reason}
+
+
+@dataclass(frozen=True)
+class StudentTarget:
+    """A Student of a Class session as their Studentside reaches them (Story 8.9): the Class
+    session row, its Class and the Student's Roster name now."""
+
+    row: Mapping[str, Any]
+    class_id: uuid.UUID
+    class_name: str
+    name: str
+
+
+async def student_target(
+    user: authz.Principal, class_session_id: uuid.UUID, user_id: uuid.UUID
+) -> StudentTarget | None:
+    """The Student `user_id` of the Class session when `user` may manage its Class's sessions
+    (`class_sessions.manage`: a Lecturer of the Class, never an Assistant lecturer) and `user_id`
+    is a Student of the Class now; None, one answer, for anything else (FR-5, AD-12). The
+    Studentside (Story 8.9) and a deadline extension (Story 11.13) are reached only so."""
+    async with get_sessionmaker()() as s:
+        row = await repo.session_row(s, class_session_id)
+    if row is None:
+        return None
+    found = await _class_for(user, row["class_id"], "class_sessions.manage")
+    if found is None:
+        return None
+    names = await classes.student_names(row["class_id"], [user_id])
+    if user_id not in names:
+        return None
+    return StudentTarget(row=row, class_id=found.id, class_name=found.name, name=names[user_id])
+
+
+async def deadlines_out(
+    s: AsyncSession, row: Mapping[str, Any], user_id: uuid.UUID
+) -> StudentDeadlinesOut:
+    """The block «Frister» of the Student's Studentside (Story 11.13), read in `s`."""
+    student = await _student_row(s, row, user_id)
+    done = await progress.steps_of(s, user_id, [row["id"]])
+    test = effective_test_deadline(user_id, student)
+    return StudentDeadlinesOut(
+        class_debrief_deadline=row["debrief_deadline"],
+        class_test_deadline=row["test_deadline"],
+        debrief_deadline=effective_debrief_deadline(user_id, student),
+        test_deadline=test,
+        # Extended while the own date is still the later one: a Class date moved past it since
+        # makes the Student's date the Class's again.
+        extended=test is not None and test != row["test_deadline"],
+        submitted=progress.Step.TEST_SUBMITTED in done.get(row["id"], set()),
+    )
+
+
+async def save_extension(
+    s: AsyncSession,
+    actor: uuid.UUID,
+    class_session_id: uuid.UUID,
+    user_id: uuid.UUID,
+    test_deadline: datetime,
+    now: datetime,
+) -> Mapping[str, Any]:
+    """Store the Student's own Test deadline (Story 11.13, FR-18), for
+    `tests.commands.extend_deadline` in its transaction: the Class session row share-locked, its
+    Class writable (`ClassArchived`), the date judged (`InvalidExtension`), the Student's extension
+    row locked, then upserted with the Debrief deadline moved by the same amount (NULL when the
+    Class session has none), and the change recorded in the audit log. The caller has judged the
+    target (`student_target`). Returns the Class session row with the Student's own deadlines, as
+    `effective_test_deadline` reads it. Nothing is logged."""
+    row = await repo.session_row(s, class_session_id, share=True)
+    if row is None:
+        raise LookupError("no such Class session")
+    await _writable(s, row["class_id"])
+    class_test: datetime | None = row["test_deadline"]
+    if class_test is None:
+        raise InvalidExtension("no_test_deadline")
+    if test_deadline <= class_test:
+        raise InvalidExtension("not_later")
+    if test_deadline <= now:
+        raise InvalidExtension("passed")
+    was = await repo.extension_row(s, class_session_id, user_id, lock=True)
+    class_debrief: datetime | None = row["debrief_deadline"]
+    debrief = None if class_debrief is None else class_debrief + (test_deadline - class_test)
+    await repo.save_extension(
+        s,
+        class_session_id=class_session_id,
+        user_id=user_id,
+        test_deadline=test_deadline,
+        debrief_deadline=debrief,
+        updated_by=actor,
+        updated_at=now,
+    )
+    await audit.record(
+        s,
+        actor,
+        DEADLINE_EXTENSION_SAVED,
+        {"class_session_id": class_session_id, "user_id": user_id},
+        {
+            "test_deadline": test_deadline.isoformat(),
+            "debrief_deadline": None if debrief is None else debrief.isoformat(),
+            "was": None
+            if was is None
+            else {
+                "test_deadline": was["test_deadline"].isoformat(),
+                "debrief_deadline": None
+                if was["debrief_deadline"] is None
+                else was["debrief_deadline"].isoformat(),
+            },
+        },
+        now,
+    )
+    return await _student_row(s, row, user_id)
+
+
+async def own_test_deadlines(
+    s: AsyncSession, class_session_id: uuid.UUID
+) -> dict[uuid.UUID, datetime]:
+    """Each Student's own Test deadline in the Class session, by Student, read in `s` (Story
+    11.13): what `tests.move_deadline` keeps when the Class session's Test deadline moves."""
+    rows = await repo.extensions_of_session(s, class_session_id)
+    return {user_id: row["test_deadline"] for user_id, row in rows.items()}
 
 
 async def class_staff_may(user: authz.Principal, class_session_id: uuid.UUID, action: str) -> bool:
@@ -4752,23 +4940,31 @@ REMINDER_AHEAD = timedelta(hours=24)
 
 
 async def reminder_recipients(
-    class_session_id: uuid.UUID, deadline: DeadlineName
+    class_session_id: uuid.UUID, deadline: DeadlineName, user_id: uuid.UUID | None = None
 ) -> list[uuid.UUID]:
     """Who is reminded of `deadline` (Story 5.14): every registered Student of the Class
     session's Class, sorted; for the Test deadline, less those who have handed in their
-    Individual test (`test_submitted`, Story 11.10, FR-18; read through `progress`, AD-16). The
-    one place the recipients are chosen; Epic 11 leaves out a Student with an extension and
-    Epic 13 one who has done the other steps."""
+    Individual test (`test_submitted`, Story 11.10, FR-18; read through `progress`, AD-16); for
+    the Debrief and Test deadlines, less those with their own extension (Story 11.13), who are
+    reminded of their own date instead. With `user_id`, the reminder of that Student's own
+    deadline: them alone, when they are such a Student with an extension. The one place the
+    recipients are chosen; Epic 13 leaves out one who has done the other steps."""
     async with get_sessionmaker().begin() as s:
         row = await repo.session_row(s, class_session_id)
         done: set[uuid.UUID] = set()
+        extended: set[uuid.UUID] = set()
         if row is not None and deadline == "test_deadline":
             done = set(
                 await progress.users_with_step(s, class_session_id, progress.Step.TEST_SUBMITTED)
             )
+        if row is not None and deadline in OWN_DEADLINE_KEYS:
+            extended = set(await repo.extensions_of_session(s, class_session_id))
     if row is None:
         return []
-    return sorted(set(await classes.registered_students(row["class_id"])) - done)
+    students = set(await classes.registered_students(row["class_id"])) - done
+    if user_id is not None:
+        return [user_id] if user_id in students and user_id in extended else []
+    return sorted(students - extended)
 
 
 async def due_playouts(now: datetime) -> list[tuple[str, uuid.UUID]]:
@@ -4842,41 +5038,95 @@ async def send_deadline_reminder_due(item: object, now: datetime) -> bool:
     return await send_deadline_reminder(class_session_id, deadline, now=now)
 
 
+async def due_own_deadline_reminders(
+    now: datetime,
+) -> list[tuple[uuid.UUID, uuid.UUID, DeadlineName]]:
+    """The sweep's `sessions.send_own_deadline_reminder` finder (Story 11.13, AD-9): `(class
+    session id, user id, deadline)` of each Student's own Debrief or Test deadline at most 24
+    hours ahead with no reminder of theirs at that time, in a Class that is not archived."""
+    async with get_sessionmaker().begin() as s:
+        rows = await repo.due_own_deadlines(s, now, now + REMINDER_AHEAD)
+    due: list[tuple[uuid.UUID, uuid.UUID, DeadlineName]] = []
+    writable: dict[uuid.UUID, bool] = {}
+    for row in rows:
+        if row["class_id"] not in writable:
+            writable[row["class_id"]] = await classes.is_writable(row["class_id"])
+        if writable[row["class_id"]]:
+            due.append((row["class_session_id"], row["user_id"], row["deadline"]))
+    return due
+
+
+async def send_own_deadline_reminder_due(item: object, now: datetime) -> bool:
+    """The sweep's `sessions.send_own_deadline_reminder` action: one Student's deadline per
+    transaction, with ids and the deadline's name only."""
+    if not isinstance(item, tuple) or len(item) != 3:
+        raise TypeError("an own reminder item is (class_session_id, user_id, deadline)")
+    class_session_id, user_id, deadline = item
+    if (
+        not isinstance(class_session_id, uuid.UUID)
+        or not isinstance(user_id, uuid.UUID)
+        or deadline not in OWN_DEADLINE_KEYS
+    ):
+        raise TypeError("an own reminder item holds two ids and a Debrief or Test deadline")
+    return await send_deadline_reminder(class_session_id, deadline, now=now, user_id=user_id)
+
+
 async def send_deadline_reminder(
-    class_session_id: uuid.UUID, deadline: DeadlineName, *, now: datetime
+    class_session_id: uuid.UUID,
+    deadline: DeadlineName,
+    *,
+    now: datetime,
+    user_id: uuid.UUID | None = None,
 ) -> bool:
     """Remind the Students of `deadline` once per deadline time (Story 5.14, FR-18): under the
     Class session's row lock, when the deadline is set, has not passed and is at most 24 hours
     away, record the reminder and enqueue one `DEADLINE_REMINDER_NOTICE` per Student of
-    `reminder_recipients`, keyed by session, deadline kind, deadline time and User. Returns False,
-    changing nothing, when there is nothing to remind of now or it was reminded before."""
+    `reminder_recipients`, keyed by session, deadline kind, deadline time and User. With
+    `user_id` (Story 11.13), the case of that Student's own Debrief or Test deadline: the time is
+    their `effective_*` deadline, the reminder row is theirs, and they alone are reminded, as the
+    same `digest` kind with a key that holds their id, the deadline kind and their time. Returns
+    False, changing nothing, when there is nothing to remind of now or it was reminded before."""
     if deadline not in DEADLINE_NAMES:
         raise ValueError(f"not a deadline: {deadline!r}")
+    if user_id is not None and deadline not in OWN_DEADLINE_KEYS:
+        raise ValueError(f"no Student has their own {deadline!r}")
     async with get_sessionmaker().begin() as s:
         row = await repo.session_row(s, class_session_id, lock=True)
         if row is None:
             return False
-        at = row[deadline]
+        at = (
+            row[deadline]
+            if user_id is None
+            else _effective(await _student_row(s, row, user_id), deadline)
+        )
         if at is None or not now < at <= now + REMINDER_AHEAD:
             return False
         if not await classes.is_writable(row["class_id"], session=s):
             return False
         reminder_id = await repo.insert_reminder(
-            s, class_session_id=class_session_id, deadline=deadline, deadline_at=at, now=now
+            s,
+            class_session_id=class_session_id,
+            deadline=deadline,
+            deadline_at=at,
+            now=now,
+            user_id=user_id,
         )
         if reminder_id is None:
             return False
         # Read once the reminder is recorded, so a Student registered until now is among them.
-        recipients = await reminder_recipients(class_session_id, deadline)
+        recipients = await reminder_recipients(class_session_id, deadline, user_id)
         kind = DATE_KINDS[deadline]
-        for user_id in recipients:
-            key = f"{DEADLINE_REMINDER_NOTICE}:{class_session_id}:{kind}:{at.isoformat()}:{user_id}"
-            await notify.enqueue(s, user_id, DEADLINE_REMINDER_NOTICE, key, ref=reminder_id)
+        for recipient in recipients:
+            key = (
+                f"{DEADLINE_REMINDER_NOTICE}:{class_session_id}:{kind}:{at.isoformat()}:{recipient}"
+            )
+            await notify.enqueue(s, recipient, DEADLINE_REMINDER_NOTICE, key, ref=reminder_id)
     log.info(
         "deadline_reminder_sent",
         class_session_id=str(class_session_id),
         deadline=kind,
         students=len(recipients),
+        own=user_id is not None,
     )
     return True
 
@@ -4888,16 +5138,27 @@ async def deadline_reminder_mail_context(
     (Story 5.14, AD-9): the Class's name, the deadline (`play`, `debrief`, `test`), its time in
     Europe/Oslo and whether the session is obligatory. None, so the notice is left out, when the
     reminder or session is gone, the deadline has moved from the reminded time or passed, the
-    Class is archived, or the User is no longer a registered Student of it."""
+    Class is archived, or the User is no longer a registered Student of it. Story 11.13: a
+    Student's own reminder holds only for them at their own deadline; the Class session's Debrief
+    or Test reminder is left out for a Student who has their own deadline by now."""
     if ref is None:
         return None
     reminder = await repo.reminder_row(session, ref)
     if reminder is None:
         return None
+    if reminder["user_id"] is not None and reminder["user_id"] != user_id:
+        return None
     row = await repo.session_row(session, reminder["class_session_id"])
     if row is None:
         return None
-    at = row[reminder["deadline"]]
+    name = reminder["deadline"]
+    at = row[name]
+    if name in OWN_DEADLINE_KEYS:
+        student = await _student_row(session, row, user_id)
+        own = student[OWN_DEADLINE_KEYS[name]] is not None
+        if reminder["user_id"] is None and own:
+            return None
+        at = _effective(student, name)
     if at is None or at != reminder["deadline_at"] or at <= now:
         return None
     label = await classes.label_of_class(session, row["class_id"])
