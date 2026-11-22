@@ -3248,3 +3248,22 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet (persond
 
 ### Åpne punkter
 - Issue #203: beslutninger, sømmer mot Epic 11–14 og den trege testen.
+
+## Story 11.3: Åpne den individuelle testen med erklæring om eget arbeid (spor 2)
+
+### Oppgave
+Bygge Story 11.3 på `epic-11` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den visuelle kontrollen gjøres i avslutningen av Epic 11.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-11-3-open-the-individual-test-with-the-own-work-statement.md`.
+- Commit: 42c98b8. Migrasjon 0123.
+- Tabellene `test_attempts` og `test_answers`, siden `/individuell-test/{id}` med fire tilstander (låst, erklæring, åpen, lukket), og lenke fra Stegene.
+- Tester: backend 3233, Vitest 1056, tsc, `lint:colours`, `check:copy`, bygg, Playwright 122 med axe.
+- Gjennomgang: 36 funn, 10 lave rettet.
+- Status: done.
+
+### Åpne punkter
+- Issue #204: beslutninger og nye tabeller med persondata for registeret i Story 15.2.
