@@ -857,8 +857,12 @@ def scope_of(
     if runtime is None or runtime.model_config_id is None:
         return None
     if class_session_id is not None:
+        # The frozen config travels with the scope, so the gateway resolves it (Epic 8 close-out:
+        # without it every Class game LLM Order was the `provider_error` fallback).
         return ai_budget.BudgetScope.class_session(
-            class_session_id, effort_level=runtime.effort_level
+            class_session_id,
+            effort_level=runtime.effort_level,
+            model_config_id=runtime.model_config_id,
         )
     if Purpose(purpose) is Purpose.SIMULATION:
         return ai_budget.BudgetScope.evaluation(

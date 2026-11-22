@@ -13,10 +13,12 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from structlog.testing import capture_logs
 
+from app.ai import budget as ai_budget
 from app.engine import demand_series
 from app.modules.games import commands
 from app.modules.games import service as games_service
 from app.modules.ops import sweep
+from app.modules.players import service as players
 from app.modules.progress import service as progress
 from app.modules.sessions import service as sessions_service
 from app.platform import jobs
@@ -408,3 +410,32 @@ async def test_a_never_started_game_with_llm_seats_plays_out_with_no_ai_deadline
         (game_id,),
     )
     assert queues == [("llm-batch",)]
+
+
+async def test_a_class_game_playing_out_asks_the_model_and_the_cost_limit_reaches_it(
+    games_db, ai_db, mail_db, held
+):
+    """Epic 8 close-out (follow-up reviews of 8.2 and 8.14): a Class game's LLM player reaches the
+    model through its session's scope (it fell back with `provider_error` before), and the cost
+    limit switch finds a Game that is playing out."""
+    config_id = await stored_config()
+    level = MOCK["effort_levels"][0]["name"]
+    session = class_session()
+    await ai_budget.set_budget(ai_budget.BudgetScope.class_session(session))
+    game_id, _ = await class_game(stored=snapshot(config_id, level), session=session)
+    assert await commands.playout(game_id, now=DEADLINE, latest=DEADLINE)
+    await jobs.run_until_idle([jobs.LLM_BATCH])
+    marks = query(
+        TEST_DATABASE_URL,
+        "SELECT DISTINCT w.decided_by, w.fallback FROM seat_weeks w WHERE w.game_id = %s",
+        (game_id,),
+    )
+    assert ("llm", "none") in marks
+    assert ("llm", "provider_error") not in marks
+
+    scope = await games_service.budget_scope(game_id)
+    assert game_row(game_id)["lifecycle"] == "playing_out"
+    assert await games_service.games_charged_to(scope) == [game_id]
+    assert await players.apply_cost_limit(game_id) == 4  # every Seat an LLM player held
+    assert occupancy(game_id, "retailer")[-1][1:3] == ("rule_based", "cost_limit")
+    assert await players.apply_cost_limit(game_id) == 0  # nothing left to switch
