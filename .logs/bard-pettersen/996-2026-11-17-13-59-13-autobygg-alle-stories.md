@@ -2997,3 +2997,23 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Neste b
 
 ### Åpne punkter
 - Issue #188: beslutninger og utsatt punkt om lenken for stab etter overtakelse.
+
+## Story 8.12: Fyll alle seter det ventes på, i én handling (spor 1)
+
+### Oppgave
+Bygge Story 8.12 på `epic-8` i spor 1.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Neste byggeagent startet med en gang, og den visuelle kontrollen gikk samtidig med eget compose-prosjekt.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-8-12-fill-every-waited-for-seat-in-one-action.md`.
+- Commit: 5ce0bd3. Ingen migrasjon.
+- Én regel for hvem det ventes på (`rules.waited_for`). Faglæreren kan sette inn KI-spillere i alle seter det ventes på, per spill i Spillstyring eller for hele klasseøkta på siden `/oversikt/sett-inn`; seter med tilrettelegging tas aldri med.
+- Tester: backend 3065 (to fulle kjøringer), Vitest 902, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 138 uten ustabile tester. Testen med 100 spill tar 10–13 s.
+- Gjennomgang: 33 funn, 6 middels; 2 middels og 8 lave rettet.
+- Visuell kontroll (Sonnet, bare rapport, eget compose-prosjekt): 25 skjermbilder i `screenshots/8.12/`, ingen feil i 8.12. Én klar feil i eldre kode: Varselbåndet på Oversikt klemmes til én bokstav per linje ved 200 % tekst (siden blir 9400 px høy); går til Story 8.14.
+- Status: done.
+
+### Åpne punkter
+- Issue #189: beslutninger (pausede spill holdes utenfor, bare faglærer, tilrettelegging tas aldri med).
