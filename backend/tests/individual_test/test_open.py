@@ -105,7 +105,8 @@ async def test_the_test_opens_after_the_replay_with_the_statement_first_and_once
     assert (version, selection) == (pin["version"], pin)
     assert [item["id"] for item in items] == [item["id"] for item in body["items"]]
     assert [item["number"] for item in body["items"]] == list(range(1, len(items) + 1))
-    assert all(set(item) == {"id", "number", "type", "title"} for item in body["items"])
+    keys = {"id", "number", "type", "title", "options", "answer"}  # no weight, key or score
+    assert all(set(item) == keys and item["answer"] is None for item in body["items"])
     assert all(item["weight"] == pin["weights"][item["id"]] for item in items)
     assert {topic for topic, _ in emitted} == COMMAND_TOPICS["tests.open_attempt"]
     assert emitted == [("user", str(seated[0]))]  # once: the follow-up's closure carries it

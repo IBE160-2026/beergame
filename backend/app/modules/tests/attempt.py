@@ -3,33 +3,69 @@
 `read` answers the state: `statement` before the Student has accepted the own-work statement (no
 item is served), `open` with the items of their attempt in its frozen order, `closed` when their
 Test deadline has passed with no attempt. `open_` accepts the statement through
-`commands.open_attempt`. Only the Student's own locked Class session is reached; every other
-caller gets None (the route's 403 `forbidden`), whether or not an attempt exists."""
+`commands.open_attempt`. Each open item carries a choice item's option ids and the Student's saved
+answer; `save` autosaves one answer through `commands.save_answer` (Story 11.4). Only the Student's
+own locked Class session is reached; every other caller gets None (the route's 403 `forbidden`),
+whether or not an attempt exists."""
 
 import uuid
 from collections.abc import Mapping
 from datetime import datetime
 from typing import Any
 
+from sqlalchemy import select
+
 from app.modules.content import service as content
 from app.modules.content.schemas import QuestionSet
 from app.modules.progress import service as progress
 from app.modules.sessions import service as sessions
 from app.modules.tests import commands
-from app.modules.tests.schemas import IndividualItemOut, MyTestOut
+from app.modules.tests.models import test_answers
+from app.modules.tests.schemas import (
+    IndividualItemOut,
+    MyTestOut,
+    SavedAnswerOut,
+    StoredAnswerOut,
+)
 from app.platform import authz
 from app.platform.db import get_sessionmaker
 
-__all__ = ["read", "open_"]
+__all__ = ["read", "open_", "save"]
+
+
+async def _answers(attempt_id: uuid.UUID) -> dict[str, StoredAnswerOut]:
+    async with get_sessionmaker()() as s:
+        result = await s.execute(
+            select(
+                test_answers.c.item_id,
+                test_answers.c.value,
+                test_answers.c.revision,
+                test_answers.c.saved_at,
+            ).where(test_answers.c.attempt_id == attempt_id)
+        )
+        return {
+            row["item_id"]: StoredAnswerOut(
+                value=row["value"], revision=row["revision"], saved_at=row["saved_at"]
+            )
+            for row in result.mappings()
+        }
 
 
 async def _items(attempt: Mapping[str, Any]) -> list[IndividualItemOut]:
     question_set: QuestionSet = await content.get(
         content.Kind.QUESTION_SET, attempt["question_set_version"]
     )
-    titles = {item.id: item.title for item in question_set.items}
+    by_id = {item.id: item for item in question_set.items}
+    answers = await _answers(attempt["id"])
     return [
-        IndividualItemOut(id=item["id"], number=number, type=item["type"], title=titles[item["id"]])
+        IndividualItemOut(
+            id=item["id"],
+            number=number,
+            type=item["type"],
+            title=by_id[item["id"]].title,
+            options=list(by_id[item["id"]].options),
+            answer=answers.get(item["id"]),
+        )
         for number, item in enumerate(attempt["items"], start=1)
     ]
 
@@ -74,3 +110,18 @@ async def open_(
     if opened is None:
         return None
     return await _open(opened.attempt), opened.created
+
+
+async def save(
+    user: authz.Principal,
+    class_session_id: uuid.UUID,
+    item_id: str,
+    value: Any,
+    revision: int,
+    now: datetime,
+) -> SavedAnswerOut | None:
+    """Autosave one answer (Story 11.4, AD-10): the answer stored after the save; None for every
+    caller but the Student with an open attempt (FR-5). Raises `commands.AttemptSubmitted`,
+    `commands.DeadlinePassed`, `commands.UnknownItem` and `commands.InvalidAnswer`."""
+    stored = await commands.save_answer(user, class_session_id, item_id, value, revision, now)
+    return None if stored is None else SavedAnswerOut(**stored)

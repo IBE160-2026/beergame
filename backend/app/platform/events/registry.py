@@ -164,6 +164,10 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # FR-51): their other devices read the test again (`user`); the Debrief follow-up closed in
         # the same transaction emits `user` as well. Opening the one they have emits nothing.
         "tests.open_attempt": frozenset({"user"}),
+        # A Student's answer autosaved (Story 11.4, AD-10): no event, the saving page has it and
+        # another device reads it when it reads the test again; a save per click would refetch
+        # the whole test on the saving device.
+        "tests.save_answer": frozenset(),
         # A Student's Replay made and started (Story 10.3, FR-48): its Game is created, seated and
         # started through `games.commands` (`game`), and the Student's Hjem reads it again
         # (`user`). No Lecturer overview lists a Replay, so no `session`.

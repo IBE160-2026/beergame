@@ -1,12 +1,12 @@
 """The Starting task as the Student reads and answers it (Story 6.3, FR-85, UX-DR63), the Lecturer's
 question set and Scoring guide blocks (Stories 11.1, 11.2) and the Student's Individual test
-(Story 11.3)."""
+(Stories 11.3, 11.4)."""
 
 import uuid
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from app.modules.content.schemas import GUIDE_TEXT_MAX
 from app.modules.tests.models import Choice
@@ -196,14 +196,48 @@ class ScoringGuideIn(BaseModel):
     ]
 
 
+class StoredAnswerOut(BaseModel):
+    """The Student's saved answer to one item (Story 11.4, AD-10): its value, its revision (the
+    highest saved) and when it was saved. No score and no right or wrong state (FR-54)."""
+
+    value: JsonValue
+    revision: int
+    saved_at: datetime
+
+
 class IndividualItemOut(BaseModel):
     """One item of the Student's frozen Individual test (Story 11.3), in order: its number from 1,
-    its type and its text. No weight and no answer key are sent to the Student."""
+    its type and its text; a choice item's option ids (Story 11.4, `[]` for other types) and the
+    Student's saved answer (null before the first save). No weight, no answer key and no score are
+    sent to the Student."""
 
     id: str
     number: int
     type: Literal["choice", "table", "number", "long"]
     title: str
+    options: list[str]
+    answer: StoredAnswerOut | None
+
+
+TEST_REVISION_MAX = 1_000_000
+
+
+class TestAnswerIn(BaseModel):
+    """One autosave of an item's answer (Story 11.4, AD-10): the value (a choice item: one of its
+    option ids) and the answer's revision, which rises by one per change on the Student's device."""
+
+    __test__ = False  # not a pytest class
+    model_config = _IN
+
+    value: JsonValue
+    revision: Annotated[int, Field(strict=True, ge=1, le=TEST_REVISION_MAX)]
+
+
+class SavedAnswerOut(StoredAnswerOut):
+    """The answer stored for the item after a save: the one just sent, or the one with a higher
+    revision stored already (then nothing changed, and it is no error)."""
+
+    item_id: str
 
 
 class MyTestOut(BaseModel):

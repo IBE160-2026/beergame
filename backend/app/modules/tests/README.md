@@ -85,3 +85,18 @@ Story 11.13 must leave Students with their own extension out.
 - `open_attempt` runs under the Class session row's share lock and closes the Student's Debrief
   follow-up questions in the same transaction (`debrief.service.close_follow_up`, FR-45); it emits
   `user:<id>`. No answer text is logged.
+
+## Answering multiple-choice items with autosave (Story 11.4)
+
+- Route: `PUT /api/me/class-sessions/{id}/test/answers/{item_id}` with `{value, revision}`
+  (`saveMyTestAnswer`). `commands.save_answer` locks the attempt row `FOR UPDATE` and upserts the
+  answer only when `revision` is above the stored one (AD-10); the stored answer
+  (`{item_id, value, revision, saved_at}`) comes back either way, so a late save from a second
+  device is no error. 409 `attempt_submitted`, 409 `test_deadline_passed`, 422 `unknown_item`,
+  422 `invalid_answer` (a choice item: not one of its option ids; table, number and long answers
+  are refused until Stories 11.5 and 11.6 extend `commands._valid`), 403 `forbidden` for any
+  session that is not the Student's own or a test not yet opened. No event; no value logged.
+- `GET`/`POST …/test` items carry `options` (a choice item's option ids) and `answer` (the saved
+  `{value, revision, saved_at}` or null). No score and no right or wrong state is sent (FR-54).
+- Scoring: `analysis.scoring.score_choice(answer, key)`, pure; the AI assessment (Epic 12) reads
+  it. The web app computes no score.

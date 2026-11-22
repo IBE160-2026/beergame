@@ -2275,6 +2275,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/class-sessions/{session_id}/test/answers/{item_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save My Test Answer
+         * @description Autosave the Student's answer to one item (Story 11.4, FR-51, AD-10): the answer stored
+         *     after the save. It is replaced only when `revision` is above the stored one; otherwise the
+         *     stored answer comes back unchanged, without an error. 409 `attempt_submitted` once the test is
+         *     handed in, 409 `test_deadline_passed` after the Student's Test deadline, 422 `unknown_item`
+         *     for an item the attempt does not have, 422 `invalid_answer` for a value that does not answer
+         *     the item, 403 `forbidden` for any session that is not theirs or a test not yet opened.
+         */
+        put: operations["saveMyTestAnswer"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me/games/{game_id}": {
         parameters: {
             query?: never;
@@ -4181,13 +4206,18 @@ export interface components {
         /**
          * IndividualItemOut
          * @description One item of the Student's frozen Individual test (Story 11.3), in order: its number from 1,
-         *     its type and its text. No weight and no answer key are sent to the Student.
+         *     its type and its text; a choice item's option ids (Story 11.4, `[]` for other types) and the
+         *     Student's saved answer (null before the first save). No weight, no answer key and no score are
+         *     sent to the Student.
          */
         IndividualItemOut: {
+            answer: components["schemas"]["StoredAnswerOut"] | null;
             /** Id */
             id: string;
             /** Number */
             number: number;
+            /** Options */
+            options: string[];
             /** Title */
             title: string;
             /**
@@ -4499,6 +4529,7 @@ export interface components {
             /** Terms */
             terms: components["schemas"]["SumTermOut"][];
         };
+        JsonValue: unknown;
         /**
          * LabHourIn
          * @description A Lab hour as the Lecturer adds or changes it (Story 5.6, FR-19): its start and end as
@@ -5860,6 +5891,23 @@ export interface components {
             /** Valid Count */
             valid_count: number;
         };
+        /**
+         * SavedAnswerOut
+         * @description The answer stored for the item after a save: the one just sent, or the one with a higher
+         *     revision stored already (then nothing changed, and it is no error).
+         */
+        SavedAnswerOut: {
+            /** Item Id */
+            item_id: string;
+            /** Revision */
+            revision: number;
+            /**
+             * Saved At
+             * Format: date-time
+             */
+            saved_at: string;
+            value: components["schemas"]["JsonValue"];
+        };
         /** ScaleStepOut */
         ScaleStepOut: {
             /** Label */
@@ -6547,6 +6595,21 @@ export interface components {
             step: "class_game" | "debrief" | "quiz" | "replay" | "test" | "report";
         };
         /**
+         * StoredAnswerOut
+         * @description The Student's saved answer to one item (Story 11.4, AD-10): its value, its revision (the
+         *     highest saved) and when it was saved. No score and no right or wrong state (FR-54).
+         */
+        StoredAnswerOut: {
+            /** Revision */
+            revision: number;
+            /**
+             * Saved At
+             * Format: date-time
+             */
+            saved_at: string;
+            value: components["schemas"]["JsonValue"];
+        };
+        /**
          * StudentGameOut
          * @description The Student's Class game on Hjem (Story 6.1): «Spill 17 · Du er Grossist» and the four
          *     Seats, Fabrikk first (UX-DR73). Only from the Start date (`is_locked`).
@@ -6725,6 +6788,16 @@ export interface components {
         TableStatusOut: {
             /** Seats */
             seats: components["schemas"]["TableSeatOut"][];
+        };
+        /**
+         * TestAnswerIn
+         * @description One autosave of an item's answer (Story 11.4, AD-10): the value (a choice item: one of its
+         *     option ids) and the answer's revision, which rises by one per change on the Student's device.
+         */
+        TestAnswerIn: {
+            /** Revision */
+            revision: number;
+            value: components["schemas"]["JsonValue"];
         };
         /**
          * TestGameIn
@@ -12955,6 +13028,69 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    saveMyTestAnswer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TestAnswerIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedAnswerOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

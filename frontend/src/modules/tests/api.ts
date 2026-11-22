@@ -33,6 +33,24 @@ export function openMyTest(classSessionId: string): Promise<MyTest> {
   );
 }
 
+export type SavedAnswer = components["schemas"]["SavedAnswerOut"];
+
+/** Autosave one answer (Story 11.4, AD-10): the answer stored after the save, which is the one
+ * sent or one with a higher revision stored already. 409 `attempt_submitted` and
+ * `test_deadline_passed`, 422 `unknown_item` and `invalid_answer`, 403 `forbidden`. */
+export function saveMyTestAnswer(
+  classSessionId: string,
+  itemId: string,
+  body: { value: string; revision: number },
+): Promise<SavedAnswer> {
+  return request(() =>
+    api.PUT("/api/me/class-sessions/{session_id}/test/answers/{item_id}", {
+      params: { path: { session_id: classSessionId, item_id: itemId } },
+      body,
+    }),
+  );
+}
+
 /** The Klasseøkt's «Spørsmål og vekter» block (Story 11.1). */
 export type QuestionSet = components["schemas"]["QuestionSetOut"];
 export type QuestionItem = components["schemas"]["QuestionItemOut"];

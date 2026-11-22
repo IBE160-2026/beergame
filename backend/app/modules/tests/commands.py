@@ -3,7 +3,7 @@
 
 The decision (the Deferred item "Test attempt write path"):
 
-- The commands are `open_attempt` (here), `save_answer` (Story 11.4), `submit` (Story 11.10),
+- The commands are `open_attempt` (Story 11.3), `save_answer` (Story 11.4), `submit` (Story 11.10),
   `close_attempt` (Story 11.11), `extend_deadline` (Story 11.13) and `end_sitting` (Story 11.12).
   No other code inserts or updates an attempt or an answer.
 - Every command that acts on an existing attempt takes `SELECT … FOR UPDATE` on the attempt row
@@ -19,6 +19,10 @@ The decision (the Deferred item "Test attempt write path"):
   save's transaction (`move_deadline`, registered with `sessions`). Story 11.13 must leave a
   Student with their own extension out.
 
+- `save_answer` keeps the highest revision per answer (AD-10): the row is upserted only when the
+  sent revision is above the stored one, and the stored answer is returned either way, so a late
+  or repeated save from a second device is no error.
+
 No answer text is ever logged."""
 
 import uuid
@@ -33,21 +37,26 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.content import service as content
+from app.modules.content.schemas import QuestionSet
 from app.modules.debrief import service as debrief
 from app.modules.progress import service as progress
 from app.modules.sessions import service as sessions
 from app.modules.tests import selection as selections
-from app.modules.tests.models import AttemptStatus, test_attempts
+from app.modules.tests.models import AttemptStatus, test_answers, test_attempts
 from app.platform import authz, events
 from app.platform.db import get_sessionmaker
 
 __all__ = [
+    "AttemptSubmitted",
     "DeadlinePassed",
+    "InvalidAnswer",
     "Opened",
     "ReplayRequired",
     "attempt_of",
     "move_deadline",
     "open_attempt",
+    "save_answer",
+    "UnknownItem",
 ]
 
 log = structlog.get_logger(__name__)
@@ -59,6 +68,19 @@ class ReplayRequired(Exception):
 
 class DeadlinePassed(Exception):
     """The Student's Test deadline has passed (409 `test_deadline_passed`)."""
+
+
+class AttemptSubmitted(Exception):
+    """The attempt is handed in; its answers no longer change (409 `attempt_submitted`)."""
+
+
+class UnknownItem(Exception):
+    """The attempt's frozen item list has no such item (422 `unknown_item`)."""
+
+
+class InvalidAnswer(Exception):
+    """The value is no answer to the item (422 `invalid_answer`): for a choice item, not one of
+    its option ids. Table, number and long answers arrive with Stories 11.5 and 11.6."""
 
 
 @dataclass(frozen=True)
@@ -165,6 +187,106 @@ async def open_attempt(
         follow_up_closed=closed,
     )
     return Opened(attempt, created=True)
+
+
+def _valid(item_type: str, options: tuple[str, ...], value: Any) -> bool:
+    """Whether `value` answers an item of this type (Story 11.4: a choice item's option id)."""
+    if item_type == "choice":
+        return isinstance(value, str) and value in options
+    return False
+
+
+async def save_answer(
+    user: authz.Principal,
+    class_session_id: uuid.UUID,
+    item_id: str,
+    value: Any,
+    revision: int,
+    now: datetime,
+) -> Mapping[str, Any] | None:
+    """Autosave the Student's answer to one item (Story 11.4, FR-51, AD-10): the stored answer
+    (`item_id`, `value`, `revision`, `saved_at`) after the save. It is replaced only when
+    `revision` is above the stored one; otherwise the stored answer is returned unchanged, without
+    an error. None when the session is not one of the Student's own locked Class sessions or they
+    have not opened the test (the route's 403, FR-5).
+
+    One transaction with the attempt row `FOR UPDATE`, so two devices saving the same item are
+    serialised and the highest revision is the one kept. Raises `AttemptSubmitted` once the
+    attempt is not open, `DeadlinePassed` once its `effective_deadline` has passed, `UnknownItem`
+    for an item not in its frozen list and `InvalidAnswer` for a value that does not answer the
+    item. Emits nothing: the saving page has the answer, and another device reads it when it
+    reads the test. The value is never logged."""
+    async with get_sessionmaker().begin() as s:
+        found = await sessions.individual_test_session_of(s, user, class_session_id)
+        if found is None:
+            return None
+        attempt = (
+            (
+                await s.execute(
+                    select(test_attempts)
+                    .where(
+                        test_attempts.c.user_id == user.id,
+                        test_attempts.c.class_session_id == class_session_id,
+                    )
+                    .with_for_update()
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if attempt is None:
+            return None
+        if attempt["status"] != AttemptStatus.OPEN.value:
+            raise AttemptSubmitted
+        deadline = attempt["effective_deadline"]
+        if deadline is not None and deadline <= now:
+            raise DeadlinePassed
+        frozen = next((item for item in attempt["items"] if item["id"] == item_id), None)
+        if frozen is None:
+            raise UnknownItem
+        question_set: QuestionSet = await content.get(
+            content.Kind.QUESTION_SET, attempt["question_set_version"]
+        )
+        options = next((i.options for i in question_set.items if i.id == item_id), ())
+        if not _valid(frozen["type"], options, value):
+            raise InvalidAnswer
+        sent = insert(test_answers).values(
+            id=uuid.uuid7(),
+            attempt_id=attempt["id"],
+            item_id=item_id,
+            value=value,
+            revision=revision,
+            saved_at=now,
+        )
+        await s.execute(
+            sent.on_conflict_do_update(
+                constraint="uq_test_answers_item",
+                set_={
+                    "value": sent.excluded.value,
+                    "revision": sent.excluded.revision,
+                    "saved_at": sent.excluded.saved_at,
+                },
+                where=test_answers.c.revision < sent.excluded.revision,
+            )
+        )
+        stored = (
+            (
+                await s.execute(
+                    select(
+                        test_answers.c.item_id,
+                        test_answers.c.value,
+                        test_answers.c.revision,
+                        test_answers.c.saved_at,
+                    ).where(
+                        test_answers.c.attempt_id == attempt["id"],
+                        test_answers.c.item_id == item_id,
+                    )
+                )
+            )
+            .mappings()
+            .one()
+        )
+    return stored
 
 
 async def move_deadline(

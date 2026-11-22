@@ -3574,8 +3574,18 @@
         "type": "object"
       },
       "IndividualItemOut": {
-        "description": "One item of the Student's frozen Individual test (Story 11.3), in order: its number from 1,\nits type and its text. No weight and no answer key are sent to the Student.",
+        "description": "One item of the Student's frozen Individual test (Story 11.3), in order: its number from 1,\nits type and its text; a choice item's option ids (Story 11.4, `[]` for other types) and the\nStudent's saved answer (null before the first save). No weight, no answer key and no score are\nsent to the Student.",
         "properties": {
+          "answer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StoredAnswerOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -3583,6 +3593,13 @@
           "number": {
             "title": "Number",
             "type": "integer"
+          },
+          "options": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Options",
+            "type": "array"
           },
           "title": {
             "title": "Title",
@@ -3603,7 +3620,9 @@
           "id",
           "number",
           "type",
-          "title"
+          "title",
+          "options",
+          "answer"
         ],
         "title": "IndividualItemOut",
         "type": "object"
@@ -4290,6 +4309,7 @@
         "title": "ItemResultOut",
         "type": "object"
       },
+      "JsonValue": {},
       "LabHourIn": {
         "additionalProperties": false,
         "description": "A Lab hour as the Lecturer adds or changes it (Story 5.6, FR-19): its start and end as\ninstants with their offset, and its place. The service judges the rules (`invalid_lab_hour`),\nso a blank or long place gets its reason rather than a schema error.",
@@ -7374,6 +7394,35 @@
         "title": "RosterUploadOut",
         "type": "object"
       },
+      "SavedAnswerOut": {
+        "description": "The answer stored for the item after a save: the one just sent, or the one with a higher\nrevision stored already (then nothing changed, and it is no error).",
+        "properties": {
+          "item_id": {
+            "title": "Item Id",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "saved_at": {
+            "format": "date-time",
+            "title": "Saved At",
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/JsonValue"
+          }
+        },
+        "required": [
+          "value",
+          "revision",
+          "saved_at",
+          "item_id"
+        ],
+        "title": "SavedAnswerOut",
+        "type": "object"
+      },
       "ScaleStepOut": {
         "properties": {
           "label": {
@@ -8939,6 +8988,30 @@
         "title": "StepOut",
         "type": "object"
       },
+      "StoredAnswerOut": {
+        "description": "The Student's saved answer to one item (Story 11.4, AD-10): its value, its revision (the\nhighest saved) and when it was saved. No score and no right or wrong state (FR-54).",
+        "properties": {
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "saved_at": {
+            "format": "date-time",
+            "title": "Saved At",
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/JsonValue"
+          }
+        },
+        "required": [
+          "value",
+          "revision",
+          "saved_at"
+        ],
+        "title": "StoredAnswerOut",
+        "type": "object"
+      },
       "StudentGameOut": {
         "description": "The Student's Class game on Hjem (Story 6.1): «Spill 17 · Du er Grossist» and the four\nSeats, Fabrikk first (UX-DR73). Only from the Start date (`is_locked`).",
         "properties": {
@@ -9386,6 +9459,27 @@
           "seats"
         ],
         "title": "TableStatusOut",
+        "type": "object"
+      },
+      "TestAnswerIn": {
+        "additionalProperties": false,
+        "description": "One autosave of an item's answer (Story 11.4, AD-10): the value (a choice item: one of its\noption ids) and the answer's revision, which rises by one per change on the Student's device.",
+        "properties": {
+          "revision": {
+            "maximum": 1000000.0,
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "value": {
+            "$ref": "#/components/schemas/JsonValue"
+          }
+        },
+        "required": [
+          "value",
+          "revision"
+        ],
+        "title": "TestAnswerIn",
         "type": "object"
       },
       "TestGameIn": {
@@ -17884,6 +17978,98 @@
           }
         },
         "summary": "Open My Test",
+        "tags": [
+          "tests"
+        ]
+      }
+    },
+    "/api/me/class-sessions/{session_id}/test/answers/{item_id}": {
+      "put": {
+        "description": "Autosave the Student's answer to one item (Story 11.4, FR-51, AD-10): the answer stored\nafter the save. It is replaced only when `revision` is above the stored one; otherwise the\nstored answer comes back unchanged, without an error. 409 `attempt_submitted` once the test is\nhanded in, 409 `test_deadline_passed` after the Student's Test deadline, 422 `unknown_item`\nfor an item the attempt does not have, 422 `invalid_answer` for a value that does not answer\nthe item, 403 `forbidden` for any session that is not theirs or a test not yet opened.",
+        "operationId": "saveMyTestAnswer",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TestAnswerIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedAnswerOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Save My Test Answer",
         "tags": [
           "tests"
         ]

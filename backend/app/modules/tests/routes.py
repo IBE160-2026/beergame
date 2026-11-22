@@ -13,7 +13,8 @@ The Scoring guide, «Sensorveiledning» (Story 11.2, FR-81): `GET
 
 The Student's Individual test (Story 11.3, FR-51): `GET /api/me/class-sessions/{id}/test` and
 `POST …` (accepting the own-work statement). Any session that is not the Student's own locked
-Class session answers 403 `forbidden`, whether or not an attempt exists (FR-5)."""
+Class session answers 403 `forbidden`, whether or not an attempt exists (FR-5). `PUT
+…/test/answers/{item_id}` autosaves one answer (Story 11.4, AD-10)."""
 
 import uuid
 from typing import Annotated
@@ -29,9 +30,11 @@ from app.modules.tests.schemas import (
     MyTestOut,
     QuestionSetIn,
     QuestionSetOut,
+    SavedAnswerOut,
     ScoringGuideIn,
     ScoringGuideOut,
     StartingTaskOut,
+    TestAnswerIn,
 )
 from app.platform import auth, authz
 from app.platform.errors import documented, error_response
@@ -272,3 +275,38 @@ async def open_my_test(
         raise authz.Forbidden
     opened, created = found
     return JSONResponse(opened.model_dump(mode="json"), status_code=201 if created else 200)
+
+
+@router.put(
+    f"{_TEST}/answers/{{item_id}}",
+    response_model=SavedAnswerOut,
+    responses=documented(401, 403, 409, 422),
+    operation_id="saveMyTestAnswer",
+)
+async def save_my_test_answer(
+    session_id: str,
+    item_id: str,
+    body: TestAnswerIn,
+    user: Annotated[authz.Principal, Depends(authz.require("tests.take_own"))],
+) -> Response:
+    """Autosave the Student's answer to one item (Story 11.4, FR-51, AD-10): the answer stored
+    after the save. It is replaced only when `revision` is above the stored one; otherwise the
+    stored answer comes back unchanged, without an error. 409 `attempt_submitted` once the test is
+    handed in, 409 `test_deadline_passed` after the Student's Test deadline, 422 `unknown_item`
+    for an item the attempt does not have, 422 `invalid_answer` for a value that does not answer
+    the item, 403 `forbidden` for any session that is not theirs or a test not yet opened."""
+    try:
+        saved = await attempt.save(
+            user, _id(session_id), item_id, body.value, body.revision, auth.utcnow()
+        )
+    except commands.AttemptSubmitted:
+        return error_response(409, "attempt_submitted", "The test is handed in.")
+    except commands.DeadlinePassed:
+        return error_response(409, "test_deadline_passed", "Your Test deadline has passed.")
+    except commands.UnknownItem:
+        return error_response(422, "unknown_item", "The test has no such item.")
+    except commands.InvalidAnswer:
+        return error_response(422, "invalid_answer", "The value does not answer the item.")
+    if saved is None:
+        raise authz.Forbidden
+    return JSONResponse(saved.model_dump(mode="json"))

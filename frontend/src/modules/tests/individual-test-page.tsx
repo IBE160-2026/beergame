@@ -15,6 +15,7 @@ import { HOME_LINK, HOME_PATH } from "@/modules/identity/homes";
 import { PageLink, PageShell } from "@/modules/identity/page-shell";
 
 import { type MyTest, myTestKey, openMyTest, useMyTest } from "./api";
+import { ChoiceItem } from "./choice-item";
 import { deadlineLine, itemLines, testView } from "./individual-test";
 
 const copy = nb.tests.individual;
@@ -29,8 +30,8 @@ const ITEMS_HEADING_ID = "test-items";
  * no item before it is accepted. Once accepted the items show in their frozen order and focus moves
  * to their heading; the statement is never asked again, on any device. After the Testfrist with no
  * attempt it says the test was not handed in. Another Student's or an unknown session shows the
- * permission-denied page. Every state comes from the api (AD-10). Answering the items arrives with
- * Stories 11.4 to 11.6.
+ * permission-denied page. Every state comes from the api (AD-10). Multiple-choice items are
+ * answered with autosave (Story 11.4); the other types arrive with Stories 11.5 and 11.6.
  */
 export function IndividualTestPage({ classSessionId }: { classSessionId: string }) {
   return (
@@ -62,7 +63,7 @@ function TestPage({ classSessionId, user, updatedAt }: { classSessionId: string;
       {test?.state === "statement" ? (
         <Statement test={test} classSessionId={classSessionId} onAccepted={() => setAccepted(true)} />
       ) : null}
-      {test?.state === "open" ? <Items test={test} focus={accepted} /> : null}
+      {test?.state === "open" ? <Items test={test} focus={accepted} classSessionId={classSessionId} userId={user.id} /> : null}
       {view !== "other" ? <PageLink href={HOME_PATH.home}>{HOME_LINK.home}</PageLink> : null}
     </PageShell>
   );
@@ -115,8 +116,8 @@ function Statement({ test, classSessionId, onAccepted }: { test: MyTest; classSe
 }
 
 /** The open test: the Testfrist, then the items in order, each «Oppgave 3» with its type in words
- * and its text. */
-function Items({ test, focus }: { test: MyTest; focus: boolean }) {
+ * and its text; a multiple-choice item is answered under it (its text is the choice's legend). */
+function Items({ test, focus, classSessionId, userId }: { test: MyTest; focus: boolean; classSessionId: string; userId: string }) {
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     if (focus) heading.current?.focus();
@@ -137,7 +138,11 @@ function Items({ test, focus }: { test: MyTest; focus: boolean }) {
                 {lines.heading}
                 <span className="ml-3 text-body-phone font-normal text-ink-secondary lg:text-body">{lines.type}</span>
               </h3>
-              <p className={`${LINE} mt-2 max-w-md text-ink`}>{item.title}</p>
+              {item.type === "choice" ? (
+                <ChoiceItem classSessionId={classSessionId} userId={userId} item={item} />
+              ) : (
+                <p className={`${LINE} mt-2 max-w-md text-ink`}>{item.title}</p>
+              )}
             </li>
           );
         })}

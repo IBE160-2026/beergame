@@ -2798,6 +2798,19 @@ export const nb = {
         number: "Tallsvar",
         long: "Langsvar",
       },
+      /** Autosave (Story 11.4, UX-DR65): «Lagret 21:14», Europe/Oslo; the failure line is the
+       * spine's. */
+      saved: (time: string) => `Lagret ${time}`,
+      notSaved: "Ikke lagret. Svarene ligger på denne enheten, og vi prøver igjen.",
+      /** [ASSUMPTION] draft copy: a choice item's option, while the draft question set has option
+       * ids only (the real texts are issue #16's deliverable). «Alternativ B». */
+      option: (id: string) => `Alternativ ${id.toUpperCase()}`,
+      /** [ASSUMPTION] draft copy: a save the api refused; it is not tried again. */
+      saveErrors: {
+        attempt_submitted: "Testen er levert. Svaret ble ikke lagret.",
+        test_deadline_passed: "Testfristen er passert. Svaret ble ikke lagret.",
+      } as Readonly<Record<string, string>>,
+      saveRefused: "Svaret ble ikke lagret. Last siden på nytt.",
     },
     /** Story 11.1 (FR-52, FR-53, UX-DR49): the Klasseøkt's block «Spørsmål og vekter». The title,
      * «Ta ut», «Vekt», the sum line and the quantity warning are the spine's; the rest is
