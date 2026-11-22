@@ -3744,3 +3744,22 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den bli
 
 ### Åpne punkter
 - Issue #230: beslutninger og norsk sortering (å før æ og ø), som rettes samlet.
+
+## Story 13.2: Studentsiden med blokken «Fullføring» (spor 2)
+
+### Oppgave
+Bygge Story 13.2 på `epic-13` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-13-2-studentside-with-the-fullforing-block.md`.
+- Commit: 020da02.
+- Studentsiden samler fullføring, deltakelse, spillet, Forklaringen, Debrief, quiz, Replay og status for den individuelle testen. KI-delen og rapporten er sømmer mot Story 12.5 og 13.12.
+- Tester: backend 3732, Vitest 1194, tsc, `lint:colours`, `check:copy`, bygg, Playwright 49 med axe.
+- Gjennomgang: 24 funn, 7 rettet.
+- Status: done.
+
+### Åpne punkter
+- Issue #231: beslutninger og hva som må slås sammen med Story 12.5 ved merge.
