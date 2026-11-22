@@ -8,3 +8,6 @@ gjennomgang-closed-390/1280.png - «Replay stengt» message from Story 10.6; mat
 gjennomgang-notfinished-390/1280.png - «Gjennomgangen kommer når Replay er ferdig.» with link «Til Replay»; matches.
 gjennomgang-other-390/1280.png - real 403: «Du har ikke tilgang til denne siden.» with «Til Hjem»; matches.
 gjennomgang-ready-390-200pct.png, gjennomgang-table-390-200pct.png, gjennomgang-mostlyai-390-200pct.png - html font-size 200%; text reflows, no page overflow; chart SVG labels do not grow with text (judgement).
+
+## After the Epic 10 close-out fixes (lane 2, port 8081; stand-in walkthrough as in replay-walkthrough.spec.ts)
+- walkthrough-chart-labels-{390,1280,200}.png: the chart labels its lines directly at the right edge, each at the height of its last Uke («Replay», «Klassespill» in grey), and names the y unit «enheter» above the ticks; the labels grow with the text at 200 %. Matches DESIGN.md direct labels.
