@@ -3017,3 +3017,23 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Neste b
 
 ### Åpne punkter
 - Issue #189: beslutninger (pausede spill holdes utenfor, bare faglærer, tilrettelegging tas aldri med).
+
+## Story 10.6: Steng Replay som ikke er ferdig, ved Testfristen (spor 2)
+
+### Oppgave
+Bygge Story 10.6 på `epic-10` i spor 2, og rette at projeksjonslinja krysset etikettene i grafen (fra den visuelle kontrollen av 10.4).
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet; orkestratoren pekte den til hullene som gjennomgangen av testdekningen fant. Neste byggeagent startet med en gang, og den visuelle kontrollen gikk samtidig med eget compose-prosjekt.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-10-6-close-unfinished-replays-at-the-test-deadline.md`.
+- Commit: b211c33. Migrasjon 0117.
+- Sweepen stenger en Replay som ikke er ferdig når Testfristen har gått for alle studentene i den; den blir ikke regnet som fullført, og ordrene beholdes. «Replay stengt» på egen skjerm, Hjem, Stegene og Spillinnsikt. Etikettene i grafen flytter seg unna projeksjonslinja, og formelen holder seg samlet.
+- Tester: backend 3146 på 133 s, Vitest 1031, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 130. En Vitest-test for farger var ustabil i to kjøringer under last.
+- Gjennomgang: 36 funn, 8 rettet (1 middels).
+- Visuell kontroll (Sonnet, bare rapport, eget compose-prosjekt): skjermbilder i `screenshots/10.6/`. Rettingen av grafen er bekreftet ved 390 og 1280 px. Én klar feil: ved 200 % tekst blir grafkolonnen på spillskjermen så smal at etikettene kuttes («Pos», «Rest»); trolig eldre, går til avslutningen av Epic 10.
+- Status: done.
+
+### Åpne punkter
+- Issue #190: beslutninger (når en Replay stenges, KI-ordre før sweepen, etiketter i grafen).
