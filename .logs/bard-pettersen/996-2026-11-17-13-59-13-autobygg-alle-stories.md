@@ -3076,3 +3076,23 @@ Byggeagent med `bmad-build-auto` mot KI-mocken og fire gjennomgangsagenter på S
 
 ### Åpne punkter
 - Issue #192: kommandoen for ekte kall og beslutningene.
+
+## Story 10.8: Vurder hvor troverdige KI-spillerne var (spor 2)
+
+### Oppgave
+Bygge Story 10.8 på `epic-10` i spor 2, uten tester som spiller et spill hver.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Neste byggeagent startet med en gang, og den visuelle kontrollen gikk samtidig med eget compose-prosjekt.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-10-8-rate-how-believable-the-ai-players-were.md`.
+- Commit: 5dbad27. Migrasjon 0119.
+- Studenten svarer én gang på hvor troverdige KI-spillerne var (1–5) og om de vil spille en runde til. Spørsmålene står på «Spillet er ferdig» og under gjennomgangen av Replay; bare studenten selv kan lese svaret.
+- Tester: backend 3150 på 124 s (ned fra 135 s), Vitest 1040, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 118 uten ustabile tester. Den nye testen spiller ikke noe spill.
+- Gjennomgang: 20 funn, 3 rettet.
+- Visuell kontroll (Sonnet, bare rapport, eget compose-prosjekt): 24 skjermbilder i `screenshots/10.8/`, ingen klare feil. To like «Send svar»-knapper under hverandre på gjennomgangen er tatt med i lista til slutten av epicen.
+- Status: done.
+
+### Åpne punkter
+- Issue #193: beslutninger (spørsmålet står til det er besvart, når det spørres, lagring uten fremmednøkkel).
