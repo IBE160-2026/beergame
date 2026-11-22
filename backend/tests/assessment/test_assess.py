@@ -255,6 +255,7 @@ async def test_the_close_defers_one_job_that_scores_each_item_once(klass, monkey
         "label": "Utkast: mangler",
         "feedback": None,
         "feedback_dropped": False,
+        "flagged": False,
     }
     assert items[LONG[1]]["points"] == 0 and items[LONG[1]]["computed"] is None
     assert items[OWN]["wording"]["text"] == own_item["title"]

@@ -3287,6 +3287,52 @@ export const nb = {
        * test. */
       unchecked: "Ikke kontrollert med en Kontrolltest.",
     },
+    /** Story 12.5 (FR-55, UX-DR39, UX-DR59): the Student's flag under a piece of feedback. The
+     * spine's words. */
+    flag: {
+      mark: "Marker som feil",
+      marked: "Markert. Faglærer ser det.",
+      undo: "Angre",
+      failed: "Det ble ikke lagret. Prøv igjen.",
+    },
+    /** Story 12.5 (FR-55, UX-DR66): the block «KI-vurdering» on a Student's Studentside, for the
+     * Class's staff. The disclosure and the other lines are the Student's own; these are
+     * [ASSUMPTION] draft copy for the founder's review. */
+    staff: {
+      title: "KI-vurdering",
+      /** Under a piece of feedback the Student flagged. [ASSUMPTION] */
+      flagged: "Studenten har markert denne tilbakemeldingen som feil.",
+      /** How many pieces the Student flagged, above the items; `count` through the formatter. [ASSUMPTION] */
+      flagCount: (count: number, words: string) =>
+        count === 1 ? "Studenten har markert 1 tilbakemelding som feil." : `Studenten har markert ${words} tilbakemeldinger som feil.`,
+      /** The Student has no attempt. [ASSUMPTION] */
+      noTest: "Studenten har ingen levert test i denne Klasseøkten, så det finnes ingen KI-vurdering.",
+      /** Switched off, or stopped while not ready. [ASSUMPTION] */
+      switchedOff: "KI-vurdering er slått av for denne Klasseøkten. Studentrapporten finnes som vanlig.",
+      /** In place of feedback the validator rejected twice. [ASSUMPTION] */
+      feedbackDropped:
+        "Den skrevne tilbakemeldingen ble holdt tilbake fordi den ikke kunne kontrolleres mot svaret. KI-vurderingen over står.",
+      loadFailed: "KI-vurderingen kunne ikke hentes.",
+    },
+    /** Story 12.5: the Klasseøkt's list of the Students' AI assessments, under the switch.
+     * [ASSUMPTION] draft copy for the founder's review. */
+    list: {
+      title: "Studentenes KI-vurderinger",
+      /** Each row's state, in words. [ASSUMPTION] */
+      states: {
+        ready: "Klar",
+        not_ready: "Ikke klar",
+        incomplete: "Ikke ferdig",
+        failed: "Kunne ikke lages",
+        switched_off: "Slått av",
+        no_test: "Ingen levert test",
+      },
+      /** Each row's flags; `words` is the count through the formatter. [ASSUMPTION] */
+      flags: (count: number, words: string) =>
+        count === 0 ? "Ingen markert som feil" : `${words} markert som feil`,
+      empty: "Ingen studenter i Klassen ennå.",
+      loadFailed: "Listen kunne ikke hentes.",
+    },
   },
 
   /** The Oversikt of a Class session (Story 7.1, FR-39, UX-DR40). The headline form, «Oppdatert»,

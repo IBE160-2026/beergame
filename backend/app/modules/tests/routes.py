@@ -34,6 +34,7 @@ from app.modules.tests import assessed, attempt, commands, guide, preview, selec
 from app.modules.tests.schemas import (
     AdaptedPreviewOut,
     AnswerIn,
+    AssessmentListOut,
     DeadlineExtensionIn,
     FinalIn,
     MyAssessmentOut,
@@ -43,6 +44,7 @@ from app.modules.tests.schemas import (
     SavedAnswerOut,
     ScoringGuideIn,
     ScoringGuideOut,
+    StaffAssessmentOut,
     StartingTaskOut,
     TestAnswerIn,
 )
@@ -299,6 +301,93 @@ async def get_my_assessment(
     if found is None:
         raise authz.Forbidden
     return JSONResponse(found.model_dump(mode="json"))
+
+
+async def _flag(user: authz.Principal, session_id: str, item_id: str, flagged: bool) -> Response:
+    try:
+        found = await assessed.set_flag(user, _id(session_id), item_id, flagged)
+    except assessed.NotFlaggable:
+        return error_response(
+            409, assessed.NotFlaggable.code, "There is no written feedback to flag for that item."
+        )
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.put(
+    f"{_TEST}/assessment/items/{{item_id}}/flag",
+    response_model=MyAssessmentOut,
+    responses=documented(401, 403, 409),
+    operation_id="flagFeedback",
+)
+async def flag_feedback(
+    session_id: str,
+    item_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("tests.take_own"))],
+) -> Response:
+    """«Marker som feil» (Story 12.5, FR-55): the Student marks the written feedback of one item of
+    their own «KI-vurdering» as wrong, stored at once; the staff of the Class see it. Idempotent.
+    Answers the view as it now stands. 409 `feedback_not_flaggable` when the view shows no written
+    feedback for that item; `forbidden` for any session that is not theirs."""
+    return await _flag(user, session_id, item_id, True)
+
+
+@router.delete(
+    f"{_TEST}/assessment/items/{{item_id}}/flag",
+    response_model=MyAssessmentOut,
+    responses=documented(401, 403, 409),
+    operation_id="unflagFeedback",
+)
+async def unflag_feedback(
+    session_id: str,
+    item_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("tests.take_own"))],
+) -> Response:
+    """«Angre» (Story 12.5, FR-55): the Student takes their flag on one item's feedback back.
+    Idempotent; answers and refuses as `flagFeedback`."""
+    return await _flag(user, session_id, item_id, False)
+
+
+@router.get(
+    "/class-sessions/{session_id}/students/{user_id}/assessment",
+    response_model=StaffAssessmentOut,
+    responses=documented(401, 403),
+    operation_id="getStudentAssessment",
+)
+async def get_student_assessment(
+    session_id: str,
+    user_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("ai_assessments.read"))],
+) -> Response:
+    """A Student's «KI-vurdering» for the staff of the Class (Story 12.5, FR-55, AD-12): the block
+    on the Studentside. What the Student reads (states, scores, feedback, the notes, `checked`)
+    and which pieces they flagged; never a choice only the Student sees. 403 `forbidden` for
+    anyone but the owners and Assistant lecturers of the Class (the Admin too), a User who is no
+    Student of it now and an unknown Class session (FR-5)."""
+    found = await assessed.staff_read(user, _id(session_id), _id(user_id))
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"), headers=_PERSONAL)
+
+
+@router.get(
+    "/class-sessions/{session_id}/assessments",
+    response_model=AssessmentListOut,
+    responses=documented(401, 403),
+    operation_id="listStudentAssessments",
+)
+async def list_student_assessments(
+    session_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("ai_assessments.read"))],
+) -> Response:
+    """The Klasseøkt's list of AI assessments (Story 12.5): each Student of the Class by name,
+    the state of their assessment and how many pieces of feedback they flagged. 403 `forbidden`
+    as `getStudentAssessment`."""
+    found = await assessed.staff_list(user, _id(session_id))
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"), headers=_PERSONAL)
 
 
 @router.post(

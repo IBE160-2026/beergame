@@ -6,8 +6,12 @@ import { api } from "@/lib/api/client";
 import { request } from "@/lib/api/mutation";
 import type { components } from "@/lib/api/schema";
 
-/** The Studentside of one Student (Story 8.9): for now the block «Tilrettelegging». */
+/** The Studentside of one Student (Story 8.9): «Tilrettelegging» and «Frister» for its owners
+ * (`can_manage`); the «KI-vurdering» block reads its own endpoint (Story 12.5). */
 export type StudentPage = components["schemas"]["StudentPageOut"];
+/** The Studentside as its owners read it (Story 12.5): «Frister» is there. An Assistant lecturer's
+ * page has `can_manage` false and neither «Tilrettelegging» nor «Frister». */
+export type ManagedStudentPage = StudentPage & { deadlines: components["schemas"]["StudentDeadlinesOut"] };
 export type Adjustment = components["schemas"]["AdjustmentOut"];
 export type AdjustmentIn = components["schemas"]["AdjustmentIn"];
 

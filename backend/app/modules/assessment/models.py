@@ -18,7 +18,10 @@ Story 12.3 (FR-54, AD-7): an item's written feedback, or the note that it was le
 Story 12.4 (FR-54, FR-61, FR-69, AD-9): the stop mark of a Class session's assessment
 (`stopped_at`, `stopped_by`) on its switch row, which the pin trigger lets change; on an
 assessment the attempt's `effective_deadline` (`due_at`), from which the sweep counts the 24-hour
-target, and when it was logged as overdue (`overdue_at`) (migration 0204)."""
+target, and when it was logged as overdue (`overdue_at`) (migration 0204).
+
+Story 12.5 (FR-55): `ai_feedback_flags`, one row per piece of written feedback the Student marked
+as wrong, on its stored item score (migration 0205)."""
 
 from sqlalchemy import (
     Boolean,
@@ -26,6 +29,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     PrimaryKeyConstraint,
@@ -142,5 +146,21 @@ ai_item_scores = Table(
     ),
     CheckConstraint(
         "feedback IS NULL OR feedback_note IS NULL", name="ck_ai_item_scores_feedback_one"
+    ),
+)
+
+ai_feedback_flags = Table(
+    "ai_feedback_flags",
+    metadata,
+    Column("assessment_id", Uuid, nullable=False),
+    Column("item_id", Text, nullable=False),
+    Column("flagged_at", DateTime(timezone=True), nullable=False),
+    PrimaryKeyConstraint("assessment_id", "item_id", name="pk_ai_feedback_flags"),
+    # Only on a stored item score, and gone with it (the assessment's cascade included).
+    ForeignKeyConstraint(
+        ["assessment_id", "item_id"],
+        ["ai_item_scores.assessment_id", "ai_item_scores.item_id"],
+        name="fk_ai_feedback_flags_item_score",
+        ondelete="CASCADE",
     ),
 )

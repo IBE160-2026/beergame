@@ -10,6 +10,8 @@ import { AccessDenied, GuardedPage } from "@/modules/identity/home-page";
 import { classPath, classSessionPath, HOME_PATH, studentPagePath } from "@/modules/identity/homes";
 import { PageShell } from "@/modules/identity/page-shell";
 
+import { StaffAssessmentBlock } from "@/modules/assessment/staff-block";
+
 import { AdjustmentBlock } from "./adjustment-block";
 import { type StudentPage, studentPageKey, useStudentPage } from "./api";
 import { DeadlineBlock } from "./deadline-block";
@@ -23,10 +25,11 @@ const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * The Studentside (Story 8.9, UX-DR53, EXPERIENCE.md → Studentside): one Student of a Class
- * session, as a page of blocks for the Lecturers of its Class: «Tilrettelegging» and «Frister»
- * (Story 11.13); Story 13.2 adds its own blocks here. Reached from the Student's name on
- * Spillinnsikt. Anyone else, an Assistant lecturer included, sees the permission-denied page (FR-5,
- * AD-12).
+ * session, as a page of blocks for the staff of its Class: «Tilrettelegging» and «Frister» (Story
+ * 11.13) for its Lecturers only (`can_manage`), and «KI-vurdering» (Story 12.5) for its Lecturers
+ * and Assistant lecturers; Story 13.2 adds its own blocks here. Reached from the Student's name on
+ * Spillinnsikt and on the Klasseøkt's list of AI assessments. Anyone else sees the
+ * permission-denied page (FR-5, AD-12).
  */
 export function StudentPageView({ sessionId, userId }: { sessionId: string; userId: string }) {
   const named = ID.test(sessionId) && ID.test(userId);
@@ -94,8 +97,17 @@ function StudentPageBody({
     >
       {data ? (
         <>
-          <AdjustmentBlock data={data} open={editing === "adjustment"} onOpenChange={toggle("adjustment")} />
-          <DeadlineBlock data={data} open={editing === "deadline"} onOpenChange={toggle("deadline")} />
+          {data.can_manage ? (
+            <AdjustmentBlock data={data} open={editing === "adjustment"} onOpenChange={toggle("adjustment")} />
+          ) : null}
+          {data.can_manage && data.deadlines ? (
+            <DeadlineBlock
+              data={{ ...data, deadlines: data.deadlines }}
+              open={editing === "deadline"}
+              onOpenChange={toggle("deadline")}
+            />
+          ) : null}
+          <StaffAssessmentBlock sessionId={sessionId} userId={userId} />
         </>
       ) : null}
     </PageShell>

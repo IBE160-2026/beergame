@@ -44,7 +44,7 @@ test("on by default, switched off with «Lagre Klasseøkt» and read back", asyn
   const lecturer = await freshLecturer(page, browser);
   const { id } = await newSession(lecturer);
   await lecturer.goto(`/klasseokter/${id}`);
-  await expect(block(lecturer).getByRole("heading", { name: copy.title })).toBeVisible();
+  await expect(block(lecturer).getByRole("heading", { name: copy.title, exact: true })).toBeVisible();
   // The state in words beside the track, read with the name: never by colour alone.
   await expect(toggle(lecturer)).toHaveAccessibleName(`${copy.title} ${copy.on}`);
   await expect(toggle(lecturer)).toHaveAttribute("aria-checked", "true");

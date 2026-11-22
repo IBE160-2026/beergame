@@ -125,6 +125,8 @@ RECLAIM_TABLES = {"seat_reclaims"}
 """The table of revision 0055 (Story 8.4)."""
 ADJUSTMENT_TABLES = {"student_adjustments"}
 """The table of revision 0059 (Story 8.9)."""
+FLAG_TABLES = {"ai_feedback_flags"}
+"""The table of revision 0205 (Story 12.5)."""
 HEAD_TABLES = (
     PRE_SESSION_TABLES
     | SESSION_TABLES
@@ -158,8 +160,10 @@ HEAD_TABLES = (
     | AI_ASSESSMENT_TABLES
     | RECLAIM_TABLES
     | ADJUSTMENT_TABLES
+    | FLAG_TABLES
 )
-HEAD = "0204"  # 0204 (12.4), 0203 (12.3) and 0202 (12.2) follow 0201 (12.7); 0120-0130 follow 0064
+# 0205 (12.5), 0204 (12.4), 0203 (12.3) and 0202 (12.2) follow 0201 (12.7); 0120-0130 follow 0064
+HEAD = "0205"
 
 
 def reset_schema(url: str) -> None:
@@ -347,6 +351,11 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     # 0111 (Story 9.12): presence, the Students who go on alone and the 48-hour fallback.
     assert "last_seen_at" in columns(url, "debrief_members")
     assert {"fallback_due_at", "fallback_at"} <= columns(url, "debrief_sessions")
+
+    # 0205 (Story 12.5): the Student's flags on pieces of written feedback.
+    assert FLAG_TABLES <= tables(url)
+    command.downgrade(cfg, "0204")
+    assert FLAG_TABLES.isdisjoint(tables(url))
 
     # 0204 (Story 12.4): the stop mark on the switch, and the due and overdue times of an
     # assessment.

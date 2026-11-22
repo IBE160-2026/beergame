@@ -7,6 +7,8 @@ import { nb } from "@/copy/nb";
 import type { ClassSession } from "@/modules/sessions/api";
 import { osloDateText } from "@/modules/sessions/dates";
 
+import { AssessmentList } from "./assessment-list";
+
 const copy = nb.assessment.switchBlock;
 
 /**
@@ -16,6 +18,9 @@ const copy = nb.assessment.switchBlock;
  * deadline; then the Test-deadline lock pins it and it stands as text with the time it was locked.
  * An Assistant lecturer reads it as text (AD-12). The state is in words beside the track, never by
  * colour alone (UX-DR12).
+ *
+ * Story 12.5 (FR-55): under it, each Student's assessment state and flag count, each a Lenke to
+ * their Studentside.
  */
 export function AiAssessmentBlock({
   item,
@@ -65,6 +70,7 @@ export function AiAssessmentBlock({
             ? copy.open
             : copy.deadlinePassed}
       </p>
+      <AssessmentList sessionId={item.id} />
     </section>
   );
 }

@@ -2103,26 +2103,52 @@ class StudentTarget:
     class_id: uuid.UUID
     class_name: str
     name: str
+    can_manage: bool
+    """Story 12.5: whether `user` may also manage the Class's sessions (`class_sessions.manage`:
+    an owner), so the Studentside shows «Tilrettelegging» and «Frister»."""
 
 
 async def student_target(
-    user: authz.Principal, class_session_id: uuid.UUID, user_id: uuid.UUID
+    user: authz.Principal,
+    class_session_id: uuid.UUID,
+    user_id: uuid.UUID,
+    action: str = "class_sessions.manage",
 ) -> StudentTarget | None:
-    """The Student `user_id` of the Class session when `user` may manage its Class's sessions
-    (`class_sessions.manage`: a Lecturer of the Class, never an Assistant lecturer) and `user_id`
-    is a Student of the Class now; None, one answer, for anything else (FR-5, AD-12). The
-    Studentside (Story 8.9) and a deadline extension (Story 11.13) are reached only so."""
+    """The Student `user_id` of the Class session when `user` may do the Class action `action`
+    on its Class's sessions (by default `class_sessions.manage`: a Lecturer of the Class, never an
+    Assistant lecturer) and `user_id` is a Student of the Class now; None, one answer, for
+    anything else (FR-5, AD-12). The Studentside (Story 8.9; `student_pages.read` from Story
+    12.5), a deadline extension (Story 11.13) and the staff's AI assessment (Story 12.5,
+    `ai_assessments.read`) are reached only so."""
     async with get_sessionmaker()() as s:
         row = await repo.session_row(s, class_session_id)
     if row is None:
         return None
-    found = await _class_for(user, row["class_id"], "class_sessions.manage")
+    found = await _class_for(user, row["class_id"], action)
     if found is None:
         return None
     names = await classes.student_names(row["class_id"], [user_id])
     if user_id not in names:
         return None
-    return StudentTarget(row=row, class_id=found.id, class_name=found.name, name=names[user_id])
+    return StudentTarget(
+        row=row,
+        class_id=found.id,
+        class_name=found.name,
+        name=names[user_id],
+        can_manage=authz.can(user, "class_sessions.manage", found),
+    )
+
+
+async def session_students(class_session_id: uuid.UUID) -> dict[uuid.UUID, str]:
+    """The Students of the Class session's Class now (registered, not removed) with their Roster
+    names, read at request time (AD-14): the Klasseøkt's list of AI assessments (Story 12.5). The
+    caller has judged that the asking User may read them. Empty for an unknown session."""
+    async with get_sessionmaker()() as s:
+        row = await repo.session_row(s, class_session_id)
+    if row is None:
+        return {}
+    students = await classes.registered_students(row["class_id"])
+    return await classes.student_names(row["class_id"], students)
 
 
 async def deadlines_out(

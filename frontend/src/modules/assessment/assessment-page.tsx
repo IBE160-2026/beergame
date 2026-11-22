@@ -10,7 +10,8 @@ import { PageLink, PageShell } from "@/modules/identity/page-shell";
 import { itemLabel, itemLines } from "@/modules/tests/individual-test";
 
 import { type AssessedItem, type ItemFeedback, type MyAssessment, myAssessmentKey, useMyAssessment } from "./api";
-import { pointsText, scoreText, stateLine, totalText } from "./assessment";
+import { flagCountText, pointsText, scoreText, stateLine, totalText, type Viewer } from "./assessment";
+import { FlagControl } from "./flag-control";
 
 const copy = nb.assessment.student;
 const LINE = "text-body-phone lg:text-body";
@@ -29,6 +30,8 @@ const ITEMS_HEADING_ID = "assessment-items";
  * feedback, «KI-generert, kan ta feil:» first, each quote of the Student's own answer set apart as a
  * quotation; where the feedback was left out, a note in its place; and while the Scoring guide is
  * not checked by a Control test, «Ikke kontrollert med en Kontrolltest.» under the disclosure.
+ *
+ * Story 12.5 (FR-55, UX-DR39): under each piece of feedback the Student's «Marker som feil».
  */
 export function AssessmentPage({ classSessionId }: { classSessionId: string }) {
   return (
@@ -46,17 +49,39 @@ function Assessment({ classSessionId, user, updatedAt }: { classSessionId: strin
   const assessment = found.data;
   return (
     <PageShell user={user} title={copy.title} updatedAt={updatedAt} phase={assessment ? "ready" : phase === "ready" ? "loading" : phase} onRetry={retry}>
-      {assessment ? <Body assessment={assessment} /> : null}
+      {assessment ? <AssessmentView assessment={assessment} viewer="student" classSessionId={classSessionId} /> : null}
       <PageLink href={HOME_PATH.home}>{HOME_LINK.home}</PageLink>
     </PageShell>
   );
 }
 
-function Body({ assessment }: { assessment: MyAssessment }) {
-  const line = stateLine(assessment);
+type HeadingLevel = 2 | 3;
+
+/**
+ * The «KI-vurdering» itself, for the Student on their page and, Story 12.5 (FR-55, UX-DR66), for
+ * the staff of their Class in the Studentside's block: the same disclosure, unchecked notice,
+ * scores, feedback and dropped-feedback notes. The Student flags feedback (`classSessionId`); the
+ * staff read which pieces the Student flagged, in words. `level` is the heading level of
+ * «Oppgavene»; each item's heading is one below it.
+ */
+export function AssessmentView({
+  assessment,
+  viewer,
+  classSessionId,
+  level = 2,
+}: {
+  assessment: MyAssessment;
+  viewer: Viewer;
+  classSessionId?: string;
+  level?: HeadingLevel;
+}) {
+  const line = stateLine(assessment, viewer);
   const total = totalText(assessment);
+  const flags = viewer === "staff" ? flagCountText(assessment) : null;
+  const ListHeading = level === 2 ? "h2" : "h3";
+  const itemsId = `${ITEMS_HEADING_ID}-${viewer}`;
   return (
-    <div data-assessment-state={assessment.state} className="mt-4 max-w-2xl">
+    <div data-assessment-state={assessment.state} data-viewer={viewer} className="mt-4 max-w-2xl">
       <p data-disclosure className={`${LINE} font-semibold text-ink`}>
         {copy.disclosure}
       </p>
@@ -66,14 +91,19 @@ function Body({ assessment }: { assessment: MyAssessment }) {
         </p>
       ) : null}
       {line ? <p className={`${LINE} mt-3 text-ink`}>{line}</p> : null}
+      {flags ? (
+        <p data-flag-count className={`${LINE} mt-3 font-semibold text-ink`}>
+          {flags}
+        </p>
+      ) : null}
       {assessment.items.length > 0 ? (
-        <section aria-labelledby={ITEMS_HEADING_ID} className="mt-6 border-t border-axis pt-4">
-          <h2 id={ITEMS_HEADING_ID} className="text-headline text-ink">
+        <section aria-labelledby={itemsId} className="mt-6 border-t border-axis pt-4">
+          <ListHeading id={itemsId} className="text-headline text-ink">
             {copy.itemsTitle}
-          </h2>
+          </ListHeading>
           <ol className="mt-2 flex flex-col">
             {assessment.items.map((item) => (
-              <Item key={item.id} item={item} />
+              <Item key={item.id} item={item} viewer={viewer} classSessionId={classSessionId} level={level} />
             ))}
           </ol>
         </section>
@@ -90,16 +120,29 @@ function Body({ assessment }: { assessment: MyAssessment }) {
 
 /** One item: «Oppgave 3», its type, the question, the score in words, any computed criteria, and
  * its points of its Item weight. Text only: no colour carries a meaning. */
-function Item({ item }: { item: AssessedItem }) {
+function Item({
+  item,
+  viewer,
+  classSessionId,
+  level,
+}: {
+  item: AssessedItem;
+  viewer: Viewer;
+  classSessionId?: string;
+  level: HeadingLevel;
+}) {
   const { heading, type } = itemLines(item);
   const { label, ai, note } = itemLabel(item);
   const criteria = item.computed?.criteria ?? [];
+  const Heading = level === 2 ? "h3" : "h4";
+  const feedback = item.ai?.feedback;
+  const headingId = `assessment-item-${viewer}-${item.id}`;
   return (
     <li data-item={item.id} className="border-b border-hairline py-4 last:border-b-0">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <h3 className="text-step-title font-semibold text-ink">
+        <Heading id={headingId} className="text-step-title font-semibold text-ink">
           {heading} <span className="font-normal text-ink-secondary">· {type}</span>
-        </h3>
+        </Heading>
         <p data-points className={`${LINE} text-ink tabular-nums`}>
           {pointsText(item)}
         </p>
@@ -111,10 +154,23 @@ function Item({ item }: { item: AssessedItem }) {
       <p data-score className={`${LINE} mt-2 text-ink`}>
         {scoreText(item)}
       </p>
-      {item.ai?.feedback ? <Feedback feedback={item.ai.feedback} /> : null}
+      {feedback ? <Feedback feedback={feedback} /> : null}
+      {feedback && viewer === "student" && classSessionId ? (
+        <FlagControl
+          classSessionId={classSessionId}
+          itemId={item.id}
+          flagged={Boolean(item.ai?.flagged)}
+          describedBy={headingId}
+        />
+      ) : null}
+      {feedback && viewer === "staff" && item.ai?.flagged ? (
+        <p data-flagged className={`${LINE} mt-2 font-semibold text-ink`}>
+          {nb.assessment.staff.flagged}
+        </p>
+      ) : null}
       {item.ai?.feedback_dropped ? (
         <p data-feedback-dropped className={`${LINE} mt-2 text-ink-secondary`}>
-          {copy.feedbackDropped}
+          {viewer === "staff" ? nb.assessment.staff.feedbackDropped : copy.feedbackDropped}
         </p>
       ) : null}
       {criteria.length > 0 ? (

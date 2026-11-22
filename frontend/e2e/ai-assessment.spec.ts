@@ -2,7 +2,7 @@ import { expect, type Page } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
 import { loginByApi } from "./support/auth";
-import { expectAccessible, test } from "./support/classes";
+import { expectAccessible, lecturerPage, test } from "./support/classes";
 import { liveClassGame } from "./support/live-game";
 
 /** The Student's «KI-vurdering» (Story 12.2, FR-54, FR-55, FR-61, FR-80, NFR-6, UX-DR5, UX-DR66):
@@ -23,7 +23,15 @@ import { liveClassGame } from "./support/live-game";
  * Story 12.4 (FR-55, AD-8): on the stack, the open Hjem says «KI-vurderingen er klar.» before
  * its Lenke once the assessment job marks the assessment ready, without a reload, at 320 and
  * 1440 px with axe; the step, the notice and the mail are `backend/tests/assessment/
- * test_notices.py`. */
+ * test_notices.py`.
+ *
+ * Story 12.5 (FR-55, UX-DR39, UX-DR66, UX-DR76): at 320, 360 and 1440 px with axe, «Marker som
+ * feil» under a piece of feedback flags it at once (`aria-pressed`, «Markert. Faglærer ser det.»,
+ * «Angre», a 44 px tap target on phone), «Angre» takes it back, and a failed request says «Det ble
+ * ikke lagret. Prøv igjen.» with the button still active; the Studentside's «KI-vurdering» block
+ * shows the staff the same view with the flag, and an Assistant lecturer no «Tilrettelegging».
+ * On the stack: the Student flags, and the Lecturer finds the count on the Klasseøkt and the flag
+ * on the Studentside. Access and storage are `backend/tests/assessment/test_flags.py`. */
 const SESSION = "01a1f8ee-33b9-75e6-9502-79db27b37c0e";
 const CSRF = { "X-Requested-With": "olspillet" };
 const copy = nb.assessment.student;
@@ -107,6 +115,23 @@ const WITH_FEEDBACK = {
     { ...LONG, ai: { ...LONG.ai, feedback: FEEDBACK } },
     { ...ADAPTED, ai: { ...ADAPTED.ai, feedback_dropped: true } },
   ],
+};
+const STUDENT_ID = "01a1f8ee-33b9-75e6-9502-79db27b37c99";
+const FLAGGED = {
+  ...WITH_FEEDBACK,
+  items: WITH_FEEDBACK.items.map((item) => (item.id === LONG.id ? { ...item, ai: { ...item.ai!, flagged: true } } : item)),
+};
+const STUDENT_PAGE = {
+  class_session_id: SESSION,
+  class_id: "01a1f8ee-33b9-75e6-9502-79db27b37c98",
+  class_name: "Logistikk 1",
+  session_number: 1,
+  user_id: STUDENT_ID,
+  name: "Sara Student",
+  class_share: 80,
+  adjustment: null,
+  deadlines: null,
+  can_manage: false,
 };
 const INCOMPLETE = {
   state: "incomplete",
@@ -298,4 +323,135 @@ test("live: a ready assessment puts «KI-vurderingen er klar.» on the open Hjem
   await expect(page).toHaveURL(new RegExp(`/ki-vurdering/${game.sessionId}$`));
   await expect(page.locator(STATE)).toHaveAttribute("data-assessment-state", "ready");
   await page.close();
+});
+
+for (const vp of VIEWPORTS) {
+  test.describe(`flag, ${vp.name}`, () => {
+    test.use({ viewport: { width: vp.width, height: vp.height } });
+
+    test("«Marker som feil» flags at once, «Angre» takes it back; a 44 px toggle; axe passes", async ({ page }) => {
+      await standIn(page, { status: 200, json: WITH_FEEDBACK });
+      const sent: string[] = [];
+      await page.route(`**/api/me/class-sessions/${SESSION}/test/assessment/items/${LONG.id}/flag`, (route) => {
+        sent.push(route.request().method());
+        return route.fulfill({ status: 200, json: route.request().method() === "PUT" ? FLAGGED : WITH_FEEDBACK });
+      });
+      const item = page.locator(`[data-item="${LONG.id}"]`);
+      const toggle = item.getByRole("button", { name: nb.assessment.flag.mark });
+      await expect(toggle).toHaveAttribute("aria-pressed", "false");
+      // Only under a piece of feedback: not under the left-out one nor a computed item.
+      await expect(page.getByRole("button", { name: nb.assessment.flag.mark })).toHaveCount(1);
+      if (vp.phone) {
+        const box = await toggle.boundingBox();
+        expect(box!.height).toBeGreaterThanOrEqual(44);
+        expect(box!.width).toBeGreaterThanOrEqual(44);
+      }
+      await toggle.click();
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      const undo = item.getByRole("button", { name: nb.assessment.flag.undo });
+      await expect(undo).toHaveAttribute("aria-pressed", "true");
+      await expect(item.locator("[data-flag-marked]")).toHaveText(nb.assessment.flag.marked);
+      await expect(undo).toBeFocused();
+      await expectAccessible(page, vp.phone);
+      await undo.click();
+      await expect(item.getByRole("button", { name: nb.assessment.flag.mark })).toHaveAttribute("aria-pressed", "false");
+      await expect(item.locator("[data-flag-marked]")).toHaveCount(0);
+      expect(sent).toEqual(["PUT", "DELETE"]);
+    });
+
+    test("a failed flag says «Det ble ikke lagret. Prøv igjen.» and the button stays active", async ({ page }) => {
+      await standIn(page, { status: 200, json: WITH_FEEDBACK });
+      await page.route(`**/api/me/class-sessions/${SESSION}/test/assessment/items/${LONG.id}/flag`, (route) =>
+        route.fulfill({ status: 500, json: { error: { code: "internal_error", message: "x", fields: {} } } }),
+      );
+      const item = page.locator(`[data-item="${LONG.id}"]`);
+      const toggle = item.getByRole("button", { name: nb.assessment.flag.mark });
+      await toggle.click();
+      await expect(item.getByRole("alert")).toHaveText(nb.assessment.flag.failed);
+      await expect(toggle).toHaveAttribute("aria-pressed", "false");
+      await expect(toggle).toBeEnabled();
+      await expect(toggle).not.toHaveAttribute("aria-disabled", "true");
+      await expectAccessible(page, vp.phone);
+    });
+
+    test("staff: the Studentside's «KI-vurdering» shows the Student's view and their flag; axe passes", async ({ page }) => {
+      await loginByApi(page, "assistant");
+      await page.route(`**/api/class-sessions/${SESSION}/students/${STUDENT_ID}`, (route) =>
+        route.fulfill({ status: 200, json: STUDENT_PAGE }),
+      );
+      await page.route(`**/api/class-sessions/${SESSION}/students/${STUDENT_ID}/assessment`, (route) =>
+        route.fulfill({ status: 200, json: FLAGGED }),
+      );
+      await page.goto(`/klasseokter/${SESSION}/studenter/${STUDENT_ID}`);
+      const block = page.locator("[data-staff-assessment]");
+      await expect(block.getByRole("heading", { level: 2 })).toHaveText(nb.assessment.staff.title);
+      await expect(block.locator("[data-disclosure]")).toHaveText(copy.disclosure);
+      await expect(block.locator("[data-unchecked]")).toHaveText(copy.unchecked);
+      await expect(block.locator("[data-flag-count]")).toHaveText("Studenten har markert 1 tilbakemelding som feil.");
+      const item = block.locator(`[data-item="${LONG.id}"]`);
+      await expect(item.locator("[data-score]")).toHaveText("KI-vurdering: 3 av 4 (Utkast: godt)");
+      await expect(item.locator("q[data-quote]")).toHaveText(QUOTE);
+      await expect(item.locator("[data-flagged]")).toHaveText(nb.assessment.staff.flagged);
+      await expect(block.locator(`[data-item="${ADAPTED.id}"] [data-feedback-dropped]`)).toHaveText(
+        nb.assessment.staff.feedbackDropped,
+      );
+      await expect(block.locator("[data-total]")).toContainText("Vektet sum: 57,5 av 100 poeng");
+      // Read only, and no «Tilrettelegging» or «Frister» for an Assistant lecturer; no letter.
+      await expect(block.getByRole("button")).toHaveCount(0);
+      await expect(page.locator("[data-adjustment], [data-deadline]")).toHaveCount(0);
+      expect(await page.getByRole("main").innerText()).not.toMatch(/Veiledende bokstav|Karakter [A-F]/u);
+      await expectAccessible(page, vp.phone);
+    });
+  });
+}
+
+test("live: the Student flags a piece of feedback; the Lecturer sees it on the Klasseøkt and the Studentside", async ({
+  browser,
+  lecturerSession,
+}) => {
+  test.slow(); // an Invitation through the worker, a Class session, a lock, an assessment job
+  const game = await liveClassGame(browser, lecturerSession, 1, { aiMode: "rule_based" });
+  const [student] = game.students;
+  const request = student!.context.request;
+  expect((await request.post(`/api/dev/class-sessions/${game.sessionId}/replay-done`, { headers: CSRF })).status()).toBe(204);
+  const testPath = `/api/me/class-sessions/${game.sessionId}/test`;
+  const opened = await (await request.post(testPath, { headers: CSRF })).json();
+  const long = (opened.items as { id: string; type: string }[]).find((each) => each.type === "long")!;
+  const answer = { value: "Hvert ledd bestiller på det det ser. Forsinkelsen gjør at varene kommer for sent.", revision: 1 };
+  expect((await request.put(`${testPath}/answers/${long.id}`, { headers: CSRF, data: answer })).status()).toBe(200);
+  expect((await request.post(`${testPath}/submit`, { headers: CSRF })).status()).toBe(200);
+  expect((await request.post(`/api/dev/class-sessions/${game.sessionId}/lock-test`, { headers: CSRF })).status()).toBe(200);
+  expect((await request.post(`/api/dev/class-sessions/${game.sessionId}/test/close`, { headers: CSRF })).status()).toBe(204);
+
+  const page = await student!.context.newPage();
+  await page.setViewportSize({ width: 360, height: 740 });
+  await page.goto(`/ki-vurdering/${game.sessionId}`);
+  // The assessment job runs on `worker-batch`; the Student's `user` event reads the page again.
+  await expect(page.locator(STATE)).toHaveAttribute("data-assessment-state", "ready", { timeout: 30_000 });
+  const item = page.locator(`[data-item="${long.id}"]`);
+  await item.getByRole("button", { name: nb.assessment.flag.mark }).click();
+  await expect(item.locator("[data-flag-marked]")).toHaveText(nb.assessment.flag.marked);
+  await page.reload();
+  const kept = page.locator(`[data-item="${long.id}"]`).getByRole("button", { name: nb.assessment.flag.undo });
+  await expect(kept).toHaveAttribute("aria-pressed", "true");
+  await page.close();
+
+  const lecturer = await lecturerPage(browser, lecturerSession, { width: 360, height: 740 });
+  try {
+    await lecturer.goto(`/klasseokter/${game.sessionId}`);
+    const row = lecturer.locator("[data-assessment-list] li", { hasText: student!.name });
+    await expect(row.locator("[data-row-state]")).toHaveText(nb.assessment.list.states.ready);
+    await expect(row.locator("[data-row-flags]")).toHaveText("1 markert som feil");
+    const link = row.getByRole("link", { name: student!.name });
+    expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await expectAccessible(lecturer, true);
+    await lecturer.setViewportSize({ width: 1440, height: 900 });
+    await link.click();
+    const block = lecturer.locator("[data-staff-assessment]");
+    await expect(block.locator(`[data-item="${long.id}"] [data-flagged]`)).toHaveText(nb.assessment.staff.flagged);
+    await expect(block.locator("[data-disclosure]")).toHaveText(copy.disclosure);
+    await expectAccessible(lecturer, false);
+  } finally {
+    await lecturer.context().close();
+  }
 });

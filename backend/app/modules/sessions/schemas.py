@@ -1585,9 +1585,10 @@ class StudentDeadlinesOut(BaseModel):
 
 
 class StudentPageOut(BaseModel):
-    """The Studentside of one Student of a Class session (Story 8.9, UX-DR53), for the Lecturers of
-    its Class only: the blocks «Tilrettelegging» and «Frister» (Story 11.13); Story 13.2 adds its
-    own blocks."""
+    """The Studentside of one Student of a Class session (Story 8.9, UX-DR53), for the staff of
+    its Class: the blocks «Tilrettelegging» and «Frister» (Story 11.13) for its owners only
+    (`can_manage`; Story 12.5 opens the page to Assistant lecturers, who get neither); the block
+    «KI-vurdering» reads its own endpoint (Story 12.5); Story 13.2 adds its own blocks."""
 
     class_session_id: uuid.UUID
     class_id: uuid.UUID
@@ -1598,9 +1599,13 @@ class StudentPageOut(BaseModel):
     class_share: int
     """The Class session's required share of Weeks (`service.required_share`, Story 5.7)."""
     adjustment: AdjustmentOut | None
-    """None: no Tilrettelegging («Ingen tilrettelegging.»)."""
-    deadlines: StudentDeadlinesOut
-    """Story 11.13: the Student's deadlines and whether they are extended."""
+    """None: no Tilrettelegging («Ingen tilrettelegging.»), or withheld (`can_manage` false)."""
+    deadlines: StudentDeadlinesOut | None
+    """Story 11.13: the Student's deadlines and whether they are extended; None when withheld
+    (`can_manage` false)."""
+    can_manage: bool
+    """Story 12.5: whether the User is an owner of the Class, who reads and changes
+    «Tilrettelegging» and «Frister»; an Assistant lecturer reads neither."""
 
 
 class AdjustmentIn(BaseModel):

@@ -410,6 +410,8 @@ class AiScoreOut(BaseModel):
     label: str | None
     feedback: FeedbackOut | None = None
     feedback_dropped: bool = False
+    flagged: bool = False
+    """Story 12.5 (FR-55): the Student marked this feedback as wrong («Marker som feil»)."""
 
 
 class AssessedItemOut(BaseModel):
@@ -450,3 +452,37 @@ class MyAssessmentOut(BaseModel):
     """Story 12.3 (FR-81, AD-27): whether a Control test has checked the pinned Scoring guide
     version with the assessment's model config (`content.service.is_checked`); while false the
     view says «Ikke kontrollert med en Kontrolltest.»."""
+
+
+AssessmentState = Literal["no_test", "not_ready", "switched_off", "incomplete", "failed", "ready"]
+
+
+class StaffAssessmentOut(BaseModel):
+    """A Student's «KI-vurdering» as the staff of their Class read it on the Studentside (Story
+    12.5, FR-55, AD-12): the Student's own view field by field (same states, items, feedback,
+    notes, `flagged` and `checked`). Its own schema, so a field only the Student sees (Story
+    12.6's letter choice) is never served here unless added on purpose."""
+
+    state: AssessmentState
+    items: list[AssessedItemOut]
+    unassessed: list[int]
+    total: float | None
+    total_max: int | None
+    checked: bool = False
+
+
+class AssessmentRowOut(BaseModel):
+    """One Student in the Klasseøkt's list of AI assessments (Story 12.5): their Roster name,
+    the state of their assessment as their own view reads it, and how many pieces of feedback they
+    flagged."""
+
+    user_id: uuid.UUID
+    name: str
+    state: AssessmentState
+    flags: int
+
+
+class AssessmentListOut(BaseModel):
+    """The Students of the Class session with their AI assessment, by name (Story 12.5)."""
+
+    students: list[AssessmentRowOut]

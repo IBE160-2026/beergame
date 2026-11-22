@@ -177,9 +177,15 @@ POLICIES: dict[str, frozenset[str]] = {
     "session.read": frozenset({ANY_USER}),
     # The live event stream (Story 6.4, AD-8): any User; the scope decides which topics it sends.
     "events.read": frozenset({ANY_USER}),
-    # FR-5: no account role grants these. Epic 4+ adds the Class-scoped grants.
+    # The Studentside (Story 8.9; Story 12.5 opens it to Assistant lecturers): the Class's owners
+    # and Assistant lecturers read it; its «Tilrettelegging» and «Frister» stay the owners'
+    # (`class_sessions.manage`).
+    "student_pages.read": frozenset({LECTURER, ASSISTANT}),
+    # A Student's AI assessment and the Klasseøkt's list of them (Story 12.5, FR-55, AD-12): the
+    # Class's owners and Assistant lecturers; never the Admin without a staff role in the Class.
+    "ai_assessments.read": frozenset({LECTURER, ASSISTANT}),
+    # FR-5: no account role grants this. Epic 4+ adds the Class-scoped grants.
     "student_answers.read": frozenset(),
-    "ai_assessments.read": frozenset(),
 }
 """Action → the account roles that may do it. Closed: an unknown action is a KeyError."""
 
@@ -210,6 +216,8 @@ CLASS_STAFF_ROLES: dict[str, frozenset[str]] = {
     "games.fill_seats": frozenset({OWNER}),
     "messages.send": frozenset({OWNER, ASSISTANT_STAFF}),
     "messages.read_sent": frozenset({OWNER, ASSISTANT_STAFF}),
+    "student_pages.read": frozenset({OWNER, ASSISTANT_STAFF}),
+    "ai_assessments.read": frozenset({OWNER, ASSISTANT_STAFF}),
 }
 """Class action → the staff roles in the Class that may do it. Later stories add theirs."""
 

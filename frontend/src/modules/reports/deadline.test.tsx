@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { nb } from "@/copy/nb";
 import { osloDateText } from "@/modules/sessions/dates";
 
-import type { StudentPage } from "./api";
+import type { ManagedStudentPage } from "./api";
 import { canExtend, checkDeadline, deadlineLines, refusalOnField, type StudentDeadlines } from "./deadline";
 import { DeadlineBlock } from "./deadline-block";
 
@@ -30,7 +30,7 @@ const deadlines = (over: Partial<StudentDeadlines> = {}): StudentDeadlines => ({
   ...over,
 });
 
-const page = (over: Partial<StudentDeadlines> = {}): StudentPage => ({
+const page = (over: Partial<StudentDeadlines> = {}): ManagedStudentPage => ({
   class_session_id: "s1",
   class_id: "c1",
   class_name: "Klasse",
@@ -40,6 +40,7 @@ const page = (over: Partial<StudentDeadlines> = {}): StudentPage => ({
   class_share: 80,
   adjustment: null,
   deadlines: deadlines(over),
+  can_manage: true,
 });
 
 describe("Frister's words", () => {

@@ -1535,12 +1535,13 @@ PERSONAL = {"Cache-Control": "no-store"}
 async def get_student_page(
     session_id: str,
     user_id: str,
-    user: Annotated[authz.Principal, Depends(authz.require("class_sessions.manage"))],
+    user: Annotated[authz.Principal, Depends(authz.require("student_pages.read"))],
 ) -> Response:
-    """The Studentside (Story 8.9, UX-DR53): one Student of the Class session with the block
-    «Tilrettelegging», for the Lecturers of its Class only. 403 `forbidden` for an Assistant
-    lecturer, anyone outside the Class, a User who is not a Student of the Class now and a Class
-    session that does not exist (FR-5, AD-12)."""
+    """The Studentside (Story 8.9, UX-DR53): one Student of the Class session, for the staff of
+    its Class (Story 12.5: Assistant lecturers too). «Tilrettelegging» and «Frister» only for its
+    owners (`can_manage`); null for an Assistant lecturer. 403 `forbidden` for anyone outside the
+    Class, a User who is not a Student of the Class now and a Class session that does not exist
+    (FR-5, AD-12)."""
     found = await adjustments.student_page(user, _id(session_id), _id(user_id))
     if found is None:
         raise authz.Forbidden

@@ -25,3 +25,17 @@ module imports no other module (`tests/test_imports.py`).
 - The Klasseøkt reads it as `ClassSessionOut.ai_assessment` (`enabled`, `pinned_at`, `open`,
   `can_change`); Assistant lecturers read it with the Class session (`class_sessions.read`) but
   never change it (`ai_assessment.change` is the owners').
+
+## Flags and the staff read (Story 12.5, FR-55, AD-12)
+
+- `ai_feedback_flags` (migration 0205): one row per piece of written feedback the Student marked
+  as wrong, keyed by assessment and item, with a composite foreign key to `ai_item_scores` (gone
+  with the score or the assessment). `set_flag(attempt_id, item_id, flagged, now=)` stores or
+  removes it idempotently and emits `user` and `session`; `tests.assessed.set_flag` judges first
+  that the Student's view shows that feedback now (409 `feedback_not_flaggable` otherwise).
+- `AssessmentRecord.flags` carries the flagged items; `summaries_for_session(s, id)` gives each
+  Student's attempt, state, runs and flag count (the Klasseøkt's list; Epic 13 reads the same).
+- Staff read through `tests` routes: `GET /api/class-sessions/{id}/students/{user_id}/assessment`
+  (`StaffAssessmentOut`, a separate schema so a Student-only field never reaches staff) and
+  `GET /api/class-sessions/{id}/assessments`, both `ai_assessments.read` (owners and Assistant
+  lecturers of the Class; never the Admin role alone).

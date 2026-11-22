@@ -19,7 +19,13 @@ adds each AI item's feedback, its quotes cut from the Student's original answer 
 spans, the note where feedback was left out, and `checked` from `content.service.is_checked`.
 
 Story 12.4 (FR-61, FR-69): while the Class session's assessment is stopped, an assessment that is
-not ready reads as switched off; a ready one stays readable."""
+not ready reads as switched off; a ready one stays readable.
+
+Story 12.5 (FR-55, FR-5, AD-12): each AI item carries `flagged`; `set_flag` is the Student's
+«Marker som feil» and «Angre» on a piece of feedback their view shows (`NotFlaggable` for any
+other item). `staff_read` is the same view for the staff of the Class (`ai_assessments.read`:
+owners and Assistant lecturers) under its own schema, and `staff_list` each Student of the Class
+with the state of their assessment and their flag count. Every other caller gets None (403)."""
 
 import uuid
 from collections.abc import Mapping
@@ -43,17 +49,28 @@ from app.modules.tests.models import test_answers, test_attempts
 from app.modules.tests.schemas import (
     AiScoreOut,
     AssessedItemOut,
+    AssessmentListOut,
+    AssessmentRowOut,
     ComputedCriterionOut,
     ComputedScoreOut,
     FeedbackOut,
     FeedbackPartOut,
     MyAssessmentOut,
+    StaffAssessmentOut,
     WordingOut,
 )
-from app.platform import authz
+from app.platform import auth, authz
 from app.platform.db import get_sessionmaker
 
-__all__ = ["AI_TYPES", "read", "read_for_assessment"]
+__all__ = [
+    "AI_TYPES",
+    "NotFlaggable",
+    "read",
+    "read_for_assessment",
+    "set_flag",
+    "staff_list",
+    "staff_read",
+]
 
 log = structlog.get_logger(__name__)
 
@@ -226,27 +243,53 @@ async def read(user: authz.Principal, class_session_id: uuid.UUID) -> MyAssessme
     (FR-5)."""
     async with get_sessionmaker()() as s:
         found = await sessions.individual_test_session_of(s, user, class_session_id)
-        if found is None:
-            return None
-        attempt = await commands.attempt_of(s, user.id, class_session_id)
+    if found is None:
+        return None
+    view, _ = await _view(class_session_id, user.id)
+    return view
+
+
+def _state_of(
+    switch: assessment.Switch,
+    closed: bool,
+    status: str | None,
+    runs: int,
+) -> str:
+    """The state a view reads before its items (shared by the view and the staff list): switched
+    off, stopped and not ready, not ready (open, no row, or no finished run), failed, or the
+    row's own state (`incomplete` or `ready`, which the view may still read as not ready)."""
+    if not switch.enabled:
+        return "switched_off"
+    if switch.stopped and status != "ready":
+        return "switched_off"
+    if not closed or status is None or (status == "incomplete" and runs == 0):
+        return "not_ready"
+    return status
+
+
+async def _view(
+    class_session_id: uuid.UUID, user_id: uuid.UUID
+) -> tuple[MyAssessmentOut, uuid.UUID | None]:
+    """The «KI-vurdering» of the Student `user_id` in the Class session, and their attempt's id
+    (None with no attempt). The caller has judged access."""
+    async with get_sessionmaker()() as s:
+        attempt = await commands.attempt_of(s, user_id, class_session_id)
         if attempt is None:
-            return _state("no_test")
+            return _state("no_test"), None
         switch = await assessment.switch_of(s, class_session_id)
-        if not switch.enabled:
-            return _state("switched_off")
-        record = (
-            await assessment.assessment_of(s, attempt["id"])
-            if attempt["closed_at"] is not None
-            else None
-        )
+        closed = attempt["closed_at"] is not None
+        record = await assessment.assessment_of(s, attempt["id"]) if closed else None
         # Story 12.4 (FR-61, FR-69): a stopped assessment reads as switched off until it is
         # resumed; one that was ready before the stop stays readable.
-        if switch.stopped and (record is None or record.status != "ready"):
-            return _state("switched_off")
-        if record is None or (record.status == "incomplete" and record.runs == 0):
-            return _state("not_ready")
-        if record.status == "failed":
-            return _state("failed")
+        state = _state_of(
+            switch,
+            closed,
+            None if record is None else record.status,
+            0 if record is None else record.runs,
+        )
+        if state in ("switched_off", "not_ready", "failed"):
+            return _state(state), attempt["id"]
+        assert record is not None
         in_force = await guide.in_force(s, class_session_id)
         saved = (
             await s.execute(
@@ -285,6 +328,7 @@ async def read(user: authz.Principal, class_session_id: uuid.UUID) -> MyAssessme
                 label=labels.get(step) if step is not None else None,
                 **_feedback_of(record.feedback.get(item_id), answers.get(item_id)),
             )
+            ai.flagged = ai.feedback is not None and item_id in record.flags
             if step is None:
                 unassessed.append(number)
                 points = None
@@ -314,7 +358,7 @@ async def read(user: authz.Principal, class_session_id: uuid.UUID) -> MyAssessme
     ready = record.status == "ready" and total is not None
     if not ready and not unassessed:
         # A later run stored the last score and has not settled the state yet: no list to show.
-        return _state("not_ready")
+        return _state("not_ready"), attempt["id"]
     return MyAssessmentOut(
         state="ready" if ready else "incomplete",
         items=items,
@@ -322,4 +366,97 @@ async def read(user: authz.Principal, class_session_id: uuid.UUID) -> MyAssessme
         total=total if ready else None,
         total_max=sum(weights.values()) if ready else None,
         checked=checked,
-    )
+    ), attempt["id"]
+
+
+class NotFlaggable(Exception):
+    """409 `feedback_not_flaggable`: the Student's view shows no written feedback for that item
+    now (a computed item, feedback left out or not given, an unknown item, or a state with no
+    items)."""
+
+    code = "feedback_not_flaggable"
+
+
+async def set_flag(
+    user: authz.Principal, class_session_id: uuid.UUID, item_id: str, flagged: bool
+) -> MyAssessmentOut | None:
+    """«Marker som feil» (`flagged`) or «Angre» on the written feedback of one item of the
+    Student's own assessment (Story 12.5, FR-55), idempotent; answers the view as it now stands.
+    None (403) for every caller but the Student of the Class session; raises `NotFlaggable`."""
+    async with get_sessionmaker()() as s:
+        found = await sessions.individual_test_session_of(s, user, class_session_id)
+    if found is None:
+        return None
+    view, attempt_id = await _view(class_session_id, user.id)
+    item = next((each for each in view.items if each.id == item_id), None)
+    shown = item is not None and item.ai is not None and item.ai.feedback is not None
+    # «Angre» also takes back a flag the view hides now (a stop while not ready): the Student's
+    # own mark never stays against their will.
+    if attempt_id is None or (flagged and not shown):
+        raise NotFlaggable
+    if not await assessment.set_flag(attempt_id, item_id, flagged, now=auth.utcnow()):
+        raise NotFlaggable  # no stored score for that item
+    after, _ = await _view(class_session_id, user.id)
+    return after
+
+
+async def staff_read(
+    user: authz.Principal, class_session_id: uuid.UUID, student_id: uuid.UUID
+) -> StaffAssessmentOut | None:
+    """The «KI-vurdering» of the Student `student_id` for the staff of the Class (Story 12.5,
+    `ai_assessments.read`: its owners and Assistant lecturers): what the Student reads, with the
+    flags they set. None, one answer, for anyone else, a User who is not a Student of the Class
+    now and an unknown Class session (FR-5, AD-12)."""
+    if (
+        await sessions.student_target(user, class_session_id, student_id, "ai_assessments.read")
+        is None
+    ):
+        return None
+    view, _ = await _view(class_session_id, student_id)
+    # Field by field: whatever only the Student's own view carries stays out (AD-12).
+    return StaffAssessmentOut.model_validate(view.model_dump())
+
+
+async def staff_list(
+    user: authz.Principal, class_session_id: uuid.UUID
+) -> AssessmentListOut | None:
+    """Each Student of the Class with the state of their AI assessment (as their own view reads
+    it, before its items) and how many pieces of feedback they flagged, by name (Story 12.5), for
+    the staff of the Class (`ai_assessments.read`); None for anyone else (FR-5)."""
+    if not await sessions.class_staff_may(user, class_session_id, "ai_assessments.read"):
+        return None
+    names = await sessions.session_students(class_session_id)
+    async with get_sessionmaker()() as s:
+        switch = await assessment.switch_of(s, class_session_id)
+        summaries = await assessment.summaries_for_session(s, class_session_id)
+        attempts = {
+            row.user_id: row.closed_at is not None
+            for row in await s.execute(
+                select(test_attempts.c.user_id, test_attempts.c.closed_at).where(
+                    test_attempts.c.class_session_id == class_session_id
+                )
+            )
+        }
+    rows: list[AssessmentRowOut] = []
+    for student_id, name in sorted(names.items(), key=lambda each: (each[1].casefold(), each[0])):
+        summary = summaries.get(student_id)
+        if student_id not in attempts:
+            state = "no_test"
+        else:
+            state = _state_of(
+                switch,
+                attempts[student_id],
+                None if summary is None else summary.status,
+                0 if summary is None else summary.runs,
+            )
+        rows.append(
+            AssessmentRowOut(
+                user_id=student_id,
+                name=name,
+                state=state,  # type: ignore[arg-type]
+                flags=summary.flags
+                if summary is not None and state in ("ready", "incomplete")
+                else 0,
+            )
+        )
+    return AssessmentListOut(students=rows)

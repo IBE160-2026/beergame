@@ -783,6 +783,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/class-sessions/{session_id}/assessments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Student Assessments
+         * @description The Klasseøkt's list of AI assessments (Story 12.5): each Student of the Class by name,
+         *     the state of their assessment and how many pieces of feedback they flagged. 403 `forbidden`
+         *     as `getStudentAssessment`.
+         */
+        get: operations["listStudentAssessments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/class-sessions/{session_id}/debrief-quiz": {
         parameters: {
             query?: never;
@@ -1201,10 +1223,11 @@ export interface paths {
         };
         /**
          * Get Student Page
-         * @description The Studentside (Story 8.9, UX-DR53): one Student of the Class session with the block
-         *     «Tilrettelegging», for the Lecturers of its Class only. 403 `forbidden` for an Assistant
-         *     lecturer, anyone outside the Class, a User who is not a Student of the Class now and a Class
-         *     session that does not exist (FR-5, AD-12).
+         * @description The Studentside (Story 8.9, UX-DR53): one Student of the Class session, for the staff of
+         *     its Class (Story 12.5: Assistant lecturers too). «Tilrettelegging» and «Frister» only for its
+         *     owners (`can_manage`); null for an Assistant lecturer. 403 `forbidden` for anyone outside the
+         *     Class, a User who is not a Student of the Class now and a Class session that does not exist
+         *     (FR-5, AD-12).
          */
         get: operations["getStudentPage"];
         put?: never;
@@ -1233,6 +1256,30 @@ export interface paths {
          *     `share_percent` `out_of_range`); 409 `class_archived`; 403 `forbidden` as `getStudentPage`.
          */
         put: operations["saveAdjustment"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class-sessions/{session_id}/students/{user_id}/assessment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Student Assessment
+         * @description A Student's «KI-vurdering» for the staff of the Class (Story 12.5, FR-55, AD-12): the block
+         *     on the Studentside. What the Student reads (states, scores, feedback, the notes, `checked`)
+         *     and which pieces they flagged; never a choice only the Student sees. 403 `forbidden` for
+         *     anyone but the owners and Assistant lecturers of the Class (the Admin too), a User who is no
+         *     Student of it now and an unknown Class session (FR-5).
+         */
+        get: operations["getStudentAssessment"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -2687,6 +2734,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/class-sessions/{session_id}/test/assessment/items/{item_id}/flag": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Flag Feedback
+         * @description «Marker som feil» (Story 12.5, FR-55): the Student marks the written feedback of one item of
+         *     their own «KI-vurdering» as wrong, stored at once; the staff of the Class see it. Idempotent.
+         *     Answers the view as it now stands. 409 `feedback_not_flaggable` when the view shows no written
+         *     feedback for that item; `forbidden` for any session that is not theirs.
+         */
+        put: operations["flagFeedback"];
+        post?: never;
+        /**
+         * Unflag Feedback
+         * @description «Angre» (Story 12.5, FR-55): the Student takes their flag on one item's feedback back.
+         *     Idempotent; answers and refuses as `flagFeedback`.
+         */
+        delete: operations["unflagFeedback"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me/class-sessions/{session_id}/test/submit": {
         parameters: {
             query?: never;
@@ -3354,6 +3429,11 @@ export interface components {
              * @default false
              */
             feedback_dropped: boolean;
+            /**
+             * Flagged
+             * @default false
+             */
+            flagged: boolean;
             /** Label */
             label: string | null;
             /** Step */
@@ -3534,6 +3614,36 @@ export interface components {
             /** Weight */
             weight: number;
             wording: components["schemas"]["WordingOut"] | null;
+        };
+        /**
+         * AssessmentListOut
+         * @description The Students of the Class session with their AI assessment, by name (Story 12.5).
+         */
+        AssessmentListOut: {
+            /** Students */
+            students: components["schemas"]["AssessmentRowOut"][];
+        };
+        /**
+         * AssessmentRowOut
+         * @description One Student in the Klasseøkt's list of AI assessments (Story 12.5): their Roster name,
+         *     the state of their assessment as their own view reads it, and how many pieces of feedback they
+         *     flagged.
+         */
+        AssessmentRowOut: {
+            /** Flags */
+            flags: number;
+            /** Name */
+            name: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "no_test" | "not_ready" | "switched_off" | "incomplete" | "failed" | "ready";
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
         };
         /**
          * AuditActor
@@ -7470,6 +7580,33 @@ export interface components {
             seat_id: string;
         };
         /**
+         * StaffAssessmentOut
+         * @description A Student's «KI-vurdering» as the staff of their Class read it on the Studentside (Story
+         *     12.5, FR-55, AD-12): the Student's own view field by field (same states, items, feedback,
+         *     notes, `flagged` and `checked`). Its own schema, so a field only the Student sees (Story
+         *     12.6's letter choice) is never served here unless added on purpose.
+         */
+        StaffAssessmentOut: {
+            /**
+             * Checked
+             * @default false
+             */
+            checked: boolean;
+            /** Items */
+            items: components["schemas"]["AssessedItemOut"][];
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "no_test" | "not_ready" | "switched_off" | "incomplete" | "failed" | "ready";
+            /** Total */
+            total: number | null;
+            /** Total Max */
+            total_max: number | null;
+            /** Unassessed */
+            unassessed: number[];
+        };
+        /**
          * StaffAssistant
          * @description An Assistant of the Class: `active` (staff, `user_id` set), or an Invitation not yet
          *     accepted (`invitation_id` set): `invited` with its last valid day, or `expired`.
@@ -7862,12 +7999,15 @@ export interface components {
         };
         /**
          * StudentPageOut
-         * @description The Studentside of one Student of a Class session (Story 8.9, UX-DR53), for the Lecturers of
-         *     its Class only: the blocks «Tilrettelegging» and «Frister» (Story 11.13); Story 13.2 adds its
-         *     own blocks.
+         * @description The Studentside of one Student of a Class session (Story 8.9, UX-DR53), for the staff of
+         *     its Class: the blocks «Tilrettelegging» and «Frister» (Story 11.13) for its owners only
+         *     (`can_manage`; Story 12.5 opens the page to Assistant lecturers, who get neither); the block
+         *     «KI-vurdering» reads its own endpoint (Story 12.5); Story 13.2 adds its own blocks.
          */
         StudentPageOut: {
             adjustment: components["schemas"]["AdjustmentOut"] | null;
+            /** Can Manage */
+            can_manage: boolean;
             /**
              * Class Id
              * Format: uuid
@@ -7882,7 +8022,7 @@ export interface components {
             class_session_id: string;
             /** Class Share */
             class_share: number;
-            deadlines: components["schemas"]["StudentDeadlinesOut"];
+            deadlines: components["schemas"]["StudentDeadlinesOut"] | null;
             /** Name */
             name: string;
             /** Session Number */
@@ -10509,6 +10649,55 @@ export interface operations {
             };
         };
     };
+    listStudentAssessments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssessmentListOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     getSessionDebriefQuiz: {
         parameters: {
             query?: never;
@@ -11796,6 +11985,56 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getStudentAssessment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffAssessmentOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -15571,6 +15810,124 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    flagFeedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyAssessmentOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unflagFeedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyAssessmentOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

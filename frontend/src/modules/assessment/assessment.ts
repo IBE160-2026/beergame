@@ -12,16 +12,23 @@ export function numbersText(numbers: readonly number[]): string {
   return `${words.slice(0, -1).join(", ")} ${copy.and} ${words.at(-1)}`;
 }
 
+/** Who reads the view (Story 12.5): the Student themselves, or the staff of their Class on the
+ * Studentside, whose lines speak of «Studenten». */
+export type Viewer = "student" | "staff";
+
 /** The one line a state with no items says, or null for `ready` and `incomplete` (they list the
  * items; `incomplete` names the ones without a score). */
-export function stateLine(assessment: Pick<MyAssessment, "state" | "unassessed">): string | null {
+export function stateLine(
+  assessment: Pick<MyAssessment, "state" | "unassessed">,
+  viewer: Viewer = "student",
+): string | null {
   switch (assessment.state) {
     case "not_ready":
       return copy.notReady;
     case "switched_off":
-      return copy.switchedOff;
+      return viewer === "staff" ? nb.assessment.staff.switchedOff : copy.switchedOff;
     case "no_test":
-      return copy.noTest;
+      return viewer === "staff" ? nb.assessment.staff.noTest : copy.noTest;
     case "failed":
       return copy.failed;
     case "incomplete":
@@ -50,4 +57,20 @@ export function scoreText(item: Pick<AssessedItem, "ai" | "computed">): string {
 export function totalText(assessment: Pick<MyAssessment, "total" | "total_max">): string | null {
   if (assessment.total == null || assessment.total_max == null) return null;
   return copy.total(formatNumber(assessment.total), formatNumber(assessment.total_max));
+}
+
+/** How many pieces of feedback the Student flagged (Story 12.5): the AI items marked `flagged`. */
+export function flagCount(assessment: Pick<MyAssessment, "items">): number {
+  return assessment.items.filter((item) => item.ai?.flagged).length;
+}
+
+/** «Studenten har markert 2 tilbakemeldinger som feil.», or null with none. */
+export function flagCountText(assessment: Pick<MyAssessment, "items">): string | null {
+  const count = flagCount(assessment);
+  return count === 0 ? null : nb.assessment.staff.flagCount(count, formatNumber(count));
+}
+
+/** A Klasseøkt list row's flags in words: «Ingen markert som feil», «2 markert som feil». */
+export function rowFlagsText(count: number): string {
+  return nb.assessment.list.flags(count, formatNumber(count));
 }

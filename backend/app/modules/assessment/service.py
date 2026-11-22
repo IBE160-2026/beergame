@@ -55,6 +55,12 @@ Story 12.4 (FR-54, FR-55, FR-61, FR-69, AD-9, AD-16): being told.
   `resume_for_session` clears it (audited), resets every unsettled or failed assessment of the
   Class session and defers each again.
 
+Story 12.5 (FR-55, AD-12): flags. `set_flag` stores or removes the Student's «Marker som feil» on
+one item's written feedback (`ai_feedback_flags`), emitting `user` and `session`; the caller
+(`tests`) has judged that the Student's view shows that feedback now. `AssessmentRecord.flags`
+carries the flagged items, and `summaries_for_session` gives each Student's assessment state,
+runs and flag count for the staff list of the Klasseøkt and for Epic 13.
+
 No answer text, guide text or score is logged: ids, counts and codes only.
 
 This module imports no feature module but `progress.service` (AD-16: any module records a step
@@ -69,7 +75,7 @@ from typing import Annotated, Any, Literal
 
 import structlog
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -80,7 +86,12 @@ from app.analysis import feedback as feedback_rules
 from app.analysis.facts import FactSet
 from app.analysis.narration import NarrationTemplates, citable, fact_lines
 from app.analysis.total import SCALE_TOP
-from app.modules.assessment.models import ai_assessments, ai_item_scores, assessment_switches
+from app.modules.assessment.models import (
+    ai_assessments,
+    ai_feedback_flags,
+    ai_item_scores,
+    assessment_switches,
+)
 from app.modules.progress import service as progress
 from app.platform import audit, auth, events, jobs, notify
 from app.platform.config import get_settings
@@ -97,6 +108,7 @@ __all__ = [
     "STOPPED",
     "AssessmentOutput",
     "AssessmentRecord",
+    "AssessmentSummary",
     "ItemFeedback",
     "AttemptToAssess",
     "ItemToAssess",
@@ -119,8 +131,10 @@ __all__ = [
     "register_attempt_reader",
     "resume_for_session",
     "schedule",
+    "set_flag",
     "set_switch",
     "stop_for_session",
+    "summaries_for_session",
     "switch_of",
 ]
 
@@ -457,6 +471,8 @@ class AssessmentRecord:
     scoring_guide_id: uuid.UUID | None = None
     model_config_id: uuid.UUID | None = None
     feedback: dict[str, ItemFeedback] = field(default_factory=dict)
+    flags: frozenset[str] = frozenset()
+    """Story 12.5: the items whose written feedback the Student marked as wrong."""
 
 
 async def assessment_of(s: AsyncSession, attempt_id: uuid.UUID) -> AssessmentRecord | None:
@@ -478,6 +494,9 @@ async def assessment_of(s: AsyncSession, attempt_id: uuid.UUID) -> AssessmentRec
             ).where(ai_item_scores.c.assessment_id == row["id"])
         )
     ).all()
+    flagged = await s.scalars(
+        select(ai_feedback_flags.c.item_id).where(ai_feedback_flags.c.assessment_id == row["id"])
+    )
     return AssessmentRecord(
         status=row["status"],
         runs=row["runs"],
@@ -490,6 +509,7 @@ async def assessment_of(s: AsyncSession, attempt_id: uuid.UUID) -> AssessmentRec
             for each in found
             if each.feedback is not None or each.feedback_note is not None
         },
+        flags=frozenset(flagged),
     )
 
 
@@ -1215,3 +1235,90 @@ async def overdue_due(attempt_id: object, now: datetime) -> bool:
                 update(ai_assessments).where(ai_assessments.c.id == row["id"]).values(**values)
             )
     return deferred
+
+
+# Story 12.5: the Student's flags, and the staff list.
+
+
+async def set_flag(attempt_id: uuid.UUID, item_id: str, flagged: bool, *, now: datetime) -> bool:
+    """Store (`flagged`) or remove the Student's «Marker som feil» on the written feedback of one
+    item of the attempt's assessment (FR-55), idempotently, in a transaction of its own; it emits
+    `user:<student>` and `session:<id>` so the Student's other tabs and the Class's staff read it
+    again (AD-8). The caller has judged that the Student's view shows that feedback now. False
+    when the attempt has no assessment or the item no stored score (nothing is stored)."""
+    async with get_sessionmaker().begin() as s:
+        row = (
+            await s.execute(
+                select(
+                    ai_assessments.c.id, ai_assessments.c.user_id, ai_assessments.c.class_session_id
+                )
+                .join(ai_item_scores, ai_item_scores.c.assessment_id == ai_assessments.c.id)
+                .where(
+                    ai_assessments.c.attempt_id == attempt_id, ai_item_scores.c.item_id == item_id
+                )
+            )
+        ).first()
+        if row is None:
+            return False
+        if flagged:
+            changed = await s.execute(
+                insert(ai_feedback_flags)
+                .values(assessment_id=row.id, item_id=item_id, flagged_at=now)
+                .on_conflict_do_nothing()
+                .returning(ai_feedback_flags.c.item_id)
+            )
+        else:
+            changed = await s.execute(
+                delete(ai_feedback_flags)
+                .where(
+                    ai_feedback_flags.c.assessment_id == row.id,
+                    ai_feedback_flags.c.item_id == item_id,
+                )
+                .returning(ai_feedback_flags.c.item_id)
+            )
+        if changed.first() is not None:
+            await events.emit(s, "user", str(row.user_id))
+            await events.emit(s, "session", str(row.class_session_id))
+            log.info("assessment_flag_set", assessment_id=str(row.id), flagged=flagged)
+    return True
+
+
+@dataclass(frozen=True)
+class AssessmentSummary:
+    """One Student's assessment in a Class session as a list reads it (Story 12.5): the attempt
+    it belongs to, its state, finished runs and how many pieces of feedback the Student flagged."""
+
+    attempt_id: uuid.UUID
+    status: Status
+    runs: int
+    flags: int
+
+
+async def summaries_for_session(
+    s: AsyncSession, class_session_id: uuid.UUID
+) -> dict[uuid.UUID, AssessmentSummary]:
+    """Every assessment of the Class session by the Student's user id, read in `s` (Story 12.5:
+    the Klasseøkt's list; Epic 13 reads the same). A Student with no row has no assessment yet.
+    The caller judges access and the switch (`switch_of`)."""
+    counted = (
+        select(ai_feedback_flags.c.assessment_id, func.count().label("flags"))
+        .group_by(ai_feedback_flags.c.assessment_id)
+        .subquery()
+    )
+    found = await s.execute(
+        select(
+            ai_assessments.c.user_id,
+            ai_assessments.c.attempt_id,
+            ai_assessments.c.status,
+            ai_assessments.c.runs,
+            func.coalesce(counted.c.flags, 0).label("flags"),
+        )
+        .outerjoin(counted, counted.c.assessment_id == ai_assessments.c.id)
+        .where(ai_assessments.c.class_session_id == class_session_id)
+    )
+    return {
+        row.user_id: AssessmentSummary(
+            attempt_id=row.attempt_id, status=row.status, runs=row.runs, flags=int(row.flags)
+        )
+        for row in found
+    }
