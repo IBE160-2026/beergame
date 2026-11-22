@@ -54,10 +54,17 @@ schema (`schemas.py`). Kinds: `starting_task` (Story 6.3), `detected_patterns` (
   that misses one of the latest Starting task's items (`starting_task_items_missing`). Its shape
   and rules are `schemas.QuestionSet`. The selection per Class session and its pin belong to
   `modules/tests` (`selection.py`, `SessionRuntime.pins["question_set"]`).
+- Version 2 of the question set (Story 11.5) is stored by migration 0124 and is now what
+  `files/question_set.json` holds: every table item and every number item that is not a Starting
+  task item has its own table and computed rule (`interactive`: prompt, rows, given columns, asked
+  label, `negative`, coded criteria whose shape is `analysis.scoring.InteractiveRule`); the load
+  refuses one without it (`interactive_missing`). Version 1 stays as it was for sessions pinned to
+  it. Interactive text says «enheter», never «øl».
 - The content load (Story 11.1): `uv run python -m app.modules.content load [folder]` publishes
   every `<kind>.json` of `files/` (or the folder) that differs from its kind's newest version;
   a second run publishes nothing. A refused file prints a stable code (`unknown_kind`,
-  `unknown_item_type`, `starting_task_items_missing`, `invalid_record`) and the command exits 1.
+  `unknown_item_type`, `interactive_missing`, `starting_task_items_missing`, `invalid_record`)
+  and the command exits 1.
 - Version 1 of the Scoring guide (Story 11.2) is stored by migration 0122 and shipped as
   `files/scoring_guide.json` (a test keeps them equal): one fixed five-step scale (0 to 4) and,
   per long-answer question (its id the item's `scoring_rule`) and Adapted item template, a title,

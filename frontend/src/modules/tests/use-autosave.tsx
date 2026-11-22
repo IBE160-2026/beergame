@@ -1,0 +1,135 @@
+"use client";
+
+import { useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+import { errorCode } from "@/lib/api/mutation";
+import { clearDraft, loadDraft, saveDraft } from "@/lib/drafts";
+
+import { type MyTest, type MyTestItem, myTestKey, saveMyTestAnswer } from "./api";
+import {
+  type AnswerValue,
+  applyFailed,
+  applyRefused,
+  applySaved,
+  choose,
+  draftField,
+  draftText,
+  type Entry,
+  initial,
+  merge,
+  RETRY_MS,
+  refusedForGood,
+  statusLine,
+} from "./autosave";
+
+/**
+ * The autosave of one item's answer (Story 11.4, AD-10; every item type from Story 11.5): the
+ * entry to show, and `pick` for a change. A change is kept on this device first
+ * (`lib/drafts.ts`), then sent; one save runs at a time, and the latest change goes after it. A
+ * failure is tried again every `RETRY_MS` and at once when the device is back online, until the
+ * api stores it; a refusal for good (handed in, past the deadline) drops the draft, shows why and
+ * reads the test again.
+ */
+export function useAutosave(classSessionId: string, userId: string, item: MyTestItem) {
+  const queryClient = useQueryClient();
+  const field = draftField(classSessionId, item.id);
+  const [start] = useState(() => initial(item.answer ?? null, loadDraft(userId, field)));
+  // What shows: the entry and its status line (the last line stands while a save runs).
+  const [shown, setShown] = useState(() => ({ entry: start.entry, line: statusLine(start.entry, "") }));
+  const current = useRef(start.entry);
+  const sending = useRef(false);
+  const timer = useRef<number | null>(null);
+  const live = useRef(true);
+
+  const update = useCallback((next: Entry) => {
+    current.current = next;
+    if (live.current) setShown((was) => ({ entry: next, line: statusLine(next, was.line) }));
+  }, []);
+
+  const send = useCallback(() => {
+    if (timer.current !== null) {
+      window.clearTimeout(timer.current);
+      timer.current = null;
+    }
+    const sent = current.current;
+    // Nothing newer than the stored answer (a cleared number is sent as null, too).
+    if (sending.current || sent.revision <= sent.stored) return;
+    sending.current = true;
+    saveMyTestAnswer(classSessionId, item.id, { value: sent.value, revision: sent.revision })
+      .then((saved) => {
+        sending.current = false;
+        const { entry: next, done } = applySaved(current.current, saved);
+        update(next);
+        // The cached test holds the stored answer, so the page shows it again on return.
+        queryClient.setQueryData<MyTest>(myTestKey(classSessionId), (test) =>
+          test
+            ? {
+                ...test,
+                items: test.items.map((i) =>
+                  i.id === item.id ? { ...i, answer: { value: saved.value, revision: saved.revision, saved_at: saved.saved_at } } : i,
+                ),
+              }
+            : test,
+        );
+        if (done) clearDraft(userId, field);
+        else if (live.current) send();
+      })
+      .catch((error: unknown) => {
+        sending.current = false;
+        if (refusedForGood(error)) {
+          clearDraft(userId, field);
+          update(applyRefused(current.current, errorCode(error)));
+          void queryClient.invalidateQueries({ queryKey: myTestKey(classSessionId) });
+          return;
+        }
+        update(applyFailed(current.current));
+        if (live.current) timer.current = window.setTimeout(send, RETRY_MS);
+      });
+  }, [classSessionId, field, item.id, queryClient, update, userId]);
+
+  const pick = useCallback(
+    (value: AnswerValue) => {
+      const next = choose(current.current, value);
+      saveDraft(userId, field, draftText({ value, revision: next.revision }));
+      update(next);
+      send();
+    },
+    [field, send, update, userId],
+  );
+
+  // A draft the api does not have yet goes at once; one it has already is dropped.
+  useEffect(() => {
+    live.current = true;
+    if (start.drop) clearDraft(userId, field);
+    if (start.send) send();
+    const online = () => {
+      if (current.current.status === "failed") send();
+    };
+    window.addEventListener("online", online);
+    return () => {
+      live.current = false;
+      window.removeEventListener("online", online);
+      if (timer.current !== null) window.clearTimeout(timer.current);
+    };
+  }, [field, send, start, userId]);
+
+  // The test read again (a live update, another device): a higher stored revision replaces this one.
+  const answer = item.answer ?? null;
+  useEffect(() => {
+    const next = merge(current.current, answer);
+    if (next !== current.current) update(next);
+  }, [answer, update]);
+
+  return { ...shown, pick };
+}
+
+/** The autosave line under an item: «Lagret 21:14», the failure line or a refusal, in a polite
+ * status region, so it is announced without moving focus (UX-DR65). */
+export function SaveLine({ entry, line }: { entry: Entry; line: string }) {
+  return (
+    <p role="status" data-save-status={entry.status} className="mt-2 min-h-6 text-label text-ink-secondary">
+      {line}
+    </p>
+  );
+}

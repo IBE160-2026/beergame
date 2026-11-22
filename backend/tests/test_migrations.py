@@ -141,7 +141,7 @@ HEAD_TABLES = (
     | SCORING_GUIDE_TABLES
     | ATTEMPT_TABLES
 )
-HEAD = "0123"  # 0123 holds the Individual test attempts and their answers (11.3)
+HEAD = "0124"  # 0124 stores version 2 of the question set, with Interactive tables (11.5)
 
 
 def reset_schema(url: str) -> None:
@@ -329,6 +329,14 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     # 0111 (Story 9.12): presence, the Students who go on alone and the 48-hour fallback.
     assert "last_seen_at" in columns(url, "debrief_members")
     assert {"fallback_due_at", "fallback_at"} <= columns(url, "debrief_sessions")
+
+    # 0124 (Story 11.5): version 2 of the question set, its Interactive items with their tables.
+    sets = "SELECT version, body FROM content_records WHERE kind = 'question_set' ORDER BY version"
+    [(v1, first), (v2, second)] = rows(url, sets)
+    assert (v1, v2) == (1, 2)
+    assert "interactive" not in first["items"][5] and second["items"][5]["interactive"]
+    command.downgrade(cfg, "0123")
+    assert [version for version, _ in rows(url, sets)] == [1]
 
     # 0123 (Story 11.3): the Individual test's attempts, one per Student and Class session, and
     # their answers.

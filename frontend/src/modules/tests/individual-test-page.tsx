@@ -17,6 +17,8 @@ import { PageLink, PageShell } from "@/modules/identity/page-shell";
 import { type MyTest, myTestKey, openMyTest, useMyTest } from "./api";
 import { ChoiceItem } from "./choice-item";
 import { deadlineLine, itemLines, testView } from "./individual-test";
+import { isInteractive } from "./interactive";
+import { NumberItem, TableItem } from "./interactive-item";
 
 const copy = nb.tests.individual;
 const LINE = "text-body-phone lg:text-body";
@@ -31,7 +33,8 @@ const ITEMS_HEADING_ID = "test-items";
  * to their heading; the statement is never asked again, on any device. After the Testfrist with no
  * attempt it says the test was not handed in. Another Student's or an unknown session shows the
  * permission-denied page. Every state comes from the api (AD-10). Multiple-choice items are
- * answered with autosave (Story 11.4); the other types arrive with Stories 11.5 and 11.6.
+ * answered with autosave (Story 11.4), table and number items too (Story 11.5); long answers
+ * arrive with Story 11.6.
  */
 export function IndividualTestPage({ classSessionId }: { classSessionId: string }) {
   return (
@@ -116,7 +119,9 @@ function Statement({ test, classSessionId, onAccepted }: { test: MyTest; classSe
 }
 
 /** The open test: the Testfrist, then the items in order, each «Oppgave 3» with its type in words
- * and its text; a multiple-choice item is answered under it (its text is the choice's legend). */
+ * and its text; a multiple-choice item is answered under it (its text is the choice's legend), a
+ * table item in its value table and a number item in its column (Story 11.5), an Interactive
+ * item after the line that says these items are hard. */
 function Items({ test, focus, classSessionId, userId }: { test: MyTest; focus: boolean; classSessionId: string; userId: string }) {
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
@@ -138,8 +143,13 @@ function Items({ test, focus, classSessionId, userId }: { test: MyTest; focus: b
                 {lines.heading}
                 <span className="ml-3 text-body-phone font-normal text-ink-secondary lg:text-body">{lines.type}</span>
               </h3>
+              {isInteractive(item) ? <p className={`${LINE} mt-2 max-w-md text-ink-secondary`}>{copy.interactive.intro}</p> : null}
               {item.type === "choice" ? (
                 <ChoiceItem classSessionId={classSessionId} userId={userId} item={item} />
+              ) : item.type === "table" && item.table ? (
+                <TableItem classSessionId={classSessionId} userId={userId} item={item} table={item.table} />
+              ) : item.type === "number" && item.column ? (
+                <NumberItem classSessionId={classSessionId} userId={userId} item={item} column={item.column} />
               ) : (
                 <p className={`${LINE} mt-2 max-w-md text-ink`}>{item.title}</p>
               )}

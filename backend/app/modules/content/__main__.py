@@ -19,9 +19,10 @@ is not stored as a version of its kind yet, so a second run, or an older file, p
 
 Every file is validated like every record; the new versions are printed. A file that is refused
 prints `<file>: <code>: <detail>` with a stable code (`unknown_kind`, `unknown_item_type`,
-`starting_task_items_missing`, `criteria_count`, `invalid_record`, `no_folder`) and the command
-exits 1; the other files are still loaded. Class sessions locked from then on pin the new
-versions; sessions locked before keep theirs. No code change is needed for new items."""
+`interactive_missing`, `starting_task_items_missing`, `criteria_count`, `invalid_record`,
+`no_folder`) and the command exits 1; the other files are still loaded. Class sessions locked
+from then on pin the new versions; sessions locked before keep theirs. No code change is needed
+for new items."""
 
 import asyncio
 import json

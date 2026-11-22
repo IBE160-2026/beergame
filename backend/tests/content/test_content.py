@@ -93,9 +93,10 @@ async def test_the_lock_pins_the_latest_starting_task_version():
         "debrief_ai_text": {"enabled": False, "model_config_id": None, "effort_level": None},
         # Story 10.1: the default Replay scenario of the frozen settings.
         "replay_template": pins["replay_template"],
-        # Story 11.1: the question set selection in force, the defaults of version 1.
+        # Story 11.1: the question set selection in force, the defaults of the latest version
+        # (version 2 since Story 11.5).
         "question_set": {
-            "version": 1,
+            "version": 2,
             "excluded": [],
             "weights": pins["question_set"]["weights"],
             "adapted_weight": 30,

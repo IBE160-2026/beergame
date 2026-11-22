@@ -36,8 +36,9 @@ from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.analysis.scoring import INTERACTIVE_LIMIT
 from app.modules.content import service as content
-from app.modules.content.schemas import QuestionSet
+from app.modules.content.schemas import QuestionSet, QuestionSetItem
 from app.modules.debrief import service as debrief
 from app.modules.progress import service as progress
 from app.modules.sessions import service as sessions
@@ -80,7 +81,8 @@ class UnknownItem(Exception):
 
 class InvalidAnswer(Exception):
     """The value is no answer to the item (422 `invalid_answer`): for a choice item, not one of
-    its option ids. Table, number and long answers arrive with Stories 11.5 and 11.6."""
+    its option ids; for a table or number item, not whole numbers in its shape (Story 11.5). Long
+    answers arrive with Story 11.6."""
 
 
 @dataclass(frozen=True)
@@ -189,10 +191,33 @@ async def open_attempt(
     return Opened(attempt, created=True)
 
 
-def _valid(item_type: str, options: tuple[str, ...], value: Any) -> bool:
-    """Whether `value` answers an item of this type (Story 11.4: a choice item's option id)."""
+def _whole(value: Any, negative: bool) -> bool:
+    """A whole number the api takes (never a bool or a float), negative only where allowed."""
+    return type(value) is int and abs(value) <= INTERACTIVE_LIMIT and (negative or value >= 0)
+
+
+def _valid(item_type: str, item: QuestionSetItem | None, value: Any) -> bool:
+    """Whether `value` answers an item of this type: a choice item's option id (Story 11.4); a
+    table item's list of one whole number or null per row, and a number item's whole number or
+    null (cleared), negative only where the item allows it (Story 11.5; a Starting task item
+    always does). An item with no table of its own (question set version 1) takes nothing."""
+    if item is None:
+        return False
     if item_type == "choice":
-        return isinstance(value, str) and value in options
+        return isinstance(value, str) and value in item.options
+    if item_type == "number" and item.starting_task_item is not None:
+        return value is None or _whole(value, negative=True)
+    spec = item.interactive
+    if spec is None:
+        return False
+    if item_type == "number":
+        return value is None or _whole(value, spec.negative)
+    if item_type == "table":
+        return (
+            isinstance(value, list)
+            and len(value) == len(spec.rows)
+            and all(v is None or _whole(v, spec.negative) for v in value)
+        )
     return False
 
 
@@ -247,8 +272,11 @@ async def save_answer(
         question_set: QuestionSet = await content.get(
             content.Kind.QUESTION_SET, attempt["question_set_version"]
         )
-        options = next((i.options for i in question_set.items if i.id == item_id), ())
-        if not _valid(frozen["type"], options, value):
+        found_item = next(
+            (i for i in (*question_set.items, *question_set.replacements) if i.id == item_id),
+            None,
+        )
+        if not _valid(frozen["type"], found_item, value):
             raise InvalidAnswer
         sent = insert(test_answers).values(
             id=uuid.uuid7(),

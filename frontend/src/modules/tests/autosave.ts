@@ -15,18 +15,22 @@ const copy = nb.tests.individual;
 /** A stored answer as the api gives it. */
 export type Stored = { value: unknown; revision: number; saved_at: string };
 
+/** An answer's value: a choice item's option id (Story 11.4), a number item's whole number, a
+ * table item's whole number or null per Uke (Story 11.5), or null (none, or a number cleared). */
+export type AnswerValue = string | number | (number | null)[] | null;
+
 /** A value not yet stored, kept on this device with its revision. */
-export type Draft = { value: string; revision: number };
+export type Draft = { value: AnswerValue; revision: number };
 
 export type SaveStatus = "idle" | "saving" | "saved" | "failed" | "refused";
 
 export type Entry = {
   /** The value shown: the latest change on this device, or the stored one. */
-  value: string | null;
+  value: AnswerValue;
   /** The revision of `value` (0: never answered). */
   revision: number;
   /** The value and revision last known stored, and when. */
-  storedValue: string | null;
+  storedValue: AnswerValue;
   stored: number;
   savedAt: string | null;
   status: SaveStatus;
@@ -50,20 +54,28 @@ export function parseDraft(text: string | null): Draft | null {
     const parsed: unknown = JSON.parse(text);
     if (typeof parsed !== "object" || parsed === null) return null;
     const { value, revision } = parsed as Record<string, unknown>;
-    if (typeof value !== "string" || typeof revision !== "number" || !Number.isInteger(revision) || revision < 1) return null;
+    if (!isAnswerValue(value) || typeof revision !== "number" || !Number.isInteger(revision) || revision < 1) return null;
     return { value, revision };
   } catch {
     return null;
   }
 }
 
-const asChoice = (value: unknown): string | null => (typeof value === "string" ? value : null);
+const isWhole = (value: unknown): value is number => typeof value === "number" && Number.isInteger(value);
+
+/** Whether `value` has the shape of an answer (its fit to the item is the api's to judge). */
+export function isAnswerValue(value: unknown): value is AnswerValue {
+  if (value === null || typeof value === "string" || isWhole(value)) return true;
+  return Array.isArray(value) && value.every((cell) => cell === null || isWhole(cell));
+}
+
+const asValue = (value: unknown): AnswerValue => (isAnswerValue(value) ? value : null);
 
 /** The entry an item starts with, and whether its draft is to be sent (`send`) or dropped
  * (`drop`, a draft the server already has or one that cannot be read). The stored answer from an
  * earlier visit says nothing in the status line. */
 export function initial(stored: Stored | null, draftText: string | null): { entry: Entry; send: boolean; drop: boolean } {
-  const storedValue = asChoice(stored?.value);
+  const storedValue = asValue(stored?.value);
   const revision = stored?.revision ?? 0;
   const base: Entry = {
     value: storedValue,
@@ -81,8 +93,8 @@ export function initial(stored: Stored | null, draftText: string | null): { entr
   return { entry: base, send: false, drop: draftText !== null };
 }
 
-/** The Student picks `value`: one revision up, to be kept and sent. */
-export function choose(entry: Entry, value: string): Entry {
+/** The Student picks or types `value`: one revision up, to be kept and sent. */
+export function choose(entry: Entry, value: AnswerValue): Entry {
   return { ...entry, value, revision: entry.revision + 1, status: "saving", refusal: null };
 }
 
@@ -91,7 +103,7 @@ export function choose(entry: Entry, value: string): Entry {
  * higher revision (another device) replaces the one shown. */
 export function applySaved(entry: Entry, saved: Stored): { entry: Entry; done: boolean } {
   const stored = {
-    storedValue: asChoice(saved.value),
+    storedValue: asValue(saved.value),
     stored: saved.revision,
     savedAt: saved.saved_at,
   };
@@ -124,7 +136,7 @@ export function applyRefused(entry: Entry, code: string): Entry {
  * revision than this device's replaces it; otherwise this device's answer stands. */
 export function merge(entry: Entry, stored: Stored | null): Entry {
   if (!stored || stored.revision <= entry.revision) return entry;
-  const value = asChoice(stored.value);
+  const value = asValue(stored.value);
   return {
     ...entry,
     value,

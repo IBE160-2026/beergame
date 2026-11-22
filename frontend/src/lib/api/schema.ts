@@ -3447,6 +3447,39 @@ export interface components {
             required_share_percent?: number | null;
         };
         /**
+         * ColumnOut
+         * @description A number item's column (Story 11.5): a Starting task item from the Class session's pinned
+         *     Starting task (`starting_task`), or an Interactive number item's own column. Its prompt and
+         *     hint, the column's heading, the given rows, the asked row's label and whether the answer may
+         *     be negative. No expected value and no result.
+         */
+        ColumnOut: {
+            /** Asked Label */
+            asked_label: string;
+            /** Caption */
+            caption: string;
+            /** Hint */
+            hint: string | null;
+            /** Negative */
+            negative: boolean;
+            /** Prompt */
+            prompt: string;
+            /** Rows */
+            rows: components["schemas"]["ColumnRowOut"][];
+            /** Starting Task */
+            starting_task: boolean;
+        };
+        /**
+         * ColumnRowOut
+         * @description A given row of a number item's column.
+         */
+        ColumnRowOut: {
+            /** Label */
+            label: string;
+            /** Value */
+            value: number;
+        };
+        /**
          * CopiedFromOut
          * @description The source of a copied Class session, as the Klasseøkt names it.
          */
@@ -4206,18 +4239,21 @@ export interface components {
         /**
          * IndividualItemOut
          * @description One item of the Student's frozen Individual test (Story 11.3), in order: its number from 1,
-         *     its type and its text; a choice item's option ids (Story 11.4, `[]` for other types) and the
-         *     Student's saved answer (null before the first save). No weight, no answer key and no score are
-         *     sent to the Student.
+         *     its type and its text; a choice item's option ids (Story 11.4, `[]` for other types), a table
+         *     item's value table or a number item's column (Story 11.5, null otherwise or when the item has
+         *     none) and the Student's saved answer (null before the first save). No weight, no answer key,
+         *     no rule and no score are sent to the Student.
          */
         IndividualItemOut: {
             answer: components["schemas"]["StoredAnswerOut"] | null;
+            column: components["schemas"]["ColumnOut"] | null;
             /** Id */
             id: string;
             /** Number */
             number: number;
             /** Options */
             options: string[];
+            table: components["schemas"]["TableOut"] | null;
             /** Title */
             title: string;
             /**
@@ -6760,6 +6796,38 @@ export interface components {
             stage: "ordered" | "in_transit" | "in_production";
         };
         /**
+         * TableColumnOut
+         * @description A given column of a value table: its heading and one number per row.
+         */
+        TableColumnOut: {
+            /** Label */
+            label: string;
+            /** Values */
+            values: number[];
+        };
+        /**
+         * TableOut
+         * @description A «Fyll inn kolonnen» item's value table (Story 11.5, FR-80, UX-DR38): its prompt and
+         *     hint, the table's caption, one row label per Uke, the given columns, the asked column's label
+         *     (one answer cell per Uke) and whether a value may be negative. No expected value.
+         */
+        TableOut: {
+            /** Asked Label */
+            asked_label: string;
+            /** Caption */
+            caption: string;
+            /** Columns */
+            columns: components["schemas"]["TableColumnOut"][];
+            /** Hint */
+            hint: string | null;
+            /** Negative */
+            negative: boolean;
+            /** Prompt */
+            prompt: string;
+            /** Rows */
+            rows: string[];
+        };
+        /**
          * TableSeatOut
          * @description A Seat of the Student's Class game (Story 6.1, FR-22, FR-34): its Role and who holds it,
          *     a Student by name, any AI player as «KI-spiller» (`ai`, never which kind), or free.
@@ -6792,7 +6860,9 @@ export interface components {
         /**
          * TestAnswerIn
          * @description One autosave of an item's answer (Story 11.4, AD-10): the value (a choice item: one of its
-         *     option ids) and the answer's revision, which rises by one per change on the Student's device.
+         *     option ids; a table item: one whole number or null per row; a number item: a whole number or
+         *     null, Story 11.5) and the answer's revision, which rises by one per change on the Student's
+         *     device.
          */
         TestAnswerIn: {
             /** Revision */

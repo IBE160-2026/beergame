@@ -1,11 +1,13 @@
 """The question set and a Class session's selection of it, «Spørsmål og vekter» (Story 11.1,
-FR-52, FR-53, FR-80, FR-18, FR-66, AD-4, AD-12, AD-23): the draft version 1 shipped as a file and
-stored by migration 0121, the content load, the set's rules, the block's read and «Lagre vekter»,
+FR-52, FR-53, FR-80, FR-18, FR-66, AD-4, AD-12, AD-23): the draft version 1 stored by migration
+0121 and version 2 (Story 11.5, Interactive items with their tables) shipped as a file and stored by
+migration 0124, the content load, the set's rules, the block's read and «Lagre vekter»,
 the Start-date lock's pin and its refusal of a draft in production, and «Lag kopi». The api's
 clock is fixed and moved by hand; the database clock is never read."""
 
 import importlib
 import json
+import re
 import shutil
 import uuid
 from datetime import timedelta
@@ -38,7 +40,9 @@ UNSHIPPED = (
 )
 """Every content version a test published, and none a migration stored."""
 CHANGE_ROW = "UPDATE test_selections SET adapted_weight = 30 WHERE class_session_id = %s"
-V1 = json.loads((cli.SHIPPED / "question_set.json").read_text(encoding="utf-8"))
+SET = json.loads((cli.SHIPPED / "question_set.json").read_text(encoding="utf-8"))
+"""The shipped question set: version 2 since Story 11.5 (migration 0124), the latest."""
+V = 2
 
 
 @pytest.fixture(autouse=True)
@@ -109,11 +113,25 @@ def in_production(monkeypatch) -> None:
 # The record and the content load.
 
 
-async def test_version_1_is_the_shipped_draft_file_and_the_migrations_literal():
-    migration = importlib.import_module("migrations.versions.0121_question_set")
-    assert migration.QUESTION_SET_V1 == V1
+async def test_the_latest_version_is_the_shipped_draft_file_and_the_migrations_literal():
+    """Version 2 (Story 11.5) is the shipped file and migration 0124's literal; version 1 stays
+    migration 0121's literal, its table and number items without a table of their own."""
+    first = importlib.import_module("migrations.versions.0121_question_set").QUESTION_SET_V1
+    assert (await content.get("question_set", 1)).model_dump(mode="json") == {
+        **first,
+        "items": [{**item, "interactive": None} for item in first["items"]],
+        "replacements": [{**item, "interactive": None} for item in first["replacements"]],
+    }
+    migration = importlib.import_module("migrations.versions.0124_question_set_interactive")
+    assert migration.QUESTION_SET_V2 == SET
     version, found = await content.question_set(None)
-    assert version == 1 and found.model_dump(mode="json") == V1
+    assert version == V and found.model_dump(mode="json") == SET
+    # Every table item and every number item of its own has its table, none says «øl».
+    for item in (*found.items, *found.replacements):
+        assert (item.interactive is not None) == item.needs_interactive(), item.id
+        if item.interactive:
+            text = json.dumps(item.interactive.model_dump(), ensure_ascii=False)
+            assert not re.search(r"\bøl\b", text, re.IGNORECASE) and "enheter" in text
     assert found.status == "draft"
     assert sum(item.weight for item in found.items) + found.adapted_weight == 100
     assert found.adapted_weight == 30
@@ -127,30 +145,30 @@ async def test_version_1_is_the_shipped_draft_file_and_the_migrations_literal():
 
 async def test_the_load_of_the_shipped_files_publishes_nothing_and_a_change_once(tmp_path):
     assert await cli.load(cli.SHIPPED) == (
-        ["question_set unchanged (v1)", "scoring_guide unchanged (v1)"],
+        [f"question_set unchanged (v{V})", "scoring_guide unchanged (v1)"],
         [],
     )
-    assert await content.latest_version("question_set") == 1
+    assert await content.latest_version("question_set") == V
     shutil.copy(cli.SHIPPED / "question_set.json", tmp_path / "question_set.json")
-    approved = {**V1, "status": "approved"}
+    approved = {**SET, "status": "approved"}
     (tmp_path / "question_set.json").write_text(json.dumps(approved), encoding="utf-8")
-    assert await cli.load(tmp_path) == (["question_set v2"], [])
-    assert await cli.load(tmp_path) == (["question_set unchanged (v2)"], [])
+    assert await cli.load(tmp_path) == ([f"question_set v{V + 1}"], [])
+    assert await cli.load(tmp_path) == ([f"question_set unchanged (v{V + 1})"], [])
     assert (await content.question_set(None))[1].status == "approved"
     # The older shipped draft never supersedes the newer version.
     assert await cli.load(cli.SHIPPED) == (
-        ["question_set unchanged (v1)", "scoring_guide unchanged (v1)"],
+        [f"question_set unchanged (v{V})", "scoring_guide unchanged (v1)"],
         [],
     )
-    assert await content.latest_version("question_set") == 2
+    assert await content.latest_version("question_set") == V + 1
 
 
 def _with(**changes) -> dict:
-    return json.loads(json.dumps({**V1, **changes}))
+    return json.loads(json.dumps({**SET, **changes}))
 
 
 def _item(index: int, **changes) -> dict:
-    items = json.loads(json.dumps(V1["items"]))
+    items = json.loads(json.dumps(SET["items"]))
     items[index] = {**items[index], **changes}
     return _with(items=items)
 
@@ -170,13 +188,20 @@ async def test_the_load_refuses_with_stable_codes_and_stores_nothing(tmp_path):
     ]
     # A Starting task item not referenced, and a set breaking a rule.
     (tmp_path / "made_up.json").unlink()
+    own = SET["items"][7]["interactive"]  # a number item with its own column
     (tmp_path / "question_set.json").write_text(
-        json.dumps(_item(0, starting_task_item=None)), encoding="utf-8"
+        json.dumps(_item(0, starting_task_item=None, interactive=own)), encoding="utf-8"
     )
     assert (await cli.load(tmp_path))[1][0].split(": ")[1] == "starting_task_items_missing"
+    # An Interactive item without its table (Story 11.5).
+    for index in (5, 7):
+        (tmp_path / "question_set.json").write_text(
+            json.dumps(_item(index, interactive=None)), encoding="utf-8"
+        )
+        assert (await cli.load(tmp_path))[1][0].split(": ")[1] == "interactive_missing"
     (tmp_path / "question_set.json").write_text(json.dumps(_item(0, weight=2)), encoding="utf-8")
     assert (await cli.load(tmp_path))[1][0].split(": ")[1] == "invalid_record"
-    assert await content.latest_version("question_set") == 1
+    assert await content.latest_version("question_set") == V
     # A file that does not decode, and a folder that is not there.
     (tmp_path / "question_set.json").write_bytes(bytes([0xFF, 0xFE, 0x7B]))
     assert (await cli.load(tmp_path))[1][0].split(": ")[1] == "invalid_record"
@@ -189,14 +214,14 @@ async def test_the_load_publishes_the_starting_task_before_the_question_set(tmp_
     more = task.model_dump(mode="json")
     extra = {**more["items"][0], "id": "extra"}
     more["items"].append(extra)
-    items = json.loads(json.dumps(V1["items"]))
+    items = json.loads(json.dumps(SET["items"]))
     items[1] = {**items[1], "weight": 2}
     ekstra = {**items[0], "id": "startoppgave-ekstra", "starting_task_item": "extra", "weight": 1}
     items.append(ekstra)
     (tmp_path / "starting_task.json").write_text(json.dumps(more), encoding="utf-8")
     (tmp_path / "question_set.json").write_text(json.dumps(_with(items=items)), encoding="utf-8")
     done, refused = await cli.load(tmp_path)
-    assert refused == [] and done == ["starting_task v2", "question_set v2"]
+    assert refused == [] and done == ["starting_task v2", f"question_set v{V + 1}"]
 
 
 def test_the_load_command_exits_1_on_a_refusal(monkeypatch, capsys):
@@ -217,21 +242,48 @@ def test_the_load_command_exits_1_on_a_refusal(monkeypatch, capsys):
         _item(7, tags=[]),  # one item in another business
         _item(8, tags=["other-business"]),  # a long answer in another business
         _with(adapted_weight=29),  # the weights sum to 99
-        _with(replacements=V1["replacements"][:1]),  # replacements carry 15, not 30
+        _with(replacements=SET["replacements"][:1]),  # replacements carry 15, not 30
         _item(3, answer_key="z"),  # a choice item with no answer among its options
         _item(8, scoring_rule=None),  # a long answer with no scoring rule
         _item(3, options=["a", "b", "b"]),  # a choice item repeating an option
         _item(8, starting_task_item="to-ship"),  # a Starting task item on a long answer
+        # Interactive items (Story 11.5):
+        _item(3, interactive=SET["items"][5]["interactive"]),  # a table on a choice item
+        _item(0, interactive=SET["items"][7]["interactive"]),  # and on a Starting task item
+        _item(7, interactive=SET["items"][5]["interactive"]),  # a number item: two columns
+        _item(5, interactive={**SET["items"][5]["interactive"], "rows": ["Uke 1"]}),
+        _item(5, interactive={**SET["items"][5]["interactive"], "asked": "Antall øl"}),
+        _item(5, interactive={**SET["items"][5]["interactive"], "criteria": []}),
+        _item(
+            7,  # a number item has no flow
+            interactive={
+                **SET["items"][7]["interactive"],
+                "criteria": [
+                    {
+                        "code": "K1",
+                        "weight": 100,
+                        "check": {
+                            "kind": "flow",
+                            "inflow": "mangler",
+                            "outflow": "mangler",
+                            "start": 0,
+                        },
+                    }
+                ],
+            },
+        ),
     ],
 )
 async def test_a_set_that_breaks_a_rule_is_not_stored(bad):
     with pytest.raises(ValidationError):
         await content.publish("question_set", bad)
-    assert await content.latest_version("question_set") == 1
+    assert await content.latest_version("question_set") == V
 
 
 async def test_a_set_with_no_quantity_item_is_not_stored():
-    items = [{**item, "tags": [t for t in item["tags"] if t != "quantity"]} for item in V1["items"]]
+    items = [
+        {**item, "tags": [t for t in item["tags"] if t != "quantity"]} for item in SET["items"]
+    ]
     with pytest.raises(ValidationError):
         await content.publish("question_set", _with(items=items))
 
@@ -243,18 +295,18 @@ async def test_the_block_lists_the_draft_defaults_with_the_adapted_line(klass):
     session_id = await new_session(klass)
     block = await read(session_id)
     assert (block["version"], block["draft"], block["outdated"], block["pinned"]) == (
-        1,
+        V,
         True,
         False,
         False,
     )
     assert (block["open"], block["can_change"], block["sum"]) == (True, True, 100)
-    assert [item["id"] for item in block["items"]] == [item["id"] for item in V1["items"]]
+    assert [item["id"] for item in block["items"]] == [item["id"] for item in SET["items"]]
     first = block["items"][0]
     assert first == {
         "id": "startoppgave-sende",
         "type": "number",
-        "title": V1["items"][0]["title"],
+        "title": SET["items"][0]["title"],
         "weight": 3,
         "default_weight": 3,
         "excluded": False,
@@ -281,7 +333,7 @@ async def test_the_owner_saves_a_selection_and_the_staff_are_told(klass, emitted
     assert emitted == [("session", session_id)]
     assert {t for t, _ in emitted} == COMMAND_TOPICS["tests.save_question_set"]
     [(version, excluded, stored_weights, adapted)] = stored(session_id)
-    assert (version, excluded, adapted) == (1, ["startoppgave-sende"], 28)
+    assert (version, excluded, adapted) == (V, ["startoppgave-sende"], 28)
     assert stored_weights["langsvar-forsinkelse"] == 15
     audited = rows(
         "SELECT change FROM audit_events "
@@ -367,7 +419,7 @@ async def test_the_lock_pins_the_saved_selection_and_the_block_reads_the_pin(kla
     assert (await put(session_id, wanted)).status_code == 200
     assert await sessions.lock(uuid.UUID(session_id), now=START) is True
     pin = snapshot_pin(session_id)
-    assert pin == {"version": 1, "excluded": [], "weights": weights, "adapted_weight": 25}
+    assert pin == {"version": V, "excluded": [], "weights": weights, "adapted_weight": 25}
     # A row changed behind the api's back after the lock does not change what the block shows.
     execute(CHANGE_ROW, session_id)
     after = await read(session_id)
@@ -385,9 +437,9 @@ async def test_in_production_a_draft_set_refuses_the_lock_and_the_owner_is_told(
     told = [mail for mail in mails() if mail.to == EMAIL["owner"]]
     assert len(told) == 1 and "utkast som ikke er godkjent" in told[0].text
     # An approved version published: the next sweep locks on it.
-    assert await content.publish("question_set", {**V1, "status": "approved"}) == 2
+    assert await content.publish("question_set", {**SET, "status": "approved"}) == V + 1
     await sweep_at(START + 2 * MINUTE)
-    assert snapshot_pin(session_id)["version"] == 2
+    assert snapshot_pin(session_id)["version"] == V + 1
     item = (await call(EMAIL["owner"], "GET", f"/api/class-sessions/{session_id}")).json()
     assert item["lock_refused_reason"] is None
 
@@ -395,7 +447,7 @@ async def test_in_production_a_draft_set_refuses_the_lock_and_the_owner_is_told(
 async def test_outside_production_a_draft_set_locks(klass):
     session_id = await planned(klass)
     assert await sessions.lock_due(uuid.UUID(session_id), START) is True
-    assert snapshot_pin(session_id)["version"] == 1
+    assert snapshot_pin(session_id)["version"] == V
 
 
 async def test_a_selection_on_an_older_version_gives_way_to_the_latest_defaults(klass):
@@ -411,10 +463,10 @@ async def test_a_selection_on_an_older_version_gives_way_to_the_latest_defaults(
             ),
         )
     ).status_code == 200
-    assert await content.publish("question_set", {**V1, "status": "approved"}) == 2
+    assert await content.publish("question_set", {**SET, "status": "approved"}) == V + 1
     now = await read(session_id)
     assert (now["version"], now["outdated"], now["draft"], now["adapted"]["weight"]) == (
-        2,
+        V + 1,
         True,
         False,
         30,
@@ -422,9 +474,9 @@ async def test_a_selection_on_an_older_version_gives_way_to_the_latest_defaults(
     # What the block shows is what the lock pins.
     await sessions.lock(uuid.UUID(session_id), now=START)
     assert snapshot_pin(session_id) == {
-        "version": 2,
+        "version": V + 1,
         "excluded": [],
-        "weights": {item["id"]: item["weight"] for item in V1["items"]},
+        "weights": {item["id"]: item["weight"] for item in SET["items"]},
         "adapted_weight": 30,
     }
 

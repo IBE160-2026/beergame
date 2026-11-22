@@ -11,15 +11,61 @@ import { liveClassGame } from "./support/live-game";
  * stand-ins with the api's shapes; the gate, the one attempt and the closed follow-up are
  * `backend/tests/individual_test/test_open.py`. The last test runs on the stack, with no stand-in:
  * a fresh Class game, the Student's steps up to the Replay through the local dev route, Stegene's
- * test step, the statement, the open test, and a reload that does not ask again. */
+ * test step, the statement, the open test, and a reload that does not ask again. Table and number
+ * Interactive items (Story 11.5, FR-80, UX-DR38, UX-DR75): the value table answered by keyboard
+ * alone at 320, 360 and 1440 px and with 200 % text, in its own scrolling region with a sticky
+ * label column, «Skriv et helt tall.» on leaving an invalid cell and nothing sent; the column of a
+ * number item and of a Starting task item. */
 const SESSION = "01a1f8ee-33b9-75e6-9502-79db27b37c0e";
 const CSRF = { "X-Requested-With": "olspillet" };
 const copy = nb.tests.individual;
 const DEADLINE = "2026-12-18T22:59:00Z";
+const WEEKS = ["Uke 1", "Uke 2", "Uke 3", "Uke 4", "Uke 5", "Uke 6"];
+const TABLE = {
+  prompt: "Utkast: Et bakeri har 10 enheter på lager før uke 1. Fyll inn lageret ved slutten av hver uke.",
+  hint: null,
+  caption: "Utkast: Bakeriets lager per uke, i enheter",
+  rows: WEEKS,
+  columns: [
+    { label: "Bestilt", values: [20, 20, 25, 25, 20, 20] },
+    { label: "Inn", values: [20, 20, 25, 25, 20, 20] },
+    { label: "Ut", values: [22, 24, 20, 18, 25, 21] },
+  ],
+  asked_label: "Lager",
+  negative: false,
+};
+const COLUMN = {
+  prompt: "Utkast: Et verksted mangler deler i fire uker. Hvor mange enheter må legges til?",
+  hint: null,
+  caption: "Utkast: Mangler per uke, i enheter",
+  rows: [
+    { label: "Uke 1", value: 3 },
+    { label: "Uke 2", value: 5 },
+  ],
+  asked_label: "Legg til",
+  negative: false,
+  starting_task: false,
+};
+const STARTING = {
+  prompt: "Regn ut posisjonen for uka.",
+  hint: "Lager − Restordre + På vei",
+  caption: "Kolonne 11",
+  rows: [
+    { label: "Lager", value: 0 },
+    { label: "Restordre", value: 13 },
+    { label: "På vei", value: 16 },
+  ],
+  asked_label: "Posisjon",
+  negative: true,
+  starting_task: true,
+};
+const PLAIN = { table: null, column: null, answer: null };
 const ITEMS = [
-  { id: "flervalg-1", number: 1, type: "choice", title: "Utkast: hva er et lager?", options: ["a", "b", "c"], answer: null },
-  { id: "kolonne-1", number: 2, type: "table", title: "Utkast: fyll inn kolonnen for bakeriet.", options: [], answer: null },
-  { id: "langsvar-1", number: 3, type: "long", title: "Utkast: forklar svingningene ut fra kjedens struktur.", options: [], answer: null },
+  { id: "flervalg-1", number: 1, type: "choice", title: "Utkast: hva er et lager?", options: ["a", "b", "c"], ...PLAIN },
+  { id: "kolonne-1", number: 2, type: "table", title: "Utkast: fyll inn kolonnen for bakeriet.", options: [], ...PLAIN, table: TABLE },
+  { id: "langsvar-1", number: 3, type: "long", title: "Utkast: forklar svingningene ut fra kjedens struktur.", options: [], ...PLAIN },
+  { id: "tall-1", number: 4, type: "number", title: "Utkast: tall fra et verksted.", options: [], ...PLAIN, column: COLUMN },
+  { id: "startoppgave-1", number: 5, type: "number", title: "Utkast: Startoppgaven, posisjonen.", options: [], ...PLAIN, column: STARTING },
 ] as const;
 const SAVED_AT = "2026-11-22T20:14:00Z"; // «Lagret 21:14» in Oslo
 
@@ -28,6 +74,32 @@ const VIEWPORTS = [
   { name: "360 px", width: 360, height: 740, phone: true },
   { name: "1440 px", width: 1440, height: 900, phone: false },
 ];
+/** The table item also at 200 % text (WCAG 1.4.4), on the narrowest phone. */
+const TABLE_VIEWPORTS = [...VIEWPORTS.map((vp) => ({ ...vp, text200: false })), { name: "320 px with 200 % text", width: 320, height: 640, phone: true, text200: true }];
+
+async function text200(page: Page) {
+  await page.addInitScript(() => {
+    document.addEventListener("DOMContentLoaded", () => {
+      const style = document.createElement("style");
+      style.textContent = "html { font-size: 200% !important; }";
+      document.head.appendChild(style);
+    });
+  });
+}
+
+type Save = { value: unknown; revision: number };
+
+/** Every PUT of an answer, stored at once as sent. */
+async function storeSaves(page: Page): Promise<Save[]> {
+  const saves: Save[] = [];
+  await page.route(`**/api/me/class-sessions/${SESSION}/test/answers/*`, async (route) => {
+    const body = route.request().postDataJSON() as Save;
+    saves.push(body);
+    const itemId = route.request().url().split("/").at(-1);
+    await route.fulfill({ status: 200, json: { item_id: itemId, ...body, saved_at: SAVED_AT } });
+  });
+  return saves;
+}
 
 const statement = { state: "statement", test_deadline: DEADLINE, opened_at: null, items: [] };
 const opened = { state: "open", test_deadline: DEADLINE, opened_at: "2026-11-22T10:00:00Z", items: ITEMS };
@@ -79,6 +151,50 @@ for (const vp of VIEWPORTS) {
       await expect(items.nth(0).getByRole("heading", { level: 3 })).toHaveText(`${copy.item(1)}${copy.types.choice}`);
       await expect(items.nth(2)).toContainText(copy.types.long);
       await expect(items.nth(2)).toContainText(ITEMS[2].title);
+      await expectAccessible(page, vp.phone);
+    });
+
+    test("number items: an Interactive column and a Starting task item, saved by keyboard with no result; axe passes", async ({ page }) => {
+      const saves = await storeSaves(page);
+      await standIn(page, { status: 200, json: opened });
+      const own = page.locator("[data-test-item=tall-1]");
+      await expect(own).toContainText(copy.interactive.intro);
+      await expect(own).toContainText(COLUMN.prompt);
+      const field = own.getByRole("textbox", { name: COLUMN.asked_label });
+      await field.focus();
+      // A minus where the item takes no negative quantity: the error on leaving, nothing sent.
+      await page.keyboard.type("-3");
+      await page.keyboard.press("Tab");
+      await expect(own.getByRole("alert")).toHaveText(copy.interactive.wholeNumber);
+      await expect(field).toHaveAttribute("aria-invalid", "true");
+      expect(saves).toEqual([]);
+      await expectAccessible(page, vp.phone);
+      await field.focus();
+      await page.keyboard.press("ControlOrMeta+a");
+      await page.keyboard.type("16");
+      await expect(own.getByRole("status")).toHaveText(copy.saved("21:14"));
+      await expect(own.getByRole("alert")).toHaveCount(0);
+      // Each valid change is saved: «1», then «16» (the item's revisions 1 and 2).
+      expect(saves.at(-1)).toEqual({ value: 16, revision: 2 });
+      // Emptied: the answer is cleared, sent as null.
+      await page.keyboard.press("ControlOrMeta+a");
+      await page.keyboard.press("Backspace");
+      await expect.poll(() => saves.length).toBe(3);
+      expect(saves.at(-1)).toEqual({ value: null, revision: 3 });
+      await expect(own.getByRole("status")).toHaveText(copy.saved("21:14"));
+
+      // A Starting task item: its column and hint, no Interactive introduction, a negative answer.
+      const starting = page.locator("[data-test-item=startoppgave-1]");
+      await expect(starting).not.toContainText(copy.interactive.intro);
+      await expect(starting).toContainText(STARTING.prompt);
+      await expect(starting).toContainText(STARTING.hint);
+      await starting.getByRole("textbox", { name: STARTING.asked_label }).focus();
+      await page.keyboard.type("-13");
+      await expect(starting.getByRole("status")).toHaveText(copy.saved("21:14"));
+      expect(saves.at(-1)).toEqual({ value: -13, revision: 2 }); // «-» holds no value: nothing new to send
+      // No right or wrong line from the Startoppgave (FR-54).
+      await expect(starting).not.toContainText("Riktig");
+      await expect(starting).not.toContainText("Ikke riktig");
       await expectAccessible(page, vp.phone);
     });
 
@@ -170,6 +286,110 @@ for (const vp of VIEWPORTS) {
     });
   });
 }
+
+for (const vp of TABLE_VIEWPORTS) {
+  test.describe(`${vp.name}: «Fyll inn kolonnen»`, () => {
+    test.use({ viewport: { width: vp.width, height: vp.height } });
+
+    test("the value table answered by keyboard alone, its own scroll and sticky labels; axe passes", async ({ page }) => {
+      if (vp.text200) await text200(page);
+      const saves = await storeSaves(page);
+      await standIn(page, { status: 200, json: opened });
+      const item = page.locator("[data-test-item=kolonne-1]");
+      const table = item.getByRole("table", { name: TABLE.caption });
+      const status = item.getByRole("status");
+
+      // Idle: the introduction, the prompt, one row per Uke with «Ikke besvart», no graph.
+      await expect(item.getByRole("heading", { level: 3 })).toHaveText(`${copy.item(2)}${copy.types.table}`);
+      await expect(item).toContainText(copy.interactive.intro);
+      await expect(item).toContainText(TABLE.prompt);
+      await expect(table.locator("th[scope=col]")).toHaveText([copy.interactive.rowHeader, "Bestilt", "Inn", "Ut", "Lager"]);
+      await expect(table.locator("th[scope=row]")).toHaveCount(WEEKS.length);
+      await expect(table.locator("[data-not-answered]")).toHaveCount(WEEKS.length);
+      await expect(item.locator("svg")).toHaveCount(0);
+      await expect(item.getByRole("slider")).toHaveCount(0);
+      const cells = table.getByRole("textbox");
+      await expect(cells).toHaveCount(WEEKS.length);
+      await expect(cells.first()).toHaveAccessibleName(copy.interactive.cell("Lager", "Uke 1"));
+      await expect(cells.first()).toHaveValue("");
+      for (const cell of await cells.all()) {
+        expect((await cell.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      }
+      await expectAccessible(page, vp.phone);
+
+      // The region scrolls on its own when the table is wider than the screen; the labels stay.
+      const region = item.getByRole("group", { name: TABLE.caption });
+      const wide = await region.evaluate((el) => el.scrollWidth > el.clientWidth);
+      if (vp.phone && vp.text200) expect(wide).toBe(true);
+      if (wide) {
+        await region.evaluate((el) => (el.scrollLeft = el.scrollWidth));
+        const label = table.locator("th[scope=row]").first();
+        await expect
+          .poll(async () => Math.abs((await label.boundingBox())!.x - (await region.boundingBox())!.x))
+          .toBeLessThan(2);
+        await region.evaluate((el) => (el.scrollLeft = 0));
+      }
+
+      // Keyboard alone: type, Tab to the next Uke, a decimal left behind, then corrected.
+      await cells.first().focus();
+      await page.keyboard.type("8");
+      await expect(status).toHaveText(copy.saved("21:14"));
+      expect(saves).toEqual([{ value: [8, null, null, null, null, null], revision: 1 }]);
+      await page.keyboard.press("Tab");
+      await expect(cells.nth(1)).toBeFocused();
+      await page.keyboard.type("1,5");
+      await page.keyboard.press("Tab");
+      await expect(cells.nth(2)).toBeFocused();
+      await expect(item.getByRole("alert")).toHaveText(copy.interactive.wholeNumber);
+      await expect(cells.nth(1)).toHaveAttribute("aria-invalid", "true");
+      await expect(cells.nth(1)).toHaveValue("1,5");
+      // «1» was a whole number and was saved as typed; from «1,» the Uke holds no value, and the
+      // text itself is never sent.
+      expect(saves).toEqual([
+        { value: [8, null, null, null, null, null], revision: 1 },
+        { value: [8, 1, null, null, null, null], revision: 2 },
+        { value: [8, null, null, null, null, null], revision: 3 },
+      ]);
+      await expect(table.locator("[data-not-answered]")).toHaveCount(WEEKS.length - 1);
+      await expectAccessible(page, vp.phone);
+
+      await page.keyboard.press("Shift+Tab");
+      await page.keyboard.press("ControlOrMeta+a");
+      await page.keyboard.type("4");
+      await expect(item.getByRole("alert")).toHaveCount(0);
+      await expect.poll(() => saves.length).toBe(4);
+      expect(saves[3]).toEqual({ value: [8, 4, null, null, null, null], revision: 4 });
+      await expect(status).toHaveText(copy.saved("21:14"));
+      await expect(table.locator("[data-not-answered]")).toHaveCount(WEEKS.length - 2);
+      // Emptying a cell clears its value.
+      await page.keyboard.press("Backspace");
+      await expect.poll(() => saves.length).toBe(5);
+      expect(saves[4]).toEqual({ value: [8, null, null, null, null, null], revision: 5 });
+      await expect(table.locator("[data-not-answered]")).toHaveCount(WEEKS.length - 1);
+      // No right or wrong state (FR-54).
+      await expect(item.locator("[data-quiz-mark]")).toHaveCount(0);
+      await expectAccessible(page, vp.phone);
+    });
+  });
+}
+
+test("a stored table answer shows in its cells, and a refused change brings it back", async ({ page }) => {
+  await page.route(`**/api/me/class-sessions/${SESSION}/test/answers/*`, (route) =>
+    route.fulfill({ status: 409, json: { error: { code: "attempt_submitted", message: "x", fields: {} } } }),
+  );
+  const stored = { value: [8, 4, null, null, null, null], revision: 2, saved_at: SAVED_AT };
+  const items = ITEMS.map((i) => (i.id === "kolonne-1" ? { ...i, answer: stored } : i));
+  await standIn(page, { status: 200, json: { ...opened, items } });
+  const item = page.locator("[data-test-item=kolonne-1]");
+  const cells = item.getByRole("textbox");
+  await expect(cells.nth(0)).toHaveValue("8");
+  await expect(cells.nth(1)).toHaveValue("4");
+  await expect(cells.nth(2)).toHaveValue("");
+  await expect(item.locator("[data-not-answered]")).toHaveCount(WEEKS.length - 2);
+  await cells.nth(0).fill("9");
+  await expect(item.getByRole("status")).toHaveText(copy.saveErrors.attempt_submitted!);
+  await expect(cells.nth(0)).toHaveValue("8");
+});
 
 test("an answer not stored is kept on this device through a reload and sent until it is", async ({ page }) => {
   const saves: { value: string; revision: number }[] = [];
@@ -295,5 +515,13 @@ test("live: Stegene leads to the statement, which opens the test once; a reload 
   await expect(page.getByRole("button", { name: copy.accept })).toHaveCount(0);
   await expect(choice.getByRole("radio").nth(1)).toBeChecked();
   await expect(choice.getByRole("status")).toHaveText("");
+
+  // A «Fyll inn kolonnen» item answered: stored, and there again after a reload (Story 11.5).
+  const table = page.locator("[data-test-item]").filter({ has: page.locator("[data-value-table]") }).first();
+  const first = table.getByRole("textbox").first();
+  await first.fill("8");
+  await expect(table.getByRole("status")).toHaveText(/^Lagret \d{2}:\d{2}$/);
+  await page.reload();
+  await expect(first).toHaveValue("8");
   await page.close();
 });

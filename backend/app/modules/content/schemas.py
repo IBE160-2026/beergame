@@ -16,6 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from app.analysis.narration import NarrationTemplates
 from app.analysis.patterns import PatternSet
 from app.analysis.quiz import DebriefQuiz
+from app.analysis.scoring import ANSWER, Criterion, FlowCheck, InteractiveRule
 from app.analysis.sentences import MomentTemplates, SentenceTemplates
 
 __all__ = [
@@ -24,6 +25,8 @@ __all__ = [
     "ColumnRow",
     "DebriefQuiz",
     "GUIDE_TEXT_MAX",
+    "GivenColumn",
+    "InteractiveSpec",
     "MomentTemplates",
     "NarrationTemplates",
     "REFLECTION_KINDS",
@@ -160,6 +163,68 @@ adds its type here."""
 
 INTERACTIVE_TYPES = frozenset({"table", "number"})
 
+_BEER = re.compile(r"\bøl\b", re.IGNORECASE)
+"""Interactive items say «enheter», never «øl» (FR-80)."""
+
+
+class GivenColumn(BaseModel):
+    """A given column of an Interactive item: its name (what a criterion refers to), its heading
+    and one whole number per row."""
+
+    model_config = _FROZEN
+
+    key: _Key
+    label: _Text
+    values: Annotated[
+        tuple[Annotated[int, Field(strict=True, ge=-80_000, le=80_000)], ...],
+        Field(min_length=1, max_length=36),
+    ]
+
+
+class InteractiveSpec(BaseModel):
+    """What a table or number Interactive item shows and how it is scored (Story 11.5, FR-80):
+    its prompt, an optional hint, the table's caption, the row labels (a table: one per Uke, a
+    number item: its given rows), the given columns, the asked column's (a table) or row's (a
+    number item) label, whether a value may be negative, and the coded criteria of its computed
+    rule (`analysis.scoring`). A table item is answered by one value per row; a number item by one
+    value, under exactly one given column."""
+
+    model_config = _FROZEN
+
+    prompt: _Text
+    hint: _Text | None = None
+    caption: _Text
+    rows: Annotated[tuple[_Text, ...], Field(min_length=1, max_length=36)]
+    given: Annotated[tuple[GivenColumn, ...], Field(max_length=4)] = ()
+    asked: _Text
+    negative: Annotated[bool, Field(strict=True)] = False
+    criteria: Annotated[tuple[Criterion, ...], Field(min_length=1, max_length=8)]
+
+    @model_validator(mode="after")
+    def _columns_fit(self) -> InteractiveSpec:
+        keys = [column.key for column in self.given]
+        if len(set(keys)) != len(keys) or ANSWER in keys:
+            raise ValueError(f"given column names repeat or use {ANSWER!r}")
+        if any(len(column.values) != len(self.rows) for column in self.given):
+            raise ValueError("a given column has one value per row")
+        texts = [self.prompt, self.hint or "", self.caption, self.asked, *self.rows]
+        texts += [column.label for column in self.given]
+        for text in texts:
+            if "!" in text or _BEER.search(text):
+                raise ValueError(f"an Interactive item may not say {text!r}")
+        return self
+
+    def rule(self, item_type: str) -> InteractiveRule:
+        """The computed rule for an item of `item_type`: a table's values are its rows, a number
+        item's is its one asked value."""
+        labels = self.rows if item_type == "table" else (self.asked,)
+        return InteractiveRule(
+            labels=labels,
+            columns={column.key: column.values for column in self.given},
+            criteria=self.criteria,
+        )
+
+
 ITEM_TAGS = ("quantity", "explanation-wording", "unseen-demand", "other-business")
 """The closed set of question tags (FR-52, FR-53, FR-80): an item that measures quantities, the one
 item using the Explanation's wording, an unseen Demand pattern, and an Interactive item set in a
@@ -187,6 +252,9 @@ class QuestionSetItem(BaseModel):
         Field(max_length=4),
     ] = ()
     starting_task_item: _Key | None = None
+    interactive: InteractiveSpec | None = None
+    """A table item's or a non-Starting-task number item's table and rule (Story 11.5). Optional
+    so version 1 still reads; the content load requires it (`interactive_missing`)."""
 
     @model_validator(mode="after")
     def _key_or_rule(self) -> QuestionSetItem:
@@ -205,7 +273,24 @@ class QuestionSetItem(BaseModel):
             raise ValueError(f"item {self.id!r} repeats a tag")
         if "!" in self.title:
             raise ValueError(f"an item may not say {self.title!r}")
+        if self.interactive is not None:
+            if self.type not in INTERACTIVE_TYPES or self.starting_task_item is not None:
+                raise ValueError(f"item {self.id!r} is no Interactive item with its own table")
+            if self.type == "number" and len(self.interactive.given) != 1:
+                raise ValueError(f"number item {self.id!r} has one given column")
+            flows = [c for c in self.interactive.criteria if isinstance(c.check, FlowCheck)]
+            if self.type == "number" and flows:
+                raise ValueError(f"number item {self.id!r} has no flow criterion")
+            try:
+                self.interactive.rule(self.type)
+            except ValueError as invalid:
+                raise ValueError(f"item {self.id!r}: {invalid}") from invalid
         return self
+
+    def needs_interactive(self) -> bool:
+        """Whether the item is answered on its own table (Story 11.5): a table item, or a number
+        item that is not a Starting task item."""
+        return self.type in INTERACTIVE_TYPES and self.starting_task_item is None
 
 
 class QuestionSet(BaseModel):

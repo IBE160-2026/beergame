@@ -205,17 +205,63 @@ class StoredAnswerOut(BaseModel):
     saved_at: datetime
 
 
+class TableColumnOut(BaseModel):
+    """A given column of a value table: its heading and one number per row."""
+
+    label: str
+    values: list[int]
+
+
+class TableOut(BaseModel):
+    """A «Fyll inn kolonnen» item's value table (Story 11.5, FR-80, UX-DR38): its prompt and
+    hint, the table's caption, one row label per Uke, the given columns, the asked column's label
+    (one answer cell per Uke) and whether a value may be negative. No expected value."""
+
+    prompt: str
+    hint: str | None
+    caption: str
+    rows: list[str]
+    columns: list[TableColumnOut]
+    asked_label: str
+    negative: bool
+
+
+class ColumnRowOut(BaseModel):
+    """A given row of a number item's column."""
+
+    label: str
+    value: int
+
+
+class ColumnOut(BaseModel):
+    """A number item's column (Story 11.5): a Starting task item from the Class session's pinned
+    Starting task (`starting_task`), or an Interactive number item's own column. Its prompt and
+    hint, the column's heading, the given rows, the asked row's label and whether the answer may
+    be negative. No expected value and no result."""
+
+    prompt: str
+    hint: str | None
+    caption: str
+    rows: list[ColumnRowOut]
+    asked_label: str
+    negative: bool
+    starting_task: bool
+
+
 class IndividualItemOut(BaseModel):
     """One item of the Student's frozen Individual test (Story 11.3), in order: its number from 1,
-    its type and its text; a choice item's option ids (Story 11.4, `[]` for other types) and the
-    Student's saved answer (null before the first save). No weight, no answer key and no score are
-    sent to the Student."""
+    its type and its text; a choice item's option ids (Story 11.4, `[]` for other types), a table
+    item's value table or a number item's column (Story 11.5, null otherwise or when the item has
+    none) and the Student's saved answer (null before the first save). No weight, no answer key,
+    no rule and no score are sent to the Student."""
 
     id: str
     number: int
     type: Literal["choice", "table", "number", "long"]
     title: str
     options: list[str]
+    table: TableOut | None
+    column: ColumnOut | None
     answer: StoredAnswerOut | None
 
 
@@ -224,7 +270,9 @@ TEST_REVISION_MAX = 1_000_000
 
 class TestAnswerIn(BaseModel):
     """One autosave of an item's answer (Story 11.4, AD-10): the value (a choice item: one of its
-    option ids) and the answer's revision, which rises by one per change on the Student's device."""
+    option ids; a table item: one whole number or null per row; a number item: a whole number or
+    null, Story 11.5) and the answer's revision, which rises by one per change on the Student's
+    device."""
 
     __test__ = False  # not a pytest class
     model_config = _IN

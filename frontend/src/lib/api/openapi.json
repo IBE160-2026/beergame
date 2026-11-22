@@ -1956,6 +1956,79 @@
         "title": "ClassSessionSaveIn",
         "type": "object"
       },
+      "ColumnOut": {
+        "description": "A number item's column (Story 11.5): a Starting task item from the Class session's pinned\nStarting task (`starting_task`), or an Interactive number item's own column. Its prompt and\nhint, the column's heading, the given rows, the asked row's label and whether the answer may\nbe negative. No expected value and no result.",
+        "properties": {
+          "asked_label": {
+            "title": "Asked Label",
+            "type": "string"
+          },
+          "caption": {
+            "title": "Caption",
+            "type": "string"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "negative": {
+            "title": "Negative",
+            "type": "boolean"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/ColumnRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "starting_task": {
+            "title": "Starting Task",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "prompt",
+          "hint",
+          "caption",
+          "rows",
+          "asked_label",
+          "negative",
+          "starting_task"
+        ],
+        "title": "ColumnOut",
+        "type": "object"
+      },
+      "ColumnRowOut": {
+        "description": "A given row of a number item's column.",
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "label",
+          "value"
+        ],
+        "title": "ColumnRowOut",
+        "type": "object"
+      },
       "CopiedFromOut": {
         "description": "The source of a copied Class session, as the Klasseøkt names it.",
         "properties": {
@@ -3574,12 +3647,22 @@
         "type": "object"
       },
       "IndividualItemOut": {
-        "description": "One item of the Student's frozen Individual test (Story 11.3), in order: its number from 1,\nits type and its text; a choice item's option ids (Story 11.4, `[]` for other types) and the\nStudent's saved answer (null before the first save). No weight, no answer key and no score are\nsent to the Student.",
+        "description": "One item of the Student's frozen Individual test (Story 11.3), in order: its number from 1,\nits type and its text; a choice item's option ids (Story 11.4, `[]` for other types), a table\nitem's value table or a number item's column (Story 11.5, null otherwise or when the item has\nnone) and the Student's saved answer (null before the first save). No weight, no answer key,\nno rule and no score are sent to the Student.",
         "properties": {
           "answer": {
             "anyOf": [
               {
                 "$ref": "#/components/schemas/StoredAnswerOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "column": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ColumnOut"
               },
               {
                 "type": "null"
@@ -3600,6 +3683,16 @@
             },
             "title": "Options",
             "type": "array"
+          },
+          "table": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TableOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "title": {
             "title": "Title",
@@ -3622,6 +3715,8 @@
           "type",
           "title",
           "options",
+          "table",
+          "column",
           "answer"
         ],
         "title": "IndividualItemOut",
@@ -9368,6 +9463,85 @@
         "title": "SupplyLineSlot",
         "type": "object"
       },
+      "TableColumnOut": {
+        "description": "A given column of a value table: its heading and one number per row.",
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "values": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Values",
+            "type": "array"
+          }
+        },
+        "required": [
+          "label",
+          "values"
+        ],
+        "title": "TableColumnOut",
+        "type": "object"
+      },
+      "TableOut": {
+        "description": "A «Fyll inn kolonnen» item's value table (Story 11.5, FR-80, UX-DR38): its prompt and\nhint, the table's caption, one row label per Uke, the given columns, the asked column's label\n(one answer cell per Uke) and whether a value may be negative. No expected value.",
+        "properties": {
+          "asked_label": {
+            "title": "Asked Label",
+            "type": "string"
+          },
+          "caption": {
+            "title": "Caption",
+            "type": "string"
+          },
+          "columns": {
+            "items": {
+              "$ref": "#/components/schemas/TableColumnOut"
+            },
+            "title": "Columns",
+            "type": "array"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "negative": {
+            "title": "Negative",
+            "type": "boolean"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "prompt",
+          "hint",
+          "caption",
+          "rows",
+          "columns",
+          "asked_label",
+          "negative"
+        ],
+        "title": "TableOut",
+        "type": "object"
+      },
       "TableSeatOut": {
         "description": "A Seat of the Student's Class game (Story 6.1, FR-22, FR-34): its Role and who holds it,\na Student by name, any AI player as «KI-spiller» (`ai`, never which kind), or free.",
         "properties": {
@@ -9463,7 +9637,7 @@
       },
       "TestAnswerIn": {
         "additionalProperties": false,
-        "description": "One autosave of an item's answer (Story 11.4, AD-10): the value (a choice item: one of its\noption ids) and the answer's revision, which rises by one per change on the Student's device.",
+        "description": "One autosave of an item's answer (Story 11.4, AD-10): the value (a choice item: one of its\noption ids; a table item: one whole number or null per row; a number item: a whole number or\nnull, Story 11.5) and the answer's revision, which rises by one per change on the Student's\ndevice.",
         "properties": {
           "revision": {
             "maximum": 1000000.0,

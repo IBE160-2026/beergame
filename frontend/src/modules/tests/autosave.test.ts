@@ -101,8 +101,30 @@ describe("the autosave of an Individual test answer (Story 11.4, AD-10)", () => 
   it("keeps drafts per Class session and item, and reads only well-formed ones", () => {
     expect(draftField("s1", "flervalg-1")).toBe("test:s1:flervalg-1");
     expect(parseDraft(draftText({ value: "a", revision: 4 }))).toEqual({ value: "a", revision: 4 });
-    for (const bad of [null, "", "[]", '{"value":1,"revision":1}', '{"value":"a","revision":0}', '{"value":"a","revision":1.5}']) {
+    for (const bad of [
+      null,
+      "",
+      "[]",
+      '{"value":1.5,"revision":1}',
+      '{"value":[1,"x"],"revision":1}',
+      '{"value":{"a":1},"revision":1}',
+      '{"revision":1}',
+      '{"value":"a","revision":0}',
+      '{"value":"a","revision":1.5}',
+    ]) {
       expect(parseDraft(bad)).toBeNull();
     }
+  });
+
+  it("keeps a number and a table answer like a choice (Story 11.5)", () => {
+    expect(parseDraft(draftText({ value: [8, null, -3], revision: 2 }))).toEqual({ value: [8, null, -3], revision: 2 });
+    expect(parseDraft(draftText({ value: 16, revision: 1 }))).toEqual({ value: 16, revision: 1 });
+    expect(parseDraft(draftText({ value: null, revision: 3 }))).toEqual({ value: null, revision: 3 });
+    const table = initial({ value: [8, null], revision: 1, saved_at: AT }, draftText({ value: [8, 4], revision: 2 }));
+    expect(table).toMatchObject({ send: true, entry: { value: [8, 4], storedValue: [8, null], revision: 2 } });
+    const cleared = choose(initial({ value: 16, revision: 1, saved_at: AT }, null).entry, null);
+    expect(cleared).toMatchObject({ value: null, revision: 2, status: "saving" });
+    const { entry } = applySaved(cleared, { value: null, revision: 2, saved_at: AT });
+    expect(entry).toMatchObject({ value: null, storedValue: null, stored: 2, status: "saved" });
   });
 });

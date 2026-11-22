@@ -36,12 +36,13 @@ export function openMyTest(classSessionId: string): Promise<MyTest> {
 export type SavedAnswer = components["schemas"]["SavedAnswerOut"];
 
 /** Autosave one answer (Story 11.4, AD-10): the answer stored after the save, which is the one
- * sent or one with a higher revision stored already. 409 `attempt_submitted` and
+ * sent or one with a higher revision stored already. The value: a choice item's option id, a
+ * number item's whole number or null, a table item's whole number or null per row (Story 11.5). 409 `attempt_submitted` and
  * `test_deadline_passed`, 422 `unknown_item` and `invalid_answer`, 403 `forbidden`. */
 export function saveMyTestAnswer(
   classSessionId: string,
   itemId: string,
-  body: { value: string; revision: number },
+  body: { value: string | number | (number | null)[] | null; revision: number },
 ): Promise<SavedAnswer> {
   return request(() =>
     api.PUT("/api/me/class-sessions/{session_id}/test/answers/{item_id}", {

@@ -93,10 +93,28 @@ Story 11.13 must leave Students with their own extension out.
   answer only when `revision` is above the stored one (AD-10); the stored answer
   (`{item_id, value, revision, saved_at}`) comes back either way, so a late save from a second
   device is no error. 409 `attempt_submitted`, 409 `test_deadline_passed`, 422 `unknown_item`,
-  422 `invalid_answer` (a choice item: not one of its option ids; table, number and long answers
-  are refused until Stories 11.5 and 11.6 extend `commands._valid`), 403 `forbidden` for any
+  422 `invalid_answer` (a choice item: not one of its option ids; table and number items: see
+  Story 11.5; long answers are refused until Story 11.6 extends `commands._valid`), 403 `forbidden` for any
   session that is not the Student's own or a test not yet opened. No event; no value logged.
 - `GET`/`POST …/test` items carry `options` (a choice item's option ids) and `answer` (the saved
   `{value, revision, saved_at}` or null). No score and no right or wrong state is sent (FR-54).
 - Scoring: `analysis.scoring.score_choice(answer, key)`, pure; the AI assessment (Epic 12) reads
   it. The web app computes no score.
+
+## Answering table and number Interactive items (Story 11.5)
+
+- Content: question set version 2 (migration 0124) gives every table item and every number item
+  that is not a Starting task item its own table and computed rule (`interactive`, shaped by
+  `analysis.scoring.InteractiveRule`). Attempts pinned to version 1 show those items by title and
+  refuse their answers.
+- Items out carry `table` (prompt, hint, caption, one row label per Uke, the given columns, the
+  asked column's label, `negative`) or `column` (a number item's given rows and asked row; a
+  Starting task item's from the Class session's pinned Starting task, `starting_task: true`).
+  Never a criterion, an expected value or a score.
+- Saves go through `save_answer` (Story 11.4's path): a table answer is one whole number or null
+  per row, a number answer a whole number or null; |value| at most 1 000 000; negative only where
+  the item allows it (a Starting task item always does). Anything else is 422 `invalid_answer`.
+- Scoring: `tests.scoring.score_answer(item, value, starting_task)` picks the pure rule:
+  `score_choice`, `score_sum` for a Starting task item (FR-85), and `score_interactive` for a
+  table or number item, partial credit per coded criterion with its explanation (FR-80). Epic 12
+  reads it; the web app computes no score.

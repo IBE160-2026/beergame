@@ -105,7 +105,8 @@ async def test_the_test_opens_after_the_replay_with_the_statement_first_and_once
     assert (version, selection) == (pin["version"], pin)
     assert [item["id"] for item in items] == [item["id"] for item in body["items"]]
     assert [item["number"] for item in body["items"]] == list(range(1, len(items) + 1))
-    keys = {"id", "number", "type", "title", "options", "answer"}  # no weight, key or score
+    keys = {"id", "number", "type", "title", "options", "table", "column", "answer"}
+    # no weight, key, rule or score
     assert all(set(item) == keys and item["answer"] is None for item in body["items"])
     assert all(item["weight"] == pin["weights"][item["id"]] for item in items)
     assert {topic for topic, _ in emitted} == COMMAND_TOPICS["tests.open_attempt"]

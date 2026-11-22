@@ -134,7 +134,8 @@ class ContentRejected(Exception):
 
 
 def _item_types_known(body: Any) -> None:
-    """A question-set item of an unknown type is refused by its own code, before the schema."""
+    """A question-set item of an unknown type, or an Interactive item without its table, is
+    refused by its own code, before the schema."""
     if not isinstance(body, dict):
         return
     for group in ("items", "replacements"):
@@ -146,6 +147,15 @@ def _item_types_known(body: Any) -> None:
                 continue
             if item["type"] not in ITEM_TYPES:
                 raise ContentRejected("unknown_item_type", f"{group}: {item['type']!r}")
+            # A table item, and a number item that is not a Starting task item, is answered on
+            # its own table (Story 11.5): it is refused without one.
+            own_table = item["type"] == "table" or (
+                item["type"] == "number" and item.get("starting_task_item") is None
+            )
+            if own_table and item.get("interactive") is None:
+                raise ContentRejected(
+                    "interactive_missing", f"{group}: {item.get('id')!r} has no table"
+                )
 
 
 def _criteria_counted(body: Any) -> None:

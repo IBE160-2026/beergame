@@ -2811,6 +2811,19 @@ export const nb = {
         test_deadline_passed: "Testfristen er passert. Svaret ble ikke lagret.",
       } as Readonly<Record<string, string>>,
       saveRefused: "Svaret ble ikke lagret. Last siden på nytt.",
+      /** Table and number Interactive items (Story 11.5, FR-80, UX-DR38). «Skriv et helt tall.»
+       * and «Ikke besvart» are the spine's; the rest is [ASSUMPTION] draft copy. */
+      interactive: {
+        /** [ASSUMPTION] above each Interactive item (FR-80, UX-DR74): these items are hard. */
+        intro: "Oppgaver som dette er vanskelige, også for voksne med lang utdanning. Ta én uke om gangen.",
+        /** [ASSUMPTION] the heading over the row labels of a value table. */
+        rowHeader: "Uke",
+        /** Beside the row label of an Uke with no value. */
+        notAnswered: "Ikke besvart",
+        /** [ASSUMPTION] a cell's name: «Lager, Uke 3». */
+        cell: (asked: string, row: string) => `${asked}, ${row}`,
+        wholeNumber: "Skriv et helt tall.",
+      },
     },
     /** Story 11.1 (FR-52, FR-53, UX-DR49): the Klasseøkt's block «Spørsmål og vekter». The title,
      * «Ta ut», «Vekt», the sum line and the quantity warning are the spine's; the rest is
