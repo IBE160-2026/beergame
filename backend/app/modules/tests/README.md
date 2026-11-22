@@ -197,3 +197,23 @@ The Deferred item "Timing of Adapted items", closed here (`prepare.py`, `jobs.py
   compares (rewrite with `UPDATE_GOLDEN=1`); `tests/games/test_facts.py` checks the fixture
   against the played Game.
 - No Game row, no stored facts set, no LLM call and no write.
+
+## Reviewing and submitting the Individual test (Story 11.10)
+
+- Route: `POST /api/me/class-sessions/{id}/test/submit` (`submitMyTest`): 200 with the test in
+  state `submitted` and `submitted_at`. 409 `attempt_submitted` when it was handed in already
+  (nothing changes), 409 `test_deadline_passed` after the Student's `effective_deadline` (the sweep
+  of Story 11.11 hands it in), 403 `forbidden` for a session that is not theirs or a test not yet
+  opened.
+- `commands.submit` locks the attempt row `FOR UPDATE` and, in one transaction, scores the saved
+  answers (`commands.score_answers`: `tests.scoring.score_answer` per choice, table and number
+  answer, stored in `test_answers.score` with `scored_version`, the question set version; long
+  answers and Adapted items keep `score` null for Epic 12; an item with no saved answer has no
+  row), sets `status = 'submitted'` and `submitted_at`, and records `test_submitted` through
+  `progress.record_step`, which emits `user:<id>` and `session:<id>` (`tests.submit` in the
+  registry). The command returns an attempt handed in already unchanged; the route answers that
+  with `attempt_submitted`. Stories 11.11 and 11.12 reuse `score_answers`.
+- `GET …/test` on a handed-in attempt answers `submitted` (or `auto_submitted`, Story 11.11) with
+  the items and saved answers, read-only on the page; never a score (FR-54).
+- `sessions.service.reminder_recipients` leaves Students with `test_submitted` out of the Test
+  deadline reminder (FR-18).

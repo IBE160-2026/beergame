@@ -6,17 +6,19 @@ import { stepItems } from "@/modules/games/home";
 import type { EnrolledSession } from "@/modules/sessions/api";
 
 import { type MyTest, myTestKey, myTestsKey } from "./api";
-import { deadlineLine, itemLabel, itemLines, testView } from "./individual-test";
+import { deadlineLine, isAnswered, itemLabel, itemLines, listSeparator, submittedLine, testView, unansweredNumbers } from "./individual-test";
 
 const copy = nb.tests.individual;
 
-const statement: MyTest = { state: "statement", test_deadline: "2026-12-18T22:59:00Z", opened_at: null, items: [] };
+const statement: MyTest = { state: "statement", test_deadline: "2026-12-18T22:59:00Z", opened_at: null, submitted_at: null, items: [] };
 
 describe("the Individual test page's state (Story 11.3)", () => {
   it("follows the api's answer and refusals alone", () => {
     expect(testView(statement, null)).toBe("statement");
     expect(testView({ ...statement, state: "open" }, null)).toBe("open");
     expect(testView({ ...statement, state: "closed" }, null)).toBe("closed");
+    expect(testView({ ...statement, state: "submitted" }, null)).toBe("submitted");
+    expect(testView({ ...statement, state: "auto_submitted" }, null)).toBe("auto_submitted");
     expect(testView(undefined, "replay_required")).toBe("locked");
     expect(testView(undefined, "forbidden")).toBe("denied");
     expect(testView(undefined, null)).toBe("other");
@@ -46,6 +48,38 @@ describe("the Individual test page's state (Story 11.3)", () => {
   it("is read again on the User's `user` event", () => {
     expect(topicKeys({ topic: "user", id: "u1", version: null })).toContainEqual(myTestsKey);
     expect(myTestKey("s1").slice(0, 2)).toEqual([...myTestsKey]);
+  });
+});
+
+describe("the review before «Lever testen» (Story 11.10)", () => {
+  const answer = (value: unknown) => ({ value, revision: 1, saved_at: "2026-12-18T20:40:00Z" });
+
+  it("counts an item answered only when it holds a value to hand in", () => {
+    expect(isAnswered({ answer: null })).toBe(false);
+    expect(isAnswered({ answer: answer(null) })).toBe(false);
+    expect(isAnswered({ answer: answer(" \n ") })).toBe(false);
+    expect(isAnswered({ answer: answer([null, null]) })).toBe(false);
+    expect(isAnswered({ answer: answer([null, 0]) })).toBe(true);
+    expect(isAnswered({ answer: answer(0) })).toBe(true);
+    expect(isAnswered({ answer: answer("b") })).toBe(true);
+    expect(isAnswered({ answer: answer("Et svar.") })).toBe(true);
+  });
+
+  it("lists the numbers not answered as «4, 7 og 9»", () => {
+    const items = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((number) => ({ number, answer: [4, 7, 9].includes(number) ? null : answer("a") }));
+    const numbers = unansweredNumbers({ items: items as unknown as MyTest["items"] });
+    expect(numbers).toEqual([4, 7, 9]);
+    const list = numbers.map((n, i) => `${listSeparator(i, numbers.length)}${n}`).join("");
+    expect(`${copy.submit.unanswered(numbers.length)} ${list}${copy.submit.listEnd}`).toBe("3 oppgaver er ikke besvart: 4, 7 og 9.");
+    expect(`${copy.submit.unanswered(1)} 4${copy.submit.listEnd}`).toBe("1 oppgave er ikke besvart: 4.");
+    expect([0, 1].map((i) => listSeparator(i, 2))).toEqual(["", " og "]);
+  });
+
+  it("says when the test was handed in, in Oslo time", () => {
+    const handedIn = { state: "submitted" as const, submitted_at: "2026-12-18T20:40:00Z" };
+    expect(submittedLine(handedIn)).toMatch(/^Levert fr\. 18\. des\. kl\.\s21:40\. Du kan ikke endre svarene\.$/u);
+    expect(submittedLine({ state: "auto_submitted", submitted_at: "2026-12-18T22:59:00Z" })).toBe(copy.submit.autoSubmitted);
+    expect(submittedLine({ state: "open", submitted_at: null })).toBeNull();
   });
 });
 

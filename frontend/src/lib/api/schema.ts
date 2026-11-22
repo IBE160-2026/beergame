@@ -2322,6 +2322,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/class-sessions/{session_id}/test/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit My Test
+         * @description «Lever testen» (Story 11.10, FR-51, AD-9, AD-16): the Student hands in their Individual
+         *     test once; their saved answers are scored and stored and `test_submitted` is recorded. 200
+         *     with the test as handed in (state `submitted`). 409 `attempt_submitted` when it was handed in
+         *     already (nothing changes), 409 `test_deadline_passed` after the Student's Test deadline, 403
+         *     `forbidden` for any session that is not theirs or a test not yet opened.
+         */
+        post: operations["submitMyTest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me/games/{game_id}": {
         parameters: {
             query?: never;
@@ -4888,7 +4912,9 @@ export interface components {
          *     own-work statement (no item is served), `open` once they have (the items of their attempt in
          *     order; the statement is not asked again), `closed` when their Test deadline passed with no
          *     attempt. `test_deadline` is the Student's effective Test deadline (none set: null);
-         *     `opened_at` when they accepted the statement.
+         *     `opened_at` when they accepted the statement. Once handed in (Story 11.10), `submitted` by
+         *     the Student or `auto_submitted` at the deadline (Story 11.11), with `submitted_at`: the items
+         *     and saved answers stay readable, never with a score (FR-54).
          */
         MyTestOut: {
             /** Items */
@@ -4899,7 +4925,9 @@ export interface components {
              * State
              * @enum {string}
              */
-            state: "statement" | "open" | "closed";
+            state: "statement" | "open" | "closed" | "submitted" | "auto_submitted";
+            /** Submitted At */
+            submitted_at: string | null;
             /** Test Deadline */
             test_deadline: string | null;
         };
@@ -13292,6 +13320,64 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    submitMyTest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyTestOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

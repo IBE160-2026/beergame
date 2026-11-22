@@ -41,7 +41,13 @@ export type Entry = {
 
 /** The draft field of an item: kept per User (by `lib/drafts.ts`) and per Class session and item. */
 export function draftField(classSessionId: string, itemId: string): string {
-  return `test:${classSessionId}:${itemId}`;
+  return `${draftPrefix(classSessionId)}${itemId}`;
+}
+
+/** The start of every draft field of a Class session's test: its drafts are dropped together once
+ * the test is handed in (Story 11.10). */
+export function draftPrefix(classSessionId: string): string {
+  return `test:${classSessionId}:`;
 }
 
 export function draftText(draft: Draft): string {

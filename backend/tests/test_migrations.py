@@ -144,7 +144,7 @@ HEAD_TABLES = (
     | ATTEMPT_TABLES
     | PREPARED_TABLES
 )
-HEAD = "0126"  # 0126 stores version 2 of the Adapted item templates and prepared sets (11.8)
+HEAD = "0127"  # 0127 stores computed scores on the test answers (11.10)
 
 
 def reset_schema(url: str) -> None:
@@ -332,6 +332,11 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     # 0111 (Story 9.12): presence, the Students who go on alone and the 48-hour fallback.
     assert "last_seen_at" in columns(url, "debrief_members")
     assert {"fallback_due_at", "fallback_at"} <= columns(url, "debrief_sessions")
+
+    # 0127 (Story 11.10): the computed score of each test answer and its question set version.
+    assert {"score", "scored_version"} <= columns(url, "test_answers")
+    command.downgrade(cfg, "0126")
+    assert {"score", "scored_version"}.isdisjoint(columns(url, "test_answers"))
 
     # 0126 (Story 11.8): version 2 of the Adapted item templates, with their wordings, and the
     # prepared sets.

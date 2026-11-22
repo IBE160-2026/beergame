@@ -2832,6 +2832,42 @@ export const nb = {
       long: {
         largerScreen: "Langsvar er lettere å skrive på en større skjerm, som en PC. Du kan likevel skrive og lagre her.",
       },
+      /** Review and submit (Story 11.10, FR-51, UX-DR65, UX-DR59). «Lever testen», the unanswered
+       * line, the warning, «Levert …» and the failure line are the spine's; the rest is
+       * [ASSUMPTION] draft copy. */
+      submit: {
+        /** The one primary button, under the items and again in the review. */
+        button: "Lever testen",
+        /** [ASSUMPTION] the review's heading. */
+        reviewHeading: "Gå gjennom før du leverer",
+        /** «3 oppgaver er ikke besvart:», followed by the item numbers as links. */
+        unanswered: (n: number) => (n === 1 ? "1 oppgave er ikke besvart:" : `${n} oppgaver er ikke besvart:`),
+        /** Between the numbers: «4, 7 og 9». */
+        listComma: ", ",
+        listAnd: " og ",
+        listEnd: ".",
+        /** The link text of one unanswered item, for a screen reader: «Oppgave 4». */
+        itemLink: (n: number) => `Oppgave ${n}`,
+        /** [ASSUMPTION] every item answered. */
+        allAnswered: "Alle oppgavene er besvart.",
+        warning: "Du kan ikke endre svarene etter at du har levert.",
+        /** [ASSUMPTION] while an answer typed on this device is not yet stored. */
+        saving: "Svarene lagres …",
+        failed: "Det ble ikke lagret. Prøv igjen.",
+        errors: {
+          /** [ASSUMPTION] the Testfrist passed while the page was open. */
+          test_deadline_passed: "Testfristen er passert. Svarene du har lagret, leveres automatisk.",
+        } as Readonly<Record<string, string>>,
+        /** «Levert to. 18. des. kl. 21:40. Du kan ikke endre svarene.» */
+        submitted: (date: string) => `Levert ${date}. Du kan ikke endre svarene.`,
+        /** Story 11.11's state: handed in by the Testfrist. */
+        autoSubmitted: "Testfristen er passert. Svarene dine ble levert automatisk.",
+        /** [ASSUMPTION] the heading over the read-only answers. */
+        answersHeading: "Svarene dine",
+        /** [ASSUMPTION] a read-only answer: «Ditt svar: Alternativ B», «Legg til: 16». */
+        yourAnswer: "Ditt svar",
+        answerLine: (label: string, value: string) => `${label}: ${value}`,
+      },
     },
     /** Story 11.1 (FR-52, FR-53, UX-DR49): the Klasseøkt's block «Spørsmål og vekter». The title,
      * «Ta ut», «Vekt», the sum line and the quantity warning are the spine's; the rest is

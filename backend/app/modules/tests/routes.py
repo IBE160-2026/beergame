@@ -300,6 +300,32 @@ async def open_my_test(
     return JSONResponse(opened.model_dump(mode="json"), status_code=201 if created else 200)
 
 
+@router.post(
+    f"{_TEST}/submit",
+    response_model=MyTestOut,
+    responses=documented(401, 403, 409),
+    operation_id="submitMyTest",
+)
+async def submit_my_test(
+    session_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("tests.take_own"))],
+) -> Response:
+    """«Lever testen» (Story 11.10, FR-51, AD-9, AD-16): the Student hands in their Individual
+    test once; their saved answers are scored and stored and `test_submitted` is recorded. 200
+    with the test as handed in (state `submitted`). 409 `attempt_submitted` when it was handed in
+    already (nothing changes), 409 `test_deadline_passed` after the Student's Test deadline, 403
+    `forbidden` for any session that is not theirs or a test not yet opened."""
+    try:
+        found = await attempt.submit(user, _id(session_id), auth.utcnow())
+    except commands.AttemptSubmitted:
+        return error_response(409, "attempt_submitted", "The test is handed in.")
+    except commands.DeadlinePassed:
+        return error_response(409, "test_deadline_passed", "Your Test deadline has passed.")
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
 @router.put(
     f"{_TEST}/answers/{{item_id}}",
     response_model=SavedAnswerOut,

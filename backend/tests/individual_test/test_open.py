@@ -90,6 +90,7 @@ async def test_the_test_opens_after_the_replay_with_the_statement_first_and_once
         "state": "statement",
         "test_deadline": TEST.isoformat().replace("+00:00", "Z"),
         "opened_at": None,
+        "submitted_at": None,
         "items": [],
     }
     assert not await follow_up.closed(seated[0], uuid.UUID(session_id))

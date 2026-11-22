@@ -1,7 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 
 import { isSessionExpired } from "@/lib/api/client";
 import { errorCode } from "@/lib/api/mutation";
@@ -24,6 +24,11 @@ import {
   refusedForGood,
   statusLine,
 } from "./autosave";
+
+/** Where each item's autosave says whether it holds a change not yet stored (Story 11.10): the
+ * review holds «Lever testen» back until every answer typed on this device is stored, so nothing
+ * typed is left out of what is handed in. */
+export const UnsentContext = createContext<((itemId: string, unsent: boolean) => void) | null>(null);
 
 /**
  * The autosave of one item's answer (Story 11.4, AD-10; every item type from Story 11.5): the
@@ -164,6 +169,14 @@ export function useAutosave(classSessionId: string, userId: string, item: MyTest
     const next = merge(current.current, answer);
     if (next !== current.current) update(next);
   }, [answer, update]);
+
+  // Tell the review whether this item waits on a save; an item that leaves the page waits on none.
+  const report = useContext(UnsentContext);
+  const unsent = shown.entry.revision > shown.entry.stored;
+  useEffect(() => {
+    report?.(item.id, unsent);
+  }, [report, item.id, unsent]);
+  useEffect(() => () => report?.(item.id, false), [report, item.id]);
 
   return { ...shown, pick, write, flush };
 }

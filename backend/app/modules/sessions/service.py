@@ -4365,14 +4365,21 @@ REMINDER_AHEAD = timedelta(hours=24)
 async def reminder_recipients(
     class_session_id: uuid.UUID, deadline: DeadlineName
 ) -> list[uuid.UUID]:
-    """Who is reminded of `deadline` (Story 5.14): for now every registered Student of the
-    Class session's Class, sorted. The one place the recipients are chosen; Epic 11 leaves out a
-    Student with an extension and Epic 13 one who has done the step (`progress.has_step`)."""
+    """Who is reminded of `deadline` (Story 5.14): every registered Student of the Class
+    session's Class, sorted; for the Test deadline, less those who have handed in their
+    Individual test (`test_submitted`, Story 11.10, FR-18; read through `progress`, AD-16). The
+    one place the recipients are chosen; Epic 11 leaves out a Student with an extension and
+    Epic 13 one who has done the other steps."""
     async with get_sessionmaker().begin() as s:
         row = await repo.session_row(s, class_session_id)
+        done: set[uuid.UUID] = set()
+        if row is not None and deadline == "test_deadline":
+            done = set(
+                await progress.users_with_step(s, class_session_id, progress.Step.TEST_SUBMITTED)
+            )
     if row is None:
         return []
-    return sorted(await classes.registered_students(row["class_id"]))
+    return sorted(set(await classes.registered_students(row["class_id"])) - done)
 
 
 async def due_deadline_reminders(now: datetime) -> list[tuple[uuid.UUID, DeadlineName]]:

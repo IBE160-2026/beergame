@@ -6,7 +6,7 @@ import type { MyTest, MyTestItem } from "./api";
 const copy = nb.tests.individual;
 
 /** Where the Individual test page stands, from the api's answer or refusal alone (AD-10). */
-export type TestView = "statement" | "open" | "closed" | "locked" | "denied" | "other";
+export type TestView = "statement" | "open" | "closed" | "submitted" | "auto_submitted" | "locked" | "denied" | "other";
 
 export function testView(data: MyTest | undefined, code: string | null): TestView {
   if (data) return data.state;
@@ -36,4 +36,40 @@ export function itemLabel(item: Pick<MyTestItem, "title" | "wording">): { label:
     return { label: nb.debrief.aiText(item.wording.text), ai: true, note: nb.debrief.aiNote };
   }
   return { label: item.title, ai: false, note: null };
+}
+
+/**
+ * Whether an item has an answer to hand in (Story 11.10, the review before «Lever testen»): a
+ * stored value that is not null, not blank text and not a table with every cell empty. Display
+ * only: it lists the items to look at again, and the api judges and scores what is handed in.
+ */
+export function isAnswered(item: Pick<MyTestItem, "answer">): boolean {
+  const value: unknown = item.answer?.value ?? null;
+  if (value === null) return false;
+  if (typeof value === "string") return value.trim() !== "";
+  if (Array.isArray(value)) return value.some((cell) => cell !== null);
+  return true;
+}
+
+/** The numbers of the items not answered, in order: «4, 7 og 9». */
+export function unansweredNumbers(test: Pick<MyTest, "items">): number[] {
+  return test.items.filter((item) => !isAnswered(item)).map((item) => item.number);
+}
+
+/** What goes before the `index`th of `count` numbers in «4, 7 og 9»: nothing, «, » or « og ». */
+export function listSeparator(index: number, count: number): string {
+  if (index === 0) return "";
+  return index === count - 1 ? copy.submit.listAnd : copy.submit.listComma;
+}
+
+/** The id of an item's place on the page, the target of its link in the review. */
+export function itemAnchor(number: number): string {
+  return `oppgave-${number}`;
+}
+
+/** «Levert to. 18. des. kl. 21:40. Du kan ikke endre svarene.», or the auto-submitted line. */
+export function submittedLine(test: Pick<MyTest, "state" | "submitted_at">): string | null {
+  if (test.state === "auto_submitted") return copy.submit.autoSubmitted;
+  if (test.state !== "submitted" || !test.submitted_at) return null;
+  return copy.submit.submitted(osloDateText(test.submitted_at));
 }

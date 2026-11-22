@@ -23,7 +23,7 @@ from app.modules.progress import service as progress
 from app.modules.sessions import service as sessions
 from app.modules.tests import commands
 from app.modules.tests.adapted import ADAPTED
-from app.modules.tests.models import test_answers
+from app.modules.tests.models import AttemptStatus, test_answers
 from app.modules.tests.schemas import (
     ColumnOut,
     ColumnRowOut,
@@ -38,7 +38,7 @@ from app.modules.tests.schemas import (
 from app.platform import authz
 from app.platform.db import get_sessionmaker
 
-__all__ = ["read", "open_", "save"]
+__all__ = ["read", "open_", "save", "submit"]
 
 
 async def _answers(attempt_id: uuid.UUID) -> dict[str, StoredAnswerOut]:
@@ -154,10 +154,14 @@ async def _items(attempt: Mapping[str, Any], pins: Any) -> list[IndividualItemOu
 
 
 async def _open(attempt: Mapping[str, Any], pins: Any) -> MyTestOut:
+    """The Student's attempt: `open`, or handed in (`submitted`, `auto_submitted`, Story 11.10)
+    with its time; the items and saved answers either way."""
+    state = attempt["status"]
     return MyTestOut(
-        state="open",
+        state="open" if state == AttemptStatus.OPEN.value else state,
         test_deadline=attempt["effective_deadline"],
         opened_at=attempt["statement_accepted_at"],
+        submitted_at=attempt["submitted_at"],
         items=await _items(attempt, pins),
     )
 
@@ -179,7 +183,11 @@ async def read(
     deadline = sessions.effective_test_deadline(user, found.row)
     passed = deadline is not None and deadline <= now
     return MyTestOut(
-        state="closed" if passed else "statement", test_deadline=deadline, opened_at=None, items=[]
+        state="closed" if passed else "statement",
+        test_deadline=deadline,
+        opened_at=None,
+        submitted_at=None,
+        items=[],
     )
 
 
@@ -212,3 +220,18 @@ async def save(
     `commands.DeadlinePassed`, `commands.UnknownItem` and `commands.InvalidAnswer`."""
     stored = await commands.save_answer(user, class_session_id, item_id, value, revision, now)
     return None if stored is None else SavedAnswerOut(**stored)
+
+
+async def submit(
+    user: authz.Principal, class_session_id: uuid.UUID, now: datetime
+) -> MyTestOut | None:
+    """«Lever testen» (Story 11.10, FR-51): the test as handed in; None for every caller but the
+    Student with an opened test (FR-5). Raises `commands.AttemptSubmitted` when it was handed in
+    already (nothing changes) and `commands.DeadlinePassed` past the Student's Test deadline."""
+    done = await commands.submit(user, class_session_id, now)
+    if done is None:
+        return None
+    if not done.submitted:
+        raise commands.AttemptSubmitted
+    # Handed in: answered with what was committed, read with the pins the command read.
+    return await _open(done.attempt, done.pins)

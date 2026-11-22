@@ -178,11 +178,18 @@ test_answers = Table(
     Column("value", JSONB, nullable=False),
     Column("revision", Integer, nullable=False),
     Column("saved_at", DateTime(timezone=True), nullable=False),
+    Column("score", JSONB, nullable=True),
+    Column("scored_version", Integer, nullable=True),
     CheckConstraint("revision >= 1", name="ck_test_answers_revision"),
+    CheckConstraint(
+        "score IS NULL OR scored_version IS NOT NULL", name="ck_test_answers_scored_version"
+    ),
     UniqueConstraint("attempt_id", "item_id", name="uq_test_answers_item"),
 )
-"""One saved answer per attempt and item with its revision, the highest kept (Story 11.4 on).
-Written only by `tests.commands`; holds text a Student wrote (personal data)."""
+"""One saved answer per attempt and item with its revision, the highest kept (Story 11.4 on), and
+from the hand-in its computed score with the question set version it was computed with (Story
+11.10; null for an answer no computed rule scores). Written only by `tests.commands`; holds text a
+Student wrote (personal data)."""
 
 
 test_prepared_items = Table(

@@ -50,6 +50,7 @@ from app.modules.tests.models import (
     test_attempts,
     test_prepared_items,
 )
+from app.modules.tests.scoring import ItemScore, score_answer
 from app.platform import authz, events
 from app.platform.db import get_sessionmaker
 
@@ -64,7 +65,10 @@ __all__ = [
     "move_deadline",
     "open_attempt",
     "save_answer",
+    "score_answers",
     "selection_of",
+    "submit",
+    "Submitted",
     "UnknownItem",
 ]
 
@@ -387,6 +391,121 @@ async def save_answer(
             .one()
         )
     return stored
+
+
+@dataclass(frozen=True)
+class Submitted:
+    """The Student's attempt after `submit`, whether this call handed it in, and the Class
+    session's pinned content versions it was read with."""
+
+    attempt: Mapping[str, Any]
+    submitted: bool
+    pins: Any = None
+
+
+def _score_json(scored: ItemScore) -> dict[str, Any]:
+    return {
+        "answered": scored.answered,
+        "credit": scored.credit,
+        "criteria": [
+            {"code": c.code, "weight": c.weight, "met": c.met, "explanation": c.explanation}
+            for c in scored.criteria
+        ],
+    }
+
+
+async def score_answers(s: AsyncSession, attempt: Mapping[str, Any], pins: Any) -> int:
+    """Store the computed score of each saved answer of `attempt` (Story 11.10, FR-51, AD-23), in
+    the caller's transaction under its attempt row lock: a multiple-choice, table or number item's
+    score from `tests.scoring.score_answer` (the Starting task the Class session pinned), with the
+    question set version it was scored with. A long answer or an Adapted item keeps no score here
+    (the Scoring guide's, Epic 12); an item with no saved answer has no row and scores nothing.
+    The hand-in of Stories 11.11 and 11.12 calls this too. The number of answers scored."""
+    version = attempt["question_set_version"]
+    question_set: QuestionSet = await content.get(content.Kind.QUESTION_SET, version)
+    by_id = {item.id: item for item in (*question_set.items, *question_set.replacements)}
+    _, task = await content.starting_task(content.pinned_version(pins))
+    frozen = {item["id"]: item for item in attempt["items"]}
+    saved = await s.execute(
+        select(test_answers.c.id, test_answers.c.item_id, test_answers.c.value).where(
+            test_answers.c.attempt_id == attempt["id"]
+        )
+    )
+    scored_count = 0
+    for row in saved.mappings().all():
+        item = frozen.get(row["item_id"])
+        found = by_id.get(row["item_id"])
+        if item is None or item["type"] == adapted.ADAPTED or found is None:
+            continue
+        scored = score_answer(found, row["value"], task)
+        if scored is None:
+            continue
+        await s.execute(
+            update(test_answers)
+            .where(test_answers.c.id == row["id"])
+            .values(score=_score_json(scored), scored_version=version)
+        )
+        scored_count += 1
+    return scored_count
+
+
+async def submit(
+    user: authz.Principal, class_session_id: uuid.UUID, now: datetime
+) -> Submitted | None:
+    """The Student hands in their Individual test, «Lever testen» (Story 11.10, FR-51, AD-9,
+    AD-16, AD-23): None when the session is not one of their own locked Class sessions or they
+    have not opened the test (the route's 403, FR-5).
+
+    One transaction with the attempt row `FOR UPDATE`: an open attempt before its
+    `effective_deadline` is set to `submitted` at `now`, its saved answers are scored
+    (`score_answers`) and `test_submitted` is recorded through `progress.record_step` in the same
+    transaction, which emits `user:<id>` and `session:<id>`. An attempt handed in already is
+    returned unchanged (`submitted=False`), emitting nothing; the route answers that with
+    `attempt_submitted`. Raises `DeadlinePassed` for an open attempt past its deadline (the sweep
+    of Story 11.11 hands it in). No answer is logged."""
+    async with get_sessionmaker().begin() as s:
+        found = await sessions.individual_test_session_of(s, user, class_session_id)
+        if found is None:
+            return None
+        attempt = (
+            (
+                await s.execute(
+                    select(test_attempts)
+                    .where(
+                        test_attempts.c.user_id == user.id,
+                        test_attempts.c.class_session_id == class_session_id,
+                    )
+                    .with_for_update()
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if attempt is None:
+            return None
+        if attempt["status"] != AttemptStatus.OPEN.value:
+            return Submitted(attempt, submitted=False, pins=found.pins)
+        deadline = attempt["effective_deadline"]
+        if deadline is not None and deadline <= now:
+            raise DeadlinePassed
+        scored = await score_answers(s, attempt, found.pins)
+        await s.execute(
+            update(test_attempts)
+            .where(test_attempts.c.id == attempt["id"])
+            .values(status=AttemptStatus.SUBMITTED.value, submitted_at=now)
+        )
+        await progress.record_step(
+            user.id, class_session_id, progress.Step.TEST_SUBMITTED, now, within=s
+        )
+        handed_in = await attempt_of(s, user.id, class_session_id)
+        assert handed_in is not None
+    log.info(
+        "test_attempt_submitted",
+        class_session_id=str(class_session_id),
+        attempt_id=str(attempt["id"]),
+        scored=scored,
+    )
+    return Submitted(handed_in, submitted=True, pins=found.pins)
 
 
 async def move_deadline(

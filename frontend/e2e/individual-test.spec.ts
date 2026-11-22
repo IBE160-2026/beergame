@@ -419,8 +419,179 @@ for (const vp of VIEWPORTS) {
       await expect(status).toHaveText(copy.saved("21:14"));
       expect(saves[2]).toEqual({ value: "b", revision: 2 });
     });
+
+    test("«Lever testen»: the review lists the unanswered items as links over one primary; axe passes", async ({ page }) => {
+      await standIn(page, { status: 200, json: partlyAnswered });
+      const main = page.getByRole("main");
+      await main.getByRole("button", { name: submitCopy.button }).click();
+      const review = main.getByRole("region", { name: submitCopy.reviewHeading });
+      await expect(review.getByRole("heading", { name: submitCopy.reviewHeading })).toBeFocused();
+      await expect(review.locator("[data-unanswered]")).toHaveText("3 oppgaver er ikke besvart: 2, 4 og 6.");
+      const links = review.getByRole("link");
+      await expect(links).toHaveCount(3);
+      for (const box of await links.all()) {
+        const size = (await box.boundingBox())!;
+        expect(size.height).toBeGreaterThanOrEqual(44);
+        expect(size.width).toBeGreaterThanOrEqual(44);
+      }
+      await expect(review).toContainText(submitCopy.warning);
+      // One primary button on the page, and no dialog.
+      await expect(main.locator("a.bg-ink, button.bg-ink")).toHaveCount(1);
+      await expect(review.getByRole("button", { name: submitCopy.button })).toHaveClass(/\bbg-ink\b/);
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      await expectAccessible(page, vp.phone);
+
+      // A number leads to its item.
+      await review.getByRole("link", { name: submitCopy.itemLink(4) }).click();
+      await expect(page).toHaveURL(/#oppgave-4$/);
+      await expect(page.locator("#oppgave-4")).toHaveAttribute("data-test-item", "tall-1");
+      await expect(page.locator("#oppgave-4")).toBeInViewport();
+    });
+
+    test("every item answered: the review says so, and the handed-in test shows when, read-only; axe passes", async ({ page }) => {
+      let posts = 0;
+      await page.route(`**/api/me/class-sessions/${SESSION}/test/submit`, (route) => {
+        posts += 1;
+        return route.fulfill({ status: 200, json: handedIn });
+      });
+      await standIn(page, { status: 200, json: allAnswered });
+      const main = page.getByRole("main");
+      await main.getByRole("button", { name: submitCopy.button }).click();
+      const review = main.getByRole("region", { name: submitCopy.reviewHeading });
+      await expect(review.locator("[data-all-answered]")).toHaveText(submitCopy.allAnswered);
+      await expect(review.getByRole("link")).toHaveCount(0);
+      await expect(review.getByRole("button", { name: submitCopy.button })).toHaveClass(/\bbg-ink\b/);
+      await expectAccessible(page, vp.phone);
+
+      await review.getByRole("button", { name: submitCopy.button }).click();
+      const line = main.locator("[data-submitted-line]");
+      await expect(line).toHaveText(/^Levert fr\. 18\. des\. kl\.\s21:40\. Du kan ikke endre svarene\.$/u);
+      await expect(line).toBeFocused();
+      expect(posts).toBe(1);
+      // The answers, readable and read-only: no field, no button, no score.
+      await expect(main.locator("[data-test-state=submitted] [data-test-item]")).toHaveCount(ITEMS.length);
+      await expect(main.locator("input, textarea, select")).toHaveCount(0);
+      await expect(main.getByRole("button")).toHaveCount(0);
+      await expect(main.locator("[data-test-item=flervalg-1]")).toContainText(submitCopy.answerLine(submitCopy.yourAnswer, copy.option("b")));
+      await expect(main.locator("[data-test-item=langsvar-1]")).toContainText(LONG_TEXT);
+      await expect(main.locator("[data-test-item=tall-1]")).toContainText(submitCopy.answerLine(COLUMN.asked_label, "16"));
+      await expect(main.locator("[data-test-item=kolonne-1] table")).toContainText("12");
+      await expectAccessible(page, vp.phone);
+    });
+
+    test("a save after the hand-in on another device: refused, the draft dropped, the handed-in test shown; axe passes", async ({ page }) => {
+      await page.route(ANSWERS, (route) =>
+        route.fulfill({ status: 409, json: { error: { code: "attempt_submitted", message: "x", fields: {} } } }),
+      );
+      let reads = 0;
+      await loginByApi(page, "student");
+      await page.route(`**/api/me/class-sessions/${SESSION}/test`, (route) => {
+        reads += 1;
+        return route.fulfill({ status: 200, json: reads === 1 ? opened : handedIn });
+      });
+      await page.goto(`/individuell-test/${SESSION}`);
+      const item = page.locator("[data-test-item=flervalg-1]");
+      await item.getByRole("radio", { name: copy.option("b") }).check();
+      const main = page.getByRole("main");
+      await expect(main.locator("[data-submitted-line]")).toHaveText(/^Levert fr\. 18\. des\. kl\.\s21:40\./u);
+      await expect(main.locator("input, textarea")).toHaveCount(0);
+      const drafts = await page.evaluate(() => Object.keys(localStorage).filter((key) => key.includes(":test:")));
+      expect(drafts).toEqual([]);
+      await expectAccessible(page, vp.phone);
+    });
   });
 }
+
+const submitCopy = copy.submit;
+const LONG_TEXT = "Et langsvar\n\nmed to avsnitt.";
+const answered = (value: unknown) => ({ value, revision: 1, saved_at: SAVED_AT });
+/** Items 1, 3 and 5 answered; 2, 4 and 6 not (an empty table, a cleared number, blank text). */
+const partlyAnswered = {
+  ...opened,
+  items: [
+    { ...ITEMS[0], answer: answered("a") },
+    { ...ITEMS[1], answer: answered([null, null, null, null, null, null]) },
+    { ...ITEMS[2], answer: answered("Svar.") },
+    { ...ITEMS[3], answer: answered(null) },
+    { ...ITEMS[4], answer: answered(-13) },
+    { ...ITEMS[5], answer: answered("   ") },
+  ],
+};
+const allAnswered = {
+  ...opened,
+  items: [
+    { ...ITEMS[0], answer: answered("b") },
+    { ...ITEMS[1], answer: answered([12, null, 30, null, null, null]) },
+    { ...ITEMS[2], answer: answered(LONG_TEXT) },
+    { ...ITEMS[3], answer: answered(16) },
+    { ...ITEMS[4], answer: answered(-13) },
+    { ...ITEMS[5], answer: answered("Jeg bestilte for mye.") },
+  ],
+};
+const handedIn = { ...allAnswered, state: "submitted", submitted_at: "2026-12-18T20:40:00Z" };
+
+test("a hand-in that fails says so with the button still active, and a second press hands it in", async ({ page }) => {
+  let fail = true;
+  await page.route(`**/api/me/class-sessions/${SESSION}/test/submit`, (route) =>
+    fail ? route.fulfill(UNAVAILABLE) : route.fulfill({ status: 200, json: handedIn }),
+  );
+  await standIn(page, { status: 200, json: allAnswered });
+  const main = page.getByRole("main");
+  await main.getByRole("button", { name: submitCopy.button }).click();
+  const button = main.getByRole("region", { name: submitCopy.reviewHeading }).getByRole("button", { name: submitCopy.button });
+  await button.click();
+  await expect(main.getByRole("alert")).toHaveText(submitCopy.failed);
+  await expect(button).not.toHaveAttribute("aria-disabled", "true");
+  await expect(main.locator("[data-test-state=open]")).toBeVisible();
+  fail = false;
+  await button.click();
+  await expect(main.locator("[data-submitted-line]")).toBeFocused();
+});
+
+test("a hand-in refused as handed in already reads the test again and shows it handed in", async ({ page }) => {
+  await page.route(`**/api/me/class-sessions/${SESSION}/test/submit`, (route) =>
+    route.fulfill({ status: 409, json: { error: { code: "attempt_submitted", message: "x", fields: {} } } }),
+  );
+  let reads = 0;
+  await loginByApi(page, "student");
+  await page.route(`**/api/me/class-sessions/${SESSION}/test`, (route) => {
+    reads += 1;
+    return route.fulfill({ status: 200, json: reads === 1 ? allAnswered : handedIn });
+  });
+  await page.goto(`/individuell-test/${SESSION}`);
+  const main = page.getByRole("main");
+  await main.getByRole("button", { name: submitCopy.button }).click();
+  await main.getByRole("region", { name: submitCopy.reviewHeading }).getByRole("button", { name: submitCopy.button }).click();
+  await expect(main.locator("[data-submitted-line]")).toHaveText(/^Levert /u);
+  await expect(main.locator("[data-submitted-line]")).toBeFocused();
+});
+
+test("«Lever testen» waits while an answer is not yet stored", async ({ page }) => {
+  let release: () => void = () => {};
+  await page.route(ANSWERS, async (route) => {
+    const body = route.request().postDataJSON() as Save;
+    await new Promise<void>((go) => (release = go));
+    await route.fulfill({ status: 200, json: { item_id: "flervalg-1", ...body, saved_at: SAVED_AT } });
+  });
+  await standIn(page, { status: 200, json: allAnswered });
+  const main = page.getByRole("main");
+  await main.locator("[data-test-item=flervalg-1]").getByRole("radio", { name: copy.option("c") }).check();
+  await main.getByRole("button", { name: submitCopy.button }).click();
+  const review = main.getByRole("region", { name: submitCopy.reviewHeading });
+  const button = review.getByRole("button", { name: submitCopy.button });
+  await expect(button).toHaveAttribute("aria-disabled", "true");
+  await expect(review.getByRole("status")).toHaveText(submitCopy.saving);
+  release();
+  await expect(button).not.toHaveAttribute("aria-disabled", "true");
+  await expect(review.locator("[data-submit-waiting]")).toHaveText("");
+});
+
+test("handed in automatically at the Testfrist: said so, the answers read-only", async ({ page }) => {
+  await standIn(page, { status: 200, json: { ...handedIn, state: "auto_submitted", submitted_at: DEADLINE } });
+  const main = page.getByRole("main");
+  await expect(main.locator("[data-submitted-line]")).toHaveText(submitCopy.autoSubmitted);
+  await expect(main.locator("input, textarea")).toHaveCount(0);
+});
 
 for (const vp of TABLE_VIEWPORTS) {
   test.describe(`${vp.name}: «Fyll inn kolonnen»`, () => {
@@ -780,5 +951,27 @@ test("live: Stegene leads to the statement, which opens the test once; a reload 
   await expect(long.getByRole("status")).toHaveText(/^Lagret \d{2}:\d{2}$/);
   await page.reload();
   await expect(long.getByRole("textbox")).toHaveValue(text);
+
+  // Handed in (Story 11.10): Hjem, open on another page, marks the step done by its live event.
+  const hjem = await student!.context.newPage();
+  await hjem.goto("/hjem");
+  const testStep = hjem
+    .getByRole("main")
+    .getByRole("region", { name: nb.homes.student.steps })
+    .getByRole("listitem")
+    .filter({ hasText: nb.homes.student.stepNames.test });
+  await expect(testStep).toContainText(nb.homes.student.current);
+  await page.getByRole("button", { name: copy.submit.button }).click();
+  const review = page.getByRole("region", { name: copy.submit.reviewHeading });
+  await expect(review.locator("[data-unanswered], [data-all-answered]")).toHaveCount(1);
+  await review.getByRole("button", { name: copy.submit.button }).click();
+  await expect(page.locator("[data-submitted-line]")).toHaveText(/^Levert .+ Du kan ikke endre svarene\.$/u);
+  await expect(page.locator("[data-submitted-line]")).toBeFocused();
+  await expect(testStep).toContainText(nb.homes.student.done);
+  await page.reload();
+  await expect(page.locator("[data-test-state=submitted]")).toBeVisible();
+  await expect(page.locator("textarea, input")).toHaveCount(0);
+  await expect(page.locator("[data-test-item]").filter({ hasText: "med to avsnitt." })).toHaveCount(1);
+  await hjem.close();
   await page.close();
 });

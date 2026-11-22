@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 
-import { api } from "@/lib/api/client";
+import { api, ApiRequestError } from "@/lib/api/client";
 import { request } from "@/lib/api/mutation";
 import type { components } from "@/lib/api/schema";
 
@@ -31,6 +31,27 @@ export function openMyTest(classSessionId: string): Promise<MyTest> {
   return request(() =>
     api.POST("/api/me/class-sessions/{session_id}/test", { params: { path: { session_id: classSessionId } } }),
   );
+}
+
+/** How long «Lever testen» waits for the api's answer before it says the test was not handed in
+ * (Story 11.10, UX-DR59); pressing again then gets the handed-in test or hands it in. */
+export const SUBMIT_TIMEOUT_MS = 30_000;
+
+/** «Lever testen» (Story 11.10): the test as handed in (`submitted`). 409 `attempt_submitted`
+ * (handed in already) and `test_deadline_passed`, 403 `forbidden`; no answer within
+ * `SUBMIT_TIMEOUT_MS` fails as `network_error`. */
+export async function submitMyTest(classSessionId: string): Promise<MyTest> {
+  try {
+    return await request(() =>
+      api.POST("/api/me/class-sessions/{session_id}/test/submit", {
+        params: { path: { session_id: classSessionId } },
+        signal: AbortSignal.timeout(SUBMIT_TIMEOUT_MS),
+      }),
+    );
+  } catch (error) {
+    if (error instanceof Error && error.name === "TimeoutError") throw new ApiRequestError(0, "network_error");
+    throw error;
+  }
 }
 
 export type SavedAnswer = components["schemas"]["SavedAnswerOut"];

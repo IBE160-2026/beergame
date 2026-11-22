@@ -331,9 +331,12 @@ class MyTestOut(BaseModel):
     own-work statement (no item is served), `open` once they have (the items of their attempt in
     order; the statement is not asked again), `closed` when their Test deadline passed with no
     attempt. `test_deadline` is the Student's effective Test deadline (none set: null);
-    `opened_at` when they accepted the statement."""
+    `opened_at` when they accepted the statement. Once handed in (Story 11.10), `submitted` by
+    the Student or `auto_submitted` at the deadline (Story 11.11), with `submitted_at`: the items
+    and saved answers stay readable, never with a score (FR-54)."""
 
-    state: Literal["statement", "open", "closed"]
+    state: Literal["statement", "open", "closed", "submitted", "auto_submitted"]
     test_deadline: datetime | None
     opened_at: datetime | None
+    submitted_at: datetime | None
     items: list[IndividualItemOut]
