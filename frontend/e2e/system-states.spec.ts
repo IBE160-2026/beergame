@@ -64,7 +64,8 @@ async function goOffline(page: Page, context: BrowserContext) {
 async function goOnline(page: Page, context: BrowserContext) {
   await page.evaluate(() => ((window as Held).__holdOnline = true));
   await context.setOffline(false);
-  await expect.poll(() => reaches(page)).toBe(true);
+  // On a loaded CI runner the emulated network took more than the default 5 s to come back.
+  await expect.poll(() => reaches(page), { timeout: 15_000 }).toBe(true);
   await page.evaluate(() => {
     (window as Held).__holdOnline = false;
     window.dispatchEvent(new Event("online"));
