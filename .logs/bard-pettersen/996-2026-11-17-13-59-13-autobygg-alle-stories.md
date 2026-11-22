@@ -3669,3 +3669,21 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Kun AI-
 
 ### Åpne punkter
 - Issue #227: beslutninger, ukjent treffsikkerhet med ekte modell, og persondata i `ai_item_scores`.
+
+## Avslutning av Epic 11 (spor 2)
+
+### Oppgave
+Avslutte Epic 11 (og Story 12.1, som lå på samme gren): visuell kontroll, punktene som må gjøres, testfart, stabilisering, PR og CI.
+
+### Plan
+Én avslutningsagent i worktreet for spor 2, med en egen agent for skjermbildene. Spor 3 bygde Epic 12 samtidig.
+
+### Resultat
+- PR #224 er merget til `main` (995b5fb), med grønn CI.
+- Rettet: lagring med `keepalive` når fanen lukkes (logikken flyttet til `saver.ts` med enhetstester); teller og melding når innlimt tekst kuttes; telefonrådet knyttet til feltet; faktasett bygges før åpningstransaksjonen; kommaene i lista over ubesvarte oppgaver; tegnede oppgaver får plass til alle ukene ved 1280 px og viser «Sveip for flere uker» på telefon; fire e2e-tester gjort stabile under last.
+- Spørsmålet om manglende tilpassede oppgaver på den ekte stacken: ingen feil. Studenten hadde ikke spilt klassespillet, så de to erstatningsoppgavene bar totalvekten 30, som de skal.
+- Testfart: seks tester fra 9–10 s til rundt 1,5 s; hele backend-pakken er fortsatt rundt 168 s.
+- Status: `epic-11: done`. Spor 2 starter Epic 13 på `epic-13` fra den nye `main`.
+
+### Åpne punkter
+- Issue #225: utsatte punkter (oppdatering fra en annen enhet under skriving, små tekstpunkter fra den visuelle kontrollen, registeret for persondata ved merge med Epic 15).
