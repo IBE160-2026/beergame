@@ -674,7 +674,9 @@ class StepOut(BaseModel):
     closed: bool = False
     """Story 10.3: the current Replay step after the Student's Test deadline with no Replay
     started: it is not done, and it can no longer start (FR-18). Story 10.6: also once a started
-    Replay was closed at the Testfrist unfinished (the Replay's `end_reason` says so)."""
+    Replay was closed at the Testfrist unfinished (the Replay's `end_reason` says so). Story
+    11.11: also the current Individual test step after the Student's Test deadline: not handed
+    in, so not done; a saved attempt turns done when the sweep hands it in."""
 
 
 class ReplayGameOut(BaseModel):

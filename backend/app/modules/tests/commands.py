@@ -15,9 +15,15 @@ The decision (the Deferred item "Test attempt write path"):
   conflict; `extend_deadline` locks the Student's extension row in `modules/sessions`, and the
   attempt row too when there is one.
 - `effective_deadline` is the Student's `sessions.effective_test_deadline` when the attempt is
-  opened; a change of the Class session's Test deadline moves it for every open attempt in the
-  save's transaction (`move_deadline`, registered with `sessions`). Story 11.13 must leave a
+  opened; a change of the Class session's Test deadline moves it for every attempt not yet closed
+  in the save's transaction (`move_deadline`, registered with `sessions`). Story 11.13 must leave a
   Student with their own extension out.
+- The order at the Test deadline (Story 11.11, AD-9): the sweep runs `sessions.lock_test` (the
+  Scoring guide and the «KI-vurdering» switch pinned), then `close_attempt` per attempt whose
+  `effective_deadline` has passed, one per transaction. `close_attempt` runs once for every
+  attempt, handed in or not (`closed_at`): an open one is auto-submitted with what was saved by
+  the deadline, since `save_answer` refuses a later save with `test_deadline_passed`. It is the
+  one place Epic 12 starts the AI assessment.
 
 - `save_answer` keeps the highest revision per answer (AD-10): the row is upserted only when the
   sent revision is above the stored one, and the stored answer is returned either way, so a late
@@ -62,6 +68,9 @@ __all__ = [
     "Opened",
     "ReplayRequired",
     "attempt_of",
+    "close_attempt",
+    "close_due",
+    "due_closes",
     "move_deadline",
     "open_attempt",
     "save_answer",
@@ -511,17 +520,112 @@ async def submit(
 async def move_deadline(
     s: AsyncSession, class_session_id: uuid.UUID, deadline: datetime | None
 ) -> None:
-    """`sessions.save`'s Test-deadline mover (Story 11.3, AD-9): every open attempt of the Class
-    session takes the new Test deadline, in the save's transaction under the Class session's row
-    lock. Story 11.13 must leave Students with their own extension out."""
+    """`sessions.save`'s Test-deadline mover (Story 11.3, AD-9): every attempt of the Class session
+    not yet closed takes the new Test deadline, in the save's transaction under the Class
+    session's row lock: an open one, and one handed in early, so `close_attempt` never runs for it
+    before the Class session's Test deadline (Story 11.11). A passed Test deadline is never
+    changed (`sessions.judge_dates`). Story 11.13 must leave Students with their own extension
+    out."""
     await s.execute(
         update(test_attempts)
         .where(
             test_attempts.c.class_session_id == class_session_id,
-            test_attempts.c.status == AttemptStatus.OPEN.value,
+            test_attempts.c.closed_at.is_(None),
         )
         .values(effective_deadline=deadline)
     )
+
+
+CLOSES_PER_SWEEP = 200
+"""The most attempts one sweep closes; the next minute's sweep takes the rest."""
+
+
+async def close_attempt(attempt_id: uuid.UUID, now: datetime) -> bool:
+    """Close one attempt at its `effective_deadline` (Story 11.11, FR-51, FR-18, AD-9, AD-16): the
+    sweep's `tests.close_attempt` action, after `sessions.lock_test`. True when this call closed it.
+
+    One transaction: the Class session row share-locked through `sessions.test_locked_session`
+    (nothing happens before the Test-deadline lock has run for it), then the attempt row
+    `FOR UPDATE`. Nothing happens to an attempt closed already or whose `effective_deadline` is
+    unset or still ahead at `now`. An `open` attempt is auto-submitted: its saved answers are
+    scored as at a hand-in (`score_answers`), it becomes `auto_submitted` as of its deadline, and
+    `test_submitted` is recorded through `progress.record_step` (which emits `user:<id>` and
+    `session:<id>`). An attempt handed in earlier keeps everything and emits nothing. Either way
+    `closed_at` is set, so a repeat changes nothing. Ids and counts only are logged."""
+    async with get_sessionmaker().begin() as s:
+        class_session_id = await s.scalar(
+            select(test_attempts.c.class_session_id).where(test_attempts.c.id == attempt_id)
+        )
+        if class_session_id is None:
+            return False
+        found = await sessions.test_locked_session(s, class_session_id)
+        if found is None:
+            return False
+        attempt = (
+            (
+                await s.execute(
+                    select(test_attempts).where(test_attempts.c.id == attempt_id).with_for_update()
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if attempt is None or attempt["closed_at"] is not None:
+            return False
+        deadline = attempt["effective_deadline"]
+        if deadline is None or deadline > now:
+            return False
+        auto = attempt["status"] == AttemptStatus.OPEN.value
+        values: dict[str, Any] = {"closed_at": now}
+        scored = 0
+        if auto:
+            # What was saved by the deadline is handed in, as of the deadline, also when the
+            # sweep runs late; a save after it was refused (`DeadlinePassed`).
+            scored = await score_answers(s, attempt, found.pins)
+            values |= {"status": AttemptStatus.AUTO_SUBMITTED.value, "submitted_at": deadline}
+        await s.execute(
+            update(test_attempts).where(test_attempts.c.id == attempt_id).values(**values)
+        )
+        if auto:
+            await progress.record_step(
+                attempt["user_id"],
+                class_session_id,
+                progress.Step.TEST_SUBMITTED,
+                deadline,
+                within=s,
+            )
+    log.info(
+        "test_attempt_closed",
+        class_session_id=str(class_session_id),
+        attempt_id=str(attempt_id),
+        auto_submitted=auto,
+        scored=scored,
+    )
+    return True
+
+
+async def due_closes(now: datetime) -> list[uuid.UUID]:
+    """The sweep's `tests.close_attempt` finder (AD-9): the attempts not yet closed whose
+    `effective_deadline` has passed in a Class session `sessions.lock_test` has run for, by id,
+    the oldest deadline first, at most `CLOSES_PER_SWEEP`."""
+    async with get_sessionmaker()() as s:
+        found = await s.scalars(
+            select(test_attempts.c.id)
+            .where(
+                test_attempts.c.closed_at.is_(None),
+                test_attempts.c.effective_deadline <= now,
+                test_attempts.c.class_session_id.in_(sessions.test_locked_ids()),
+            )
+            .order_by(test_attempts.c.effective_deadline, test_attempts.c.id)
+            .limit(CLOSES_PER_SWEEP)
+        )
+        return list(found)
+
+
+async def close_due(attempt_id: object, now: datetime) -> bool:
+    """The sweep's `tests.close_attempt` action, one attempt per transaction with its id only."""
+    assert isinstance(attempt_id, uuid.UUID)
+    return await close_attempt(attempt_id, now)
 
 
 sessions.register_test_deadline_mover(move_deadline)

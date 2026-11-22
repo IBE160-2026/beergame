@@ -230,7 +230,7 @@ async def test_items_taken_out_are_not_in_the_attempt(klass):
     assert next(i for i in row[4] if i["id"] == keep["id"])["weight"] == weights[keep["id"]]
 
 
-async def test_a_moved_test_deadline_moves_open_attempts(klass):
+async def test_a_moved_test_deadline_moves_the_attempts_not_closed(klass):
     session_id, seated = await confirmed(klass, 2)
     other_id = await dated(klass)  # a second Class session of the same Students
     assert (await confirm(other_id, (await open_(other_id)).json()["draft"])).status_code == 200
@@ -239,7 +239,8 @@ async def test_a_moved_test_deadline_moves_open_attempts(klass):
         await replayed(user, session)
     for who, session in ((email(0), session_id), (email(1), session_id), (email(0), other_id)):
         assert (await call(who, "POST", path(session))).status_code == 201
-    # A handed-in attempt keeps the deadline it had (Story 11.10 writes these).
+    # An attempt handed in early moves too, so it is not closed before the Class session's Test
+    # deadline (Story 11.11); only a closed attempt keeps the deadline it had.
     execute(
         "UPDATE test_attempts SET status = 'submitted', submitted_at = %s WHERE user_id = %s",
         NOW,
@@ -249,10 +250,15 @@ async def test_a_moved_test_deadline_moves_open_attempts(klass):
     moved = await save(session_id, {**PLAN, "test_deadline": later})
     assert moved.status_code == 200, moved.text
     deadlines = {row[1]: row[6] for row in attempts(session_id)}
-    assert deadlines == {seated[0]: later, seated[1]: TEST}
+    assert deadlines == {seated[0]: later, seated[1]: later}
+    execute("UPDATE test_attempts SET closed_at = %s WHERE user_id = %s", NOW, seated[1])
+    latest = later + DAY
+    assert (await save(session_id, {**PLAN, "test_deadline": latest})).status_code == 200
+    deadlines = {row[1]: row[6] for row in attempts(session_id)}
+    assert deadlines == {seated[0]: latest, seated[1]: later}
     assert [row[6] for row in attempts(other_id)] == [TEST]  # another Class session: untouched
     assert (await call(email(0), "GET", path(session_id))).json()["test_deadline"] == (
-        later.isoformat().replace("+00:00", "Z")
+        latest.isoformat().replace("+00:00", "Z")
     )
 
 

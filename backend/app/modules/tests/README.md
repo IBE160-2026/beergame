@@ -74,7 +74,8 @@ transaction; `save_answer` and `submit` on an attempt that is not `open` fail wi
 the unique key on User and Class session and returns the existing attempt on a conflict;
 `extend_deadline` locks the Student's extension row in `modules/sessions`, and the attempt row too
 when there is one. A change of the Class session's Test deadline moves `effective_deadline` of its
-open attempts in the save's transaction (`move_deadline`, `sessions.register_test_deadline_mover`);
+attempts not yet closed (open or handed in early, Story 11.11) in the save's transaction
+(`move_deadline`, `sessions.register_test_deadline_mover`);
 Story 11.13 must leave Students with their own extension out.
 
 - Routes: `GET /api/me/class-sessions/{id}/test` (`statement`, `open` with the items, `closed`
@@ -217,3 +218,26 @@ The Deferred item "Timing of Adapted items", closed here (`prepare.py`, `jobs.py
   the items and saved answers, read-only on the page; never a score (FR-54).
 - `sessions.service.reminder_recipients` leaves Students with `test_submitted` out of the Test
   deadline reminder (FR-18).
+
+## Saved answers handed in at the Test deadline (Story 11.11)
+
+- The order at the Test deadline (AD-9): the sweep's `sessions.lock_test` pins the Scoring guide
+  in force and the «KI-vurdering» switch; the next due action, `tests.close_attempt`, then closes
+  each attempt whose `effective_deadline` has passed, one per transaction with its id
+  (`commands.due_closes`, at most 200 a sweep, only in Class sessions `lock_test` has run for;
+  `commands.close_due`).
+- `commands.close_attempt(attempt_id, now)` share-locks the Class session row through
+  `sessions.test_locked_session` (None before the lock: nothing happens), then the attempt row
+  `FOR UPDATE`. An `open` attempt becomes `auto_submitted`, its saved answers scored exactly as at a
+  hand-in (`score_answers`), `submitted_at` = its `effective_deadline`, and `test_submitted` is
+  recorded as of the deadline (`user:<id>`, `session:<id>`; `tests.close_attempt` in the
+  registry). An attempt handed in earlier keeps everything and emits nothing. Either way
+  `test_attempts.closed_at` (migration 0128) is set once, so a repeat changes nothing. This is the
+  one place Epic 12 starts the AI assessment.
+- A save between the deadline and the sweep is refused with `test_deadline_passed`, so what is
+  handed in is what was saved by the deadline. A Student who never opened the test gets no
+  attempt: `GET …/test` answers `closed`, `POST …/test` 409 `test_deadline_passed`, and Hjem's test
+  step stays current and not done with `closed` («ikke gjort, Testfristen er ute»).
+- `service.parts_with_content(user_id, class_session_id)` tells Completion (Epic 13, FR-17) for
+  each part among the attempt's items (`choice`, `interactive`, `long`, `adapted`) whether any
+  item holds a saved answer with content; None without an attempt.

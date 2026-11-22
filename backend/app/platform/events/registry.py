@@ -172,6 +172,10 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # `test_submitted` step recorded in the same transaction emits `user` (their Hjem and
         # other devices) and `session` (the Class session's overview). A repeat emits nothing.
         "tests.submit": frozenset({"session", "user"}),
+        # An Individual test attempt closed at its Test deadline by the sweep (Story 11.11,
+        # FR-51): an open one is auto-submitted and its `test_submitted` step emits `user` and
+        # `session`, as at a hand-in; closing one handed in earlier emits nothing.
+        "tests.close_attempt": frozenset({"session", "user"}),
         # A Student's Replay made and started (Story 10.3, FR-48): its Game is created, seated and
         # started through `games.commands` (`game`), and the Student's Hjem reads it again
         # (`user`). No Lecturer overview lists a Replay, so no `session`.

@@ -9,6 +9,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     PrimaryKeyConstraint,
     Table,
@@ -16,6 +17,7 @@ from sqlalchemy import (
     UniqueConstraint,
     Uuid,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 
@@ -148,7 +150,16 @@ test_attempts = Table(
     Column("status", Text, nullable=False, server_default=AttemptStatus.OPEN.value),
     Column("submitted_at", DateTime(timezone=True), nullable=True),
     Column("sitting_ends_at", DateTime(timezone=True), nullable=True),
+    # Story 11.11 (AD-9): when `commands.close_attempt` ran at the attempt's `effective_deadline`,
+    # after the Test-deadline lock; set once, for a handed-in attempt too. NULL until then.
+    Column("closed_at", DateTime(timezone=True), nullable=True),
     CheckConstraint("question_set_version >= 1", name="ck_test_attempts_version"),
+    CheckConstraint("closed_at IS NULL OR status <> 'open'", name="ck_test_attempts_closed"),
+    Index(
+        "ix_test_attempts_due_close",
+        "effective_deadline",
+        postgresql_where=text("closed_at IS NULL"),
+    ),
     CheckConstraint(
         "status IN (" + ", ".join(f"'{s.value}'" for s in AttemptStatus) + ")",
         name="ck_test_attempts_status",
@@ -161,7 +172,8 @@ test_attempts = Table(
 """A Student's Individual test in a Class session (Story 11.3, FR-51, AD-9, AD-23), made once when
 they accept the own-work statement (`statement_accepted_at`): the question set version and
 selection it was opened on, the frozen ordered item list (`[{id, type, weight}]`), the Student's
-effective Test deadline and its status. Written only by `tests.commands`."""
+effective Test deadline, its status and when the Test-deadline close ran (`closed_at`, Story
+11.11). Written only by `tests.commands`."""
 
 
 test_answers = Table(

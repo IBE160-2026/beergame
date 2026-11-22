@@ -8,6 +8,7 @@ from typing import Any
 from sqlalchemy import (
     Integer,
     RowMapping,
+    Select,
     Text,
     and_,
     delete,
@@ -319,6 +320,12 @@ async def due_test_locks(session: AsyncSession, now: datetime) -> list[uuid.UUID
         .order_by(class_sessions.c.id)
     )
     return list(result.scalars())
+
+
+def test_locked_ids() -> Select[tuple[uuid.UUID]]:
+    """The ids of the Class sessions the Test-deadline lock has run for, as a query another
+    query can filter by (Story 11.11)."""
+    return select(class_sessions.c.id).where(class_sessions.c.test_locked_at.is_not(None))
 
 
 async def set_test_locked(session: AsyncSession, session_id: uuid.UUID, at: datetime) -> bool:

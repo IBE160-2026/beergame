@@ -449,6 +449,10 @@ export const nb = {
       /** Story 10.6: the current Replay step once a started Replay was closed at the Testfrist
        * unfinished. [ASSUMPTION] */
       replayClosedUnfinished: "stengt ved Testfristen, ikke fullført",
+      /** Story 11.11: the current Individual test step after the Student's Testfrist while it is
+       * not handed in: never opened, or opened and waiting for the sweep (about a minute), after
+       * which it turns done. [ASSUMPTION] The Replay's words. */
+      testClosed: "ikke gjort, Testfristen er ute",
       /** Story 10.4 (UX-DR64, EXPERIENCE.md → Replay in progress): the current Replay step while
        * the Replay runs; its link leads to the play screen. The spine's line. */
       replayResume: (week: number) => `Fortsett Replay, Uke ${week}.`,

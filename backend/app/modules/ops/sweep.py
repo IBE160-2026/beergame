@@ -20,6 +20,7 @@ from app.modules.games import service as games
 from app.modules.identity import service as identity
 from app.modules.messaging import service as messaging
 from app.modules.sessions import service as sessions
+from app.modules.tests import commands as tests_commands
 from app.modules.tests import guide as _scoring_guide  # noqa: F401  (registers its Test pin)
 from app.modules.tests import prepare as tests_prepare
 from app.modules.tests import selection as _question_set  # noqa: F401  (registers its pin)
@@ -160,9 +161,13 @@ DUE_ACTIONS: tuple[DueAction, ...] = (
         "games.close_at_test_deadline", games.due_test_deadline_closes, _close_at_test_deadline
     ),
     # Story 12.1 (AD-9, FR-61): the Test-deadline lock pins the «KI-vurdering» switch of each
-    # Class session whose original Test deadline has passed, once; Epic 11 adds the Scoring guide
-    # pin to it and closes the attempts after it.
+    # Class session whose original Test deadline has passed, once, and the Scoring guide in force
+    # (Story 11.2, FR-81).
     DueAction("sessions.lock_test", sessions.due_test_locks, sessions.lock_test_due),
+    # Story 11.11 (FR-51, AD-9): only after that lock, close each Individual test attempt whose
+    # `effective_deadline` has passed, handed in or not, one per transaction: an open one is
+    # auto-submitted with its saved answers. Epic 12 starts the AI assessment there.
+    DueAction("tests.close_attempt", tests_commands.due_closes, tests_commands.close_due),
     # Story 9.2: release the Debriefs of a held Class session once its last Class game has
     # finished (by the last Week or the playout), and tell each seated Student (AD-9).
     DueAction("debrief.release", debrief.due_releases, debrief.release_due),

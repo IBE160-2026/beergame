@@ -84,6 +84,7 @@ from zoneinfo import ZoneInfo
 
 import structlog
 from pydantic import ValidationError
+from sqlalchemy import Select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai import budget, config
@@ -1381,6 +1382,7 @@ async def enrolled_sessions(user: authz.Principal) -> EnrolledSessionListOut:
                     quiz_changed=changed.get(row["id"], False),
                     group_open=grouped.get(row["id"], False),
                     replay_closed=_replay_closed(replays.get(row["id"]), user, row, now),
+                    test_closed=test_deadline_passed(user, row, now),
                 ),
                 replay=replays.get(row["id"]),
             )
@@ -1409,6 +1411,7 @@ def stegene(
     quiz_changed: bool = False,
     group_open: bool = False,
     replay_closed: bool = False,
+    test_closed: bool = False,
 ) -> list[StepOut]:
     """The state of each of Stegene's steps (Story 6.1, AD-10): a done step is `done`; with a
     game the first step not done is `current` and the later ones `locked`; with no game (before
@@ -1418,7 +1421,9 @@ def stegene(
     `quiz_changed` (Story 9.10): a current Quiz step says the Lecturer has changed the quiz.
     `group_open` (Story 9.11): a current Debrief step says a Group debrief the Student can join is
     under way. `replay_closed` (Story 10.3): a current Replay step says the Test deadline has
-    passed with no Replay started; it stays not done."""
+    passed with no Replay started; it stays not done. `test_closed` (Story 11.11): a current
+    Individual test step (not handed in) says the Student's Test deadline has passed; it stays
+    not done, and turns done when the sweep hands a saved attempt in."""
     steps: list[StepOut] = []
     current_given = not has_game
     for name, step in STEGENE:
@@ -1435,7 +1440,7 @@ def stegene(
             if name == "debrief" and group_open:
                 steps.append(StepOut(step=name, state=state, group_open=True))
                 continue
-            if name == "replay" and replay_closed:
+            if (name == "replay" and replay_closed) or (name == "test" and test_closed):
                 steps.append(StepOut(step=name, state=state, closed=True))
                 continue
         else:
@@ -1709,6 +1714,25 @@ async def individual_test_session_of(
     if row is None:
         return None
     return IndividualTestSession(row=row, pins=await repo.session_pins(s, class_session_id))
+
+
+async def test_locked_session(
+    s: AsyncSession, class_session_id: uuid.UUID
+) -> IndividualTestSession | None:
+    """The Class session for `tests.close_attempt` (Story 11.11, AD-9), read in `s` and share-
+    locked, with its pins; None unless the Test-deadline lock (`lock_test`) has run for it, so
+    nothing is closed before the Scoring guide and the «KI-vurdering» switch are pinned. A
+    running `lock_test` holds the row `FOR UPDATE`, so this waits for it."""
+    row = await repo.session_row(s, class_session_id, share=True)
+    if row is None or row["test_locked_at"] is None:
+        return None
+    return IndividualTestSession(row=row, pins=await repo.session_pins(s, class_session_id))
+
+
+def test_locked_ids() -> Select[tuple[uuid.UUID]]:
+    """The ids of the Class sessions `lock_test` has run for, as a query (Story 11.11): the sweep's
+    `tests.close_attempt` finder lists only their attempts."""
+    return repo.test_locked_ids()
 
 
 async def locked_pins(s: AsyncSession, class_session_id: uuid.UUID) -> Any:
@@ -3974,8 +3998,9 @@ async def lock_test(class_session_id: uuid.UUID, *, now: datetime) -> bool:
     """The Test-deadline lock (Story 12.1; Epic 11's `lock_test`, AD-9, FR-18): under the Class
     session's row lock, in one transaction, it pins what hangs on the original Test deadline,
     once and idempotently: the «KI-vurdering» switch (`assessment.pin_switch`) and, through each
-    pinner of `register_test_pinner`, the Scoring guide in force (Story 11.2). Epic 11 runs
-    `tests.close_attempt` only after it. It sets
+    pinner of `register_test_pinner`, the Scoring guide in force (Story 11.2). The sweep's
+    `tests.close_attempt` due action comes right after it (Story 11.11), and `close_attempt`
+    does nothing to an attempt of a Class session this lock has not run for. It sets
     `test_locked_at` and emits `session:<id>`; a second call changes and emits nothing. It does
     not judge the deadline: the sweep's finder does, and the local dev route calls it at once.
     True when this call locked it."""

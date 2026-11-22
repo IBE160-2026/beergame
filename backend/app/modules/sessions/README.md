@@ -143,8 +143,10 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
   `lock_test_due` on each, one per transaction with its id. Under the row lock `lock_test` pins
   the «KI-vurdering» switch (`assessment.pin_switch`), sets `test_locked_at` and emits
   `session:<id>`, once; a second call changes nothing. This is the seam of Epic 11's
-  `sessions.lock_test`: Story 11.11 adds the Scoring guide pin to it and runs
-  `tests.close_attempt` after it. The local dev route `POST /api/dev/class-sessions/{id}/lock-test`
+  `sessions.lock_test`: Story 11.2 adds the Scoring guide pin to it (`register_test_pinner`), and
+  Story 11.11 runs the due action `tests.close_attempt` right after it; `test_locked_session` and
+  `test_locked_ids` let `tests` close only the attempts of a session the lock has run for. The
+  local dev route `POST /api/dev/class-sessions/{id}/lock-test`
   runs it at once.
 - «Lagre Klasseøkt» takes `ai_assessment`; left out it is kept. A change is stored through
   `assessment.set_switch` in the same transaction, also after the Start-date lock, and needs

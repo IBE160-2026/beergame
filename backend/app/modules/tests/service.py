@@ -5,7 +5,11 @@ session locked before the pin, and whatever version the Student's first answer w
 Each answer is scored by `analysis.scoring` (computed rules, no LLM) and stored once per Student,
 Class session and item: a repeat keeps the first. The final question finishes the task and
 records `progress` `starting_task` in the same transaction. The game's status is not asked, so a
-finished game with no Orders still offers the task."""
+finished game with no Orders still offers the task.
+
+`parts_with_content` (Story 11.11, FR-17, AD-16) tells Completion (Epic 13) which parts of a
+Student's Individual test attempt hold content, so the minimum for an auto-submitted test is
+applied without another module reading the answers."""
 
 import uuid
 from collections.abc import Mapping
@@ -21,7 +25,14 @@ from app.modules.content import service as content
 from app.modules.content.schemas import StartingTask, StartingTaskItem
 from app.modules.progress import service as progress
 from app.modules.sessions import service as sessions
-from app.modules.tests.models import PLAYED_BEFORE, Choice, starting_task_answers
+from app.modules.tests.adapted import ADAPTED
+from app.modules.tests.models import (
+    PLAYED_BEFORE,
+    Choice,
+    starting_task_answers,
+    test_answers,
+    test_attempts,
+)
 from app.modules.tests.schemas import (
     GivenRowOut,
     ItemResultOut,
@@ -32,7 +43,7 @@ from app.modules.tests.schemas import (
 from app.platform import authz
 from app.platform.db import get_sessionmaker
 
-__all__ = ["ItemsOpen", "UnknownItem", "answer", "finish", "read"]
+__all__ = ["PARTS", "ItemsOpen", "UnknownItem", "answer", "finish", "parts_with_content", "read"]
 
 Stored = Mapping[str, Mapping[str, Any]]
 
@@ -179,3 +190,63 @@ async def finish(
             )
             stored = await _stored(s, user.id, own.class_session_id)
     return _out(version, task, stored)
+
+
+PARTS: dict[str, str] = {
+    "choice": "choice",
+    "table": "interactive",
+    "number": "interactive",
+    "long": "long",
+    ADAPTED: "adapted",
+}
+"""The parts of the Individual test by item type (Story 11.11, FR-17) [ASSUMPTION: the parts
+Completion's minimum counts]: multiple choice, Interactive items (table and number), long answers
+and Adapted items."""
+
+
+def _has_content(value: Any) -> bool:
+    """Whether a saved answer holds content: not cleared, not blank text, not a table whose every
+    cell is empty (the same rule as the page's unanswered items, Story 11.10)."""
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return value.strip() != ""
+    if isinstance(value, list):
+        return any(cell is not None for cell in value)
+    return True
+
+
+async def parts_with_content(
+    user_id: uuid.UUID, class_session_id: uuid.UUID
+) -> dict[str, bool] | None:
+    """Which parts of the Student's Individual test attempt hold content (Story 11.11, FR-17,
+    AD-16): for each part among its frozen items (`PARTS`), whether any of those items has a saved
+    answer with content. None when the Student has no attempt. Reads no answer out of `tests`:
+    the caller learns only the flags."""
+    async with get_sessionmaker()() as s:
+        attempt = (
+            (
+                await s.execute(
+                    select(test_attempts.c.id, test_attempts.c["items"]).where(
+                        test_attempts.c.user_id == user_id,
+                        test_attempts.c.class_session_id == class_session_id,
+                    )
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if attempt is None:
+            return None
+        saved = await s.execute(
+            select(test_answers.c.item_id, test_answers.c.value).where(
+                test_answers.c.attempt_id == attempt["id"]
+            )
+        )
+        answered = {row.item_id for row in saved if _has_content(row.value)}
+    parts: dict[str, bool] = {}
+    for item in attempt["items"]:
+        part = PARTS.get(item["type"])
+        if part is not None:
+            parts[part] = parts.get(part, False) or item["id"] in answered
+    return parts

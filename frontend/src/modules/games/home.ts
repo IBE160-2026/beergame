@@ -43,7 +43,7 @@ export function holderText(seat: TableSeat): string {
  * 10.6), and while the Replay runs «Fortsett Replay, Uke 9.» (Story
  * 10.4, UX-DR64), from the api's `replay` (AD-10); the way there is the Replay block's button just
  * above, so the step itself is no second Lenke. The current Individual test step leads to the test
- * (Story 11.3). */
+ * (Story 11.3), and says when the Testfrist has passed without a hand-in (Story 11.11). */
 export function stepItems(
   steps: EnrolledSession["steps"],
   sessionId?: string,
@@ -65,9 +65,12 @@ export function stepItems(
                 replay?.game
                 ? copy.replayClosedUnfinished
                 : copy.replayClosed
-              : running && step === "replay"
-                ? copy.replayResume(running.week!)
-                : copy.current
+              : closed && step === "test"
+                ? // Story 11.11: the Testfrist passed without a hand-in.
+                  copy.testClosed
+                : running && step === "replay"
+                  ? copy.replayResume(running.week!)
+                  : copy.current
         : state === "done"
           ? copy.done
           : held && step === "debrief"

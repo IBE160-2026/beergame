@@ -144,7 +144,7 @@ HEAD_TABLES = (
     | ATTEMPT_TABLES
     | PREPARED_TABLES
 )
-HEAD = "0127"  # 0127 stores computed scores on the test answers (11.10)
+HEAD = "0128"  # 0128 marks when an attempt was closed at its Test deadline (11.11)
 
 
 def reset_schema(url: str) -> None:
@@ -332,6 +332,11 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     # 0111 (Story 9.12): presence, the Students who go on alone and the 48-hour fallback.
     assert "last_seen_at" in columns(url, "debrief_members")
     assert {"fallback_due_at", "fallback_at"} <= columns(url, "debrief_sessions")
+
+    # 0128 (Story 11.11): when the Test-deadline close ran for an attempt.
+    assert "closed_at" in columns(url, "test_attempts")
+    command.downgrade(cfg, "0127")
+    assert "closed_at" not in columns(url, "test_attempts")
 
     # 0127 (Story 11.10): the computed score of each test answer and its question set version.
     assert {"score", "scored_version"} <= columns(url, "test_answers")

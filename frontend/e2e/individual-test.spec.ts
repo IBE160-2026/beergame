@@ -261,6 +261,15 @@ for (const vp of VIEWPORTS) {
       await expectAccessible(page, vp.phone);
     });
 
+    test("handed in automatically at the Testfrist (Story 11.11): said so, the answers read-only; axe passes", async ({ page }) => {
+      await standIn(page, { status: 200, json: { ...handedIn, state: "auto_submitted", submitted_at: DEADLINE } });
+      const main = page.getByRole("main");
+      await expect(main.locator("[data-submitted-line]")).toHaveText(submitCopy.autoSubmitted);
+      await expect(main.locator("input, textarea")).toHaveCount(0);
+      await expect(main.getByRole("button", { name: submitCopy.button })).toHaveCount(0);
+      await expectAccessible(page, vp.phone);
+    });
+
     test("a long answer: typing, saved after the pause, save-failed and restored draft; advice on phones; axe passes", async ({ page }) => {
       let failing = false;
       const saves = await saveOrFail(page, () => failing);
@@ -584,13 +593,6 @@ test("«Lever testen» waits while an answer is not yet stored", async ({ page }
   release();
   await expect(button).not.toHaveAttribute("aria-disabled", "true");
   await expect(review.locator("[data-submit-waiting]")).toHaveText("");
-});
-
-test("handed in automatically at the Testfrist: said so, the answers read-only", async ({ page }) => {
-  await standIn(page, { status: 200, json: { ...handedIn, state: "auto_submitted", submitted_at: DEADLINE } });
-  const main = page.getByRole("main");
-  await expect(main.locator("[data-submitted-line]")).toHaveText(submitCopy.autoSubmitted);
-  await expect(main.locator("input, textarea")).toHaveCount(0);
 });
 
 for (const vp of TABLE_VIEWPORTS) {
