@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-17-2026 12:28
-last_updated: 11-22-2026 14:16
+last_updated: 11-22-2026 14:21
 project: beergame
 project_key: NOKEY
 tracking_system: file-system
@@ -266,7 +266,7 @@ development_status:
   15-1-a-student-sees-their-own-data-in-mine-data: backlog
   15-2-the-admin-deletes-a-user-on-the-institution-s-instruction: done
   15-3-student-data-is-deleted-automatically-when-retention-ends: backlog
-  15-4-the-admin-exports-pseudonymised-data-for-evaluation: in-progress
+  15-4-the-admin-exports-pseudonymised-data-for-evaluation: done
   15-5-the-admin-pins-and-freezes-a-model-for-class-sessions: backlog
   15-6-the-admin-sees-ai-cost-and-sets-the-cost-limit: backlog
   15-7-the-admin-is-alerted-when-daily-ai-spend-is-high: backlog
