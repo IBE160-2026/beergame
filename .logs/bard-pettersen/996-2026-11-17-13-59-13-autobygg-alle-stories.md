@@ -3362,3 +3362,22 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den bli
 
 ### Åpne punkter
 - Issue #209: beslutninger og punkter til avslutningen.
+
+## Story 15.7: Admin varsles når KI-forbruket per dag er høyt (spor 1)
+
+### Oppgave
+Bygge Story 15.7 på `epic-15` i spor 1.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Den visuelle kontrollen gjøres i avslutningen av Epic 15.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-15-7-admin-alerted-when-daily-ai-spend-is-high.md`.
+- Commit: 3fc47d8. Migrasjon 0068.
+- Sweepen summerer dagens KI-forbruk og varsler alle Admin én gang per dag når summen passerer grensen (plassholder 25 USD). «KI-kostnad» har fått seksjonen «KI-kostnad per dag».
+- Tester: backend 3461 to ganger (én tidligere kjøring hadde én feil som ikke kom igjen), Vitest 1137, tsc, `lint:colours`, `check:copy`, bygg, Playwright 43 med axe.
+- Gjennomgang: 28 funn, 7 rettet.
+- Status: done.
+
+### Åpne punkter
+- Issue #210: beslutninger og sømmen mot Story 15.6.
