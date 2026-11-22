@@ -148,7 +148,7 @@ async def test_the_load_of_the_shipped_files_publishes_nothing_and_a_change_once
         [
             f"question_set unchanged (v{V})",
             "scoring_guide unchanged (v1)",
-            "adapted_templates unchanged (v1)",
+            "adapted_templates unchanged (v2)",
         ],
         [],
     )
@@ -164,7 +164,7 @@ async def test_the_load_of_the_shipped_files_publishes_nothing_and_a_change_once
         [
             f"question_set unchanged (v{V})",
             "scoring_guide unchanged (v1)",
-            "adapted_templates unchanged (v1)",
+            "adapted_templates unchanged (v2)",
         ],
         [],
     )

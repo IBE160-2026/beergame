@@ -53,6 +53,7 @@ TASK_MODULES = (
     "app.modules.ops.jobs",
     "app.modules.debrief.jobs",
     "app.modules.replay.jobs",  # no task yet: its finish hook (Story 10.5)
+    "app.modules.tests.jobs",
 )
 """The modules that register tasks on `app`; a worker imports them before it runs."""
 

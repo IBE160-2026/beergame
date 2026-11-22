@@ -47,6 +47,8 @@ __all__ = ["_empty", "clock", "emitted", "klass"]
 REPLAY_WEEKS = 4
 """The Replay is shortened to four Weeks: its template reads the outcome, which needs no moment."""
 OWN, REPLAY = "tilpasset-eget-spill", "tilpasset-replay"
+TEMPLATES = 2
+"""The latest Adapted item template version: version 2 adds the wordings (Story 11.8)."""
 
 
 def unpublish(version: int) -> None:
@@ -119,7 +121,7 @@ async def test_the_items_are_filled_from_the_seat_week_rows_of_both_games(klass,
 
     # The own game's item: the moment the facts set holds, every number from that Week's row.
     stored = await games.fact_set(game_id, role)
-    assert own["fact_set_id"] == stored.id and own["template_version"] == 1
+    assert own["fact_set_id"] == stored.id and own["template_version"] == TEMPLATES
     [fact_id] = own["fact_ids"]
     assert fact_id in {moment.id for moment in stored.facts.seat.moments}
     week = int(fact_id.rsplit(":", 1)[1])
@@ -230,10 +232,12 @@ def stand_in(
     return sets
 
 
-async def locked_with(klass: str, adapted_weight: int, n: int = 1) -> tuple[str, list]:
+async def locked_with(
+    klass: str, adapted_weight: int, n: int = 1, ai_mode: str = "rule_based"
+) -> tuple[str, list]:
     """A locked Class session of `n` Students, all through the Replay, whose selection sets the
-    Adapted total."""
-    session_id, seated = await confirmed(klass, n)
+    Adapted total (`ai_mode` `llm` with the default model config: the Debrief AI text is on)."""
+    session_id, seated = await confirmed(klass, n, ai_mode)
     url = f"/api/class-sessions/{session_id}/question-set"
     block = (await call(LECTURER, "GET", url)).json()
     weights = {item["id"]: item["weight"] for item in block["items"]}
@@ -326,16 +330,18 @@ async def test_the_lock_pins_the_template_version_and_an_opened_attempt_never_ch
         "WHERE id = %s",
         session_id,
     )
-    assert pin == {"version": 1}
-    _, templates = await content.adapted_templates(1)
+    assert pin == {"version": TEMPLATES}
+    _, templates = await content.adapted_templates(TEMPLATES)
     changed = templates.model_dump(mode="json")
     changed["templates"][0]["text"] = "Utkast: annen tekst om uke {week}, ordre {order}."
+    changed["templates"][0]["wordings"] = []  # theirs use the old text's values (Story 11.8)
     newer = await content.publish("adapted_templates", changed)
     try:
         # A version published after the lock is not the one this Class session uses.
         items = await frozen(session_id)
         own = next(item for item in items if item["id"] == OWN)
-        assert own["template_version"] == 1 and own["text"]["text"].startswith("Utkast: I uke")
+        assert own["template_version"] == TEMPLATES
+        assert own["text"]["text"].startswith("Utkast: I uke")
         # Without the pin the reader takes the newer version, as the second Student's open shows;
         # the first Student's items stay as frozen, even after their own game changes.
         execute(
@@ -384,7 +390,7 @@ async def test_a_pattern_template_names_the_pattern_and_a_missing_fact_gives_the
     assert [e["reason"] for e in logs if e["event"] == "adapted_items_replaced"] == ["unfilled"]
 
 
-async def test_the_shipped_file_is_version_1_as_the_migration_stored_it():
-    stored = (await content.get("adapted_templates", 1)).model_dump(mode="json")
+async def test_the_shipped_file_is_the_latest_version_as_the_migration_stored_it():
+    stored = (await content.get("adapted_templates", TEMPLATES)).model_dump(mode="json")
     path_ = Path(adapted.__file__).parents[1] / "content" / "files" / "adapted_templates.json"
     assert json.loads(path_.read_text(encoding="utf-8")) == stored

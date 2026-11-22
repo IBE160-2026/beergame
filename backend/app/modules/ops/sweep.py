@@ -21,6 +21,7 @@ from app.modules.identity import service as identity
 from app.modules.messaging import service as messaging
 from app.modules.sessions import service as sessions
 from app.modules.tests import guide as _scoring_guide  # noqa: F401  (registers its Test pin)
+from app.modules.tests import prepare as tests_prepare
 from app.modules.tests import selection as _question_set  # noqa: F401  (registers its pin)
 from app.platform import ratelimit
 from app.platform.config import get_settings
@@ -173,6 +174,9 @@ DUE_ACTIONS: tuple[DueAction, ...] = (
     # Story 9.14 (AD-9): defer the narration job of a Seat again when it was lost (no narration
     # stored ten minutes after its Class game finished).
     DueAction("debrief.narration", debrief.due_narrations, debrief.narrate_due),
+    # Story 11.8 (AD-9): prepare the Adapted items of each Student through the Replay who has not
+    # opened the Individual test, on `llm-batch`, so opening never waits on an LLM call.
+    DueAction("tests.prepare_adapted", tests_prepare.due_prepares, tests_prepare.prepare_due),
     # Story 5.14: remind every Student of a Play, Debrief or Test deadline 24 hours ahead, once
     # per deadline time (FR-18). The reminders join the next minute's digest claim.
     DueAction(

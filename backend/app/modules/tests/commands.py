@@ -44,7 +44,12 @@ from app.modules.progress import service as progress
 from app.modules.sessions import service as sessions
 from app.modules.tests import adapted
 from app.modules.tests import selection as selections
-from app.modules.tests.models import AttemptStatus, test_answers, test_attempts
+from app.modules.tests.models import (
+    AttemptStatus,
+    test_answers,
+    test_attempts,
+    test_prepared_items,
+)
 from app.platform import authz, events
 from app.platform.db import get_sessionmaker
 
@@ -59,6 +64,7 @@ __all__ = [
     "move_deadline",
     "open_attempt",
     "save_answer",
+    "selection_of",
     "UnknownItem",
 ]
 
@@ -112,28 +118,61 @@ async def attempt_of(
     return result.mappings().one_or_none()
 
 
-async def _frozen(
-    s: AsyncSession, user_id: uuid.UUID, class_session_id: uuid.UUID, pins: Any
-) -> tuple[selections.Selection, list[dict[str, Any]]]:
-    """The selection the attempt opens on (the lock's pin; the selection in force for a session
-    locked before the pin existed) and its ordered item list: the Core items left in, in the
-    question set's order, each with its type and weight (AD-23), then the Student's Adapted items
-    or their replacement items, carrying the Adapted total weight (Story 11.7, `adapted.build`)."""
+async def selection_of(
+    s: AsyncSession, class_session_id: uuid.UUID, pins: Any
+) -> tuple[selections.Selection, QuestionSet]:
+    """The selection an attempt opens on (the lock's pin; the selection in force for a session
+    locked before the pin existed) and its question set version, read in `s`."""
     pinned = selections.pinned_selection(pins)
     if pinned is not None:
         _, question_set = await content.question_set(pinned.version)
-        chosen = pinned
-    else:
-        chosen, question_set, _ = await selections.effective(s, class_session_id)
+        return pinned, question_set
+    chosen, question_set, _ = await selections.effective(s, class_session_id)
+    return chosen, question_set
+
+
+async def _prepared(
+    s: AsyncSession, user_id: uuid.UUID, class_session_id: uuid.UUID, chosen: selections.Selection
+) -> list[dict[str, Any]] | None:
+    """The Student's prepared Adapted items (Story 11.8), when the job stored them for this
+    selection's question set version and Adapted total weight; None otherwise, and None for
+    replacement items prepared for a reason that may have passed (`adapted.PASSING_REASONS`)."""
+    found = (
+        await s.execute(
+            select(test_prepared_items.c["items"]).where(
+                test_prepared_items.c.user_id == user_id,
+                test_prepared_items.c.class_session_id == class_session_id,
+                test_prepared_items.c.question_set_version == chosen.version,
+                test_prepared_items.c.adapted_weight == chosen.adapted_weight,
+            )
+        )
+    ).scalar_one_or_none()
+    if found is None or any(item.get("replaces") in adapted.PASSING_REASONS for item in found):
+        return None
+    return list(found)
+
+
+async def _frozen(
+    s: AsyncSession, user_id: uuid.UUID, class_session_id: uuid.UUID, pins: Any
+) -> tuple[selections.Selection, list[dict[str, Any]], bool]:
+    """The selection the attempt opens on (`selection_of`) and its ordered item list: the Core
+    items left in, in the question set's order, each with its type and weight (AD-23), then the
+    Student's Adapted items or their replacement items, carrying the Adapted total weight: the
+    prepared set when the job stored one for this selection (Story 11.8), else built now (Story
+    11.7, `adapted.build`), so opening never waits on an LLM call. The flag says which."""
+    chosen, question_set = await selection_of(s, class_session_id, pins)
     items = [
         {"id": item.id, "type": item.type, "weight": chosen.weights.get(item.id, item.weight)}
         for item in question_set.items
         if item.id not in chosen.excluded
     ]
+    prepared = await _prepared(s, user_id, class_session_id, chosen)
+    if prepared is not None:
+        return chosen, items + prepared, True
     items += await adapted.build(
         s, user_id, class_session_id, pins, chosen.adapted_weight, question_set
     )
-    return chosen, items
+    return chosen, items, False
 
 
 async def open_attempt(
@@ -151,7 +190,8 @@ async def open_attempt(
     questions close in the same transaction (FR-45, `debrief.service.close_follow_up`), and
     `user:<id>` is emitted so their other devices read the test again. The Student's Adapted items
     are built from their stored facts sets in this transaction and frozen with the rest (Story
-    11.7): a second open returns them as first stored, whatever template version is newer."""
+    11.7), or copied from the set the `tests.prepare_adapted` job prepared (Story 11.8): a second
+    open returns them as first stored, whatever template version or prepared set is newer."""
     if not await progress.has_step(user.id, class_session_id, progress.Step.REPLAY):
         async with get_sessionmaker()() as s:
             found = await sessions.individual_test_session_of(s, user, class_session_id)
@@ -168,7 +208,7 @@ async def open_attempt(
         deadline = sessions.effective_test_deadline(user, found.row)
         if deadline is not None and deadline <= now:
             raise DeadlinePassed
-        chosen, items = await _frozen(s, user.id, class_session_id, found.pins)
+        chosen, items, prepared = await _frozen(s, user.id, class_session_id, found.pins)
         made = await s.scalar(
             insert(test_attempts)
             .values(
@@ -198,6 +238,7 @@ async def open_attempt(
         class_session_id=str(class_session_id),
         attempt_id=str(attempt["id"]),
         items=len(items),
+        prepared=prepared,
         follow_up_closed=closed,
     )
     return Opened(attempt, created=True)

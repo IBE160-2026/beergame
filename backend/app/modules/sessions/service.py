@@ -1711,6 +1711,12 @@ async def individual_test_session_of(
     return IndividualTestSession(row=row, pins=await repo.session_pins(s, class_session_id))
 
 
+async def locked_pins(s: AsyncSession, class_session_id: uuid.UUID) -> Any:
+    """The pins the Class session's lock stored (`SessionRuntime.pins`), read in `s`; None before
+    the lock. For a job that has only ids (Story 11.8: the Adapted item wording)."""
+    return await repo.session_pins(s, class_session_id)
+
+
 TestDeadlineMover = Callable[[AsyncSession, uuid.UUID, datetime | None], Awaitable[None]]
 """`(session, class_session_id, new_test_deadline)`: run in the transaction of a save that
 changes the Class session's Test deadline, under its row lock."""

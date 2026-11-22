@@ -113,6 +113,8 @@ SCORING_GUIDE_TABLES = {"test_scoring_guides"}
 """The tables of revision 0122 (Story 11.2)."""
 ATTEMPT_TABLES = {"test_attempts", "test_answers"}
 """The tables of revision 0123 (Story 11.3)."""
+PREPARED_TABLES = {"test_prepared_items"}
+"""The tables of revision 0126 (Story 11.8)."""
 HEAD_TABLES = (
     PRE_SESSION_TABLES
     | SESSION_TABLES
@@ -140,8 +142,9 @@ HEAD_TABLES = (
     | QUESTION_SET_TABLES
     | SCORING_GUIDE_TABLES
     | ATTEMPT_TABLES
+    | PREPARED_TABLES
 )
-HEAD = "0125"  # 0125 stores version 1 of the Adapted item templates (11.7)
+HEAD = "0126"  # 0126 stores version 2 of the Adapted item templates and prepared sets (11.8)
 
 
 def reset_schema(url: str) -> None:
@@ -330,10 +333,18 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     assert "last_seen_at" in columns(url, "debrief_members")
     assert {"fallback_due_at", "fallback_at"} <= columns(url, "debrief_sessions")
 
-    # 0125 (Story 11.7): version 1 of the Adapted item templates, a kind of its own.
+    # 0126 (Story 11.8): version 2 of the Adapted item templates, with their wordings, and the
+    # prepared sets.
     templates = (
-        "SELECT version, body->>'status' FROM content_records WHERE kind = 'adapted_templates'"
+        "SELECT version, body->>'status' FROM content_records WHERE kind = 'adapted_templates' "
+        "ORDER BY version"
     )
+    assert rows(url, templates) == [(1, "draft"), (2, "draft")]
+    assert {"items", "adapted_weight"} <= columns(url, "test_prepared_items")
+    command.downgrade(cfg, "0125")
+    assert PREPARED_TABLES.isdisjoint(tables(url))
+
+    # 0125 (Story 11.7): version 1 of the Adapted item templates, a kind of its own.
     assert rows(url, templates) == [(1, "draft")]
     command.downgrade(cfg, "0124")
     assert rows(url, templates) == []

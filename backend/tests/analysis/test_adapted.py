@@ -9,8 +9,16 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from app.analysis.adapted import AdaptedTemplate, AdaptedTemplates, apportion, fill
+from app.analysis.adapted import (
+    AdaptedTemplate,
+    AdaptedTemplates,
+    apportion,
+    fill,
+    render_wording,
+    validate_wording,
+)
 from app.analysis.facts import facts
+from app.analysis.narration import AiSentence, AiTextOutput
 from tests.analysis.test_facts import PATTERNS, log, student
 
 SHIPPED = Path(__file__).parents[2] / "app" / "modules" / "content" / "files"
@@ -160,3 +168,115 @@ def test_an_outcome_template_writes_the_seats_cost_in_kroner():
 def test_fewer_than_ten_student_orders_leave_a_moment_template_unfilled():
     built = facts(log(12, student(range(1, 10))), "retailer", PATTERNS)
     assert fill(AdaptedTemplate.model_validate(template()), built, NAMES) is None
+
+
+# Story 11.8: the wordings an LLM may choose from, and the validator of its choice.
+
+SHORT = {"id": "tilpasset-x-kort", "text": "I uke {week} bestilte du {order} enheter som {role}."}
+
+
+@pytest.mark.parametrize(
+    ("wording", "why"),
+    [
+        ({"id": "x-1", "text": "Du bestilte {order} enheter som {role}."}, "the Week left out"),
+        ({"id": "x-1", "text": "Uke {week}: du bestilte {order}."}, "a template value left out"),
+        ({"id": "x-1", "text": "Uke {week}: {order} som {role}, {backlog}."}, "a value added"),
+        ({"id": "x-1", "text": "Uke {week}: {order}, {role}, {total_cost}"}, "a value it lacks"),
+        ({"id": "x-1", "text": "Uke {week}: {order} som {role}!"}, "an exclamation mark"),
+        ({"id": "X 1", "text": "Uke {week}: {order} som {role}"}, "an id that is not a slug"),
+    ],
+)
+def test_a_wording_keeps_the_rules_of_its_template(wording, why):
+    with pytest.raises(ValidationError):
+        AdaptedTemplate.model_validate(template(wordings=[wording]))
+
+
+def test_wording_ids_are_unique_in_the_whole_record_and_at_most_four_per_template():
+    twice = template(wordings=[SHORT, SHORT])
+    with pytest.raises(ValidationError, match="repeat"):
+        AdaptedTemplates.model_validate({"status": "draft", "templates": [twice]})
+    named_as_template = template(wordings=[{**SHORT, "id": "tilpasset-x"}])
+    with pytest.raises(ValidationError, match="repeat"):
+        AdaptedTemplates.model_validate({"status": "draft", "templates": [named_as_template]})
+    five = [{**SHORT, "id": f"x-{n}"} for n in range(5)]
+    with pytest.raises(ValidationError):
+        AdaptedTemplate.model_validate(template(wordings=five))
+    # Version 1 had none: still valid.
+    assert AdaptedTemplate.model_validate(template()).wordings == ()
+
+
+def test_the_shipped_wordings_are_drafts_with_the_templates_facts():
+    """Each shipped template has draft wordings; the schema has checked that each uses exactly
+    its template's values (the same facts for every Student, FR-53)."""
+    shipped = AdaptedTemplates.model_validate_json(
+        (SHIPPED / "adapted_templates.json").read_text(encoding="utf-8")
+    )
+    for each in shipped.templates:
+        assert 2 <= len(each.wordings) <= 4
+        assert all(w.text.startswith("Utkast:") and w.text != each.text for w in each.wordings)
+
+
+def choice(template_id: str, *fact_ids: str) -> AiTextOutput:
+    return AiTextOutput(sentences=(AiSentence(template_id=template_id, fact_ids=fact_ids),))
+
+
+def test_a_chosen_wording_is_rendered_by_code_from_the_items_fact():
+    built = played()
+    moment = AdaptedTemplate.model_validate(template(wordings=[SHORT]))
+    verdict = validate_wording(
+        choice(SHORT["id"], "moment:retailer:3"), moment, built, NAMES, ("moment:retailer:3",)
+    )
+    assert verdict.accepted and verdict.text == "I uke 3 bestilte du 12 enheter som Detaljist."
+    rendered = render_wording(moment, SHORT["id"], built, NAMES)
+    assert rendered is not None and rendered.text == verdict.text
+    # The outcome kind: its fact is `outcome:<role>`, not a moment.
+    text = "Kostnaden ble {total_cost} kr."
+    outcome = AdaptedTemplate.model_validate(
+        template(fact="outcome", text=text, wordings=[{"id": "x-1", "text": f"Utkast: {text}"}])
+    )
+    accepted = validate_wording(
+        choice("x-1", "outcome:retailer"), outcome, built, NAMES, ("outcome:retailer",)
+    )
+    assert accepted.accepted and accepted.text and accepted.text.startswith("Utkast: Kostnaden")
+
+
+@pytest.mark.parametrize(
+    ("output", "frozen", "reason"),
+    [
+        (choice("tilpasset-x-kort", "moment:retailer:9"), "moment:retailer:3", "unknown_fact"),
+        (choice("tilpasset-x-kort", "moment:retailer:9"), "moment:retailer:9", "unknown_fact"),
+        (choice("tilpasset-x", "moment:retailer:3"), "moment:retailer:3", "unknown_template"),
+        (choice("narration-orders", "moment:retailer:3"), "moment:retailer:3", "unknown_template"),
+        (choice("x-tall", "moment:retailer:3"), "moment:retailer:3", "number_outside_facts"),
+    ],
+)
+def test_a_choice_outside_the_items_fact_or_wordings_is_rejected(output, frozen, reason):
+    built = played()
+    numbered = {"id": "x-tall", "text": "I uke {week} av 52 bestilte {role} {order} enheter."}
+    moment = AdaptedTemplate.model_validate(template(wordings=[SHORT, numbered]))
+    verdict = validate_wording(output, moment, built, NAMES, (frozen,))
+    assert (verdict.accepted, verdict.reason, verdict.text) == (False, reason, None)
+
+
+def test_two_sentences_are_rejected():
+    built = played()
+    moment = AdaptedTemplate.model_validate(template(wordings=[SHORT]))
+    sentence = AiSentence(template_id=SHORT["id"], fact_ids=("moment:retailer:3",))
+    two = AiTextOutput(sentences=(sentence, sentence))
+    verdict = validate_wording(two, moment, built, NAMES, ("moment:retailer:3",))
+    assert verdict.reason == "wrong_arity"
+
+
+def test_a_pattern_wording_names_the_pattern_of_the_students_own_occurrence():
+    built = played()
+    text = "I uke {week} viste ordren på {order} mønsteret «{pattern}»."
+    wording = {"id": "x-1", "text": "Mønsteret «{pattern}» viste seg i uke {week}: {order}."}
+    pattern = AdaptedTemplate.model_validate(
+        template(fact="pattern", text=text, wordings=[wording])
+    )
+    fact = ("surge-after-shortage:retailer:3",)
+    verdict = validate_wording(choice("x-1", *fact), pattern, built, NAMES, fact)
+    name = NAMES["surge-after-shortage"]
+    assert verdict.accepted and verdict.text == f"Mønsteret «{name}» viste seg i uke 3: 12."
+    # Without the pattern's name the fact is not the template's: rejected.
+    assert validate_wording(choice("x-1", *fact), pattern, built, {}, fact).reason == "unknown_fact"

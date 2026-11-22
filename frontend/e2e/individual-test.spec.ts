@@ -134,6 +134,18 @@ async function saveOrFail(page: Page, failing: () => boolean): Promise<Save[]> {
 
 const statement = { state: "statement", test_deadline: DEADLINE, opened_at: null, items: [] };
 const opened = { state: "open", test_deadline: DEADLINE, opened_at: "2026-11-22T10:00:00Z", items: ITEMS };
+/** Story 11.8: an Adapted item whose wording an LLM chose, from the code-rendered values. */
+const AI_TEXT = "Utkast: Kostnaden din i Replay ble 1 234,50 kr. Hva gjorde du annerledes enn i Klassespillet?";
+const AI_ITEM = {
+  id: "tilpasset-replay",
+  number: 7,
+  type: "adapted",
+  title: AI_TEXT,
+  options: [],
+  ...PLAIN,
+  wording: { text: AI_TEXT, ai_generated: true, llm_call_id: "01a1f9a0-0000-7000-8000-000000000001" },
+};
+const openedWithAi = { ...opened, items: [...ITEMS, AI_ITEM] };
 
 /** The Student's page with the api's answer stood in: one GET, and the POST when `onOpen` is given. */
 async function standIn(page: Page, answer: { status: number; json: unknown }, onOpen?: { status: number; json: unknown }) {
@@ -321,6 +333,23 @@ for (const vp of VIEWPORTS) {
       await expect(status).toHaveText(copy.saved("21:14"));
       expect(saves).toEqual([{ value: "Restordren", revision: 10 }]);
       await expect(field).toBeFocused();
+      await expectAccessible(page, vp.phone);
+    });
+
+    test("an Adapted item an LLM worded is marked as AI text, the code-rendered one is not; axe passes", async ({ page }) => {
+      await storeSaves(page);
+      await standIn(page, { status: 200, json: openedWithAi });
+      const marked = page.locator("[data-test-item=tilpasset-replay]");
+      const label = `KI-generert, kan ta feil: «${AI_TEXT}»`;
+      const field = marked.getByRole("textbox", { name: label, exact: true });
+      await expect(field).toBeVisible();
+      await expect(field).toHaveAccessibleDescription(nb.debrief.aiNote);
+      await expect(marked.locator("[data-ai-generated=true]")).toHaveCount(1);
+      // The code-rendered Adapted item carries neither the prefix nor the mark.
+      const plain = page.locator("[data-test-item=tilpasset-eget-spill]");
+      await expect(plain.getByRole("textbox", { name: ADAPTED_TEXT, exact: true })).toBeVisible();
+      await expect(plain.locator("[data-ai-generated]")).toHaveCount(0);
+      await expect(plain).not.toContainText("KI-generert");
       await expectAccessible(page, vp.phone);
     });
 

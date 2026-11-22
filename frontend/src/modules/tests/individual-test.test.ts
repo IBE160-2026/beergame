@@ -6,7 +6,7 @@ import { stepItems } from "@/modules/games/home";
 import type { EnrolledSession } from "@/modules/sessions/api";
 
 import { type MyTest, myTestKey, myTestsKey } from "./api";
-import { deadlineLine, itemLines, testView } from "./individual-test";
+import { deadlineLine, itemLabel, itemLines, testView } from "./individual-test";
 
 const copy = nb.tests.individual;
 
@@ -33,6 +33,14 @@ describe("the Individual test page's state (Story 11.3)", () => {
     expect(itemLines({ number: 1, type: "table" }).type).toBe(copy.types.table);
     // Story 11.7: an Adapted item, answered as a long answer.
     expect(itemLines({ number: 12, type: "adapted" })).toEqual({ heading: "Oppgave 12", type: "Tilpasset oppgave" });
+  });
+
+  it("marks an Adapted item an LLM worded, and nothing else (Story 11.8)", () => {
+    const text = "Utkast: Du var Grossist i Klassespillet. I uke 7 bestilte du 16 enheter.";
+    const ai = itemLabel({ title: text, wording: { text, ai_generated: true, llm_call_id: "c" } });
+    expect(ai).toEqual({ label: `KI-generert, kan ta feil: «${text}»`, ai: true, note: nb.debrief.aiNote });
+    expect(itemLabel({ title: text, wording: { text, ai_generated: false, llm_call_id: null } })).toEqual({ label: text, ai: false, note: null });
+    expect(itemLabel({ title: "Utkast: forklar.", wording: null })).toEqual({ label: "Utkast: forklar.", ai: false, note: null });
   });
 
   it("is read again on the User's `user` event", () => {

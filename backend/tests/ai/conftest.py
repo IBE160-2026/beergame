@@ -17,6 +17,7 @@ def prompts(tmp_path, monkeypatch) -> Path:
         "quiz_explanation",
         "debrief_follow_up",
         "replay_walkthrough",
+        "adapted_item_wording",
     ):
         (tmp_path / purpose).mkdir()
         (tmp_path / purpose / "v1.md").write_text("prompt", encoding="utf-8")

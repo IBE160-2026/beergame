@@ -157,3 +157,26 @@ Story 11.13 must leave Students with their own extension out.
   gets `type: "adapted"`, its frozen text as `title` and as `wording` (`{text, ai_generated,
   llm_call_id}`), never its facts or weight. The items never change once frozen: a second open
   returns them as stored, whatever template version is newer.
+
+## Adapted items in natural wording, prepared before the test opens (Story 11.8)
+
+The Deferred item "Timing of Adapted items", closed here (`prepare.py`, `jobs.py`):
+
+- `ops.sweep`'s due action `tests.prepare_adapted` finds each Student with the `replay` step
+  (within `PREPARE_WINDOW`, 30 days), no attempt and no prepared set, at most 50 a minute, and
+  defers the idempotent job `tests.prepare_adapted(user_id, class_session_id)` on `llm-batch`
+  (queueing lock `adapted:<user>:<session>`, ids only).
+- The job builds the items exactly as opening would (`adapted.build_with_sets`), then, when the
+  Class session's pinned Debrief AI-text switch is on with a model config, makes one
+  `adapted_item_wording` call per Adapted item whose template has `wordings` (version 2 on),
+  through `app.ai.text.worded` with the Class session as budget scope. The output names a wording
+  id and the item's fact id only; `analysis.adapted.validate_wording` checks it against the facts
+  set whose id the item stores, and code renders the text. A rejection or a typed failure keeps
+  the code text; the call is never retried. The set is stored once in `test_prepared_items` (its
+  question set version and Adapted total with it), and not at all when the Student opened the
+  test meanwhile.
+- `open_attempt` freezes the prepared items when they were prepared for the selection it opens
+  on; otherwise it builds them as in Story 11.7, so opening never waits on an LLM call. A frozen
+  attempt never changes, whatever a later or repeated job does.
+- The page shows an AI-worded item's label as «KI-generert, kan ta feil: «…»» with
+  `data-ai-generated="true"`, taken from `wording.ai_generated` only.

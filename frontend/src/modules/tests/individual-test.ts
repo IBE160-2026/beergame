@@ -24,3 +24,16 @@ export function deadlineLine(test: Pick<MyTest, "test_deadline">): string | null
 export function itemLines(item: Pick<MyTestItem, "number" | "type">): { heading: string; type: string } {
   return { heading: copy.item(item.number), type: copy.types[item.type] };
 }
+
+/**
+ * A long-answer or Adapted item's label (Story 11.8, FR-34, UX-DR69): an Adapted item whose
+ * wording an LLM chose reads «KI-generert, kan ta feil: «…»» and is marked `ai`, with the note
+ * that the numbers are the code's; every other item reads its question as written. Only
+ * `wording.ai_generated` decides; the web app never guesses.
+ */
+export function itemLabel(item: Pick<MyTestItem, "title" | "wording">): { label: string; ai: boolean; note: string | null } {
+  if (item.wording?.ai_generated) {
+    return { label: nb.debrief.aiText(item.wording.text), ai: true, note: nb.debrief.aiNote };
+  }
+  return { label: item.title, ai: false, note: null };
+}

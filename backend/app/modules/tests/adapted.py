@@ -26,6 +26,7 @@ No answer text, no fact value and no rendered text is logged."""
 
 import uuid
 from collections.abc import Mapping
+from dataclasses import dataclass, field
 from typing import Any
 
 import structlog
@@ -38,12 +39,17 @@ from app.modules.content.schemas import QuestionSet
 from app.modules.games import service as games
 from app.modules.replay import service as replay
 
-__all__ = ["ADAPTED", "build"]
+__all__ = ["ADAPTED", "PASSING_REASONS", "Built", "build", "build_with_sets", "pattern_names"]
 
 log = structlog.get_logger(__name__)
 
 ADAPTED = "adapted"
 """The type of an Adapted item in the frozen list: answered as a long answer (Story 11.6)."""
+
+PASSING_REASONS = frozenset({"no_game", "no_replay", "facts_unavailable"})
+"""Replacement reasons that may not hold when the Student opens the test (a Game or facts set not
+readable yet): a set prepared with one of them is built again at the open (Story 11.8). Fewer
+than 10 own Orders (`few_orders`) and a template with no fact (`unfilled`) are final."""
 
 
 async def _sources(
@@ -71,7 +77,8 @@ def _replacements(question_set: QuestionSet, total: int, reason: str) -> list[di
     ]
 
 
-async def _pattern_names(stored: games.StoredFactSet) -> dict[str, str]:
+async def pattern_names(stored: games.StoredFactSet) -> dict[str, str]:
+    """The Detected patterns' names of the version the facts set was built with, by id."""
     _, patterns = await content.detected_patterns(stored.patterns_version)
     return {pattern.id: pattern.name for pattern in patterns.patterns}
 
@@ -89,7 +96,7 @@ async def _adapted(
     for template, weight in zip(templates.templates, weights, strict=True):
         stored = sets[template.source]
         if template.fact == "pattern" and template.source not in names:
-            names[template.source] = await _pattern_names(stored)
+            names[template.source] = await pattern_names(stored)
         filled = fill(template, stored.facts, names.get(template.source, {}))
         if filled is None:
             return None
@@ -109,6 +116,17 @@ async def _adapted(
     return items
 
 
+@dataclass(frozen=True)
+class Built:
+    """What `build_with_sets` built: the items, the template record they were filled from (None
+    when none was read) and the facts sets they cite, by `fact_set_id` (Story 11.8: the wording
+    job validates each item against the set it cites)."""
+
+    items: list[dict[str, Any]]
+    templates: AdaptedTemplates | None = None
+    sets: Mapping[str, games.StoredFactSet] = field(default_factory=dict)
+
+
 async def build(
     s: AsyncSession,
     user_id: uuid.UUID,
@@ -119,8 +137,21 @@ async def build(
 ) -> list[dict[str, Any]]:
     """The Student's Adapted items (or the replacement items) for the frozen list, read in `s`,
     the opening transaction; empty when the Adapted total weight is 0."""
+    built = await build_with_sets(s, user_id, class_session_id, pins, adapted_weight, question_set)
+    return built.items
+
+
+async def build_with_sets(
+    s: AsyncSession,
+    user_id: uuid.UUID,
+    class_session_id: uuid.UUID,
+    pins: Any,
+    adapted_weight: int,
+    question_set: QuestionSet,
+) -> Built:
+    """`build`, with the template record and the facts sets the items cite."""
     if adapted_weight <= 0:
-        return []
+        return Built([])
     version, templates = await content.adapted_templates(
         content.pinned_version(pins, content.Kind.ADAPTED_TEMPLATES)
     )
@@ -155,7 +186,7 @@ async def build(
                     items=len(items),
                     fact_set_ids=sorted({item["fact_set_id"] for item in items}),
                 )
-                return items
+                return Built(items, templates, {each.id: each for each in sets.values()})
             reason = "unfilled"
     log.info(
         "adapted_items_replaced",
@@ -163,4 +194,4 @@ async def build(
         user_id=str(user_id),
         reason=reason,
     )
-    return _replacements(question_set, adapted_weight, reason)
+    return Built(_replacements(question_set, adapted_weight, reason), templates)

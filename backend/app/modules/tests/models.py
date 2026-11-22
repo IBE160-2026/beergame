@@ -1,5 +1,5 @@
 """The tables owned by `modules/tests` (Story 6.3, FR-85; Story 11.1, FR-52; Story 11.2, FR-81;
-Story 11.3, FR-51)."""
+Story 11.3, FR-51; Story 11.8, FR-53)."""
 
 from enum import StrEnum
 
@@ -10,10 +10,12 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
+    PrimaryKeyConstraint,
     Table,
     Text,
     UniqueConstraint,
     Uuid,
+    func,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 
@@ -181,3 +183,31 @@ test_answers = Table(
 )
 """One saved answer per attempt and item with its revision, the highest kept (Story 11.4 on).
 Written only by `tests.commands`; holds text a Student wrote (personal data)."""
+
+
+test_prepared_items = Table(
+    "test_prepared_items",
+    metadata,
+    Column("user_id", Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+    Column(
+        "class_session_id",
+        Uuid,
+        ForeignKey("class_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    ),
+    Column("question_set_version", Integer, nullable=False),
+    Column("adapted_weight", Integer, nullable=False),
+    Column("items", JSONB, nullable=False),
+    Column("prepared_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    PrimaryKeyConstraint("user_id", "class_session_id", name="pk_test_prepared_items"),
+    CheckConstraint("question_set_version >= 1", name="ck_test_prepared_items_version"),
+    CheckConstraint(
+        "adapted_weight BETWEEN 0 AND 100", name="ck_test_prepared_items_adapted_weight"
+    ),
+)
+"""A Student's prepared Adapted items in a Class session (Story 11.8, AD-9): the Adapted (or
+replacement) items the `tests.prepare_adapted` job built before the Student opened the test, with
+any LLM wording already validated, for the question set version and Adapted total weight they were
+built for. Stored once by `tests.prepare`, never updated; `tests.commands.open_attempt` freezes
+them. Holds the Student's id and text rendered from their own game's facts (personal data)."""

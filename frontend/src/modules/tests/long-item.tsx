@@ -5,6 +5,7 @@ import { nb } from "@/copy/nb";
 
 import type { MyTestItem } from "./api";
 import { LONG_ANSWER_MAX } from "./autosave";
+import { itemLabel } from "./individual-test";
 import { SaveLine, useAutosave } from "./use-autosave";
 
 const copy = nb.tests.individual;
@@ -15,18 +16,22 @@ const copy = nb.tests.individual;
  * to use a larger screen shows above it; writing and saving work there all the same. Each
  * keystroke is kept on this device; the text is saved when typing pauses, when the field loses
  * focus or when the page is hidden, and «Lagret 21:14» is announced politely under it without
- * moving focus. Nothing scores it here (FR-54).
+ * moving focus. Nothing scores it here (FR-54). An Adapted item whose wording an LLM chose (Story
+ * 11.8) is labelled «KI-generert, kan ta feil: «…»», marked `data-ai-generated="true"` and read with
+ * the note that its numbers are the code's.
  */
 export function LongItem({ classSessionId, userId, item }: { classSessionId: string; userId: string; item: MyTestItem }) {
   const { entry, line, write, flush } = useAutosave(classSessionId, userId, item);
+  const { label, ai, note } = itemLabel(item);
   return (
-    <div className="mt-3 max-w-2xl">
+    <div className="mt-3 max-w-2xl" data-ai-generated={ai ? "true" : undefined}>
       <p data-larger-screen className="mb-3 max-w-md text-body-phone text-ink-secondary md:hidden">
         {copy.long.largerScreen}
       </p>
       <TextAreaField
         id={`test-${item.id}`}
-        label={item.title}
+        label={label}
+        hint={note ?? undefined}
         rows={10}
         maxLength={LONG_ANSWER_MAX}
         value={typeof entry.value === "string" ? entry.value : ""}

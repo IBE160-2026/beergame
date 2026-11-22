@@ -82,5 +82,8 @@ schema (`schemas.py`). Kinds: `starting_task` (Story 6.3), `detected_patterns` (
   (the shares sum to 100) and its text with `{slot}`s code fills, marked `status: "draft"` until
   issue #16. Its shape and renderer are `analysis.adapted`; the lock pins the version
   (`adapted_templates_pin`, `SessionRuntime.pins["adapted_templates"]`).
+  Version 2 (Story 11.8, migration 0126, now the shipped file) adds per template up to four
+  `wordings`, approved plain phrasings of the same question under the same slot rules, of which
+  an LLM may only choose one; ids are unique across the whole record.
 - `is_checked(scoring_guide_version_id, model_config_id)` is the one answer to whether a Control
   test has checked a Scoring guide version (AD-27); it is False until Epic 12 adds the record.
