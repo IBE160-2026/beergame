@@ -25,12 +25,19 @@ const SEATS = [
   { role: "retailer", holder: "ai", name: null, mine: false, ordered: false, wait_started_at: null, mark: null },
 ];
 
-async function openFinished(page: Page, { failFirst = false } = {}) {
+const SESSION_ID = "01a1aaaa-0000-7000-8000-000000000001";
+
+async function openFinished(
+  page: Page,
+  { failFirst = false, debrief = "open" }: { failFirst?: boolean; debrief?: "open" | "held" } = {},
+) {
   await loginByApi(page, "student");
   await page.route(`**/api/me/games/${GAME_ID}`, (route) =>
     route.fulfill({
       json: {
         id: GAME_ID,
+        class_session_id: SESSION_ID,
+        debrief,
         number: 17,
         role: "wholesaler",
         seats: SEATS,
@@ -94,10 +101,10 @@ for (const viewport of [
       await expect(bill.locator("tfoot tr")).toHaveText(new RegExp(`${chain.chain}.*${money("2266")}`));
       await expect(bill.locator("[data-bar]")).toHaveCount(4);
 
-      // One primary: «Gå til Debrief», which leads to Hjem until the Debrief exists (Epic 9).
+      // One primary: «Gå til Debrief», to the Debrief of the game's Class session (Story 9.2).
       await expect(primaries(page)).toHaveCount(1);
       await expect(primaries(page)).toHaveText(copy.end.toDebrief);
-      await expect(primaries(page)).toHaveAttribute("href", "/hjem");
+      await expect(primaries(page)).toHaveAttribute("href", `/debrief/${SESSION_ID}`);
 
       // The chart, and «Vis som tabell» opens Uke / Lager / Restordre / Sum in place, and back.
       const chart = page.locator("[data-chain-cost-chart]");
@@ -118,6 +125,14 @@ for (const viewport of [
     });
   });
 }
+
+test("held Debriefs: the line says they open when all Class games are finished, with no button", async ({ page }) => {
+  await openFinished(page, { debrief: "held" });
+  const held = page.locator("[data-debrief-held]");
+  await expect(held.getByText(copy.end.held, { exact: true })).toBeVisible();
+  await expect(held.getByRole("link", { name: nb.navigation.toHome })).toHaveAttribute("href", "/hjem");
+  await expect(primaries(page)).toHaveCount(0);
+});
 
 test("live: the last Order ends the game on «Spillet er ferdig», and Hjem shows it finished", async ({
   browser,

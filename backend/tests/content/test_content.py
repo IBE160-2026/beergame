@@ -12,12 +12,21 @@ from app.modules.content import service as content
 from app.modules.sessions import service as sessions
 from tests.classes.test_invitation_counts import execute
 
+SHIPPED = "01a1f9a0-0000-7000-8000-"
+"""The id prefix of the versions the migrations store (Story 9.15 ships version 2 of the narration
+templates): only the versions a test published are taken out again."""
+UNSHIPPED = (
+    f"DELETE FROM content_records WHERE version > 1 AND left(id::text, {len(SHIPPED)}) <> "
+    f"'{SHIPPED}'"
+)
+"""Every version a test published, and none a migration stored."""
+
 
 @pytest.fixture(autouse=True)
 def only_version_1(test_database):
-    execute("DELETE FROM content_records WHERE version > 1")
+    execute(UNSHIPPED)
     yield
-    execute("DELETE FROM content_records WHERE version > 1")
+    execute(UNSHIPPED)
 
 
 async def test_version_1_holds_the_placeholder_items_with_the_position_sum():
@@ -69,11 +78,86 @@ async def test_the_lock_pins_the_latest_starting_task_version():
     await content.publish("starting_task", body)
     snapshot = await sessions.build_snapshot(_session_row())
     pins = snapshot["session_runtime"]["pins"]
-    assert pins == {"starting_task": {"version": 2}}
+    # Story 9.1 pins the Detected pattern definitions the same way, Story 9.4 the sentence
+    # templates, Story 9.6 the reflection questions, Story 9.7 the moment templates, Story 9.9
+    # the Debrief quiz.
+    assert pins == {
+        "starting_task": {"version": 2},
+        "detected_patterns": {"version": 1},
+        "sentence_templates": {"version": 1},
+        "reflection_questions": {"version": 1},
+        "moment_templates": {"version": 1},
+        "debrief_quiz": {"version": 1},
+        "narration_templates": {"version": 2},
+        "debrief_ai_text": {"enabled": False, "model_config_id": None, "effort_level": None},
+    }
+    assert sessions._pin_providers["reflection_questions"] is content.reflection_questions_pin
+    assert sessions._pin_providers["moment_templates"] is content.moment_templates_pin
+    assert sessions._pin_providers["debrief_quiz"] is content.debrief_quiz_pin
     assert content.pinned_version(pins) == 2
+    assert content.pinned_version(pins, "detected_patterns") == 1
+    assert content.pinned_version(pins, "sentence_templates") == 1
+    assert sessions._pin_providers["detected_patterns"] is content.detected_patterns_pin
+    assert sessions._pin_providers["sentence_templates"] is content.sentence_templates_pin
+    # A session locked before the pin reads the latest version.
+    assert (await content.sentence_templates(None))[0] == 1
     assert content.pinned_version({}) is None and content.pinned_version(None) is None
     for odd in (True, 0, "2", 1.0):
         assert content.pinned_version({"starting_task": {"version": odd}}) is None
+
+
+async def test_version_1_holds_the_reflection_questions_in_order():
+    """Story 9.6 (FR-45): feelings, then evidence, then structure; why, not who."""
+    version, body = await content.reflection_questions(None)
+    assert version == 1
+    assert [q.kind for q in body.questions] == ["feelings", "evidence", "structure"]
+    assert body.questions[-1].hint == "Struktur gir atferd, derfor spør vi hvorfor og ikke hvem."
+    assert all("!" not in q.prompt and q.prompt.endswith("?") for q in body.questions)
+
+
+async def test_reflection_questions_out_of_order_or_shouting_are_not_stored():
+    body = (await content.get("reflection_questions", 1)).model_dump(mode="json")
+    swapped = json.loads(json.dumps(body))
+    swapped["questions"].reverse()
+    missing = json.loads(json.dumps(body))
+    missing["questions"] = missing["questions"][:2]
+    twice = json.loads(json.dumps(body))
+    twice["questions"][1]["id"] = twice["questions"][0]["id"]
+    shouted = json.loads(json.dumps(body))
+    shouted["questions"][0]["prompt"] = "Hvorfor!"
+    odd = json.loads(json.dumps(body))
+    odd["questions"][0]["kind"] = "blame"
+    for bad in (swapped, missing, twice, shouted, odd, {"questions": []}):
+        with pytest.raises(ValidationError):
+            await content.publish("reflection_questions", bad)
+    # Two of a kind in a row is fine.
+    more = json.loads(json.dumps(body))
+    more["questions"].insert(1, {**more["questions"][0], "id": "feelings-2"})
+    assert await content.publish("reflection_questions", more) == 2
+
+
+async def test_version_1_holds_the_moment_templates_and_a_cause_is_not_stored():
+    """Story 9.7 (FR-44, AD-7): every moment template, read back as stored; one stating a cause
+    is refused like any invalid record."""
+    version, body = await content.moment_templates(None)
+    assert version == 1
+    assert body.text_of("moments-heading").startswith("Ditt øyeblikk: Uke {week}.")
+    bad = json.loads(json.dumps(body.model_dump(mode="json")))
+    bad["templates"][0]["text"] = "Uke {week}: du bestilte {order} fordi det var mye på vei."
+    with pytest.raises(ValidationError):
+        await content.publish("moment_templates", bad)
+
+
+async def test_version_1_holds_the_placeholder_quiz_and_a_bad_quiz_is_not_stored():
+    """Story 9.9 (FR-46, AD-23): the Debrief quiz, read back as stored and marked placeholder; one
+    whose answer is not one of its choices is refused like any invalid record."""
+    version, body = await content.debrief_quiz(None)
+    assert (version, body.placeholder, len(body.questions)) == (1, True, 3)
+    bad = json.loads(json.dumps(body.model_dump(mode="json")))
+    bad["questions"][0]["answer"] = "ingen"
+    with pytest.raises(ValidationError):
+        await content.publish("debrief_quiz", bad)
+    assert await content.latest_version("debrief_quiz") == 1
 
 
 def _session_row() -> dict:

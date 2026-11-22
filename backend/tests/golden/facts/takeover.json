@@ -1,0 +1,1706 @@
+{
+  "retailer": {
+    "patterns_version": 1,
+    "facts": {
+      "analysis_version": 2,
+      "chain": {
+        "weeks": 16,
+        "roles": [
+          "retailer",
+          "wholesaler",
+          "distributor",
+          "factory"
+        ],
+        "demand": [
+          4,
+          4,
+          4,
+          4,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8
+        ],
+        "demand_std": "1.732",
+        "by_role": [
+          {
+            "role": "retailer",
+            "orders_std": "5.006",
+            "amplification": "2.890",
+            "first_large_order_week": 5,
+            "holding_cost": "31.00",
+            "backorder_cost": "31.00",
+            "total_cost": "62.00"
+          },
+          {
+            "role": "wholesaler",
+            "orders_std": "9.399",
+            "amplification": "5.426",
+            "first_large_order_week": 7,
+            "holding_cost": "36.00",
+            "backorder_cost": "149.00",
+            "total_cost": "185.00"
+          },
+          {
+            "role": "distributor",
+            "orders_std": "18.571",
+            "amplification": "10.722",
+            "first_large_order_week": 9,
+            "holding_cost": "46.50",
+            "backorder_cost": "404.00",
+            "total_cost": "450.50"
+          },
+          {
+            "role": "factory",
+            "orders_std": "36.886",
+            "amplification": "21.296",
+            "first_large_order_week": 10,
+            "holding_cost": "58.00",
+            "backorder_cost": "534.00",
+            "total_cost": "592.00"
+          }
+        ],
+        "total_cost": "1289.50",
+        "ai_held_cost": "1243.50",
+        "ai_held_share": "0.964"
+      },
+      "seat": {
+        "role": "retailer",
+        "student_orders": 12,
+        "sm_excluded": false,
+        "patterns": [
+          {
+            "id": "surge-after-shortage:retailer:8",
+            "pattern": "surge-after-shortage",
+            "mechanism": "demand_information_lost",
+            "week": 8,
+            "order": 12,
+            "decided_by": "student",
+            "state_seen": {
+              "role": "retailer",
+              "incoming_order": 8,
+              "incoming_delivery": 6,
+              "shipped": 6,
+              "inventory": 0,
+              "backlog": 2,
+              "supply_line": 44,
+              "week_cost": "2.00"
+            },
+            "later_cost": "10.00",
+            "later_weeks": 4,
+            "others_seen": [
+              {
+                "role": "wholesaler",
+                "incoming_order": 16,
+                "incoming_delivery": 4,
+                "shipped": 6,
+                "inventory": 0,
+                "backlog": 10,
+                "supply_line": 27,
+                "week_cost": "10.00"
+              },
+              {
+                "role": "distributor",
+                "incoming_order": 7,
+                "incoming_delivery": 4,
+                "shipped": 7,
+                "inventory": 9,
+                "backlog": 0,
+                "supply_line": 12,
+                "week_cost": "4.50"
+              },
+              {
+                "role": "factory",
+                "incoming_order": 4,
+                "incoming_delivery": 4,
+                "shipped": 4,
+                "inventory": 12,
+                "backlog": 0,
+                "supply_line": 12,
+                "week_cost": "6.00"
+              }
+            ]
+          },
+          {
+            "id": "surge-after-shortage:retailer:15",
+            "pattern": "surge-after-shortage",
+            "mechanism": "demand_information_lost",
+            "week": 15,
+            "order": 15,
+            "decided_by": "rule_based",
+            "state_seen": {
+              "role": "retailer",
+              "incoming_order": 8,
+              "incoming_delivery": 4,
+              "shipped": 4,
+              "inventory": 0,
+              "backlog": 8,
+              "supply_line": 36,
+              "week_cost": "8.00"
+            },
+            "later_cost": "8.00",
+            "later_weeks": 1,
+            "others_seen": [
+              {
+                "role": "wholesaler",
+                "incoming_order": 8,
+                "incoming_delivery": 12,
+                "shipped": 12,
+                "inventory": 0,
+                "backlog": 8,
+                "supply_line": 73,
+                "week_cost": "8.00"
+              },
+              {
+                "role": "distributor",
+                "incoming_order": 0,
+                "incoming_delivery": 4,
+                "shipped": 4,
+                "inventory": 0,
+                "backlog": 65,
+                "supply_line": 200,
+                "week_cost": "65.00"
+              },
+              {
+                "role": "factory",
+                "incoming_order": 36,
+                "incoming_delivery": 31,
+                "shipped": 31,
+                "inventory": 0,
+                "backlog": 146,
+                "supply_line": 277,
+                "week_cost": "146.00"
+              }
+            ]
+          },
+          {
+            "id": "surge-after-shortage:retailer:16",
+            "pattern": "surge-after-shortage",
+            "mechanism": "demand_information_lost",
+            "week": 16,
+            "order": 13,
+            "decided_by": "rule_based",
+            "state_seen": {
+              "role": "retailer",
+              "incoming_order": 8,
+              "incoming_delivery": 8,
+              "shipped": 8,
+              "inventory": 0,
+              "backlog": 8,
+              "supply_line": 43,
+              "week_cost": "8.00"
+            },
+            "later_cost": "0",
+            "later_weeks": 0,
+            "others_seen": [
+              {
+                "role": "wholesaler",
+                "incoming_order": 8,
+                "incoming_delivery": 4,
+                "shipped": 4,
+                "inventory": 0,
+                "backlog": 12,
+                "supply_line": 71,
+                "week_cost": "12.00"
+              },
+              {
+                "role": "distributor",
+                "incoming_order": 0,
+                "incoming_delivery": 10,
+                "shipped": 10,
+                "inventory": 0,
+                "backlog": 55,
+                "supply_line": 190,
+                "week_cost": "55.00"
+              },
+              {
+                "role": "factory",
+                "incoming_order": 13,
+                "incoming_delivery": 68,
+                "shipped": 68,
+                "inventory": 0,
+                "backlog": 91,
+                "supply_line": 291,
+                "week_cost": "91.00"
+              }
+            ]
+          }
+        ],
+        "moments": [
+          {
+            "id": "moment:retailer:7",
+            "week": 7,
+            "order": 16,
+            "state_seen": {
+              "role": "retailer",
+              "incoming_order": 8,
+              "incoming_delivery": 4,
+              "shipped": 8,
+              "inventory": 0,
+              "backlog": 0,
+              "supply_line": 34,
+              "week_cost": "0.00"
+            },
+            "later_cost": "7.00",
+            "later_weeks": 4,
+            "others_seen": [
+              {
+                "role": "wholesaler",
+                "incoming_order": 12,
+                "incoming_delivery": 4,
+                "shipped": 12,
+                "inventory": 2,
+                "backlog": 0,
+                "supply_line": 15,
+                "week_cost": "1.00"
+              },
+              {
+                "role": "distributor",
+                "incoming_order": 4,
+                "incoming_delivery": 4,
+                "shipped": 4,
+                "inventory": 12,
+                "backlog": 0,
+                "supply_line": 12,
+                "week_cost": "6.00"
+              },
+              {
+                "role": "factory",
+                "incoming_order": 4,
+                "incoming_delivery": 4,
+                "shipped": 4,
+                "inventory": 12,
+                "backlog": 0,
+                "supply_line": 12,
+                "week_cost": "6.00"
+              }
+            ],
+            "patterns": [],
+            "chosen_by": "order_gap"
+          },
+          {
+            "id": "moment:retailer:8",
+            "week": 8,
+            "order": 12,
+            "state_seen": {
+              "role": "retailer",
+              "incoming_order": 8,
+              "incoming_delivery": 6,
+              "shipped": 6,
+              "inventory": 0,
+              "backlog": 2,
+              "supply_line": 44,
+              "week_cost": "2.00"
+            },
+            "later_cost": "10.00",
+            "later_weeks": 4,
+            "others_seen": [
+              {
+                "role": "wholesaler",
+                "incoming_order": 16,
+                "incoming_delivery": 4,
+                "shipped": 6,
+                "inventory": 0,
+                "backlog": 10,
+                "supply_line": 27,
+                "week_cost": "10.00"
+              },
+              {
+                "role": "distributor",
+                "incoming_order": 7,
+                "incoming_delivery": 4,
+                "shipped": 7,
+                "inventory": 9,
+                "backlog": 0,
+                "supply_line": 12,
+                "week_cost": "4.50"
+              },
+              {
+                "role": "factory",
+                "incoming_order": 4,
+                "incoming_delivery": 4,
+                "shipped": 4,
+                "inventory": 12,
+                "backlog": 0,
+                "supply_line": 12,
+                "week_cost": "6.00"
+              }
+            ],
+            "patterns": [
+              "surge-after-shortage:retailer:8"
+            ],
+            "chosen_by": "pattern"
+          },
+          {
+            "id": "moment:retailer:11",
+            "week": 11,
+            "order": 0,
+            "state_seen": {
+              "role": "retailer",
+              "incoming_order": 8,
+              "incoming_delivery": 4,
+              "shipped": 4,
+              "inventory": 0,
+              "backlog": 4,
+              "supply_line": 44,
+              "week_cost": "4.00"
+            },
+            "later_cost": "17.00",
+            "later_weeks": 4,
+            "others_seen": [
+              {
+                "role": "wholesaler",
+                "incoming_order": 8,
+                "incoming_delivery": 13,
+                "shipped": 13,
+                "inventory": 0,
+                "backlog": 22,
+                "supply_line": 83,
+                "week_cost": "22.00"
+              },
+              {
+                "role": "distributor",
+                "incoming_order": 29,
+                "incoming_delivery": 4,
+                "shipped": 4,
+                "inventory": 0,
+                "backlog": 50,
+                "supply_line": 72,
+                "week_cost": "50.00"
+              },
+              {
+                "role": "factory",
+                "incoming_order": 22,
+                "incoming_delivery": 4,
+                "shipped": 12,
+                "inventory": 0,
+                "backlog": 10,
+                "supply_line": 18,
+                "week_cost": "10.00"
+              }
+            ],
+            "patterns": [],
+            "chosen_by": "order_gap"
+          }
+        ],
+        "simulated": {
+          "params_id": "placeholder-unverified",
+          "params_version": 1,
+          "rows": [
+            {
+              "counts_supply_line": "own",
+              "holding_cost": "183.00",
+              "backorder_cost": "1245.00",
+              "total_cost": "1428.00"
+            },
+            {
+              "counts_supply_line": "all",
+              "holding_cost": "179.50",
+              "backorder_cost": "1034.00",
+              "total_cost": "1213.50"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "wholesaler": {
+    "patterns_version": 1,
+    "facts": {
+      "analysis_version": 2,
+      "chain": {
+        "weeks": 16,
+        "roles": [
+          "retailer",
+          "wholesaler",
+          "distributor",
+          "factory"
+        ],
+        "demand": [
+          4,
+          4,
+          4,
+          4,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8
+        ],
+        "demand_std": "1.732",
+        "by_role": [
+          {
+            "role": "retailer",
+            "orders_std": "5.006",
+            "amplification": "2.890",
+            "first_large_order_week": 5,
+            "holding_cost": "31.00",
+            "backorder_cost": "31.00",
+            "total_cost": "62.00"
+          },
+          {
+            "role": "wholesaler",
+            "orders_std": "9.399",
+            "amplification": "5.426",
+            "first_large_order_week": 7,
+            "holding_cost": "36.00",
+            "backorder_cost": "149.00",
+            "total_cost": "185.00"
+          },
+          {
+            "role": "distributor",
+            "orders_std": "18.571",
+            "amplification": "10.722",
+            "first_large_order_week": 9,
+            "holding_cost": "46.50",
+            "backorder_cost": "404.00",
+            "total_cost": "450.50"
+          },
+          {
+            "role": "factory",
+            "orders_std": "36.886",
+            "amplification": "21.296",
+            "first_large_order_week": 10,
+            "holding_cost": "58.00",
+            "backorder_cost": "534.00",
+            "total_cost": "592.00"
+          }
+        ],
+        "total_cost": "1289.50",
+        "ai_held_cost": "1243.50",
+        "ai_held_share": "0.964"
+      },
+      "seat": {
+        "role": "wholesaler",
+        "student_orders": 0,
+        "sm_excluded": true,
+        "patterns": [
+          {
+            "id": "surge-after-shortage:wholesaler:8",
+            "pattern": "surge-after-shortage",
+            "mechanism": "demand_information_lost",
+            "week": 8,
+            "order": 26,
+            "decided_by": "rule_based",
+            "state_seen": {
+              "role": "wholesaler",
+              "incoming_order": 16,
+              "incoming_delivery": 4,
+              "shipped": 6,
+              "inventory": 0,
+              "backlog": 10,
+              "supply_line": 27,
+              "week_cost": "10.00"
+            },
+            "later_cost": "91.00",
+            "later_weeks": 4,
+            "others_seen": [
+              {
+                "role": "retailer",
+                "incoming_order": 8,
+                "incoming_delivery": 6,
+                "shipped": 6,
+                "inventory": 0,
+                "backlog": 2,
+                "supply_line": 44,
+                "week_cost": "2.00"
+              },
+              {
+                "role": "distributor",
+                "incoming_order": 7,
+                "incoming_delivery": 4,
+                "shipped": 7,
+                "inventory": 9,
+                "backlog": 0,
+                "supply_line": 12,
+                "week_cost": "4.50"
+              },
+              {
+                "role": "factory",
+                "incoming_order": 4,
+                "incoming_delivery": 4,
+                "shipped": 4,
+                "inventory": 12,
+                "backlog": 0,
+                "supply_line": 12,
+                "week_cost": "6.00"
+              }
+            ]
+          },
+          {
+            "id": "surge-after-shortage:wholesaler:9",
+            "pattern": "surge-after-shortage",
+            "mechanism": "demand_information_lost",
+            "week": 9,
+            "order": 29,
+            "decided_by": "rule_based",
+            "state_seen": {
+              "role": "wholesaler",
+              "incoming_order": 16,
+              "incoming_delivery": 4,
+              "shipped": 4,
+              "inventory": 0,
+              "backlog": 22,
+              "supply_line": 49,
+              "week_cost": "22.00"
+            },
+            "later_cost": "85.00",
+            "later_weeks": 4,
+            "others_seen": [
+              {
+                "role": "retailer",
+                "incoming_order": 8,
+                "incoming_delivery": 12,
+                "shipped": 10,
+                "inventory": 2,
+                "backlog": 0,
+                "supply_line": 44,
+                "week_cost": "1.00"
+              },
+              {
+                "role": "distributor",
+                "incoming_order": 16,
+                "incoming_delivery": 4,
+                "shipped": 13,
+                "inventory": 0,
+                "backlog": 3,
+                "supply_line": 16,
+                "week_cost": "3.00"
+              },
+              {
+                "role": "factory",
+                "incoming_order": 4,
+                "incoming_delivery": 4,
+                "shipped": 4,
+                "inventory": 12,
+                "backlog": 0,
+                "supply_line": 12,
+                "week_cost": "6.00"
+              }
+            ]
+          },
+          {
+            "id": "surge-after-shortage:wholesaler:10",
+            "pattern": "surge-after-shortage",
+            "mechanism": "demand_information_lost",
+            "week": 10,
+            "order": 25,
+            "decided_by": "rule_based",
+            "state_seen": {
+              "role": "wholesaler",
+              "incoming_order": 12,
+              "incoming_delivery": 7,
+              "shipped": 7,
+              "inventory": 0,
+              "backlog": 27,
+              "supply_line": 71,
+              "week_cost": "27.00"
+            },
+            "later_cost": "70.00",
+            "later_weeks": 4,
+            "others_seen": [
+              {
+                "role": "retailer",
+                "incoming_order": 8,
+                "incoming_delivery": 6,
+                "shipped": 8,
+                "inventory": 0,
+                "backlog": 0,
+                "supply_line": 46,
+                "week_cost": "0.00"
+              },
+              {
+                "role": "distributor",
+                "incoming_order": 26,
+                "incoming_delivery": 4,
+                "shipped": 4,
+                "inventory": 0,
+                "backlog": 25,
+                "supply_line": 34,
+                "week_cost": "25.00"
+              },
+              {
+                "role": "factory",
+                "incoming_order": 8,
+                "incoming_delivery": 4,
+                "shipped": 8,
+                "inventory": 8,
+                "backlog": 0,
+                "supply_line": 12,
+                "week_cost": "4.00"
+              }
+            ]
+          },
+          {
+            "id": "surge-after-shortage:wholesaler:11",
+            "pattern": "surge-after-shortage",
+            "mechanism": "demand_information_lost",
+            "week": 11,
+            "order": 15,
+            "decided_by": "rule_based",
+            "state_seen": {
+              "role": "wholesaler",
+              "incoming_order": 8,
+              "incoming_delivery": 13,
+              "shipped": 13,
+              "inventory": 0,
+              "backlog": 22,
+              "supply_line": 83,
+              "week_cost": "22.00"
+            },
+            "later_cost": "56.00",
+            "later_weeks": 4,
+            "others_seen": [
+              {
+                "role": "retailer",
+                "incoming_order": 8,
+                "incoming_delivery": 4,
+                "shipped": 4,
+                "inventory": 0,
+                "backlog": 4,
+                "supply_line": 44,
+                "week_cost": "4.00"
+              },
+              {
+                "role": "distributor",
+                "incoming_order": 29,
+                "incoming_delivery": 4,
+                "shipped": 4,
+                "inventory": 0,
+                "backlog": 50,
+                "supply_line": 72,
+                "week_cost": "50.00"
+              },
+              {
+                "role": "factory",
+                "incoming_order": 22,
+                "incoming_delivery": 4,
+                "shipped": 12,
+                "inventory": 0,
+                "backlog": 10,
+                "supply_line": 18,
+                "week_cost": "10.00"
+              }
+            ]
+          },
+          {
+            "id": "large-order-full-supply-line:wholesaler:11",
+            "pattern": "large-order-full-supply-line",
+            "mechanism": "supply_line",
+            "week": 11,
+            "order": 15,
+            "decided_by": "rule_based",
+            "state_seen": {
+              "role": "wholesaler",
+              "incoming_order": 8,
+              "incoming_delivery": 13,
+              "shipped": 13,
+              "inventory": 0,
+              "backlog": 22,
+              "supply_line": 83,
+              "week_cost": "22.00"
+            },
+            "later_cost": "56.00",
+            "later_weeks": 4,
+            "others_seen": [
+              {
+                "role": "retailer",
+                "incoming_order": 8,
+                "incoming_delivery": 4,
+                "shipped": 4,
+                "inventory": 0,
+                "backlog": 4,
+                "supply_line": 44,
+                "week_cost": "4.00"
+              },
+              {
+                "role": "distributor",
+                "incoming_order": 29,
+                "incoming_delivery": 4,
+                "shipped": 4,
+                "inventory": 0,
+                "backlog": 50,
+                "supply_line": 72,
+                "week_cost": "50.00"
+              },
+              {
+                "role": "factory",
+                "incoming_order": 22,
+                "incoming_delivery": 4,
+                "shipped": 12,
+                "inventory": 0,
+                "backlog": 10,
+                "supply_line": 18,
+                "week_cost": "10.00"
+              }
+            ]
+          }
+        ],
+        "moments": [],
+        "simulated": {
+          "params_id": "placeholder-unverified",
+          "params_version": 1,
+          "rows": [
+            {
+              "counts_supply_line": "own",
+              "holding_cost": "184.50",
+              "backorder_cost": "1332.00",
+              "total_cost": "1516.50"
+            },
+            {
+              "counts_supply_line": "all",
+              "holding_cost": "179.50",
+              "backorder_cost": "1034.00",
+              "total_cost": "1213.50"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "distributor": {
+    "patterns_version": 1,
+    "facts": {
+      "analysis_version": 2,
+      "chain": {
+        "weeks": 16,
+        "roles": [
+          "retailer",
+          "wholesaler",
+          "distributor",
+          "factory"
+        ],
+        "demand": [
+          4,
+          4,
+          4,
+          4,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8
+        ],
+        "demand_std": "1.732",
+        "by_role": [
+          {
+            "role": "retailer",
+            "orders_std": "5.006",
+            "amplification": "2.890",
+            "first_large_order_week": 5,
+            "holding_cost": "31.00",
+            "backorder_cost": "31.00",
+            "total_cost": "62.00"
+          },
+          {
+            "role": "wholesaler",
+            "orders_std": "9.399",
+            "amplification": "5.426",
+            "first_large_order_week": 7,
+            "holding_cost": "36.00",
+            "backorder_cost": "149.00",
+            "total_cost": "185.00"
+          },
+          {
+            "role": "distributor",
+            "orders_std": "18.571",
+            "amplification": "10.722",
+            "first_large_order_week": 9,
+            "holding_cost": "46.50",
+            "backorder_cost": "404.00",
+            "total_cost": "450.50"
+          },
+          {
+            "role": "factory",
+            "orders_std": "36.886",
+            "amplification": "21.296",
+            "first_large_order_week": 10,
+            "holding_cost": "58.00",
+            "backorder_cost": "534.00",
+            "total_cost": "592.00"
+          }
+        ],
+        "total_cost": "1289.50",
+        "ai_held_cost": "1243.50",
+        "ai_held_share": "0.964"
+      },
+      "seat": {
+        "role": "distributor",
+        "student_orders": 0,
+        "sm_excluded": true,
+        "patterns": [
+          {
+            "id": "surge-after-shortage:distributor:10",
+            "pattern": "surge-after-shortage",
+            "mechanism": "demand_information_lost",
+            "week": 10,
+            "order": 42,
+            "decided_by": "rule_based",
+            "state_seen": {
+              "role": "distributor",
+              "incoming_order": 26,
+              "incoming_delivery": 4,
+              "shipped": 4,
+              "inventory": 0,
+              "backlog": 25,
+              "supply_line": 34,
+              "week_cost": "25.00"
+            },
+            "later_cost": "256.00",
+            "later_weeks": 4,
+            "others_seen": [
+              {
+                "role": "retailer",
+                "incoming_order": 8,
+                "incoming_delivery": 6,
+                "shipped": 8,
+                "inventory": 0,
+                "backlog": 0,
+                "supply_line": 46,
+                "week_cost": "0.00"
+              },
+              {
+                "role": "wholesaler",
+                "incoming_order": 12,
+                "incoming_delivery": 7,
+                "shipped": 7,
+                "inventory": 0,
+                "backlog": 27,
+                "supply_line": 71,
+                "week_cost": "27.00"
+              },
+              {
+                "role": "factory",
+                "incoming_order": 8,
+                "incoming_delivery": 4,
+                "shipped": 8,
+                "inventory": 8,
+                "backlog": 0,
+                "supply_line": 12,
+                "week_cost": "4.00"
+              }
+            ]
+          },
+          {
+            "id": "surge-after-shortage:distributor:11",
+            "pattern": "surge-after-shortage",
+            "mechanism": "demand_information_lost",
+            "week": 11,
+            "order": 54,
+            "decided_by": "rule_based",
+            "state_seen": {
+              "role": "distributor",
+              "incoming_order": 29,
+              "incoming_delivery": 4,
+              "shipped": 4,
+              "inventory": 0,
+              "backlog": 50,
+              "supply_line": 72,
+              "week_cost": "50.00"
+            },
+            "later_cost": "271.00",
+            "later_weeks": 4,
+            "others_seen": [
+              {
+                "role": "retailer",
+                "incoming_order": 8,
+                "incoming_delivery": 4,
+                "shipped": 4,
+                "inventory": 0,
+                "backlog": 4,
+                "supply_line": 44,
+                "week_cost": "4.00"
+              },
+              {
+                "role": "wholesaler",
+                "incoming_order": 8,
+                "incoming_delivery": 13,
+                "shipped": 13,
+                "inventory": 0,
+                "backlog": 22,
+                "supply_line": 83,
+                "week_cost": "22.00"
+              },
+              {
+                "role": "factory",
+                "incoming_order": 22,
+                "incoming_delivery": 4,
+                "shipped": 12,
+                "inventory": 0,
+                "backlog": 10,
+                "supply_line": 18,
+                "week_cost": "10.00"
+              }
+            ]
+          },
+          {
+            "id": "surge-after-shortage:distributor:12",
+            "pattern": "surge-after-shortage",
+            "mechanism": "demand_information_lost",
+            "week": 12,
+            "order": 53,
+            "decided_by": "rule_based",
+            "state_seen": {
+              "role": "distributor",
+              "incoming_order": 25,
+              "incoming_delivery": 8,
+              "shipped": 8,
+              "inventory": 0,
+              "backlog": 67,
+              "supply_line": 118,
+              "week_cost": "67.00"
+            },
+            "later_cost": "259.00",
+            "later_weeks": 4,
+            "others_seen": [
+              {
+                "role": "retailer",
+                "incoming_order": 8,
+                "incoming_delivery": 7,
+                "shipped": 7,
+                "inventory": 0,
+                "backlog": 5,
+                "supply_line": 37,
+                "week_cost": "5.00"
+              },
+              {
+                "role": "wholesaler",
+                "incoming_order": 2,
+                "incoming_delivery": 4,
+                "shipped": 4,
+                "inventory": 0,
+                "backlog": 20,
+                "supply_line": 94,
+                "week_cost": "20.00"
+              },
+              {
+                "role": "factory",
+                "incoming_order": 42,
+                "incoming_delivery": 4,
+                "shipped": 4,
+                "inventory": 0,
+                "backlog": 48,
+                "supply_line": 45,
+                "week_cost": "48.00"
+              }
+            ]
+          },
+          {
+            "id": "surge-after-shortage:distributor:13",
+            "pattern": "surge-after-shortage",
+            "mechanism": "demand_information_lost",
+            "week": 13,
+            "order": 36,
+            "decided_by": "rule_based",
+            "state_seen": {
+              "role": "distributor",
+              "incoming_order": 15,
+              "incoming_delivery": 12,
+              "shipped": 12,
+              "inventory": 0,
+              "backlog": 70,
+              "supply_line": 159,
+              "week_cost": "70.00"
+            },
+            "later_cost": "189.00",
+            "later_weeks": 3,
+            "others_seen": [
+              {
+                "role": "retailer",
+                "incoming_order": 8,
+                "incoming_delivery": 13,
+                "shipped": 13,
+                "inventory": 0,
+                "backlog": 0,
+                "supply_line": 28,
+                "week_cost": "0.00"
+              },
+              {
+                "role": "wholesaler",
+                "incoming_order": 0,
+                "incoming_delivery": 4,
+                "shipped": 4,
+                "inventory": 0,
+                "backlog": 16,
+                "supply_line": 93,
+                "week_cost": "16.00"
+              },
+              {
+                "role": "factory",
+                "incoming_order": 54,
+                "incoming_delivery": 4,
+                "shipped": 4,
+                "inventory": 0,
+                "backlog": 98,
+                "supply_line": 109,
+                "week_cost": "98.00"
+              }
+            ]
+          },
+          {
+            "id": "large-order-full-supply-line:distributor:13",
+            "pattern": "large-order-full-supply-line",
+            "mechanism": "supply_line",
+            "week": 13,
+            "order": 36,
+            "decided_by": "rule_based",
+            "state_seen": {
+              "role": "distributor",
+              "incoming_order": 15,
+              "incoming_delivery": 12,
+              "shipped": 12,
+              "inventory": 0,
+              "backlog": 70,
+              "supply_line": 159,
+              "week_cost": "70.00"
+            },
+            "later_cost": "189.00",
+            "later_weeks": 3,
+            "others_seen": [
+              {
+                "role": "retailer",
+                "incoming_order": 8,
+                "incoming_delivery": 13,
+                "shipped": 13,
+                "inventory": 0,
+                "backlog": 0,
+                "supply_line": 28,
+                "week_cost": "0.00"
+              },
+              {
+                "role": "wholesaler",
+                "incoming_order": 0,
+                "incoming_delivery": 4,
+                "shipped": 4,
+                "inventory": 0,
+                "backlog": 16,
+                "supply_line": 93,
+                "week_cost": "16.00"
+              },
+              {
+                "role": "factory",
+                "incoming_order": 54,
+                "incoming_delivery": 4,
+                "shipped": 4,
+                "inventory": 0,
+                "backlog": 98,
+                "supply_line": 109,
+                "week_cost": "98.00"
+              }
+            ]
+          },
+          {
+            "id": "surge-after-shortage:distributor:14",
+            "pattern": "surge-after-shortage",
+            "mechanism": "demand_information_lost",
+            "week": 14,
+            "order": 13,
+            "decided_by": "rule_based",
+            "state_seen": {
+              "role": "distributor",
+              "incoming_order": 3,
+              "incoming_delivery": 4,
+              "shipped": 4,
+              "inventory": 0,
+              "backlog": 69,
+              "supply_line": 191,
+              "week_cost": "69.00"
+            },
+            "later_cost": "120.00",
+            "later_weeks": 2,
+            "others_seen": [
+              {
+                "role": "retailer",
+                "incoming_order": 8,
+                "incoming_delivery": 4,
+                "shipped": 4,
+                "inventory": 0,
+                "backlog": 4,
+                "supply_line": 32,
+                "week_cost": "4.00"
+              },
+              {
+                "role": "wholesaler",
+                "incoming_order": 4,
+                "incoming_delivery": 8,
+                "shipped": 8,
+                "inventory": 0,
+                "backlog": 12,
+                "supply_line": 85,
+                "week_cost": "12.00"
+              },
+              {
+                "role": "factory",
+                "incoming_order": 53,
+                "incoming_delivery": 10,
+                "shipped": 10,
+                "inventory": 0,
+                "backlog": 141,
+                "supply_line": 199,
+                "week_cost": "141.00"
+              }
+            ]
+          },
+          {
+            "id": "large-order-full-supply-line:distributor:14",
+            "pattern": "large-order-full-supply-line",
+            "mechanism": "supply_line",
+            "week": 14,
+            "order": 13,
+            "decided_by": "rule_based",
+            "state_seen": {
+              "role": "distributor",
+              "incoming_order": 3,
+              "incoming_delivery": 4,
+              "shipped": 4,
+              "inventory": 0,
+              "backlog": 69,
+              "supply_line": 191,
+              "week_cost": "69.00"
+            },
+            "later_cost": "120.00",
+            "later_weeks": 2,
+            "others_seen": [
+              {
+                "role": "retailer",
+                "incoming_order": 8,
+                "incoming_delivery": 4,
+                "shipped": 4,
+                "inventory": 0,
+                "backlog": 4,
+                "supply_line": 32,
+                "week_cost": "4.00"
+              },
+              {
+                "role": "wholesaler",
+                "incoming_order": 4,
+                "incoming_delivery": 8,
+                "shipped": 8,
+                "inventory": 0,
+                "backlog": 12,
+                "supply_line": 85,
+                "week_cost": "12.00"
+              },
+              {
+                "role": "factory",
+                "incoming_order": 53,
+                "incoming_delivery": 10,
+                "shipped": 10,
+                "inventory": 0,
+                "backlog": 141,
+                "supply_line": 199,
+                "week_cost": "141.00"
+              }
+            ]
+          }
+        ],
+        "moments": [],
+        "simulated": {
+          "params_id": "placeholder-unverified",
+          "params_version": 1,
+          "rows": [
+            {
+              "counts_supply_line": "own",
+              "holding_cost": "185.50",
+              "backorder_cost": "1414.00",
+              "total_cost": "1599.50"
+            },
+            {
+              "counts_supply_line": "all",
+              "holding_cost": "179.50",
+              "backorder_cost": "1034.00",
+              "total_cost": "1213.50"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "factory": {
+    "patterns_version": 1,
+    "facts": {
+      "analysis_version": 2,
+      "chain": {
+        "weeks": 16,
+        "roles": [
+          "retailer",
+          "wholesaler",
+          "distributor",
+          "factory"
+        ],
+        "demand": [
+          4,
+          4,
+          4,
+          4,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8
+        ],
+        "demand_std": "1.732",
+        "by_role": [
+          {
+            "role": "retailer",
+            "orders_std": "5.006",
+            "amplification": "2.890",
+            "first_large_order_week": 5,
+            "holding_cost": "31.00",
+            "backorder_cost": "31.00",
+            "total_cost": "62.00"
+          },
+          {
+            "role": "wholesaler",
+            "orders_std": "9.399",
+            "amplification": "5.426",
+            "first_large_order_week": 7,
+            "holding_cost": "36.00",
+            "backorder_cost": "149.00",
+            "total_cost": "185.00"
+          },
+          {
+            "role": "distributor",
+            "orders_std": "18.571",
+            "amplification": "10.722",
+            "first_large_order_week": 9,
+            "holding_cost": "46.50",
+            "backorder_cost": "404.00",
+            "total_cost": "450.50"
+          },
+          {
+            "role": "factory",
+            "orders_std": "36.886",
+            "amplification": "21.296",
+            "first_large_order_week": 10,
+            "holding_cost": "58.00",
+            "backorder_cost": "534.00",
+            "total_cost": "592.00"
+          }
+        ],
+        "total_cost": "1289.50",
+        "ai_held_cost": "1243.50",
+        "ai_held_share": "0.964"
+      },
+      "seat": {
+        "role": "factory",
+        "student_orders": 0,
+        "sm_excluded": true,
+        "patterns": [
+          {
+            "id": "surge-after-shortage:factory:12",
+            "pattern": "surge-after-shortage",
+            "mechanism": "demand_information_lost",
+            "week": 12,
+            "order": 68,
+            "decided_by": "rule_based",
+            "state_seen": {
+              "role": "factory",
+              "incoming_order": 42,
+              "incoming_delivery": 4,
+              "shipped": 4,
+              "inventory": 0,
+              "backlog": 48,
+              "supply_line": 45,
+              "week_cost": "48.00"
+            },
+            "later_cost": "476.00",
+            "later_weeks": 4,
+            "others_seen": [
+              {
+                "role": "retailer",
+                "incoming_order": 8,
+                "incoming_delivery": 7,
+                "shipped": 7,
+                "inventory": 0,
+                "backlog": 5,
+                "supply_line": 37,
+                "week_cost": "5.00"
+              },
+              {
+                "role": "wholesaler",
+                "incoming_order": 2,
+                "incoming_delivery": 4,
+                "shipped": 4,
+                "inventory": 0,
+                "backlog": 20,
+                "supply_line": 94,
+                "week_cost": "20.00"
+              },
+              {
+                "role": "distributor",
+                "incoming_order": 25,
+                "incoming_delivery": 8,
+                "shipped": 8,
+                "inventory": 0,
+                "backlog": 67,
+                "supply_line": 118,
+                "week_cost": "67.00"
+              }
+            ]
+          },
+          {
+            "id": "surge-after-shortage:factory:13",
+            "pattern": "surge-after-shortage",
+            "mechanism": "demand_information_lost",
+            "week": 13,
+            "order": 100,
+            "decided_by": "rule_based",
+            "state_seen": {
+              "role": "factory",
+              "incoming_order": 54,
+              "incoming_delivery": 4,
+              "shipped": 4,
+              "inventory": 0,
+              "backlog": 98,
+              "supply_line": 109,
+              "week_cost": "98.00"
+            },
+            "later_cost": "378.00",
+            "later_weeks": 3,
+            "others_seen": [
+              {
+                "role": "retailer",
+                "incoming_order": 8,
+                "incoming_delivery": 13,
+                "shipped": 13,
+                "inventory": 0,
+                "backlog": 0,
+                "supply_line": 28,
+                "week_cost": "0.00"
+              },
+              {
+                "role": "wholesaler",
+                "incoming_order": 0,
+                "incoming_delivery": 4,
+                "shipped": 4,
+                "inventory": 0,
+                "backlog": 16,
+                "supply_line": 93,
+                "week_cost": "16.00"
+              },
+              {
+                "role": "distributor",
+                "incoming_order": 15,
+                "incoming_delivery": 12,
+                "shipped": 12,
+                "inventory": 0,
+                "backlog": 70,
+                "supply_line": 159,
+                "week_cost": "70.00"
+              }
+            ]
+          },
+          {
+            "id": "surge-after-shortage:factory:14",
+            "pattern": "surge-after-shortage",
+            "mechanism": "demand_information_lost",
+            "week": 14,
+            "order": 109,
+            "decided_by": "rule_based",
+            "state_seen": {
+              "role": "factory",
+              "incoming_order": 53,
+              "incoming_delivery": 10,
+              "shipped": 10,
+              "inventory": 0,
+              "backlog": 141,
+              "supply_line": 199,
+              "week_cost": "141.00"
+            },
+            "later_cost": "237.00",
+            "later_weeks": 2,
+            "others_seen": [
+              {
+                "role": "retailer",
+                "incoming_order": 8,
+                "incoming_delivery": 4,
+                "shipped": 4,
+                "inventory": 0,
+                "backlog": 4,
+                "supply_line": 32,
+                "week_cost": "4.00"
+              },
+              {
+                "role": "wholesaler",
+                "incoming_order": 4,
+                "incoming_delivery": 8,
+                "shipped": 8,
+                "inventory": 0,
+                "backlog": 12,
+                "supply_line": 85,
+                "week_cost": "12.00"
+              },
+              {
+                "role": "distributor",
+                "incoming_order": 3,
+                "incoming_delivery": 4,
+                "shipped": 4,
+                "inventory": 0,
+                "backlog": 69,
+                "supply_line": 191,
+                "week_cost": "69.00"
+              }
+            ]
+          },
+          {
+            "id": "surge-after-shortage:factory:15",
+            "pattern": "surge-after-shortage",
+            "mechanism": "demand_information_lost",
+            "week": 15,
+            "order": 82,
+            "decided_by": "rule_based",
+            "state_seen": {
+              "role": "factory",
+              "incoming_order": 36,
+              "incoming_delivery": 31,
+              "shipped": 31,
+              "inventory": 0,
+              "backlog": 146,
+              "supply_line": 277,
+              "week_cost": "146.00"
+            },
+            "later_cost": "91.00",
+            "later_weeks": 1,
+            "others_seen": [
+              {
+                "role": "retailer",
+                "incoming_order": 8,
+                "incoming_delivery": 4,
+                "shipped": 4,
+                "inventory": 0,
+                "backlog": 8,
+                "supply_line": 36,
+                "week_cost": "8.00"
+              },
+              {
+                "role": "wholesaler",
+                "incoming_order": 8,
+                "incoming_delivery": 12,
+                "shipped": 12,
+                "inventory": 0,
+                "backlog": 8,
+                "supply_line": 73,
+                "week_cost": "8.00"
+              },
+              {
+                "role": "distributor",
+                "incoming_order": 0,
+                "incoming_delivery": 4,
+                "shipped": 4,
+                "inventory": 0,
+                "backlog": 65,
+                "supply_line": 200,
+                "week_cost": "65.00"
+              }
+            ]
+          },
+          {
+            "id": "large-order-full-supply-line:factory:15",
+            "pattern": "large-order-full-supply-line",
+            "mechanism": "supply_line",
+            "week": 15,
+            "order": 82,
+            "decided_by": "rule_based",
+            "state_seen": {
+              "role": "factory",
+              "incoming_order": 36,
+              "incoming_delivery": 31,
+              "shipped": 31,
+              "inventory": 0,
+              "backlog": 146,
+              "supply_line": 277,
+              "week_cost": "146.00"
+            },
+            "later_cost": "91.00",
+            "later_weeks": 1,
+            "others_seen": [
+              {
+                "role": "retailer",
+                "incoming_order": 8,
+                "incoming_delivery": 4,
+                "shipped": 4,
+                "inventory": 0,
+                "backlog": 8,
+                "supply_line": 36,
+                "week_cost": "8.00"
+              },
+              {
+                "role": "wholesaler",
+                "incoming_order": 8,
+                "incoming_delivery": 12,
+                "shipped": 12,
+                "inventory": 0,
+                "backlog": 8,
+                "supply_line": 73,
+                "week_cost": "8.00"
+              },
+              {
+                "role": "distributor",
+                "incoming_order": 0,
+                "incoming_delivery": 4,
+                "shipped": 4,
+                "inventory": 0,
+                "backlog": 65,
+                "supply_line": 200,
+                "week_cost": "65.00"
+              }
+            ]
+          },
+          {
+            "id": "surge-after-shortage:factory:16",
+            "pattern": "surge-after-shortage",
+            "mechanism": "demand_information_lost",
+            "week": 16,
+            "order": 26,
+            "decided_by": "rule_based",
+            "state_seen": {
+              "role": "factory",
+              "incoming_order": 13,
+              "incoming_delivery": 68,
+              "shipped": 68,
+              "inventory": 0,
+              "backlog": 91,
+              "supply_line": 291,
+              "week_cost": "91.00"
+            },
+            "later_cost": "0",
+            "later_weeks": 0,
+            "others_seen": [
+              {
+                "role": "retailer",
+                "incoming_order": 8,
+                "incoming_delivery": 8,
+                "shipped": 8,
+                "inventory": 0,
+                "backlog": 8,
+                "supply_line": 43,
+                "week_cost": "8.00"
+              },
+              {
+                "role": "wholesaler",
+                "incoming_order": 8,
+                "incoming_delivery": 4,
+                "shipped": 4,
+                "inventory": 0,
+                "backlog": 12,
+                "supply_line": 71,
+                "week_cost": "12.00"
+              },
+              {
+                "role": "distributor",
+                "incoming_order": 0,
+                "incoming_delivery": 10,
+                "shipped": 10,
+                "inventory": 0,
+                "backlog": 55,
+                "supply_line": 190,
+                "week_cost": "55.00"
+              }
+            ]
+          },
+          {
+            "id": "large-order-full-supply-line:factory:16",
+            "pattern": "large-order-full-supply-line",
+            "mechanism": "supply_line",
+            "week": 16,
+            "order": 26,
+            "decided_by": "rule_based",
+            "state_seen": {
+              "role": "factory",
+              "incoming_order": 13,
+              "incoming_delivery": 68,
+              "shipped": 68,
+              "inventory": 0,
+              "backlog": 91,
+              "supply_line": 291,
+              "week_cost": "91.00"
+            },
+            "later_cost": "0",
+            "later_weeks": 0,
+            "others_seen": [
+              {
+                "role": "retailer",
+                "incoming_order": 8,
+                "incoming_delivery": 8,
+                "shipped": 8,
+                "inventory": 0,
+                "backlog": 8,
+                "supply_line": 43,
+                "week_cost": "8.00"
+              },
+              {
+                "role": "wholesaler",
+                "incoming_order": 8,
+                "incoming_delivery": 4,
+                "shipped": 4,
+                "inventory": 0,
+                "backlog": 12,
+                "supply_line": 71,
+                "week_cost": "12.00"
+              },
+              {
+                "role": "distributor",
+                "incoming_order": 0,
+                "incoming_delivery": 10,
+                "shipped": 10,
+                "inventory": 0,
+                "backlog": 55,
+                "supply_line": 190,
+                "week_cost": "55.00"
+              }
+            ]
+          }
+        ],
+        "moments": [],
+        "simulated": {
+          "params_id": "placeholder-unverified",
+          "params_version": 1,
+          "rows": [
+            {
+              "counts_supply_line": "own",
+              "holding_cost": "186.50",
+              "backorder_cost": "1406.00",
+              "total_cost": "1592.50"
+            },
+            {
+              "counts_supply_line": "all",
+              "holding_cost": "179.50",
+              "backorder_cost": "1034.00",
+              "total_cost": "1213.50"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

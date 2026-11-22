@@ -95,6 +95,57 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # A step a Student has done (Story 6.1, AD-16): their Hjem and Stegene read it again, and
         # so does the Class session's overview. A step already recorded emits nothing.
         "progress.record_step": frozenset({"session", "user"}),
+        # A Debrief session opened (Story 9.2, AD-21): created at step 1, its row locked;
+        # opening one that exists emits nothing. A Group debrief's first open (Story 9.11) tells
+        # the game's other Students, each `group_debrief_opened` notice emitting `user`.
+        "debrief.open": frozenset({"debrief", "user"}),
+        # A Student joined a Group debrief (Story 9.11, FR-43): the row locked; a second join
+        # emits nothing.
+        "debrief.join": frozenset({"debrief"}),
+        # The opener moved a Group debrief's shared step pointer on (Story 9.11, FR-43).
+        "debrief.move_on": frozenset({"debrief"}),
+        # A Student went on alone from a Group debrief, by leaving or by the sweep's dropout
+        # (Story 9.12, FR-43): the row locked; one alone already emits nothing.
+        "debrief.leave": frozenset({"debrief"}),
+        # Presence on each SSE heartbeat (Story 9.12): no Debrief row lock and no event.
+        "debrief.touch": frozenset(),
+        # The sweep's 48-hour fallback to a Personal debrief (Story 9.12, FR-43, AD-9): the row
+        # locked; each Student told by a `debrief_fallback` notice, which emits `user`.
+        "debrief.open_personal_fallback": frozenset({"debrief", "user"}),
+        # A held Class session's Debriefs released by the sweep (Story 9.2, AD-9): each seated
+        # Student's `debrief_released` notice emits `user`, so Hjem updates without reload.
+        "debrief.release": frozenset({"user"}),
+        # An Explanation sent (Story 9.3, FR-41, AD-16): the Debrief row locked; the
+        # `explanation` step recorded in the same transaction emits `user` and `session`.
+        "debrief.save_explanation": frozenset({"debrief", "session", "user"}),
+        # A reflection answer stored (Story 9.6, FR-45), or a joined Student's «finished» on a
+        # Group debrief's shared step, which may move the pointer (Story 9.11): the Debrief row
+        # locked; an answer or mark stored already emits nothing.
+        "debrief.complete_step": frozenset({"debrief"}),
+        # The facts set of a Student's own moments recorded at their first view of step 4
+        # (Story 9.7, AD-7): the Debrief row locked; one recorded already emits nothing.
+        "debrief.record_facts": frozenset({"debrief"}),
+        # A facts set's narration or quiz line stored by the `llm-batch` job (Story 9.14): no
+        # event, since the text a Student reads is fixed at their first view.
+        "debrief.store_ai_text": frozenset(),
+        # A Student's answered or declined follow-up question stored (Story 9.15, FR-45): no event,
+        # the asking page has the answer and no other reader sees it.
+        "debrief.store_follow_up": frozenset(),
+        # A Student's follow-up closed when their Individual test opens (Story 9.15, Epic 11's
+        # call): `user`, so an open Debrief page replaces the field. Closed already emits nothing.
+        "debrief.close_follow_up": frozenset({"user"}),
+        # A Debrief finished (Story 9.8, FR-47, AD-16): the Debrief row locked; the `debrief`
+        # step recorded in the same transaction emits `user` and `session`. A summary stored
+        # already emits nothing.
+        "debrief.finish": frozenset({"debrief", "session", "user"}),
+        # A Debrief quiz attempt stored (Story 9.9, FR-46, AD-16): the Debrief row locked; a
+        # passing one records `quiz_passed` in the same transaction, which emits `user` and
+        # `session`.
+        "debrief.submit_quiz": frozenset({"debrief", "session", "user"}),
+        # The Debrief quiz exclusions of a Class session changed (Story 9.10, FR-46, AD-23): the
+        # Class session row locked; its staff read the block again (`session`), and each Student
+        # whose last attempt it now covers gets a `quiz_changed` notice, which emits `user`.
+        "debrief.set_quiz_exclusions": frozenset({"session", "user"}),
     }
 )
 """`<module>.<command>` -> topics. Commands on a Game the Lecturer overview lists will add

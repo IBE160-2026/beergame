@@ -186,6 +186,7 @@ export function WeekTable({
   onMoving,
   allRows = false,
   capped = false,
+  label,
 }: {
   state: SeatState;
   fixed?: FixedLayout;
@@ -207,6 +208,8 @@ export function WeekTable({
   allRows?: boolean;
   /** A capped Seat (Story 6.22): Lager and Restordre above Netto lager at every width. */
   capped?: boolean;
+  /** The region's name when not the play screen's «Graf og tabell» (the Debrief's moments). */
+  label?: string;
 }) {
   const columns = weekColumns(state.week);
   const series = graphSeries(state);
@@ -215,7 +218,7 @@ export function WeekTable({
   const labelCell = fixedCell(fixed, "label");
   return (
     <GraphOverTable
-      label={copy.region}
+      label={label ?? copy.region}
       columns={columns}
       fields={graphFields(state, series)}
       fixed={fixed}

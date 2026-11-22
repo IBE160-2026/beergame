@@ -75,9 +75,14 @@ export const gamePath = (id: string) => `/spill/${encodeURIComponent(id)}`;
 export const rulesPath = (id: string) => `${gamePath(id)}/regler`;
 export const startingTaskPath = (id: string) => `${gamePath(id)}/startoppgave`;
 
-/** Where «Gå til Debrief» leads (Story 6.18): Hjem, where Stegene shows the Debrief as the next
- * step, until Epic 9 builds the Debrief and points this one constant at it. */
-export const DEBRIEF_PATH = (_gameId: string) => HOME_PATH.home;
+/** The Student's Debrief in a Class session (Story 9.2): where «Gå til Debrief» on «Spillet er
+ * ferdig» and Stegene's Debrief step lead. One Debrief per Student and Class session. */
+export const DEBRIEF_PATH = (classSessionId: string) => `/debrief/${encodeURIComponent(classSessionId)}`;
+
+/** A Student's Explanation and Debrief summary for the Class's staff (Story 9.8), where
+ * Spillinnsikt's links lead (`debrief.insight` in the api builds the same path). */
+export const studentDebriefPath = (classSessionId: string, studentId: string) =>
+  `${classSessionPath(classSessionId)}/studenter/${encodeURIComponent(studentId)}/debrief`;
 
 /** The link that leads to each home («Til Lærerhjem» …). */
 export const HOME_LINK: Record<Home, string> = {

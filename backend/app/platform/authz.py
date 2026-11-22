@@ -126,6 +126,18 @@ POLICIES: dict[str, frozenset[str]] = {
     # The Starting task in the Student's own Class game (Story 6.3): any User, held to
     # `own_seat` like the game itself.
     "starting_task.answer_own": frozenset({ANY_USER}),
+    # The Student's own Debrief (Story 9.2): any User, held to `own_seat` through
+    # `games.service.student_game`; the service refuses every other Debrief alike.
+    "debriefs.own": frozenset({ANY_USER}),
+    # A Student's Explanation (Story 9.3, FR-41, AD-12): the Class's owners and Assistant
+    # lecturers (`CLASS_STAFF_ROLES`); never another Student, never an Admin without a staff role.
+    "explanations.read": frozenset({LECTURER, ASSISTANT}),
+    # A Student's Debrief summary (Story 9.8, FR-47, AD-12): the same readers as the Explanation.
+    "debrief_summaries.read": frozenset({LECTURER, ASSISTANT}),
+    # The Debrief quiz of a Class session with its answer keys and exclusions (Story 9.10, FR-46,
+    # AD-12): its owners and Assistant lecturers read it; only its owners take questions out.
+    "debrief_quiz.read": frozenset({LECTURER, ASSISTANT}),
+    "debrief_quiz.exclude": frozenset({LECTURER}),
     # The own session.
     "session.read": frozenset({ANY_USER}),
     # The live event stream (Story 6.4, AD-8): any User; the scope decides which topics it sends.
@@ -147,6 +159,10 @@ CLASS_STAFF_ROLES: dict[str, frozenset[str]] = {
     "classes.manage": frozenset({OWNER}),
     "class_sessions.read": frozenset({OWNER, ASSISTANT_STAFF}),
     "class_sessions.manage": frozenset({OWNER}),
+    "explanations.read": frozenset({OWNER, ASSISTANT_STAFF}),
+    "debrief_summaries.read": frozenset({OWNER, ASSISTANT_STAFF}),
+    "debrief_quiz.read": frozenset({OWNER, ASSISTANT_STAFF}),
+    "debrief_quiz.exclude": frozenset({OWNER}),
     "class_sessions.overview": frozenset({OWNER, ASSISTANT_STAFF}),
     "games.insight": frozenset({OWNER, ASSISTANT_STAFF}),
     "messages.send": frozenset({OWNER, ASSISTANT_STAFF}),
@@ -259,6 +275,17 @@ def class_games_staffed_by(user: Principal | uuid.UUID) -> Select:
     """The ids of the Class games of those Class sessions (Story 6.4, AD-8): with `own_seat`, the
     `game:<id>` topics a User's event stream forwards."""
     return select(_games.c.id).where(_games.c.class_session_id.in_(class_sessions_staffed_by(user)))
+
+
+_debrief_sessions = table("debrief_sessions", column("id"), column("game_id"))
+"""`debrief.debrief_sessions` by name only, for the Debrief event scope."""
+
+
+def debriefs_of(user: Principal | uuid.UUID) -> Select:
+    """The ids of the Debrief sessions of the Games in which `user` holds or has held a Seat
+    (Story 9.11, AD-8, AD-21): the `debrief:<id>` topics their event stream forwards. An event
+    names only the id; every read behind it is the Debrief's own, held to the Student's game."""
+    return select(_debrief_sessions.c.id).where(_debrief_sessions.c.game_id.in_(own_seat(user)))
 
 
 _messages = table("messages", column("id"), column("class_session_id"))

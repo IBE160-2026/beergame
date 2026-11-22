@@ -1,0 +1,6 @@
+{# The Group debrief of the Student's Class game did not get past the shared steps within 48 hours
+   of the game's end (Story 9.12, FR-43), a digest kind. `class_name` comes from
+   `sessions.service.debrief_fallback_mail_context` at send time, which leaves the mail out once
+   the Student has finished the Debrief. Draft copy. #}
+{% set subject = "Debriefen din er nå en Personlig debrief" %}
+Gruppedebriefen i Klassen {{ class_name }} ble ikke ferdig innen 48 timer etter at spillet sluttet. Du fortsetter alene, som en Personlig debrief, fra steget du var på. Gå til Debriefen fra Hjem.

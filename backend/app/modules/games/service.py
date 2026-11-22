@@ -1,17 +1,18 @@
 """What other modules may use from `games`. Writes go through `games.commands` only."""
 
 import uuid
-from collections.abc import Collection, Sequence
+from collections.abc import Awaitable, Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from typing import Literal
+from typing import Any, Literal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai import budget as ai_budget
 from app.analysis.wall import PlayedGame
 from app.engine import GameSettings, WeekState
+from app.modules.games import facts as _facts
 from app.modules.games import repo
 from app.modules.games.batches import create_batch, get_batch
 from app.modules.games.checks import (
@@ -139,6 +140,16 @@ __all__ = [
     "complete_running_games",
     "create_batch",
     "database_now",
+    "finished_at",
+    "FinishedGame",
+    "FinishHook",
+    "on_game_finished",
+    "run_finish_hooks",
+    "FinishedSeat",
+    "finished_student_seats",
+    "demand_series",
+    "fact_set",
+    "StoredFactSet",
     "games_charged_to",
     "scope_of",
     "own_game",
@@ -292,6 +303,32 @@ async def student_game(
     )
 
 
+@dataclass(frozen=True)
+class GameStudent:
+    """A Student whose game (`student_game`) a Class game is (Story 9.11): their Seat's Role and
+    how many of its Orders a Student decided (`decided_by = student`)."""
+
+    user_id: uuid.UUID
+    role: str
+    student_orders: int
+
+
+async def game_students(session: AsyncSession, game_id: uuid.UUID) -> list[GameStudent]:
+    """The Students whose game the Class game `game_id` is, through `student_game` (so a Student
+    moved to another game since is left out), with their own-Order counts, in the caller's
+    transaction; empty for a Game with no Class session."""
+    game = await repo.get_game(session, game_id)
+    if game is None or game["class_session_id"] is None:
+        return []
+    orders = await repo.student_orders_by_role(session, game_id)
+    found = []
+    for user_id in await repo.named_students(session, game_id):
+        theirs = await student_game(session, user_id, game["class_session_id"])
+        if theirs is not None and theirs.game_id == game_id:
+            found.append(GameStudent(user_id, theirs.role, orders.get(theirs.role, 0)))
+    return sorted(found, key=lambda each: str(each.user_id))
+
+
 PlayStatusName = Literal["not_ready", "ready", "running", "finished"]
 
 
@@ -318,6 +355,12 @@ async def play_status(session: AsyncSession, game_id: uuid.UUID) -> PlayStatus:
     if lifecycle in (Lifecycle.RUNNING, Lifecycle.PLAYING_OUT):
         return PlayStatus("running", await repo.open_week(session, game_id))
     raise ValueError(f"unknown lifecycle {lifecycle!r}")
+
+
+async def finished_at(session: AsyncSession, game_id: uuid.UUID) -> datetime | None:
+    """When the Game finished (its finished Week state was stored, database time), read in the
+    caller's transaction; None before then (Story 9.12)."""
+    return await repo.finished_at(session, game_id)
 
 
 async def database_now(session: AsyncSession) -> datetime:
@@ -472,6 +515,31 @@ async def get_game(game_id: str) -> GameOverview | None:
     )
 
 
+async def demand_series(game_id: str) -> tuple[int, ...] | None:
+    """The Game's stored customer demand series, Week 1 first (FR-13, AD-4), or None when there
+    is no such Game or it has no snapshot yet. Only for reveals after the Explanation (Story 9.4,
+    FR-14): no Seat state carries it."""
+    try:
+        game_uuid = uuid.UUID(game_id)
+    except ValueError, TypeError, AttributeError:
+        return None
+    async with get_sessionmaker()() as session:
+        game = await repo.get_game(session, game_uuid)
+    if game is None or game["demand_series"] is None:
+        return None
+    return tuple(int(value) for value in game["demand_series"])
+
+
+StoredFactSet = _facts.StoredFactSet
+
+
+async def fact_set(game_id: str, seat: str) -> StoredFactSet:
+    """The stored facts set of the Seat (its Role or id) of the finished Game (Story 9.1, AD-7):
+    built and stored by the first call, as stored after that. For readers outside `games` (the
+    Debrief, Story 9.5). Raises `ViewError` as `games.facts.get_or_create` does."""
+    return await _facts.get_or_create(game_id, seat)
+
+
 def _or_none[T: (GameSettings, SessionRuntime)](model: type[T], value: object) -> T | None:
     return None if value is None else model.model_validate(value)
 
@@ -546,6 +614,88 @@ async def complete_running_games() -> list[str]:
     process stopped between an Order and the advance (NFR-4)."""
     async with get_sessionmaker()() as session:
         return [str(game_id) for game_id in await repo.complete_running_games(session)]
+
+
+# The finish hooks (Story 9.14, AD-9): the pattern of the lock's pin providers (Story 5.11).
+
+
+@dataclass(frozen=True)
+class FinishedGame:
+    """What a finish hook is told about the Game that has just finished, ids only: its purpose,
+    its Class session (None outside one), its snapshot's pins and the Seats a Student ever held,
+    from the occupancy history (so one whose Seat an AI player took over counts too)."""
+
+    game_id: uuid.UUID
+    purpose: str
+    class_session_id: uuid.UUID | None
+    pins: Mapping[str, Any]
+    student_seat_ids: tuple[uuid.UUID, ...]
+
+
+type FinishHook = Callable[[AsyncSession, FinishedGame], Awaitable[None]]
+"""`(session, finished)`: runs inside the finishing command's transaction."""
+
+_finish_hooks: dict[str, FinishHook] = {}
+
+
+def on_game_finished(name: str, hook: FinishHook) -> None:
+    """Run `hook` inside the transaction that finishes every Game from now on (Story 9.14): the
+    Debrief defers its narration jobs there, so `games` imports nothing from the module that
+    registers. Registering the same hook again changes nothing; another under a taken name is
+    refused."""
+    known = _finish_hooks.get(name)
+    if known is not None and known is not hook:
+        raise ValueError(f"a finish hook named {name!r} is registered already")
+    _finish_hooks[name] = hook
+
+
+async def run_finish_hooks(session: AsyncSession, game_id: uuid.UUID) -> None:
+    """Called by `games.commands.finish` once the Game is finished, in its transaction: every
+    registered hook, by name. A hook's exception rolls the finish back, so hooks only defer."""
+    if not _finish_hooks:
+        return
+    game = await repo.get_game(session, game_id)
+    if game is None:
+        return
+    runtime = game["session_runtime"] or {}
+    seats = []
+    for row in await repo.occupancy_history(session, game_id):
+        if row["occupant_kind"] == OccupantKind.STUDENT and row["seat_id"] not in seats:
+            seats.append(row["seat_id"])
+    finished = FinishedGame(
+        game_id=game_id,
+        purpose=game["purpose"],
+        class_session_id=game["class_session_id"],
+        pins=runtime.get("pins") or {},
+        student_seat_ids=tuple(seats),
+    )
+    for _, hook in sorted(_finish_hooks.items()):
+        await hook(session, finished)
+
+
+@dataclass(frozen=True)
+class FinishedSeat:
+    """A Seat a Student held in a finished Class game (Story 9.14): ids, the snapshot's pins and
+    the Seat's stored facts set id (None before one is stored)."""
+
+    game_id: uuid.UUID
+    seat_id: uuid.UUID
+    pins: Mapping[str, Any]
+    fact_set_id: uuid.UUID | None
+
+
+async def finished_student_seats(
+    finished_after: datetime, finished_before: datetime
+) -> list[FinishedSeat]:
+    """Each Seat a Student ever held in a Class game that finished after `finished_after` and at
+    or before `finished_before` (database time), oldest finish first: for the Debrief's sweep,
+    which defers a lost narration job again."""
+    async with get_sessionmaker()() as session:
+        rows = await repo.finished_student_seats(session, finished_after, finished_before)
+    return [
+        FinishedSeat(row["game_id"], row["seat_id"], row["pins"] or {}, row["fact_set_id"])
+        for row in rows
+    ]
 
 
 @dataclass(frozen=True)

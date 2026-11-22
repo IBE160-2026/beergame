@@ -46,9 +46,19 @@ export function PageShell({
   children?: ReactNode;
 }) {
   const ready = phase === "ready";
-  // The tab title follows the h1, so a refused page is not titled with the page it refuses.
+  // The tab title follows the h1, so a refused page is not titled with the page it refuses. The
+  // route's own metadata title can stream in after this effect (Next.js streams metadata) and
+  // would name the refused page again: while mounted, the shell sets its title back.
   useEffect(() => {
-    if (title && ready) document.title = `${title} – ${nb.product.name}`;
+    if (!title || !ready) return;
+    const wanted = `${title} – ${nb.product.name}`;
+    const apply = () => {
+      if (document.title !== wanted) document.title = wanted;
+    };
+    apply();
+    const observer = new MutationObserver(apply);
+    observer.observe(document.head, { subtree: true, childList: true, characterData: true });
+    return () => observer.disconnect();
   }, [title, ready]);
   return (
     <div className="min-h-dvh">

@@ -643,6 +643,74 @@
         "title": "AuditTarget",
         "type": "object"
       },
+      "BillOut": {
+        "description": "The Debrief's extra lines under Kjedens regning (Story 9.8, FR-44, UX-DR36), every number\nfrom the stored facts set of the Student's own Seat (AD-7). The Role rows and Kjedens kostnad\nover tid are the game result's (`/api/me/games/{id}/result`, Story 6.18).",
+        "properties": {
+          "ai_held_cost": {
+            "title": "Ai Held Cost",
+            "type": "string"
+          },
+          "ai_held_share_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ai Held Share Percent"
+          },
+          "backorder_cost": {
+            "title": "Backorder Cost",
+            "type": "string"
+          },
+          "backorder_costs_double": {
+            "title": "Backorder Costs Double",
+            "type": "boolean"
+          },
+          "backorder_share_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Backorder Share Percent"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "simulated": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SimulatedOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total_cost": {
+            "title": "Total Cost",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "total_cost",
+          "backorder_cost",
+          "backorder_share_percent",
+          "backorder_costs_double",
+          "ai_held_cost",
+          "ai_held_share_percent",
+          "simulated"
+        ],
+        "title": "BillOut",
+        "type": "object"
+      },
       "BounceClass": {
         "description": "Why a mail did not reach its address: `hard` the provider calls permanent (the address\ndoes not exist or refuses mail), `soft` every other bounce (a full mailbox, a server down).",
         "enum": [
@@ -659,6 +727,94 @@
         ],
         "title": "BouncedRegistration",
         "type": "string"
+      },
+      "ChainOut": {
+        "description": "Step 3, the whole chain (Story 9.5, FR-44, UX-DR33, UX-DR34): all four Roles, Fabrikk\nfirst (upstream first, the order the Ordrestolper rows and the scrubber's reading take), each\nwith every logged Uke, oldest first. Every number is the api's (AD-10).",
+        "properties": {
+          "large_order": {
+            "title": "Large Order",
+            "type": "integer"
+          },
+          "last_week": {
+            "title": "Last Week",
+            "type": "integer"
+          },
+          "own_role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/ChainRoleOut"
+            },
+            "title": "Roles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "own_role",
+          "last_week",
+          "large_order",
+          "roles"
+        ],
+        "title": "ChainOut",
+        "type": "object"
+      },
+      "ChainRoleOut": {
+        "description": "One Role of the whole chain: every Uke, and from the stored facts set (Story 9.1, AD-7) its\nForsterkning and the first Uke with an Order of `large_order` or more.",
+        "properties": {
+          "amplification": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amplification"
+          },
+          "capacity": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capacity"
+          },
+          "first_large_order_week": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Large Order Week"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "weeks": {
+            "items": {
+              "$ref": "#/components/schemas/ChainWeekOut"
+            },
+            "title": "Weeks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "role",
+          "amplification",
+          "first_large_order_week",
+          "capacity",
+          "weeks"
+        ],
+        "title": "ChainRoleOut",
+        "type": "object"
       },
       "ChainWeekCost": {
         "additionalProperties": false,
@@ -688,6 +844,45 @@
           "week"
         ],
         "title": "ChainWeekCost",
+        "type": "object"
+      },
+      "ChainWeekOut": {
+        "description": "One Uke of one Role in the whole chain (Story 9.5): its Order and the Week state it saw\nwhen it ordered (the Decision log's `state_seen`, as the play screen showed it).",
+        "properties": {
+          "backlog": {
+            "title": "Backlog",
+            "type": "integer"
+          },
+          "incoming_order": {
+            "title": "Incoming Order",
+            "type": "integer"
+          },
+          "inventory": {
+            "title": "Inventory",
+            "type": "integer"
+          },
+          "order": {
+            "title": "Order",
+            "type": "integer"
+          },
+          "supply_line": {
+            "title": "Supply Line",
+            "type": "integer"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "week",
+          "order",
+          "incoming_order",
+          "inventory",
+          "backlog",
+          "supply_line"
+        ],
+        "title": "ChainWeekOut",
         "type": "object"
       },
       "Choice": {
@@ -1152,6 +1347,10 @@
             "title": "Created At",
             "type": "string"
           },
+          "debrief_ai_text": {
+            "title": "Debrief Ai Text",
+            "type": "boolean"
+          },
           "debrief_deadline": {
             "anyOf": [
               {
@@ -1166,6 +1365,9 @@
           },
           "debrief_mode": {
             "$ref": "#/components/schemas/DebriefMode"
+          },
+          "debrief_release": {
+            "$ref": "#/components/schemas/DebriefRelease"
           },
           "effort_level": {
             "anyOf": [
@@ -1373,6 +1575,8 @@
           "is_classic",
           "ai_mode",
           "debrief_mode",
+          "debrief_release",
+          "debrief_ai_text",
           "inactivity_limit_hours",
           "obligatory",
           "required_share_percent",
@@ -1432,10 +1636,31 @@
               }
             ]
           },
+          "debrief_ai_text": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Debrief Ai Text"
+          },
           "debrief_mode": {
             "anyOf": [
               {
                 "$ref": "#/components/schemas/DebriefMode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "debrief_release": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DebriefRelease"
               },
               {
                 "type": "null"
@@ -1753,6 +1978,133 @@
         ],
         "title": "DebriefMode",
         "type": "string"
+      },
+      "DebriefOut": {
+        "description": "The Student's Debrief session: its id (the `debrief:<id>` topic, AD-8), the game it\nreviews and the step pointer. Never the demand series, the number of Weeks or another\nSeat's numbers (FR-14): those come with the steps that reveal them, after the Explanation.",
+        "properties": {
+          "class_session_id": {
+            "format": "uuid",
+            "title": "Class Session Id",
+            "type": "string"
+          },
+          "game_id": {
+            "format": "uuid",
+            "title": "Game Id",
+            "type": "string"
+          },
+          "game_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Number"
+          },
+          "group": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GroupOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "step": {
+            "title": "Step",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "class_session_id",
+          "game_id",
+          "game_number",
+          "role",
+          "step"
+        ],
+        "title": "DebriefOut",
+        "type": "object"
+      },
+      "DebriefRelease": {
+        "description": "When the Debriefs open (Story 9.2, FR-42): `open`, each Student's once their own Class\ngame has finished (the default; it can reveal the Demand pattern to Students still playing),\nor `hold`, every Debrief once all Class games have finished.",
+        "enum": [
+          "open",
+          "hold"
+        ],
+        "title": "DebriefRelease",
+        "type": "string"
+      },
+      "DebriefStepOut": {
+        "description": "A Debrief step after step 1, reached only with a saved Explanation (FR-41, FR-43). Step 2\ncarries the reveal (Story 9.4), step 3 the whole chain (Story 9.5), step 4 the own moments\n(Story 9.7) and the Debrief's lines under Kjedens regning (Story 9.8); step 5, the Debrief quiz,\nhas routes of its own (`/quiz`, Story 9.9) and answers the step number only here.",
+        "properties": {
+          "bill": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BillOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "chain": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChainOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "debrief_id": {
+            "format": "uuid",
+            "title": "Debrief Id",
+            "type": "string"
+          },
+          "moments": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MomentsOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reveal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RevealOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "step": {
+            "title": "Step",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "debrief_id",
+          "step"
+        ],
+        "title": "DebriefStepOut",
+        "type": "object"
       },
       "DemandFixed": {
         "additionalProperties": false,
@@ -2187,6 +2539,45 @@
         "title": "ErrorEnvelope",
         "type": "object"
       },
+      "ExplanationIn": {
+        "description": "«Send Forklaring»: the text as typed. It must hold more than white space and at most\n5000 characters (422 `validation_error`).",
+        "properties": {
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "ExplanationIn",
+        "type": "object"
+      },
+      "ExplanationOut": {
+        "description": "A stored Explanation (FR-41, AD-14): the text as typed, its length in characters and when\nit was saved. Never changed after it is stored.",
+        "properties": {
+          "length": {
+            "title": "Length",
+            "type": "integer"
+          },
+          "saved_at": {
+            "format": "date-time",
+            "title": "Saved At",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "length",
+          "saved_at"
+        ],
+        "title": "ExplanationOut",
+        "type": "object"
+      },
       "FinalIn": {
         "additionalProperties": false,
         "properties": {
@@ -2198,6 +2589,93 @@
           "choice"
         ],
         "title": "FinalIn",
+        "type": "object"
+      },
+      "FollowUpAnswerOut": {
+        "description": "A follow-up question with its answer (Story 9.15, FR-45, AD-7): `answered` carries the hint\ntext code rendered from the model's choice of templates and facts, marked by `ai_generated`;\n`declined` (outside the Game) and `unanswered` (no answer could be given: the call failed or\nits output was rejected) carry none, and the web app shows a fixed line. Only `answered` and\n`declined` are stored; `asked_at` is null for `unanswered`.",
+        "properties": {
+          "answer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RenderedTextOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "asked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asked At"
+          },
+          "outcome": {
+            "enum": [
+              "answered",
+              "declined",
+              "unanswered"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome",
+          "question"
+        ],
+        "title": "FollowUpAnswerOut",
+        "type": "object"
+      },
+      "FollowUpIn": {
+        "description": "A follow-up question about the Student's own Game (Story 9.15): as typed. It must hold more\nthan white space and at most 500 characters (422 `validation_error`).",
+        "properties": {
+          "question": {
+            "title": "Question",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question"
+        ],
+        "title": "FollowUpIn",
+        "type": "object"
+      },
+      "FollowUpOut": {
+        "description": "The follow-up field under the reflection questions (Story 9.15, FR-45, FR-15): `off` when\nthe Class session's Debrief AI text is off, no provider may answer, the pinned templates hold\nno hints or the Seat has no fact to point to (the field is not shown); `closed` after the\nStudent's Test deadline or once their Individual test has opened; else `open`. `asked` holds\nthe Student's own stored questions, oldest first.",
+        "properties": {
+          "asked": {
+            "items": {
+              "$ref": "#/components/schemas/FollowUpAnswerOut"
+            },
+            "title": "Asked",
+            "type": "array"
+          },
+          "state": {
+            "enum": [
+              "off",
+              "open",
+              "closed"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "asked"
+        ],
+        "title": "FollowUpOut",
         "type": "object"
       },
       "FunnelStageOut": {
@@ -2636,6 +3114,128 @@
           "value"
         ],
         "title": "GivenRowOut",
+        "type": "object"
+      },
+      "GroupMemberOut": {
+        "description": "A joined Student of a Group debrief as the other joined Students see them (Story 9.11,\nFR-43): the Roster name now (None once no longer a Student of the Class), whether it is the\ncaller, whether their Explanation is sent and whether they have finished the shared step. Never\nthe text of their Explanation or answers.",
+        "properties": {
+          "done": {
+            "title": "Done",
+            "type": "boolean"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "sent": {
+            "title": "Sent",
+            "type": "boolean"
+          },
+          "you": {
+            "title": "You",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "you",
+          "sent",
+          "done"
+        ],
+        "title": "GroupMemberOut",
+        "type": "object"
+      },
+      "GroupOut": {
+        "description": "A Group debrief's shared step pointer (Story 9.11, FR-43): `step` 1 to 3 is shared, 4 means\neach Student works alone from the reflection questions on. `move_on_at` is when the opener may\nmove every joined Student on (database time). `members` only for a joined caller, else\nempty. Story 9.12: `opener` is whoever may move on now (the earliest-joined Student still\nthere once the opener has gone); `alone` says why the caller goes on as a Personal debrief\n(`left`, `dropout`, `fallback`, `missed`), from shared step `alone_from`; both None\notherwise.",
+        "properties": {
+          "alone": {
+            "anyOf": [
+              {
+                "enum": [
+                  "left",
+                  "dropout",
+                  "fallback",
+                  "missed"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alone"
+          },
+          "alone_from": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alone From"
+          },
+          "joined": {
+            "title": "Joined",
+            "type": "boolean"
+          },
+          "members": {
+            "items": {
+              "$ref": "#/components/schemas/GroupMemberOut"
+            },
+            "title": "Members",
+            "type": "array"
+          },
+          "move_on_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Move On At"
+          },
+          "opener": {
+            "title": "Opener",
+            "type": "boolean"
+          },
+          "step": {
+            "title": "Step",
+            "type": "integer"
+          },
+          "step_opened_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step Opened At"
+          }
+        },
+        "required": [
+          "step",
+          "joined",
+          "opener",
+          "step_opened_at",
+          "move_on_at",
+          "members"
+        ],
+        "title": "GroupOut",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -3376,6 +3976,25 @@
         "title": "LabHourOut",
         "type": "object"
       },
+      "LargestOrderOut": {
+        "description": "The Student's largest Order and the first Uke they placed it («Din ordre, 24 i Uke 11»).",
+        "properties": {
+          "order": {
+            "title": "Order",
+            "type": "integer"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "week",
+          "order"
+        ],
+        "title": "LargestOrderOut",
+        "type": "object"
+      },
       "LecturerOverviewOut": {
         "description": "The Lærerhjem's «Venter» and «Neste frist» (Story 5.2, UX-DR56): over the User's Classes\nthat are not archived.",
         "properties": {
@@ -3638,6 +4257,143 @@
         "title": "MessageSentOut",
         "type": "object"
       },
+      "MomentOut": {
+        "description": "One own moment (Story 9.7, FR-44): its texts rendered by code from the stored facts set,\nthe other Roles' numbers that Uke, and `seen`, the Seat's Week as it saw it when it ordered\n(the Decision log's `state_seen`, for «Dette så du»).",
+        "properties": {
+          "chosen_by": {
+            "enum": [
+              "pattern",
+              "order_gap"
+            ],
+            "title": "Chosen By",
+            "type": "string"
+          },
+          "heading": {
+            "$ref": "#/components/schemas/RenderedTextOut"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "later": {
+            "$ref": "#/components/schemas/RenderedTextOut"
+          },
+          "order": {
+            "title": "Order",
+            "type": "integer"
+          },
+          "others": {
+            "items": {
+              "$ref": "#/components/schemas/OtherSeenOut"
+            },
+            "title": "Others",
+            "type": "array"
+          },
+          "patterns": {
+            "items": {
+              "$ref": "#/components/schemas/RenderedTextOut"
+            },
+            "title": "Patterns",
+            "type": "array"
+          },
+          "reckoning": {
+            "$ref": "#/components/schemas/RenderedTextOut"
+          },
+          "seen": {
+            "$ref": "#/components/schemas/SeatState"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "week",
+          "order",
+          "chosen_by",
+          "heading",
+          "reckoning",
+          "later",
+          "patterns",
+          "others",
+          "seen"
+        ],
+        "title": "MomentOut",
+        "type": "object"
+      },
+      "MomentsOut": {
+        "description": "Step 4, the Student's own moments (Story 9.7, FR-44, UX-DR31), from the facts set stored\nfor them (AD-7). With fewer than 10 own Orders the game was played mostly by AI players:\n`mostly_ai`, no heading and no moments; the rest of the Debrief stays open.",
+        "properties": {
+          "heading": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RenderedTextOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "moments": {
+            "items": {
+              "$ref": "#/components/schemas/MomentOut"
+            },
+            "title": "Moments",
+            "type": "array"
+          },
+          "mostly_ai": {
+            "title": "Mostly Ai",
+            "type": "boolean"
+          },
+          "narration": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RenderedTextOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "student_orders": {
+            "title": "Student Orders",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "role",
+          "student_orders",
+          "mostly_ai",
+          "heading",
+          "moments"
+        ],
+        "title": "MomentsOut",
+        "type": "object"
+      },
+      "MyExplanationOut": {
+        "description": "The Student's own Explanation in this Debrief, or None before it is sent.",
+        "properties": {
+          "explanation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExplanationOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "explanation"
+        ],
+        "title": "MyExplanationOut",
+        "type": "object"
+      },
       "MyMessageOut": {
         "description": "One Message on the Student's Hjem (Story 7.10): plain text, shown as written.",
         "properties": {
@@ -3703,6 +4459,26 @@
         "title": "MyMessagesOut",
         "type": "object"
       },
+      "MySummaryOut": {
+        "description": "The Student's own Debrief summary, `summary` None until «Fullfør Debriefen».",
+        "properties": {
+          "summary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SummaryOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "summary"
+        ],
+        "title": "MySummaryOut",
+        "type": "object"
+      },
       "NeighbourNumber": {
         "additionalProperties": false,
         "description": "One number about a neighbouring Seat, labelled with its Role and the Week it refers to.",
@@ -3736,6 +4512,42 @@
           "value"
         ],
         "title": "NeighbourNumber",
+        "type": "object"
+      },
+      "NetInventoryOut": {
+        "description": "«Ditt netto lager, hele spillet» (Story 9.3, step 1): the Student's own Seat only, every\nlogged Uke, oldest first. No demand and no other Seat (FR-14, FR-41).",
+        "properties": {
+          "weeks": {
+            "items": {
+              "$ref": "#/components/schemas/NetWeekOut"
+            },
+            "title": "Weeks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "weeks"
+        ],
+        "title": "NetInventoryOut",
+        "type": "object"
+      },
+      "NetWeekOut": {
+        "description": "One Uke of the Student's own Netto lager (Story 9.3): inventory minus backlog as their\nSeat saw it when ordering that Uke (the Decision log's `state_seen`).",
+        "properties": {
+          "net_inventory": {
+            "title": "Net Inventory",
+            "type": "integer"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "week",
+          "net_inventory"
+        ],
+        "title": "NetWeekOut",
         "type": "object"
       },
       "NewPasswordIn": {
@@ -3938,6 +4750,39 @@
           "position_base"
         ],
         "title": "OrderPreview",
+        "type": "object"
+      },
+      "OtherSeenOut": {
+        "description": "What another Role saw in the moment's Uke (the facts set's `others_seen`).",
+        "properties": {
+          "backlog": {
+            "title": "Backlog",
+            "type": "integer"
+          },
+          "incoming_order": {
+            "title": "Incoming Order",
+            "type": "integer"
+          },
+          "inventory": {
+            "title": "Inventory",
+            "type": "integer"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "supply_line": {
+            "title": "Supply Line",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "role",
+          "incoming_order",
+          "inventory",
+          "backlog",
+          "supply_line"
+        ],
+        "title": "OtherSeenOut",
         "type": "object"
       },
       "OverviewAiOut": {
@@ -4316,6 +5161,378 @@
         "title": "ProposalPersonOut",
         "type": "object"
       },
+      "QuizAnswerIn": {
+        "properties": {
+          "choice_id": {
+            "title": "Choice Id",
+            "type": "string"
+          },
+          "question_id": {
+            "title": "Question Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question_id",
+          "choice_id"
+        ],
+        "title": "QuizAnswerIn",
+        "type": "object"
+      },
+      "QuizAttemptIn": {
+        "description": "An attempt: one answer per asked question, in the order shown (422 `validation_error`\notherwise).",
+        "properties": {
+          "answers": {
+            "items": {
+              "$ref": "#/components/schemas/QuizAnswerIn"
+            },
+            "title": "Answers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "answers"
+        ],
+        "title": "QuizAttemptIn",
+        "type": "object"
+      },
+      "QuizAttemptOut": {
+        "description": "A scored attempt (Story 9.9, FR-46): its number from 1, when it was stored, how many of the\nasked questions were right and every question with its result.",
+        "properties": {
+          "asked": {
+            "title": "Asked",
+            "type": "integer"
+          },
+          "correct": {
+            "title": "Correct",
+            "type": "integer"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/QuizResultOut"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "submitted_at": {
+            "format": "date-time",
+            "title": "Submitted At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "number",
+          "submitted_at",
+          "passed",
+          "correct",
+          "asked",
+          "results"
+        ],
+        "title": "QuizAttemptOut",
+        "type": "object"
+      },
+      "QuizChoiceOut": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "text"
+        ],
+        "title": "QuizChoiceOut",
+        "type": "object"
+      },
+      "QuizExclusionsIn": {
+        "description": "«Lagre quizvalg»: the ids of every question to take out; the others are asked.",
+        "properties": {
+          "excluded": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Excluded",
+            "type": "array"
+          }
+        },
+        "required": [
+          "excluded"
+        ],
+        "title": "QuizExclusionsIn",
+        "type": "object"
+      },
+      "QuizOut": {
+        "description": "Step 5, the Debrief quiz (Story 9.9, FR-46, UX-DR37): the version the Class session pinned\nat the lock, whether it is placeholder content (issue #16), the attempts so far and when it was\npassed, the questions of the next attempt (the order may change between attempts; none once\npassed) and the latest attempt's result.",
+        "properties": {
+          "attempts": {
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "last": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QuizAttemptOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "passed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Passed At"
+          },
+          "placeholder": {
+            "title": "Placeholder",
+            "type": "boolean"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/QuizQuestionOut"
+            },
+            "title": "Questions",
+            "type": "array"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "placeholder",
+          "attempts",
+          "passed_at",
+          "questions",
+          "last"
+        ],
+        "title": "QuizOut",
+        "type": "object"
+      },
+      "QuizQuestionOut": {
+        "description": "A Debrief quiz question as asked (Story 9.9): its prompt and choices in the order shown.\nNever its answer key.",
+        "properties": {
+          "choices": {
+            "items": {
+              "$ref": "#/components/schemas/QuizChoiceOut"
+            },
+            "title": "Choices",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "prompt",
+          "choices"
+        ],
+        "title": "QuizQuestionOut",
+        "type": "object"
+      },
+      "QuizResultOut": {
+        "description": "One question of a scored attempt, in the order shown: the Student's choice, the right one\nand, when the choice was wrong, the explanation (the content's text, then the sentence about\nthe Student's own Game rendered by code from the facts set of their Seat, AD-7).",
+        "properties": {
+          "ai_explanation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RenderedTextOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "choices": {
+            "items": {
+              "$ref": "#/components/schemas/QuizChoiceOut"
+            },
+            "title": "Choices",
+            "type": "array"
+          },
+          "chosen": {
+            "title": "Chosen",
+            "type": "string"
+          },
+          "correct": {
+            "title": "Correct",
+            "type": "boolean"
+          },
+          "explanation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RenderedTextOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "question_id": {
+            "title": "Question Id",
+            "type": "string"
+          },
+          "right_choice": {
+            "title": "Right Choice",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question_id",
+          "prompt",
+          "choices",
+          "chosen",
+          "right_choice",
+          "correct",
+          "explanation"
+        ],
+        "title": "QuizResultOut",
+        "type": "object"
+      },
+      "ReflectionAnswerIn": {
+        "description": "«Fortsett» on a reflection question: the answer as typed. It must hold more than white\nspace and at most 2000 characters (422 `validation_error`).",
+        "properties": {
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "ReflectionAnswerIn",
+        "type": "object"
+      },
+      "ReflectionAnswerOut": {
+        "description": "A stored reflection answer (FR-45, AD-14): as typed, its length in characters and when it\nwas saved. Never changed after it is stored.",
+        "properties": {
+          "length": {
+            "title": "Length",
+            "type": "integer"
+          },
+          "saved_at": {
+            "format": "date-time",
+            "title": "Saved At",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "length",
+          "saved_at"
+        ],
+        "title": "ReflectionAnswerOut",
+        "type": "object"
+      },
+      "ReflectionOut": {
+        "description": "The reflection questions between steps 3 and 4 (Story 9.6, FR-45): the version the Class\nsession pinned at the lock, its questions in the order asked (feelings, evidence, structure),\neach with the caller's own answer only (FR-43).",
+        "properties": {
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/ReflectionQuestionOut"
+            },
+            "title": "Questions",
+            "type": "array"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "questions"
+        ],
+        "title": "ReflectionOut",
+        "type": "object"
+      },
+      "ReflectionQuestionOut": {
+        "description": "One reflection question (Story 9.6) with the Student's own answer, None until answered.",
+        "properties": {
+          "answer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReflectionAnswerOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "feelings",
+              "evidence",
+              "structure"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "prompt",
+          "hint",
+          "answer"
+        ],
+        "title": "ReflectionQuestionOut",
+        "type": "object"
+      },
       "RegistrationOut": {
         "description": "One address on the Roster with its status. `id` names the Roster entry for a reminder to\nit alone; `remindable` is whether a reminder would go to it (not registered, not a hard\nbounce).",
         "properties": {
@@ -4494,6 +5711,37 @@
         "title": "ReminderOut",
         "type": "object"
       },
+      "RenderedTextOut": {
+        "description": "Text the Debrief shows as written (AD-7): code-rendered text says `ai_generated` false and\nhas no `llm_call_id`, and the web app shows it without the «KI-generert, kan ta feil:» prefix,\nwhich only `ai_generated` turns on.",
+        "properties": {
+          "ai_generated": {
+            "default": false,
+            "title": "Ai Generated",
+            "type": "boolean"
+          },
+          "llm_call_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Llm Call Id"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "RenderedTextOut",
+        "type": "object"
+      },
       "ReplacedLevelOut": {
         "description": "An Effort level of the source the new model config does not offer: its name, and the\nsource config's Norwegian label (None: show `name`).",
         "properties": {
@@ -4565,6 +5813,77 @@
           "token"
         ],
         "title": "ResetTokenIn",
+        "type": "object"
+      },
+      "RevealOut": {
+        "description": "Step 2, the reveal of customer demand (Story 9.4, FR-44, UX-DR32): the heading rendered by\ncode from the demand series with the pinned sentence templates, and every logged Uke of the\nStudent's own Seat, oldest first. Every number is the api's (AD-10).",
+        "properties": {
+          "heading": {
+            "title": "Heading",
+            "type": "string"
+          },
+          "largest_order": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LargestOrderOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "template_id": {
+            "title": "Template Id",
+            "type": "string"
+          },
+          "weeks": {
+            "items": {
+              "$ref": "#/components/schemas/RevealWeekOut"
+            },
+            "title": "Weeks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "heading",
+          "template_id",
+          "role",
+          "weeks",
+          "largest_order"
+        ],
+        "title": "RevealOut",
+        "type": "object"
+      },
+      "RevealWeekOut": {
+        "description": "One Uke of the reveal (Story 9.4): what the customers ordered, the Order that reached the\nStudent's own Seat (all they saw) and the Order they placed. From the Game's stored demand\nseries and the Seat's own Decision log rows.",
+        "properties": {
+          "demand": {
+            "title": "Demand",
+            "type": "integer"
+          },
+          "incoming_order": {
+            "title": "Incoming Order",
+            "type": "integer"
+          },
+          "order": {
+            "title": "Order",
+            "type": "integer"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "week",
+          "demand",
+          "incoming_order",
+          "order"
+        ],
+        "title": "RevealWeekOut",
         "type": "object"
       },
       "Role": {
@@ -5644,6 +6963,244 @@
         "title": "SettingsCheckOut",
         "type": "object"
       },
+      "SharedChainOut": {
+        "description": "The whole chain as the shared screen draws it: four Roles, Fabrikk first, and the chain's\ncost («Kjeden»).",
+        "properties": {
+          "backorder_cost": {
+            "title": "Backorder Cost",
+            "type": "string"
+          },
+          "holding_cost": {
+            "title": "Holding Cost",
+            "type": "string"
+          },
+          "last_week": {
+            "title": "Last Week",
+            "type": "integer"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/SharedRoleOut"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "total_cost": {
+            "title": "Total Cost",
+            "type": "string"
+          }
+        },
+        "required": [
+          "last_week",
+          "holding_cost",
+          "backorder_cost",
+          "total_cost",
+          "roles"
+        ],
+        "title": "SharedChainOut",
+        "type": "object"
+      },
+      "SharedOut": {
+        "description": "«Delt skjerm: hele kjeden» (Story 9.13, FR-74, AD-21): a Group debrief's shared charts by\nRole, for a joined Student's display. Never a name, a user id, an Explanation, a reflection\nanswer, a moment or any free text: the schema has no text field at all. `locked` while a joined\nStudent has not sent their Explanation, and then `chain` is None (no demand, no chain data,\nFR-43). `step` is the group's shared pointer.",
+        "properties": {
+          "chain": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SharedChainOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "class_session_id": {
+            "format": "uuid",
+            "title": "Class Session Id",
+            "type": "string"
+          },
+          "debrief_id": {
+            "format": "uuid",
+            "title": "Debrief Id",
+            "type": "string"
+          },
+          "game_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Number"
+          },
+          "locked": {
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "step": {
+            "title": "Step",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "debrief_id",
+          "class_session_id",
+          "game_number",
+          "step",
+          "locked",
+          "chain"
+        ],
+        "title": "SharedOut",
+        "type": "object"
+      },
+      "SharedRoleOut": {
+        "description": "One Role on the shared screen: every Uke, and from the stored facts set (AD-7) its\nForsterkning and its cost over the whole game, Lager and Restordre apart.",
+        "properties": {
+          "amplification": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amplification"
+          },
+          "backorder_cost": {
+            "title": "Backorder Cost",
+            "type": "string"
+          },
+          "holding_cost": {
+            "title": "Holding Cost",
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "total_cost": {
+            "title": "Total Cost",
+            "type": "string"
+          },
+          "weeks": {
+            "items": {
+              "$ref": "#/components/schemas/SharedWeekOut"
+            },
+            "title": "Weeks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "role",
+          "amplification",
+          "holding_cost",
+          "backorder_cost",
+          "total_cost",
+          "weeks"
+        ],
+        "title": "SharedRoleOut",
+        "type": "object"
+      },
+      "SharedWeekOut": {
+        "description": "One Uke of one Role on the shared screen (Story 9.13): its Order and the Week state it saw\nwhen it ordered (the Decision log's `state_seen`), with its Netto lager.",
+        "properties": {
+          "backlog": {
+            "title": "Backlog",
+            "type": "integer"
+          },
+          "incoming_order": {
+            "title": "Incoming Order",
+            "type": "integer"
+          },
+          "inventory": {
+            "title": "Inventory",
+            "type": "integer"
+          },
+          "net_inventory": {
+            "title": "Net Inventory",
+            "type": "integer"
+          },
+          "order": {
+            "title": "Order",
+            "type": "integer"
+          },
+          "supply_line": {
+            "title": "Supply Line",
+            "type": "integer"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "week",
+          "order",
+          "incoming_order",
+          "inventory",
+          "backlog",
+          "supply_line",
+          "net_inventory"
+        ],
+        "title": "SharedWeekOut",
+        "type": "object"
+      },
+      "SimulatedOut": {
+        "description": "«Simulert, samme kunder» (Story 9.8, FR-44, UX-DR36): the two rows stored in the facts set,\nplayed with the Rule-based parameter set `params_id` (placeholders, issues #8, #17).",
+        "properties": {
+          "params_id": {
+            "title": "Params Id",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/SimulatedRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "params_id",
+          "rows"
+        ],
+        "title": "SimulatedOut",
+        "type": "object"
+      },
+      "SimulatedRowOut": {
+        "description": "One «Simulert, samme kunder» row: the chain's cost over the whole simulated Game.",
+        "properties": {
+          "backorder_cost": {
+            "title": "Backorder Cost",
+            "type": "string"
+          },
+          "counts_supply_line": {
+            "enum": [
+              "own",
+              "all"
+            ],
+            "title": "Counts Supply Line",
+            "type": "string"
+          },
+          "holding_cost": {
+            "title": "Holding Cost",
+            "type": "string"
+          },
+          "total_cost": {
+            "title": "Total Cost",
+            "type": "string"
+          }
+        },
+        "required": [
+          "counts_supply_line",
+          "holding_cost",
+          "backorder_cost",
+          "total_cost"
+        ],
+        "title": "SimulatedRowOut",
+        "type": "object"
+      },
       "StaffAssistant": {
         "description": "An Assistant of the Class: `active` (staff, `user_id` set), or an Invitation not yet\naccepted (`invitation_id` set): `invited` with its last valid day, or `expired`.",
         "properties": {
@@ -5707,6 +7264,31 @@
           "status"
         ],
         "title": "StaffAssistant",
+        "type": "object"
+      },
+      "StaffAttemptOut": {
+        "description": "One of a Student's Debrief quiz attempts as the staff see it (Story 9.10): its number,\ntime and whether it passed; never the answers.",
+        "properties": {
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          },
+          "submitted_at": {
+            "format": "date-time",
+            "title": "Submitted At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "number",
+          "submitted_at",
+          "passed"
+        ],
+        "title": "StaffAttemptOut",
         "type": "object"
       },
       "StaffEmailIn": {
@@ -5774,6 +7356,128 @@
         "title": "StaffOut",
         "type": "object"
       },
+      "StaffQuizAttemptsOut": {
+        "description": "A Student's Debrief quiz attempts for the Class's staff (Story 9.10, FR-46, FR-47): every\nattempt, oldest first, and when the quiz was passed (None while not).",
+        "properties": {
+          "attempts": {
+            "items": {
+              "$ref": "#/components/schemas/StaffAttemptOut"
+            },
+            "title": "Attempts",
+            "type": "array"
+          },
+          "passed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Passed At"
+          }
+        },
+        "required": [
+          "attempts",
+          "passed_at"
+        ],
+        "title": "StaffQuizAttemptsOut",
+        "type": "object"
+      },
+      "StaffQuizOut": {
+        "description": "The Debrief quiz of a Class session for its staff (Story 9.10, FR-46, AD-23): the version\nits lock pinned (`pinned` False: the latest, which the lock will pin), the questions in order,\nwhether the User may take questions out (`can_exclude`: an owner of a Class that is not\narchived) and whether exclusions can still change (`open`: until the Test deadline).",
+        "properties": {
+          "can_exclude": {
+            "title": "Can Exclude",
+            "type": "boolean"
+          },
+          "open": {
+            "title": "Open",
+            "type": "boolean"
+          },
+          "pinned": {
+            "title": "Pinned",
+            "type": "boolean"
+          },
+          "placeholder": {
+            "title": "Placeholder",
+            "type": "boolean"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/StaffQuizQuestionOut"
+            },
+            "title": "Questions",
+            "type": "array"
+          },
+          "test_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test Deadline"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "placeholder",
+          "pinned",
+          "can_exclude",
+          "open",
+          "test_deadline",
+          "questions"
+        ],
+        "title": "StaffQuizOut",
+        "type": "object"
+      },
+      "StaffQuizQuestionOut": {
+        "description": "A Debrief quiz question for the Class's staff (Story 9.10): with its answer key and\nwhether it is taken out of the Class session's quiz.",
+        "properties": {
+          "answer": {
+            "title": "Answer",
+            "type": "string"
+          },
+          "choices": {
+            "items": {
+              "$ref": "#/components/schemas/QuizChoiceOut"
+            },
+            "title": "Choices",
+            "type": "array"
+          },
+          "excluded": {
+            "title": "Excluded",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "prompt",
+          "choices",
+          "answer",
+          "excluded"
+        ],
+        "title": "StaffQuizQuestionOut",
+        "type": "object"
+      },
       "StaffRole": {
         "description": "A User's role in one Class (`class_staff.role`). Co-owners (4.9) are owners too: one role,\nso they have exactly the owner's rights. An Assistant lecturer (4.9) reads the Class.",
         "enum": [
@@ -5791,6 +7495,95 @@
         ],
         "title": "StaffStatus",
         "type": "string"
+      },
+      "StaffSummaryOut": {
+        "description": "A Student's Explanation and Debrief summary for the Class's staff (Story 9.8, FR-47,\nAD-12); each None while not sent or not finished. Story 9.10 adds the Student's Roster name,\nread now and never stored (AD-14; None once they are no longer a Student of the Class), and\ntheir Debrief quiz attempts.",
+        "properties": {
+          "explanation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExplanationOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "game_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Id"
+          },
+          "game_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Number"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "quiz": {
+            "$ref": "#/components/schemas/StaffQuizAttemptsOut"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Role"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "student_id": {
+            "format": "uuid",
+            "title": "Student Id",
+            "type": "string"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SummaryOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "student_id",
+          "name",
+          "game_id",
+          "game_number",
+          "role",
+          "explanation",
+          "summary",
+          "quiz"
+        ],
+        "title": "StaffSummaryOut",
+        "type": "object"
       },
       "StartedTestGameOut": {
         "description": "The test Game just started (Story 6.20); the web app opens its play route.",
@@ -5907,6 +7700,21 @@
       "StepOut": {
         "description": "A step of Stegene (Story 6.1, UX-DR29, AD-10, AD-16), its state computed here: the web app\nholds no rule for which step is open.",
         "properties": {
+          "group_open": {
+            "default": false,
+            "title": "Group Open",
+            "type": "boolean"
+          },
+          "held": {
+            "default": false,
+            "title": "Held",
+            "type": "boolean"
+          },
+          "quiz_changed": {
+            "default": false,
+            "title": "Quiz Changed",
+            "type": "boolean"
+          },
           "state": {
             "enum": [
               "done",
@@ -5947,6 +7755,22 @@
             "format": "uuid",
             "title": "Class Session Id",
             "type": "string"
+          },
+          "debrief": {
+            "anyOf": [
+              {
+                "enum": [
+                  "open",
+                  "not_open",
+                  "held"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Debrief"
           },
           "id": {
             "format": "uuid",
@@ -6077,6 +7901,129 @@
           "value"
         ],
         "title": "SumTermOut",
+        "type": "object"
+      },
+      "SummaryAnswerOut": {
+        "description": "A reflection answer as the Debrief summary stored it, with its question's prompt.",
+        "properties": {
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "question_id": {
+            "title": "Question Id",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question_id",
+          "prompt",
+          "text"
+        ],
+        "title": "SummaryAnswerOut",
+        "type": "object"
+      },
+      "SummaryMomentOut": {
+        "description": "A key moment of the summary, rendered by code from the cited facts set (AD-7).",
+        "properties": {
+          "heading": {
+            "$ref": "#/components/schemas/RenderedTextOut"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "later": {
+            "$ref": "#/components/schemas/RenderedTextOut"
+          },
+          "patterns": {
+            "items": {
+              "$ref": "#/components/schemas/RenderedTextOut"
+            },
+            "title": "Patterns",
+            "type": "array"
+          },
+          "reckoning": {
+            "$ref": "#/components/schemas/RenderedTextOut"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "week",
+          "heading",
+          "reckoning",
+          "later",
+          "patterns"
+        ],
+        "title": "SummaryMomentOut",
+        "type": "object"
+      },
+      "SummaryOut": {
+        "description": "A Student's finished Debrief (Story 9.8, FR-47): the facts set it cites, the key moments,\nthe reflection answers in the order asked, when it was finished and whether that was after\nthe Student's Debrief deadline (`late`, from the stored time).",
+        "properties": {
+          "fact_set_id": {
+            "format": "uuid",
+            "title": "Fact Set Id",
+            "type": "string"
+          },
+          "finished_at": {
+            "format": "date-time",
+            "title": "Finished At",
+            "type": "string"
+          },
+          "late": {
+            "title": "Late",
+            "type": "boolean"
+          },
+          "moments": {
+            "items": {
+              "$ref": "#/components/schemas/SummaryMomentOut"
+            },
+            "title": "Moments",
+            "type": "array"
+          },
+          "quiz_attempts": {
+            "title": "Quiz Attempts",
+            "type": "integer"
+          },
+          "quiz_passed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quiz Passed At"
+          },
+          "reflection": {
+            "items": {
+              "$ref": "#/components/schemas/SummaryAnswerOut"
+            },
+            "title": "Reflection",
+            "type": "array"
+          }
+        },
+        "required": [
+          "fact_set_id",
+          "finished_at",
+          "late",
+          "moments",
+          "reflection",
+          "quiz_attempts",
+          "quiz_passed_at"
+        ],
+        "title": "SummaryOut",
         "type": "object"
       },
       "SupplyLineSlot": {
@@ -8650,7 +10597,7 @@
         ]
       },
       "put": {
-        "description": "«Lagre Klasseøkt»: saves the Class session as it stands. LLM players while no model config\nis pinned as the default answer 409 `llm_unavailable`, and nothing changes.\n\nWith `dates` the four dates are replaced (FR-18). `fields` names each date in question:\n422 `invalid_dates` (`past`, `order` for the later date of a pair out of order, `before` for\nthe earlier one when only it changed, `required` once locked), 409 `deadline_passed`\n(`passed`). Dates count to the whole minute.\n\n`effort_level` and `debrief_mode` (FR-16, FR-78), left out, keep their values. With LLM\nplayers a changed Effort level the model config does not offer answers 422\n`invalid_effort_level` (`{\"effort_level\": \"not_offered\"}`); with Rule-based players no level\nis in force and a sent one is ignored. Once the Start date has passed, a changed AI mode,\nEffort level or Debrief mode answers 409 `session_locked`, `fields` naming each.\n\nWith `game_settings` (the editable settings, laid over the stored ones; `demand` and\n`demand_seed` too) the engine judges the settings (FR-12, FR-13): 422 `invalid_settings` with\n`fields` mapping each setting (`demand.<field>` inside the Demand pattern) to\n`{code, minimum, maximum, decimal_places}`. Once locked, changed settings answer 409\n`session_locked` (`{\"game_settings\": \"locked\"}`).\n\n`game_settings.capacity` (Story 5.15) is `{role: units}` or null: one Role or every Role\ncapped per Week, `capacity.<role>` from 1 to 100. While `FEATURE_CAPACITY` is off a\nnon-empty capacity answers 422 `feature_disabled` (`{\"capacity\": \"feature_disabled\"}`).\n\n`game_settings.info_visibility` (Story 5.16) is `{upstream, downstream}`, two booleans that\nlet each Seat see its neighbour's inventory and backlog; anything else is `info_visibility`\n`invalid`. While `FEATURE_INFO_VISIBILITY` is off a view switched on answers 422\n`feature_disabled` (`{\"info_visibility\": \"feature_disabled\"}`).\n\n`obligatory`, `required_share_percent` and `inactivity_limit_hours` (Story 5.7, FR-17,\nFR-36), left out, keep their values. A changed share outside 1 to 100 or Inactivity limit\nunder 20 hours answers 422 `invalid_session_values` (`out_of_range`, `below_minimum`); once\nlocked a changed one answers 409 `session_locked`. Switching the mark on tells each\nregistered Student through the day's digest mail.\n\n`allocation_method` (Story 5.17, FR-21), left out, keeps the method. `student_choice` creates\nempty Class games for the registered Students and tells each of them through the day's digest\nmail that they may choose a Class game and a Seat. A changed method answers 422\n`feature_disabled` (`{\"allocation_method\": \"feature_disabled\"}`) for Student choice while\n`FEATURE_STUDENT_CHOICE` is off, 409 `session_locked` once locked and 409\n`allocation_confirmed` (`{\"allocation_method\": \"confirmed\"}`) once an allocation is confirmed:\nStudent choice is final once saved.",
+        "description": "«Lagre Klasseøkt»: saves the Class session as it stands. LLM players while no model config\nis pinned as the default answer 409 `llm_unavailable`, and nothing changes.\n\nWith `dates` the four dates are replaced (FR-18). `fields` names each date in question:\n422 `invalid_dates` (`past`, `order` for the later date of a pair out of order, `before` for\nthe earlier one when only it changed, `required` once locked), 409 `deadline_passed`\n(`passed`). Dates count to the whole minute.\n\n`effort_level`, `debrief_mode`, `debrief_release` and `debrief_ai_text` (FR-15, FR-16, FR-42,\nFR-78), left out, keep their values; a changed `debrief_release` or `debrief_ai_text` once\nlocked answers 409 `session_locked` too. With LLM\nplayers a changed Effort level the model config does not offer answers 422\n`invalid_effort_level` (`{\"effort_level\": \"not_offered\"}`); with Rule-based players no level\nis in force and a sent one is ignored. Once the Start date has passed, a changed AI mode,\nEffort level or Debrief mode answers 409 `session_locked`, `fields` naming each.\n\nWith `game_settings` (the editable settings, laid over the stored ones; `demand` and\n`demand_seed` too) the engine judges the settings (FR-12, FR-13): 422 `invalid_settings` with\n`fields` mapping each setting (`demand.<field>` inside the Demand pattern) to\n`{code, minimum, maximum, decimal_places}`. Once locked, changed settings answer 409\n`session_locked` (`{\"game_settings\": \"locked\"}`).\n\n`game_settings.capacity` (Story 5.15) is `{role: units}` or null: one Role or every Role\ncapped per Week, `capacity.<role>` from 1 to 100. While `FEATURE_CAPACITY` is off a\nnon-empty capacity answers 422 `feature_disabled` (`{\"capacity\": \"feature_disabled\"}`).\n\n`game_settings.info_visibility` (Story 5.16) is `{upstream, downstream}`, two booleans that\nlet each Seat see its neighbour's inventory and backlog; anything else is `info_visibility`\n`invalid`. While `FEATURE_INFO_VISIBILITY` is off a view switched on answers 422\n`feature_disabled` (`{\"info_visibility\": \"feature_disabled\"}`).\n\n`obligatory`, `required_share_percent` and `inactivity_limit_hours` (Story 5.7, FR-17,\nFR-36), left out, keep their values. A changed share outside 1 to 100 or Inactivity limit\nunder 20 hours answers 422 `invalid_session_values` (`out_of_range`, `below_minimum`); once\nlocked a changed one answers 409 `session_locked`. Switching the mark on tells each\nregistered Student through the day's digest mail.\n\n`allocation_method` (Story 5.17, FR-21), left out, keeps the method. `student_choice` creates\nempty Class games for the registered Students and tells each of them through the day's digest\nmail that they may choose a Class game and a Seat. A changed method answers 422\n`feature_disabled` (`{\"allocation_method\": \"feature_disabled\"}`) for Student choice while\n`FEATURE_STUDENT_CHOICE` is off, 409 `session_locked` once locked and 409\n`allocation_confirmed` (`{\"allocation_method\": \"confirmed\"}`) once an allocation is confirmed:\nStudent choice is final once saved.",
         "operationId": "saveClassSession",
         "parameters": [
           {
@@ -9111,6 +11058,152 @@
         "summary": "Redraw Allocation",
         "tags": [
           "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/debrief-quiz": {
+      "get": {
+        "description": "The Klasseøkt's «Debrief-quiz» block (Story 9.10, FR-46, AD-12): the Class session's\nDebrief quiz (the version its lock pinned; the latest before), each question with its answer\nkey and whether it is taken out, whether the User may take questions out and whether that can\nstill change (until the Test deadline). For the Class's owners and Assistant lecturers; 403\n`forbidden` for every other caller.",
+        "operationId": "getSessionDebriefQuiz",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffQuizOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Session Debrief Quiz",
+        "tags": [
+          "debrief"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/debrief-quiz/exclusions": {
+      "put": {
+        "description": "«Lagre quizvalg» (Story 9.10, FR-46, AD-23, AD-15): the questions to take out of the Class\nsession's Debrief quiz, the whole set; the others are asked. Stored as Class session rows and\nrecorded in the audit log; a Student who has not passed answers only the rest on their next\nattempt, and one whose last attempt it now covers is told. No Student is passed by it. 409\n`last_question` when no question would be asked, `test_deadline_passed` after the Class\nsession's Test deadline, `class_archived` for an archived Class; 422 `validation_error` for an\nid the quiz does not have; 403 `forbidden` for an Assistant lecturer and every other caller.",
+        "operationId": "setSessionQuizExclusions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuizExclusionsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffQuizOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Set Session Quiz Exclusions",
+        "tags": [
+          "debrief"
         ]
       }
     },
@@ -9905,6 +11998,160 @@
         "summary": "Check Class Session Settings",
         "tags": [
           "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/students/{student_id}/debrief-summary": {
+      "get": {
+        "description": "A Student's Explanation and Debrief summary for the Class's owners and Assistant\nlecturers (Story 9.8, FR-47, AD-12), each null while not sent or not finished: the key\nmoments, the reflection answers, the completion time and whether it was after the Debrief\ndeadline. Story 9.10: the Student's Roster name now (null once they are no longer a Student\nof the Class) and every Debrief quiz attempt with its time and result. 403 `forbidden` for\nevery other caller.",
+        "operationId": "getStudentDebriefSummary",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "student_id",
+            "required": true,
+            "schema": {
+              "title": "Student Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffSummaryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Student Debrief Summary",
+        "tags": [
+          "debrief"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/students/{student_id}/explanation": {
+      "get": {
+        "description": "A Student's Explanation for the Class's owners and Assistant lecturers (AD-12). 404\n`not_found` when the Student has not sent one; 403 `forbidden` for every other caller.",
+        "operationId": "getStudentExplanation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "student_id",
+            "required": true,
+            "schema": {
+              "title": "Student Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExplanationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Student Explanation",
+        "tags": [
+          "debrief"
         ]
       }
     },
@@ -11870,6 +14117,1317 @@
         ]
       }
     },
+    "/api/debriefs/{debrief_id}": {
+      "get": {
+        "description": "The Student's own Debrief session by id. 403 `debrief_not_open`, `debrief_held` or\n`forbidden`, as above.",
+        "operationId": "getMyDebrief",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "debrief_id",
+            "required": true,
+            "schema": {
+              "title": "Debrief Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DebriefOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get My Debrief",
+        "tags": [
+          "debrief"
+        ]
+      }
+    },
+    "/api/debriefs/{debrief_id}/explanation": {
+      "get": {
+        "description": "The Student's own Explanation, `explanation` null before it is sent.",
+        "operationId": "getMyExplanation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "debrief_id",
+            "required": true,
+            "schema": {
+              "title": "Debrief Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyExplanationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get My Explanation",
+        "tags": [
+          "debrief"
+        ]
+      },
+      "post": {
+        "description": "«Send Forklaring» (FR-41): stores the Explanation once, as typed, and records the\n`explanation` step. 409 `explanation_exists` when it is sent already (unchanged), 422\n`validation_error` for white space only or more than 5000 characters.",
+        "operationId": "sendMyExplanation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "debrief_id",
+            "required": true,
+            "schema": {
+              "title": "Debrief Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExplanationIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExplanationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Send My Explanation",
+        "tags": [
+          "debrief"
+        ]
+      }
+    },
+    "/api/debriefs/{debrief_id}/finish": {
+      "post": {
+        "description": "«Fullfør Debriefen» (Story 9.8, FR-47, AD-16): stores the Student's Debrief summary once\n(the key moments by fact id, the reflection answers, the facts set they cite and the time)\nand records the `debrief` step with it; a finished Debrief answers its stored summary\nunchanged. 409 `debrief_incomplete` while a reflection question is unanswered or step 4 was\nnot read, 409 `test_deadline_passed` after the Student's Test deadline, 403\n`explanation_required` before the Explanation.",
+        "operationId": "finishMyDebrief",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "debrief_id",
+            "required": true,
+            "schema": {
+              "title": "Debrief Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MySummaryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Finish My Debrief",
+        "tags": [
+          "debrief"
+        ]
+      }
+    },
+    "/api/debriefs/{debrief_id}/follow-up": {
+      "get": {
+        "description": "The follow-up field under the reflection questions (Story 9.15, FR-45, FR-15): `off` (not\nshown: the Class session's Debrief AI text is off or no model may answer), `open` or `closed`,\nwith the Student's own questions and answers, never another Student's. 403\n`reflection_required` until every reflection question is answered, `explanation_required`\nbefore the Explanation.",
+        "operationId": "getMyFollowUp",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "debrief_id",
+            "required": true,
+            "schema": {
+              "title": "Debrief Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowUpOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get My Follow Up",
+        "tags": [
+          "debrief"
+        ]
+      },
+      "post": {
+        "description": "A follow-up question about the Student's own Game (Story 9.15, FR-45, AD-6, AD-7): one\nmodel call with the question scrubbed against the Roster, answered with hints that point to\nthe Student's own numbers (`answered`, marked by `ai_generated`), a decline for a question\noutside the Game (`declined`), or `unanswered` when no answer could be given (nothing\nstored; ask again). 409 `follow_up_off`, `follow_up_closed` (closed, or the Test deadline has\npassed), 422 `validation_error` (empty, over 500 characters), 429 `rate_limited` with\n`retry_after` seconds, 403 `reflection_required` before the reflection questions are\nanswered.",
+        "operationId": "askFollowUp",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "debrief_id",
+            "required": true,
+            "schema": {
+              "title": "Debrief Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FollowUpIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowUpAnswerOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "summary": "Ask Follow Up",
+        "tags": [
+          "debrief"
+        ]
+      }
+    },
+    "/api/debriefs/{debrief_id}/join": {
+      "post": {
+        "description": "«Bli med» (Story 9.11, FR-43): the Student joins the Group debrief of their own game; a\nsecond join changes nothing. 409 `not_group` on a Personal debrief; 403 `forbidden` for anyone\nwhose game it is not. Story 9.12: 409 `group_closed` for a Student who goes on alone, or\nafter the 48-hour fallback.",
+        "operationId": "joinDebrief",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "debrief_id",
+            "required": true,
+            "schema": {
+              "title": "Debrief Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DebriefOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Join Debrief",
+        "tags": [
+          "debrief"
+        ]
+      }
+    },
+    "/api/debriefs/{debrief_id}/leave": {
+      "post": {
+        "description": "«Forlat gruppen» / «Ta en Personlig debrief» (Story 9.12, FR-43): the Student goes on as a\nPersonal debrief from the shared step they were on, keeping what they saved; final. The group\nno longer waits for them, and when they were the opener the earliest-joined Student still\nthere may move on. Changes nothing once the shared steps are over. 409 `not_group` on a\nPersonal debrief; 403 `forbidden` for anyone whose game it is not.",
+        "operationId": "leaveDebrief",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "debrief_id",
+            "required": true,
+            "schema": {
+              "title": "Debrief Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DebriefOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Leave Debrief",
+        "tags": [
+          "debrief"
+        ]
+      }
+    },
+    "/api/debriefs/{debrief_id}/move-on": {
+      "post": {
+        "description": "«Gå videre for alle» (Story 9.11, FR-43): the opener moves every joined Student to the next\nstep once the current one has been open the minimum wait (configuration). 409 `too_early`\nwith `fields.available_at` before then, `not_group` on a Personal debrief; 403 `forbidden`\nfor anyone but the opener.",
+        "operationId": "moveDebriefOn",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "debrief_id",
+            "required": true,
+            "schema": {
+              "title": "Debrief Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DebriefOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Move Debrief On",
+        "tags": [
+          "debrief"
+        ]
+      }
+    },
+    "/api/debriefs/{debrief_id}/net-inventory": {
+      "get": {
+        "description": "«Ditt netto lager, hele spillet» (Story 9.3, step 1): the Netto lager of the Student's own\nSeat in every Uke, oldest first. Never demand or another Seat (FR-14).",
+        "operationId": "getMyNetInventory",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "debrief_id",
+            "required": true,
+            "schema": {
+              "title": "Debrief Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NetInventoryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get My Net Inventory",
+        "tags": [
+          "debrief"
+        ]
+      }
+    },
+    "/api/debriefs/{debrief_id}/quiz": {
+      "get": {
+        "description": "Step 5, the Debrief quiz (Story 9.9, FR-46): the version the Class session pinned, the\nquestions of the Student's next attempt without the answer key (none once passed; the order\nmay change between attempts), the number of attempts, when it was passed and the latest\nattempt's result. 403 `debrief_required` until the Student has finished the Debrief.",
+        "operationId": "getMyQuiz",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "debrief_id",
+            "required": true,
+            "schema": {
+              "title": "Debrief Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuizOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get My Quiz",
+        "tags": [
+          "debrief"
+        ]
+      }
+    },
+    "/api/debriefs/{debrief_id}/quiz/attempts": {
+      "post": {
+        "description": "An attempt at the Debrief quiz (Story 9.9, FR-46, AD-16): scored by the answer key on the\nserver and stored once, with each question's result and, for a wrong answer, the explanation;\nevery question right records the `quiz_passed` step. Retries are unlimited until the Test\ndeadline. 422 `validation_error` unless every asked question is answered once with one of\nits choices, 409 `quiz_passed` once passed, 409 `test_deadline_passed` after the Student's\nTest deadline, 403 `debrief_required` before the Debrief is finished.",
+        "operationId": "submitQuizAttempt",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "debrief_id",
+            "required": true,
+            "schema": {
+              "title": "Debrief Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuizAttemptIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuizAttemptOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Submit Quiz Attempt",
+        "tags": [
+          "debrief"
+        ]
+      }
+    },
+    "/api/debriefs/{debrief_id}/reflection": {
+      "get": {
+        "description": "The reflection questions between steps 3 and 4 (Story 9.6, FR-45): the Class session's\npinned version, feelings, then evidence, then structure, each with the Student's own answer\n(null until answered); never another Student's (FR-43). 403 `explanation_required` until the\nExplanation is saved.",
+        "operationId": "getMyReflection",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "debrief_id",
+            "required": true,
+            "schema": {
+              "title": "Debrief Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReflectionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get My Reflection",
+        "tags": [
+          "debrief"
+        ]
+      }
+    },
+    "/api/debriefs/{debrief_id}/reflection/{question_id}": {
+      "post": {
+        "description": "«Fortsett»: stores the Student's answer to one reflection question once, as typed, and\nanswers the question with it. The questions are answered in order: any other than the first\nunanswered one is 409 `reflection_out_of_order`; an answered one answers its stored answer\nunchanged. 404 `not_found` for an id not in the pinned version, 422 `validation_error` for\nwhite space only or more than 2000 characters, 403 `explanation_required` before the\nExplanation.",
+        "operationId": "answerReflectionQuestion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "debrief_id",
+            "required": true,
+            "schema": {
+              "title": "Debrief Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "question_id",
+            "required": true,
+            "schema": {
+              "title": "Question Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReflectionAnswerIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReflectionQuestionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Answer Reflection Question",
+        "tags": [
+          "debrief"
+        ]
+      }
+    },
+    "/api/debriefs/{debrief_id}/shared": {
+      "get": {
+        "description": "«Delt skjerm: hele kjeden» (Story 9.13, FR-74, AD-21): a Group debrief's shared charts by\nRole, for a Student joined to it: every Role's Uker, Netto lager and cost, Fabrikk first, and\nthe chain's cost. Never a name, a user id, an Explanation, an answer or a moment. `locked` with\nno chain data while a joined Student has not sent their Explanation. Anyone not joined to it\n(a Personal debrief, a Student who goes on alone, an id that is not one) gets the same 403\n`forbidden`.",
+        "operationId": "getSharedDebrief",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "debrief_id",
+            "required": true,
+            "schema": {
+              "title": "Debrief Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Shared Debrief",
+        "tags": [
+          "debrief"
+        ]
+      }
+    },
+    "/api/debriefs/{debrief_id}/steps/{step}": {
+      "get": {
+        "description": "A Debrief step after step 1 (FR-41, FR-43): 403 `explanation_required` until the Student's\nExplanation is saved, checked here and not only in the web app. Step 2 carries `reveal`: the\nheading rendered from the demand series and Kundene, Ordre inn and Din ordre per Uke of the\nStudent's own Seat (Story 9.4, FR-44). Step 3 carries `chain`: every Role's Orders and Week\nstates, Fabrikk first, with Forsterkning and the first large Order from the stored facts set\n(Story 9.5, FR-44, AD-7). Step 4 carries `moments`: the Student's own moments rendered by\ncode from their Seat's stored facts set, whose id is recorded at the first view (Story 9.7,\nFR-44, AD-7); none and `mostly_ai` with fewer than 10 own Orders. Only the caller's own Seat:\nno route serves another Student's moments (FR-43).",
+        "operationId": "getDebriefStep",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "debrief_id",
+            "required": true,
+            "schema": {
+              "title": "Debrief Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "step",
+            "required": true,
+            "schema": {
+              "maximum": 5,
+              "minimum": 2,
+              "title": "Step",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DebriefStepOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Debrief Step",
+        "tags": [
+          "debrief"
+        ]
+      }
+    },
+    "/api/debriefs/{debrief_id}/steps/{step}/done": {
+      "post": {
+        "description": "«Ferdig med steget» (Story 9.11, FR-43): a joined Student has finished shared step 2 or 3;\nonce every joined Student has, the step pointer moves on for all. 403\n`explanation_required` before the Explanation, `forbidden` for a Student who has not joined;\n409 `not_group` on a Personal debrief, `step_not_open` for a step after the pointer's.",
+        "operationId": "completeDebriefStep",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "debrief_id",
+            "required": true,
+            "schema": {
+              "title": "Debrief Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "step",
+            "required": true,
+            "schema": {
+              "maximum": 3,
+              "minimum": 2,
+              "title": "Step",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DebriefOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Complete Debrief Step",
+        "tags": [
+          "debrief"
+        ]
+      }
+    },
+    "/api/debriefs/{debrief_id}/summary": {
+      "get": {
+        "description": "The Student's own Debrief summary (Story 9.8), `summary` null until «Fullfør Debriefen».\n403 `explanation_required` before the Explanation.",
+        "operationId": "getMyDebriefSummary",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "debrief_id",
+            "required": true,
+            "schema": {
+              "title": "Debrief Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MySummaryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get My Debrief Summary",
+        "tags": [
+          "debrief"
+        ]
+      }
+    },
     "/api/events": {
       "get": {
         "description": "The live event stream (AD-8): `ready`, then `{topic, id, version}` for each change the\nUser may see, and `heartbeat` every 15 s. 401 without a valid session.",
@@ -12123,6 +15681,69 @@
         "summary": "List My Class Sessions",
         "tags": [
           "sessions"
+        ]
+      }
+    },
+    "/api/me/class-sessions/{session_id}/debrief": {
+      "post": {
+        "description": "Opens the Student's Debrief in the Class session (FR-42): the Debrief session of their\ngame, created with its step pointer at step 1 if none exists, and answered as it stands.\n403 `debrief_not_open`, `debrief_held` or `forbidden`.",
+        "operationId": "openMyDebrief",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DebriefOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open My Debrief",
+        "tags": [
+          "debrief"
         ]
       }
     },

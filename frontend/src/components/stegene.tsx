@@ -1,3 +1,5 @@
+import NextLink from "next/link";
+
 import { cn } from "@/lib/utils";
 
 export type StegeneState = "done" | "current" | "locked";
@@ -10,6 +12,8 @@ export type StegeneItem = {
   /** The state in words: «pågår» for the current step, «ferdig» for a done one, and for a later
    * step the line that says what opens it («Replay, åpnes når du har bestått Debrief-quizen.»). */
   note: string;
+  /** Where the current step leads (Story 9.2: the Debrief); its name is then a link. */
+  href?: string;
 };
 
 /**
@@ -18,7 +22,8 @@ export type StegeneItem = {
  * «pågår» in text; a done step a filled marker and «ferdig»; a later step a hollow marker and the
  * line that says what opens it, in `ink-secondary`. The markers are decorative: the state is
  * always in words, never in colour or shape alone. The component holds no rule for which step is
- * open; the api decides and the caller passes the words. Reused by Epics 9 to 13.
+ * open; the api decides and the caller passes the words. A current step with `href` (the
+ * Debrief, Story 9.2) names itself as a Lenke to it. Reused by Epics 9 to 13.
  */
 export function Stegene({ title, items, titleId }: { title: string; items: StegeneItem[]; titleId: string }) {
   return (
@@ -49,7 +54,17 @@ export function Stegene({ title, items, titleId }: { title: string; items: Stege
               <span className="text-body-phone text-ink-secondary lg:text-body">{item.note}</span>
             ) : (
               <span className="flex flex-1 flex-wrap justify-between gap-x-4 text-body-phone lg:text-body">
-                <span className={cn("text-ink", item.state === "current" && "font-semibold")}>{item.name}</span>
+                {item.href ? (
+                  // A Lenke (DESIGN.md → Controls): `lager`, weight 600, underlined.
+                  <NextLink
+                    href={item.href}
+                    className="font-semibold text-lager underline underline-offset-2 hover:decoration-2 active:text-ink"
+                  >
+                    {item.name}
+                  </NextLink>
+                ) : (
+                  <span className={cn("text-ink", item.state === "current" && "font-semibold")}>{item.name}</span>
+                )}
                 <span className="text-ink-secondary">{item.note}</span>
               </span>
             )}

@@ -27,7 +27,7 @@ __all__ = ["_empty", "clock", "klass"]
 
 FABRIKK_FIRST = ["factory", "distributor", "wholesaler", "retailer"]
 ALL_LOCKED = [
-    {"step": step, "state": "locked"}
+    {"step": step, "state": "locked", "held": False, "quiz_changed": False, "group_open": False}
     for step in ("class_game", "debrief", "quiz", "replay", "test", "report")
 ]
 

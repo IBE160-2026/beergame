@@ -48,9 +48,12 @@ test("locked, everything frozen stands as text and «Lagre frister» saves a dea
   await expect(lecturer.getByText(copy.lock.open)).toBeVisible();
   await expect(lecturer.getByText(copy.defaults)).toHaveCount(0);
   await expect(lecturer.getByText(copy.delaySources)).toHaveCount(0);
-  // No control for a frozen value: no Valgknapper, no Bryter, no settings to open.
+  // No control for a frozen value: no Valgknapper, no Bryter, no settings to open. The Debrief
+  // quiz's switches stay open after the lock until the Testfrist (Story 9.10): wait for that
+  // block, then count only the switches outside it.
+  await expect(lecturer.locator("[data-quiz-exclusions]")).toBeVisible();
   await expect(lecturer.getByRole("radio")).toHaveCount(0);
-  await expect(lecturer.getByRole("switch")).toHaveCount(0);
+  await expect(lecturer.locator("[role='switch']:not([data-quiz-exclusions] [role='switch'])")).toHaveCount(0);
   await expect(lecturer.getByRole("button", { name: copy.edit.open })).toHaveCount(0);
   await expect(lecturer.getByRole("heading", { name: copy.choices.aiMode })).toBeVisible();
   // The passed Startdato as text; the deadlines ahead stay fields.

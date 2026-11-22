@@ -4,12 +4,14 @@ import path from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { ChainBand } from "./chain-band";
+import { ChainBand, type SeatBandProps } from "./chain-band";
+import { type ChainBandInput, chainLayout, textWidth } from "./chain-band-layout";
 import { CostArea, endPlaces } from "./cost-area";
 import { CostBars } from "./cost-bars";
-import { textWidth } from "./chain-band-layout";
 import { CostDistribution, distributionAxis } from "./cost-distribution";
+import { DemandBand, demandAxis } from "./demand-band";
 import { NetGraph, type NetPoint } from "./net-graph";
+import { NetOverGame, weekLabels } from "./net-over-game";
 import { costAxisTop, netDomain, netTicks, spreadLabels, totalAxisTop } from "./scales";
 
 describe("the Kost per uke axis (Issue #126)", () => {
@@ -154,7 +156,7 @@ describe("CostBars", () => {
 });
 
 describe("ChainBand", () => {
-  const band = (extra: Partial<Parameters<typeof ChainBand>[0]> = {}) =>
+  const band = (extra: Partial<SeatBandProps> = {}) =>
     renderToStaticMarkup(
       <ChainBand
         width={358}
@@ -287,6 +289,174 @@ describe("Kjedens kostnad over tid's end labels (Story 6.18)", () => {
       expect(backorder).toBeGreaterThanOrEqual(13 * 0.6);
       expect(holding).toBeLessThanOrEqual(100 - 13 * 0.6);
     }
+  });
+});
+
+describe("Ditt netto lager, hele spillet (Story 9.3)", () => {
+  const points = Array.from({ length: 36 }, (_, i) => ({ week: i + 1, net: i < 10 ? 12 : i < 24 ? -30 + i : 8 }));
+  const props = {
+    width: 300,
+    height: 143,
+    fontSize: 13,
+    points,
+    title: "Netto lager",
+    formatTick: (value: number) => String(value),
+    weekLabel: (week: number) => `Uke ${week}`,
+  };
+
+  it("draws the one Seat's line over a true zero, hidden from screen readers with a title", () => {
+    const html = renderToStaticMarkup(<NetOverGame {...props} />);
+    expect(html).toContain('aria-hidden="true"');
+    expect(html).toContain("<title>Netto lager</title>");
+    expect(html).toContain(`data-weeks="${points.map((p) => p.week).join(" ")}"`);
+    expect(html).toContain(">0</text>");
+    expect(html).toContain(">-20</text>");
+  });
+
+  it("labels the first and last Uke, and every twelfth between with room", () => {
+    const x = (week: number) => (week - 1) * 10;
+    expect(weekLabels(points, x, 13)).toEqual([1, 12, 24, 36]);
+    // Narrow: no room for the twelfths, only the ends.
+    expect(weekLabels(points, (week) => (week - 1) * 4, 13)).toEqual([1, 36]);
+    expect(weekLabels([{ week: 1, net: 0 }], x, 13)).toEqual([1]);
+    expect(weekLabels([], x, 13)).toEqual([]);
+  });
+
+  it("draws a game of one Uke as a dot", () => {
+    const html = renderToStaticMarkup(<NetOverGame {...props} points={[{ week: 1, net: -4 }]} />);
+    expect(html).toContain("<circle");
+    expect(html).toContain(">Uke 1</text>");
+  });
+
+  it("dashes the shared screen's chosen Uke and shares a scale with the other Roles (Story 9.13)", () => {
+    const html = renderToStaticMarkup(<NetOverGame {...props} marker={12} scaleWith={[-75]} />);
+    expect(html).toContain('data-mark="marker"');
+    expect(html).toContain('stroke-dasharray="3 3"');
+    expect(html).toContain(">-80</text>");
+    expect(renderToStaticMarkup(<NetOverGame {...props} marker={99} />)).not.toContain('data-mark="marker"');
+  });
+});
+
+describe("Etterspørselsbånd (Story 9.4)", () => {
+  // Classic demand: 4, then 8 from Uke 5; the Seat ordered 24 in Uke 11 once.
+  const points = Array.from({ length: 36 }, (_, i) => ({
+    week: i + 1,
+    x: 10 + i * 20,
+    demand: i < 4 ? 4 : 8,
+    incoming: i < 4 ? 4 : 7,
+    order: i === 10 ? 24 : 6,
+  }));
+  const props = {
+    width: 720,
+    height: 195,
+    fontSize: 13,
+    points,
+    columnWidth: 20,
+    top: 24,
+    demandLabel: "Kundenes etterspørsel: 8",
+    largest: { week: 11, text: "Din ordre, 24 i Uke 11" },
+    title: "Bånd",
+  };
+
+  it("takes an axis of at most four steps that holds every value", () => {
+    expect(demandAxis(24)).toEqual({ top: 24, ticks: [0, 8, 16, 24] });
+    expect(demandAxis(33)).toEqual({ top: 40, ticks: [0, 10, 20, 30, 40] });
+    expect(demandAxis(0)).toEqual({ top: 4, ticks: [0, 4] });
+    expect(demandAxis(3)).toEqual({ top: 4, ticks: [0, 4] });
+    const big = demandAxis(123_456);
+    expect(big.top).toBeGreaterThanOrEqual(123_456);
+    expect(big.ticks.length).toBeLessThanOrEqual(5);
+  });
+
+  it("draws the band, the line and a bar per Uke, hidden from screen readers with a title", () => {
+    const html = renderToStaticMarkup(<DemandBand {...props} />);
+    expect(html).toContain('aria-hidden="true"');
+    expect(html).toContain("<title>Bånd</title>");
+    expect(html).toContain('data-mark="demand"');
+    expect(html).toContain('data-mark="incoming"');
+    expect(html.match(/data-mark="order"/g)).toHaveLength(36);
+    expect(html).toContain('data-week="11" data-x="210"');
+    expect(html).toContain(">Kundenes etterspørsel: 8</text>");
+    expect(html).toContain(">Din ordre, 24 i Uke 11</text>");
+  });
+
+  it("keeps the label of a largest Order at the right edge inside the plot", () => {
+    const last = { ...props, largest: { week: 36, text: "Din ordre, 24 i Uke 36" } };
+    const html = renderToStaticMarkup(<DemandBand {...last} points={points.map((p) => ({ ...p, order: p.week === 36 ? 24 : 6 }))} />);
+    expect(html).toMatch(/data-label="largest"[^>]*text-anchor="end"/);
+  });
+
+  it("draws no bar for a zero Order and nothing for no Uker", () => {
+    const html = renderToStaticMarkup(<DemandBand {...props} points={[{ ...points[0]!, order: 0 }]} largest={null} />);
+    expect(html).not.toContain('data-mark="order"');
+    expect(renderToStaticMarkup(<DemandBand {...props} points={[]} largest={null} />)).not.toContain("Kundenes");
+  });
+});
+
+describe("the four-Role Kjedebånd (Story 9.5)", () => {
+  const chain = (width: number, fontSize: number, extra: Partial<ChainBandInput> = {}): ChainBandInput => ({
+    width,
+    fontSize,
+    upstream: "Produksjon",
+    downstream: "Kundene",
+    maxUnits: 40,
+    nodes: [
+      { label: "Fabrikk", numbers: ["Restordre 3"], inventory: 0, backlog: 3, own: false },
+      { label: "Distributør", numbers: ["Restordre 34"], inventory: 0, backlog: 34, own: false },
+      { label: "Grossist", numbers: ["Restordre 19"], inventory: 0, backlog: 19, own: true },
+      { label: "Detaljist", numbers: ["Lager 12"], inventory: 12, backlog: 0, own: false },
+    ],
+    orders: ["22", "12", "12", "8", "8"],
+    supplyLines: ["50", "52", null, "13"],
+    ...extra,
+  });
+  const overlap = (a: { x: number; y: number; width: number }, b: { x: number; y: number; width: number }) =>
+    Math.abs(a.y - b.y) < 1 && a.x < b.x + b.width && b.x < a.x + a.width;
+
+  it("draws the chain from Produksjon to Kundene with the own node in a 1.4 px ink border", () => {
+    const html = renderToStaticMarkup(<ChainBand variant="chain" title="Hele kjeden" {...chain(1000, 13)} />);
+    expect(html).toMatch(/^<svg [^>]*data-chart="band" data-variant="chain"/);
+    expect(html).toContain("<title>Hele kjeden</title>");
+    expect(html.match(/data-mark="node"/g)).toHaveLength(4);
+    expect(html).toMatch(/data-mark="node" data-own=""><rect [^>]*stroke="#[0-9A-F]+" stroke-width="1.4"/);
+    expect(html.match(/data-mark="backlog"/g)).toHaveLength(3);
+    expect(html.match(/data-mark="stock"/g)).toHaveLength(1);
+    // A box on the goods line for each Role with goods on the way, none where there are none.
+    expect(html.match(/data-mark="arrival"/g)).toHaveLength(3);
+    const layout = chainLayout(chain(1000, 13));
+    const texts = layout.labels.map((label) => label.text);
+    expect(texts[0]).toBe("Produksjon");
+    expect(texts).toContain("Kundene");
+    expect(layout.labels.find((l) => l.text === "Produksjon")!.x).toBe(0);
+    // Upstream at the left: Fabrikk's node left of Detaljist's.
+    expect(layout.nodes[0]!.box.x).toBeLessThan(layout.nodes[3]!.box.x);
+  });
+
+  it.each([
+    [320, 13],
+    [360, 13],
+    [320, 26],
+    [1000, 13],
+  ])("keeps every label inside %i px at %i px text, with no two overlapping", (width, fontSize) => {
+    const layout = chainLayout(chain(width, fontSize));
+    for (const label of layout.labels) {
+      expect(label.x).toBeGreaterThanOrEqual(0);
+      expect(label.x + label.width).toBeLessThanOrEqual(width + 0.01);
+    }
+    for (const [i, a] of layout.labels.entries()) {
+      for (const b of layout.labels.slice(i + 1)) expect(overlap(a, b), `${a.text} / ${b.text}`).toBe(false);
+    }
+  });
+
+  it("sets the node labels on two rows when they would meet, and keeps one bar scale and height", () => {
+    expect(chainLayout(chain(1000, 13)).staggered).toBe(false);
+    expect(chainLayout(chain(320, 26)).staggered).toBe(true);
+    const small = chainLayout(chain(360, 13, { nodes: chain(360, 13).nodes.map((n) => ({ ...n, inventory: 0, backlog: 1 })) }));
+    const large = chainLayout(chain(360, 13));
+    expect(small.height).toBe(large.height);
+    expect(small.stockUnit).toBe(large.stockUnit);
+    // The tallest bar of the game is at most 44 px.
+    expect(large.stockUnit * 40).toBeLessThanOrEqual(44);
   });
 });
 

@@ -54,9 +54,19 @@ def test_no_terms_leave_the_text_and_map_unchanged():
     assert result.offsets.original_span(4, 12) == (4, 12)
 
 
-def test_an_evaluation_scope_has_no_terms():
-    assert pii.terms(BudgetScope.evaluation(uuid.uuid4())) == []
+async def test_an_evaluation_scope_has_no_terms():
+    assert await pii.terms(BudgetScope.evaluation(uuid.uuid4())) == []
 
 
 def test_the_words_of_a_term_may_be_split_by_any_whitespace():
     assert scrub("ola\n nordmann wrote", ["Ola Nordmann"]).text == f"{PLACEHOLDER} wrote"
+
+
+def test_a_genitive_any_address_and_a_long_number_are_scrubbed_with_any_term():
+    """Story 9.15: «Karis» is Kari's; an address or a student number no term names is scrubbed
+    too once there are terms (a Class session). A Week or an Order stays."""
+    text = "Karis svar, per@annen.no og 2401177 i uke 12 med 40 varer."
+    assert scrub(text, ["Kari"]).text == (
+        f"{PLACEHOLDER} svar, {PLACEHOLDER} og {PLACEHOLDER} i uke 12 med 40 varer."
+    )
+    assert scrub(text, []).text == text  # an evaluation scope: no terms, nothing scrubbed

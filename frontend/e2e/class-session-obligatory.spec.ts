@@ -8,6 +8,10 @@ import { expectAccessible, freshClass, freshLecturer, test } from "./support/cla
  * test makes a fresh Lecturer and Class through the api. The rules, the lock, the notices and the
  * digest mail are pinned through the routes by `backend/tests/sessions/test_obligatory.py`; here
  * the screen. */
+/** The Klasseøkt's setting switches: the Debrief quiz's own (Story 9.10, read through the real
+ * api, so the Lecturer may exclude) are left out. */
+const settingSwitches = (page: Page) => page.locator("[role='switch']:not([data-quiz-exclusions] [role='switch'])");
+
 const copy = nb.sessions;
 const c = copy.choices;
 const CSRF = { "X-Requested-With": "olspillet" };
@@ -172,7 +176,7 @@ test("a session that has started shows the mark, the share and the limit as text
   const id = await newSession(lecturer);
   await answerWith(lecturer, id, { locked: true, obligatory: true, required_share_percent: 70 });
   await lecturer.goto(`/klasseokter/${id}`);
-  await expect(lecturer.getByRole("switch")).toHaveCount(0);
+  await expect(settingSwitches(lecturer)).toHaveCount(0);
   await expect(lecturer.getByText(c.obligatoryYes, { exact: true })).toBeVisible();
   await expect(lecturer.getByText(c.shareValue(70))).toBeVisible();
   await expect(lecturer.getByRole("button", { name: copy.edit.open })).toHaveCount(0);
@@ -186,7 +190,7 @@ test("an Assistant reads the mark and the share as text, with no control", async
   await answerWith(lecturer, id, { can_manage: false, obligatory: true, required_share_percent: 90 });
   await lecturer.goto(`/klasseokter/${id}`);
   await expect(lecturer.getByText(c.shareValue(90))).toBeVisible();
-  await expect(lecturer.getByRole("switch")).toHaveCount(0);
+  await expect(settingSwitches(lecturer)).toHaveCount(0);
   await expect(share(lecturer)).toHaveCount(0);
   await expect(lecturer.getByRole("button", { name: copy.edit.open })).toHaveCount(0);
   await expect(lecturer.getByRole("button", { name: copy.save })).toHaveCount(0);

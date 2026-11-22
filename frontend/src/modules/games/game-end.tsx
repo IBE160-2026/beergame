@@ -7,9 +7,10 @@ import { type ReactNode, useId } from "react";
 import { buttonClassName } from "@/components/button";
 import { ChainBill } from "@/components/chain-bill";
 import { ChainCostChart } from "@/components/chain-cost-chart";
+import { Link } from "@/components/link";
 import { nb } from "@/copy/nb";
 import { KRONER } from "@/lib/number-format";
-import { classSessionPath, DEBRIEF_PATH } from "@/modules/identity/homes";
+import { classSessionPath, DEBRIEF_PATH, HOME_PATH } from "@/modules/identity/homes";
 import { classSessionKey } from "@/modules/sessions/api";
 import { roleName } from "@/modules/sessions/sessions";
 
@@ -43,7 +44,9 @@ export function GameEndHeading({ game }: { game: MyGame }) {
  * button «Gå til Debrief». No ranking, praise or celebration (UX-DR72, UX-DR78). `note` is Epic 8's
  * slot for a game that ended at the Spillfrist; nothing renders there in Epic 6. A Lecturer's test
  * Game (Story 6.20) has no Debrief: its button leads back to the Klasseøkt instead, and the heading
- * reads «Testspill».
+ * reads «Testspill». While the Faglærer holds the Debriefs until every Class game has finished
+ * (`debrief: "held"`, Story 9.2) the button gives way to that line and a Lenke to Hjem, where
+ * Stegene says the same; the release's `user` event brings the button back without reload.
  */
 export function GameEnd({ game, result, note }: { game: MyGame; result: GameResult; note?: ReactNode }) {
   const model = gameEnd(result, game.role);
@@ -65,21 +68,30 @@ export function GameEnd({ game, result, note }: { game: MyGame; result: GameResu
       <ChainBill rows={model.rows} chain={model.chain} titleId={`${id}-bill`} className="mt-8" />
       <ChainCostChart points={model.points} rows={model.weeks} endLabels={model.endLabels} className="mt-8" />
       {game.test_game ? null : <p className={`${LINE} mt-8 text-ink`}>{copy.end.why}</p>}
-      <div className={game.test_game ? "mt-8" : "mt-5"}>
-        {game.test_game ? (
-          <NextLink
-            href={classSessionPath(game.class_session_id)}
-            onClick={() => void queryClient.invalidateQueries({ queryKey: classSessionKey(game.class_session_id) })}
-            className={buttonClassName("primary")}
-          >
-            {copy.toClassSession}
-          </NextLink>
-        ) : (
-          <NextLink href={DEBRIEF_PATH(game.id)} className={buttonClassName("primary", "w-full lg:w-auto")}>
-            {copy.end.toDebrief}
-          </NextLink>
-        )}
-      </div>
+      {game.debrief === "held" ? (
+        <div data-debrief-held="" className="mt-5">
+          <p className={`${LINE} text-ink`}>{copy.end.held}</p>
+          <Link href={HOME_PATH.home} standalone className="mt-1">
+            {nb.navigation.toHome}
+          </Link>
+        </div>
+      ) : (
+        <div className={game.test_game ? "mt-8" : "mt-5"}>
+          {game.test_game ? (
+            <NextLink
+              href={classSessionPath(game.class_session_id)}
+              onClick={() => void queryClient.invalidateQueries({ queryKey: classSessionKey(game.class_session_id) })}
+              className={buttonClassName("primary")}
+            >
+              {copy.toClassSession}
+            </NextLink>
+          ) : (
+            <NextLink href={DEBRIEF_PATH(game.class_session_id)} className={buttonClassName("primary", "w-full lg:w-auto")}>
+              {copy.end.toDebrief}
+            </NextLink>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -201,25 +201,29 @@ async def _resolve(
     scope: budget.BudgetScope, purpose: purposes.Purpose
 ) -> tuple[config.ModelConfig, config.EffortLevel, int]:
     """The scope's model config, its Effort level and the purpose's prompt version."""
-    if scope.kind != "evaluation":
-        # A Class session's config comes from its binding, which Epic 5 adds.
+    if scope.kind == "evaluation":
+        config_id = scope.id
+    elif scope.model_config_id is not None:
+        # A Class session's call names the config its caller pinned (Story 9.14).
+        config_id = scope.model_config_id
+    else:
         raise GatewayError("scope_unresolved", f"no model config is bound to {scope.kind}")
-    model_config = await config.get(scope.id)
+    model_config = await config.get(config_id)
     if model_config is None:
-        raise GatewayError("config_not_found", f"no model config {scope.id}")
+        raise GatewayError("config_not_found", f"no model config {config_id}")
     if scope.effort_level is None:
         level = model_config.spec.effort_levels[0]
     else:
         found = model_config.effort_level(scope.effort_level)
         if found is None:
             raise GatewayError(
-                "effort_level_unknown", f"config {scope.id} has no level {scope.effort_level!r}"
+                "effort_level_unknown", f"config {config_id} has no level {scope.effort_level!r}"
             )
         level = found
     version = model_config.spec.prompts.get(purpose.name)
     if version is None:
         raise GatewayError(
-            "prompt_not_in_config", f"config {scope.id} names no prompt for {purpose.name}"
+            "prompt_not_in_config", f"config {config_id} names no prompt for {purpose.name}"
         )
     return model_config, level, version
 
@@ -275,7 +279,7 @@ async def _prepare(
         raise GatewayError("budget_not_found", f"no budget for {scope.kind} {scope.id}")
     if _players_stopped(state, purpose):
         return Failure("budget_exhausted", (), f"budget {scope.kind} {scope.id} is spent")
-    terms = pii.terms(scope)
+    terms = await pii.terms(scope)
     prompt, offset_maps = _render(purpose, version, template, inputs, terms)
     settings = adapters.model_settings(model_config.spec, level)
     return _Call(
@@ -322,7 +326,7 @@ async def preview(
         settings: dict[str, Any] = {}
     else:
         model_config, level, version = await _resolve(budget_scope, checked)
-        terms = pii.terms(budget_scope)
+        terms = await pii.terms(budget_scope)
         settings = adapters.model_settings(model_config.spec, level)
     prompt, _ = _render(checked, version, _template(checked, version), inputs, terms)
     return Preview(version, _request(prompt, output_schema, settings))

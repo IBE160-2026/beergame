@@ -1,0 +1,351 @@
+"""The tables owned by `modules/debrief` (Stories 9.2, 9.3, 9.6 to 9.10, 9.14, 9.15, AD-21).
+Written by `debrief.commands` only."""
+
+from datetime import timedelta
+
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Column,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    SmallInteger,
+    Table,
+    Text,
+    UniqueConstraint,
+    Uuid,
+    false,
+    func,
+)
+from sqlalchemy.dialects.postgresql import JSONB
+
+from app.platform.db import metadata
+
+STEPS = 5
+"""The Debrief's five steps (EXPERIENCE.md → Debrief sequence): 1 «Skriv Forklaringen først» to
+5 «Debrief-quiz»."""
+
+debrief_sessions = Table(
+    "debrief_sessions",
+    metadata,
+    Column("id", Uuid, primary_key=True),
+    # One Debrief session per Game: its Students share it (the Group debrief, Story 9.11).
+    Column("game_id", Uuid, ForeignKey("games.id", ondelete="CASCADE"), nullable=False),
+    Column(
+        "class_session_id",
+        Uuid,
+        ForeignKey("class_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    ),
+    # The step pointer, 1 when opened. Shared steps are 1 to 3; from `INDIVIDUAL_STEP` on each
+    # Student works alone (Story 9.11).
+    Column("step", SmallInteger, nullable=False, server_default="1"),
+    Column("opened_at", DateTime(timezone=True), nullable=False),
+    # Story 9.11: a Group debrief's session is shared, fixed at creation; its opener may move on
+    # once the current step has been open the minimum wait (from `step_opened_at`).
+    Column("shared", Boolean, nullable=False, server_default=false()),
+    Column("opener_id", Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
+    Column("step_opened_at", DateTime(timezone=True), nullable=True),
+    # Story 9.12: when a shared session that has not reached `INDIVIDUAL_STEP` falls back to a
+    # Personal debrief for every Student who has not finished (the Game's finish time plus
+    # `FALLBACK_AFTER`), and when the sweep did it.
+    Column("fallback_due_at", DateTime(timezone=True), nullable=True),
+    Column("fallback_at", DateTime(timezone=True), nullable=True),
+    UniqueConstraint("game_id", name="uq_debrief_sessions_game"),
+    CheckConstraint(f"step BETWEEN 1 AND {STEPS}", name="ck_debrief_sessions_step"),
+)
+
+INDIVIDUAL_STEP = 4
+"""Where a shared step pointer stops (Story 9.11, FR-43): from the reflection questions on, each
+Student works on their own device."""
+
+debrief_members = Table(
+    "debrief_members",
+    metadata,
+    # A Student who joined a shared Debrief session (Story 9.11, FR-43).
+    Column(
+        "debrief_id",
+        Uuid,
+        ForeignKey("debrief_sessions.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column(
+        "user_id", Uuid, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True, index=True
+    ),
+    Column("joined_at", DateTime(timezone=True), nullable=False),
+    # Story 9.12: the database time of the Student's last SSE heartbeat (`commands.touch`), or of
+    # joining. Silent longer than `DROPOUT_AFTER`, they drop out.
+    Column("last_seen_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+)
+
+DROPOUT_AFTER = timedelta(minutes=2)
+"""How long a joined Student may be without a heartbeat before they drop out (FR-43)."""
+
+FALLBACK_AFTER = timedelta(hours=48)
+"""How long after the Game's finish a shared session that never got past the shared steps falls
+back to a Personal debrief for every Student who has not finished (FR-43)."""
+
+debrief_alone = Table(
+    "debrief_alone",
+    metadata,
+    # A Student of a shared Debrief session who goes on as a Personal debrief (Story 9.12,
+    # FR-43): `left` (they chose it, joined or not), `dropout` (silent too long), `fallback` (the
+    # 48 hours) or `missed` (the group finished its shared steps without them). Final: they do
+    # not rejoin. `step` is the shared step they were on (1 for a Student who never joined).
+    Column(
+        "debrief_id",
+        Uuid,
+        ForeignKey("debrief_sessions.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column("user_id", Uuid, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column("step", SmallInteger, nullable=False),
+    Column("reason", Text, nullable=False),
+    Column("since", DateTime(timezone=True), nullable=False),
+    CheckConstraint(
+        "reason IN ('left', 'dropout', 'fallback', 'missed')", name="ck_debrief_alone_reason"
+    ),
+    CheckConstraint(f"step BETWEEN 1 AND {INDIVIDUAL_STEP - 1}", name="ck_debrief_alone_step"),
+)
+
+debrief_step_marks = Table(
+    "debrief_step_marks",
+    metadata,
+    # A joined Student's «finished» on shared step 2 or 3 (Story 9.11); step 1 is finished by the
+    # stored Explanation.
+    Column(
+        "debrief_id",
+        Uuid,
+        ForeignKey("debrief_sessions.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column("user_id", Uuid, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column("step", SmallInteger, primary_key=True),
+    Column("done_at", DateTime(timezone=True), nullable=False),
+    CheckConstraint("step BETWEEN 2 AND 3", name="ck_debrief_step_marks_step"),
+)
+
+debrief_releases = Table(
+    "debrief_releases",
+    metadata,
+    # A held Class session whose Debriefs the sweep released, once (Story 9.2).
+    Column(
+        "class_session_id",
+        Uuid,
+        ForeignKey("class_sessions.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column("released_at", DateTime(timezone=True), nullable=False),
+)
+
+EXPLANATION_MAX = 5000
+"""The longest Explanation, in characters (Story 9.3)."""
+
+debrief_explanations = Table(
+    "debrief_explanations",
+    metadata,
+    # One Explanation per Student per Class session (FR-41, AD-14), stored once as typed and never
+    # changed (a trigger refuses updates).
+    Column("user_id", Uuid, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column(
+        "class_session_id",
+        Uuid,
+        ForeignKey("class_sessions.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column("game_id", Uuid, ForeignKey("games.id", ondelete="CASCADE"), nullable=False),
+    Column("text", Text, nullable=False),
+    # Characters, as typed.
+    Column("length", Integer, nullable=False),
+    Column("saved_at", DateTime(timezone=True), nullable=False),
+    CheckConstraint(
+        f"length = char_length(text) AND length BETWEEN 1 AND {EXPLANATION_MAX}",
+        name="ck_debrief_explanations_length",
+    ),
+)
+
+ANSWER_MAX = 2000
+"""The longest reflection answer, in characters (Story 9.6)."""
+
+debrief_reflection_answers = Table(
+    "debrief_reflection_answers",
+    metadata,
+    # A Student's answer to one reflection question in a Class session (FR-45, AD-14), stored once
+    # as typed and never changed (a trigger refuses updates).
+    Column("user_id", Uuid, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column(
+        "class_session_id",
+        Uuid,
+        ForeignKey("class_sessions.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    # The question's id in the pinned content version.
+    Column("question_id", Text, primary_key=True),
+    Column("game_id", Uuid, ForeignKey("games.id", ondelete="CASCADE"), nullable=False),
+    Column("questions_version", Integer, nullable=False),
+    Column("text", Text, nullable=False),
+    Column("length", Integer, nullable=False),
+    Column("saved_at", DateTime(timezone=True), nullable=False),
+    CheckConstraint(
+        f"length = char_length(text) AND length BETWEEN 1 AND {ANSWER_MAX}",
+        name="ck_debrief_reflection_answers_length",
+    ),
+)
+
+debrief_fact_sets = Table(
+    "debrief_fact_sets",
+    metadata,
+    # The facts set a Student's own moments are rendered from, in a Class session (Story 9.7,
+    # AD-7): stored at their first view of step 4 and never changed (a trigger refuses updates),
+    # so every later read cites the same set.
+    Column("user_id", Uuid, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column(
+        "class_session_id",
+        Uuid,
+        ForeignKey("class_sessions.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column("game_id", Uuid, ForeignKey("games.id", ondelete="CASCADE"), nullable=False),
+    Column("fact_set_id", Uuid, ForeignKey("fact_sets.id", ondelete="CASCADE"), nullable=False),
+    Column("recorded_at", DateTime(timezone=True), nullable=False),
+)
+
+debrief_ai_texts = Table(
+    "debrief_ai_texts",
+    metadata,
+    # The AI text of a facts set (Story 9.14, FR-44, FR-46, AD-7): the narration (`narration`) and
+    # each Debrief quiz question's own-game line (`quiz:<question_id>`), as
+    # `{text, ai_generated, llm_call_id}`; a rejected or failed call stores the code text. Written
+    # once by the `llm-batch` job and never changed (a trigger refuses updates).
+    Column("fact_set_id", Uuid, ForeignKey("fact_sets.id", ondelete="CASCADE"), primary_key=True),
+    Column("subject", Text, primary_key=True),
+    Column("text", Text, nullable=False),
+    Column("ai_generated", Boolean, nullable=False),
+    Column("llm_call_id", Uuid, nullable=True),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    CheckConstraint(
+        "subject = 'narration' OR subject LIKE 'quiz:%'", name="ck_debrief_ai_texts_subject"
+    ),
+    CheckConstraint("ai_generated = (llm_call_id IS NOT NULL)", name="ck_debrief_ai_texts_marking"),
+)
+
+FOLLOW_UP_ANSWERED = "answered"
+FOLLOW_UP_DECLINED = "declined"
+
+debrief_follow_ups = Table(
+    "debrief_follow_ups",
+    metadata,
+    # A Student's follow-up question about their Game and its answer (Story 9.15, FR-45, AD-7,
+    # AD-14): keyed by the Student and the Class session, with the facts set and the call it
+    # cites. `answered` holds the hint text code rendered; `declined` no answer (the web app shows
+    # a fixed line). A question with no answer (a failure) is not stored. Written once by
+    # `commands.store_follow_up`, never changed (a trigger refuses updates).
+    Column("id", Uuid, primary_key=True),
+    Column("user_id", Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+    Column(
+        "class_session_id",
+        Uuid,
+        ForeignKey("class_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("fact_set_id", Uuid, ForeignKey("fact_sets.id", ondelete="CASCADE"), nullable=False),
+    # As the Student typed it; the scrubbed text is what the model call's stored row holds.
+    Column("question", Text, nullable=False),
+    Column("outcome", Text, nullable=False),
+    Column("answer", Text, nullable=True),
+    Column("llm_call_id", Uuid, nullable=False),
+    Column("asked_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    CheckConstraint("outcome IN ('answered', 'declined')", name="ck_debrief_follow_ups_outcome"),
+    CheckConstraint(
+        "(outcome = 'answered') = (answer IS NOT NULL)", name="ck_debrief_follow_ups_answer"
+    ),
+    Index("ix_debrief_follow_ups_user_session", "user_id", "class_session_id", "asked_at"),
+)
+
+debrief_follow_up_closures = Table(
+    "debrief_follow_up_closures",
+    metadata,
+    # A Student whose follow-up is closed in the Class session (Story 9.15, FR-45):
+    # `commands.close_follow_up`, which Epic 11 calls when their Individual test opens.
+    Column("user_id", Uuid, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column(
+        "class_session_id",
+        Uuid,
+        ForeignKey("class_sessions.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column("closed_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+)
+
+debrief_summaries = Table(
+    "debrief_summaries",
+    metadata,
+    # A Student's finished Debrief in a Class session (Story 9.8, FR-47, AD-7, AD-16): the key
+    # moments by fact id, the reflection answers and the facts set they cite, with the database
+    # time it was finished; stored once and never changed (a trigger refuses updates).
+    Column("user_id", Uuid, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column(
+        "class_session_id",
+        Uuid,
+        ForeignKey("class_sessions.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column("game_id", Uuid, ForeignKey("games.id", ondelete="CASCADE"), nullable=False),
+    Column("fact_set_id", Uuid, ForeignKey("fact_sets.id", ondelete="CASCADE"), nullable=False),
+    # The ids of the Seat's own moments (`moment:<role>:<week>`), by Week; empty when the game
+    # was played mostly by AI players.
+    Column("moment_ids", JSONB, nullable=False),
+    # `[{question_id, questions_version, text}]`, in the order asked.
+    Column("reflection", JSONB, nullable=False),
+    Column("finished_at", DateTime(timezone=True), nullable=False),
+)
+
+quiz_attempts = Table(
+    "quiz_attempts",
+    metadata,
+    # One scored attempt at the Debrief quiz by a Student in a Class session (Story 9.9, FR-46,
+    # AD-23): numbered from 1, with the quiz version, the answers in the order shown and the
+    # result; stored once and never changed (a trigger refuses updates).
+    Column("id", Uuid, primary_key=True),
+    Column("user_id", Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+    Column(
+        "class_session_id",
+        Uuid,
+        ForeignKey("class_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("game_id", Uuid, ForeignKey("games.id", ondelete="CASCADE"), nullable=False),
+    Column("number", Integer, nullable=False),
+    Column("quiz_version", Integer, nullable=False),
+    # `[{question_id, choice_id, correct}]`, in the order shown.
+    Column("answers", JSONB, nullable=False),
+    # Every asked question answered right.
+    Column("passed", Boolean, nullable=False),
+    Column("submitted_at", DateTime(timezone=True), nullable=False),
+    UniqueConstraint(
+        "user_id", "class_session_id", "number", name="uq_quiz_attempts_user_session_number"
+    ),
+    CheckConstraint("number >= 1", name="ck_quiz_attempts_number"),
+)
+
+quiz_exclusions = Table(
+    "quiz_exclusions",
+    metadata,
+    # A Debrief quiz question the Lecturer took out of a Class session's quiz (Story 9.10, FR-46,
+    # AD-23): a Class session row, never an edit of the content record. Lifting deletes it.
+    Column(
+        "class_session_id",
+        Uuid,
+        ForeignKey("class_sessions.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column("question_id", Text, primary_key=True),
+    # The version it was taken out of (the pinned one, or the latest before the lock).
+    Column("quiz_version", Integer, nullable=False),
+    # Ids only (AD-14); no foreign key, so the row outlives a removed account.
+    Column("excluded_by", Uuid, nullable=True),
+    Column("excluded_at", DateTime(timezone=True), nullable=False),
+)

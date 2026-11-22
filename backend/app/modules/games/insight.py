@@ -14,6 +14,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.analysis.facts import LARGE_ORDER
 from app.engine import GameSettings, WeekState
 from app.modules.games import overview, repo
 from app.modules.games.marks import seat_mark
@@ -42,10 +43,6 @@ class InsightLink:
     kind: str
     href: str
 
-
-LARGE_ORDER = 10
-"""An Order this large or larger is a large Order (UX-DR33: the first one is marked); the same
-threshold as Story 9.1's `analysis.facts.LARGE_ORDER`."""
 
 InsightLinkProvider = Callable[[AsyncSession, uuid.UUID], Awaitable[Sequence[InsightLink]]]
 """`(session, game_id)` → the links for that Game's Seats."""

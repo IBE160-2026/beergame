@@ -12,12 +12,14 @@ import { Button, guardUnavailable } from "./button";
 import { ColumnItem } from "./column-item";
 import { ConnectionNotice } from "./connection-notice";
 import { GameCard } from "./game-card";
+import { QuizChoice } from "./quiz-choice";
 import { SegmentedChoice } from "./segmented-choice";
 import { Stegene } from "./stegene";
 import { Switch } from "./switch";
 import { ViewToggle } from "./view-toggle";
 import { LoadingNote, Skeleton } from "./skeleton";
 import { TextField } from "./text-field";
+import { scrubKey, WeekScrubber } from "./week-scrubber";
 
 describe("Switch", () => {
   const render = (checked: boolean) =>
@@ -411,14 +413,91 @@ describe("ChainBill (Kjedens regning, Story 6.18)", () => {
     expect(html).toContain(">2 266,00</td>");
   });
 
-  it("keeps the Debrief's slot for extra rows inside the body, empty unless given", () => {
+  it("puts the Debrief's extra rows in a body of their own after Kjeden, empty unless given", () => {
     const extra = (
       <tr data-extra="">
         <th scope="row">Simulert</th>
       </tr>
     );
     const html = renderToStaticMarkup(<ChainBill rows={[row("retailer", "Detaljist")]} chain={chain} titleId="b" extraRows={extra} />);
-    expect(html.indexOf("data-extra")).toBeLessThan(html.indexOf("<tfoot>"));
+    expect(html.indexOf("data-chain-row")).toBeLessThan(html.indexOf('<tbody data-extra-rows=""><tr data-extra="">'));
+    expect(html).not.toContain("<tfoot>");
     expect(renderToStaticMarkup(<ChainBill rows={[]} chain={chain} titleId="b" />)).not.toContain("data-extra");
+  });
+});
+
+describe("Ukeskrubber (Story 9.5, UX-DR34)", () => {
+  const scrubber = (value: number) =>
+    renderToStaticMarkup(
+      <WeekScrubber value={value} last={36} onChange={() => {}} label="Velg uke" weekText={(w) => `Uke ${w}`} back="Én uke tilbake" forward="Én uke fram" />,
+    );
+
+  it("is a slider named «Velg uke» from Uke 1 to the last Uke, with step buttons at the ends", () => {
+    const html = scrubber(15);
+    expect(html).toMatch(/role="slider"[^>]*aria-label="Velg uke"[^>]*aria-valuemin="1"[^>]*aria-valuemax="36"[^>]*aria-valuenow="15"[^>]*aria-valuetext="Uke 15"/);
+    expect(html).toContain('aria-label="Én uke tilbake"');
+    expect(html).toContain('aria-label="Én uke fram"');
+    expect(html).toContain("min-h-tap-target-min");
+    expect(html).toContain(">Uke 1<");
+    expect(html).toContain(">Uke 36<");
+    // At an end, that step button cannot act but keeps its focus.
+    expect(scrubber(1)).toMatch(/aria-disabled="true"[^>]*aria-label="Én uke tilbake"/);
+    expect(scrubber(36)).toMatch(/aria-disabled="true"[^>]*aria-label="Én uke fram"/);
+  });
+
+  it("moves by the keys, clamped to the game", () => {
+    expect(scrubKey("ArrowLeft", 15, 36)).toBe(14);
+    expect(scrubKey("ArrowDown", 15, 36)).toBe(14);
+    expect(scrubKey("ArrowRight", 15, 36)).toBe(16);
+    expect(scrubKey("ArrowUp", 36, 36)).toBe(36);
+    expect(scrubKey("PageDown", 3, 36)).toBe(1);
+    expect(scrubKey("PageUp", 34, 36)).toBe(36);
+    expect(scrubKey("PageUp", 15, 36)).toBe(19);
+    expect(scrubKey("Home", 15, 36)).toBe(1);
+    expect(scrubKey("End", 15, 36)).toBe(36);
+    expect(scrubKey("a", 15, 36)).toBeNull();
+  });
+});
+
+describe("QuizChoice (Quizvalg, Story 9.9, UX-DR37)", () => {
+  const options = [
+    { id: "netto", text: "−13" },
+    { id: "posisjon", text: "3" },
+  ];
+
+  it("is a fieldset of native radios named by the question, in full-width rows", () => {
+    const html = renderToStaticMarkup(
+      <QuizChoice name="q" legend="Hva er posisjonen din?" options={options} value="posisjon" onChange={() => {}} />,
+    );
+    expect(html).toContain("<fieldset");
+    expect(html).toContain("<legend");
+    expect(html).toContain("Hva er posisjonen din?");
+    expect(html.match(/type="radio"/g)).toHaveLength(2);
+    const checked = (html.match(/<input[^>]*>/g) ?? []).filter((tag) => tag.includes('checked=""'));
+    expect(checked).toHaveLength(1);
+    expect(checked[0]).toContain('value="posisjon"');
+    expect(html).toContain("w-full");
+    expect(html).not.toContain("disabled");
+    expect(html).not.toContain(nb.quizChoice.right);
+  });
+
+  it("marks a scored question in text, never by colour alone, with the explanation under it", () => {
+    const html = renderToStaticMarkup(
+      <QuizChoice name="q" legend="Q" options={options} value="netto" marks={{ chosen: "netto", right: "posisjon" }}>
+        <p>Forklaringen.</p>
+      </QuizChoice>,
+    );
+    expect(html).toContain('disabled=""');
+    expect(html).toMatch(/data-quiz-option="netto" data-quiz-mark="wrong"[^>]*border-restordre/);
+    expect(html).toMatch(/data-quiz-option="posisjon" data-quiz-mark="right"[^>]*border-ink/);
+    expect(html).toContain(nb.quizChoice.wrong);
+    expect(html).toContain(nb.quizChoice.right);
+    expect(html.indexOf("Forklaringen.")).toBeGreaterThan(html.indexOf(nb.quizChoice.right));
+    // A right choice is marked «Riktig» only.
+    const right = renderToStaticMarkup(
+      <QuizChoice name="q" legend="Q" options={options} value="posisjon" marks={{ chosen: "posisjon", right: "posisjon" }} />,
+    );
+    expect(right).toContain(nb.quizChoice.right);
+    expect(right).not.toContain(nb.quizChoice.wrong);
   });
 });

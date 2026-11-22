@@ -11,6 +11,8 @@ from app.modules.admin import routes as admin_routes
 from app.modules.classes import routes as classes_routes
 from app.modules.classes import seed as classes_seed
 from app.modules.classes import service as classes_service
+from app.modules.debrief import dev as debrief_dev
+from app.modules.debrief import routes as debrief_routes
 from app.modules.identity import routes as identity_routes
 from app.modules.identity import seed as identity_seed
 from app.modules.identity import service as identity_service
@@ -105,11 +107,13 @@ def create_app() -> FastAPI:
     app.include_router(classes_routes.router)
     app.include_router(sessions_routes.router)
     app.include_router(tests_routes.router)  # the Starting task (Story 6.3)
+    app.include_router(debrief_routes.router)  # the Debrief (Story 9.2)
     app.include_router(message_routes.router)  # Messages from staff (Story 7.9)
     app.include_router(messaging_webhooks.router)  # the provider's events (Story 4.6), signed
     if get_settings().app_env != "production":
         app.include_router(messaging_routes.router)  # the dev mailbox (Story 3.6), local only
         app.include_router(sessions_dev.router)  # the dev lock (Story 6.15), local only
+        app.include_router(debrief_dev.router)  # Group debrief back-dating (9.11), local only
     authz.register_principal_loader(identity_service.load_user)
     # The audit page shows names, read at request time from the module that owns them (AD-14).
     audit.register_labels("user_id", identity_service.user_labels)

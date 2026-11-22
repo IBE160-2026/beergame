@@ -1,7 +1,9 @@
-"""SQL for the games tables. Writers here are called only from `games.commands`."""
+"""SQL for the games tables. Writers here are called only from `games.commands`, and
+`insert_fact_set` from `games.facts` (Story 9.1)."""
 
 import uuid
 from collections.abc import Collection, Sequence
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import Numeric, RowMapping, func, select, text, update
@@ -9,6 +11,7 @@ from sqlalchemy.dialects.postgresql import distinct_on, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.games.models import (
+    fact_sets,
     game_checks,
     game_summaries,
     game_weeks,
@@ -627,6 +630,33 @@ async def occupancy_history(session: AsyncSession, game_id: uuid.UUID) -> list[R
     return list(result.mappings())
 
 
+async def named_students(session: AsyncSession, game_id: uuid.UUID) -> list[uuid.UUID]:
+    """Every User an occupancy row of the Game's Seats names as a Student (Story 9.11)."""
+    result = await session.scalars(
+        select(seat_occupancy.c.user_id)
+        .select_from(seat_occupancy.join(seats, seats.c.id == seat_occupancy.c.seat_id))
+        .where(
+            seats.c.game_id == game_id,
+            seat_occupancy.c.occupant_kind == "student",
+            seat_occupancy.c.user_id.is_not(None),
+        )
+        .distinct()
+    )
+    return list(result)
+
+
+async def student_orders_by_role(session: AsyncSession, game_id: uuid.UUID) -> dict[str, int]:
+    """The number of Decision log rows a Student decided (`decided_by = student`) per Seat Role
+    of the Game (Story 9.11)."""
+    result = await session.execute(
+        select(seats.c.role, func.count())
+        .select_from(seat_weeks.join(seats, seats.c.id == seat_weeks.c.seat_id))
+        .where(seat_weeks.c.game_id == game_id, seat_weeks.c.decided_by == "student")
+        .group_by(seats.c.role)
+    )
+    return {role: count for role, count in result}
+
+
 async def orders_by_decided_by(session: AsyncSession, game_id: uuid.UUID) -> dict[str, int]:
     """The number of Decision log rows of the Game per `decided_by`."""
     result = await session.execute(
@@ -641,6 +671,16 @@ async def finished_state(session: AsyncSession, game_id: uuid.UUID) -> dict[str,
     """The Game's finished Week state, or None before the Game has finished."""
     result = await session.execute(
         select(game_weeks.c.state).where(game_weeks.c.game_id == game_id, game_weeks.c.finished)
+    )
+    return result.scalar_one_or_none()
+
+
+async def finished_at(session: AsyncSession, game_id: uuid.UUID) -> datetime | None:
+    """When the Game's finished Week state was stored (database time), or None before then."""
+    result = await session.execute(
+        select(game_weeks.c.created_at).where(
+            game_weeks.c.game_id == game_id, game_weeks.c.finished
+        )
     )
     return result.scalar_one_or_none()
 
@@ -866,6 +906,16 @@ async def time_acceptors(session: AsyncSession, proposal_id: uuid.UUID) -> list[
     return list(result.scalars())
 
 
+async def fact_set(
+    session: AsyncSession, game_id: uuid.UUID, seat_id: uuid.UUID
+) -> RowMapping | None:
+    """The stored facts set of the Seat (Story 9.1), or None before one is stored."""
+    result = await session.execute(
+        select(fact_sets).where(fact_sets.c.game_id == game_id, fact_sets.c.seat_id == seat_id)
+    )
+    return result.mappings().one_or_none()
+
+
 def chain_cost_of(state: Any) -> Any:
     """The chain Total cost of a stored Week state in SQL: the sum of its seats' `total_cost`, as
     revision 0051's backfill sums it."""
@@ -891,6 +941,56 @@ async def newest_week(session: AsyncSession, game_id: uuid.UUID) -> RowMapping |
         .limit(1)
     )
     return result.mappings().one_or_none()
+
+
+async def insert_fact_set(session: AsyncSession, values: dict[str, Any]) -> None:
+    """Store a facts set unless the Seat has one: the first writer wins, a racing second one
+    stores nothing (`uq_fact_sets_game_seat`)."""
+    await session.execute(
+        insert(fact_sets)
+        .values(**values)
+        .on_conflict_do_nothing(index_elements=[fact_sets.c.game_id, fact_sets.c.seat_id])
+    )
+
+
+async def finished_student_seats(
+    session: AsyncSession, finished_after: datetime, finished_before: datetime
+) -> list[RowMapping]:
+    """Each Seat a Student ever held in a Class game that finished inside the window (database
+    time), oldest finish first: `game_id`, `seat_id`, the snapshot's `pins` and the Seat's stored
+    `fact_set_id` (None before one is stored) (Story 9.14)."""
+    held = (
+        select(seat_occupancy.c.seat_id)
+        .where(
+            seat_occupancy.c.seat_id == seats.c.id,
+            seat_occupancy.c.occupant_kind == "student",
+        )
+        .exists()
+    )
+    result = await session.execute(
+        select(
+            games.c.id.label("game_id"),
+            seats.c.id.label("seat_id"),
+            games.c.session_runtime["pins"].label("pins"),
+            fact_sets.c.id.label("fact_set_id"),
+        )
+        .select_from(
+            games.join(game_weeks, (game_weeks.c.game_id == games.c.id) & game_weeks.c.finished)
+            .join(seats, seats.c.game_id == games.c.id)
+            .outerjoin(
+                fact_sets,
+                (fact_sets.c.game_id == games.c.id) & (fact_sets.c.seat_id == seats.c.id),
+            )
+        )
+        .where(
+            games.c.class_session_id.is_not(None),
+            game_weeks.c.created_at > finished_after,
+            game_weeks.c.created_at <= finished_before,
+            held,
+        )
+        .order_by(game_weeks.c.created_at, games.c.id, seats.c.position)
+    )
+    return list(result.mappings())
 
 
 async def upsert_summary(session: AsyncSession, values: dict[str, Any]) -> None:

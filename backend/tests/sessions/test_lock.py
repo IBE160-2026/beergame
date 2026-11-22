@@ -85,7 +85,20 @@ async def test_two_sweeps_over_a_due_session_lock_it_once(klass, emitted):
     assert (runtime["inactivity_limit_hours"], runtime["prompt_versions"], runtime["pins"]) == (
         24,
         None,
-        {"starting_task": {"version": 1}},  # Story 6.3: the Starting task's pin
+        # Story 6.3: the Starting task's pin; Story 9.1: the Detected patterns'; Story 9.4: the
+        # sentence templates'; Story 9.6: the reflection questions'; Story 9.7: the moment
+        # templates'; Story 9.9: the Debrief quiz's; Story 9.14: the narration templates' and the
+        # Debrief's AI-text switch (on only with a model config on the session).
+        {
+            "starting_task": {"version": 1},
+            "detected_patterns": {"version": 1},
+            "sentence_templates": {"version": 1},
+            "reflection_questions": {"version": 1},
+            "moment_templates": {"version": 1},
+            "debrief_quiz": {"version": 1},
+            "narration_templates": {"version": 2},
+            "debrief_ai_text": {"enabled": False, "model_config_id": None, "effort_level": None},
+        },
     )
     assert runtime["rule_based_params"] and runtime["play_guard_params"]
     body = (await call(LECTURER, "GET", f"/api/class-sessions/{session_id}")).json()
