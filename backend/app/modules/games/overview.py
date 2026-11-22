@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.engine import GameSettings
 from app.modules.games import repo, rules
 from app.modules.games.policy import policy
-from app.modules.games.schemas import GameStatus, Lifecycle, OccupantKind
+from app.modules.games.schemas import GameStatus, Lifecycle
 
 __all__ = ["recompute", "refresh"]
 
@@ -50,12 +50,7 @@ async def recompute(
         by_seat = {turn["seat_id"]: turn for turn in turns}
         for seat in seats:  # chain order
             turn = by_seat.get(seat["id"])
-            if (
-                turn is None
-                or turn["occupant_kind"] != OccupantKind.STUDENT
-                or turn["wait_started_at"] is None
-                or rules.has_ordered(turn, guided=guided)
-            ):
+            if turn is None or not rules.waited_for(turn, guided=guided):
                 continue
             since.append(turn["wait_started_at"])
             if turn["takeover_due_at"] is not None:

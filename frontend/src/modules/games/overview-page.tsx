@@ -24,6 +24,7 @@ import {
   HOME_PATH,
   messagePath,
   sentMessagesPath,
+  fillSeatsPath,
   startGamesPath,
 } from "@/modules/identity/homes";
 import { PageShell } from "@/modules/identity/page-shell";
@@ -45,6 +46,7 @@ import {
   seatTexts,
   statusLines,
 } from "./overview";
+import { filledParam, fillLinkText } from "./fill-seats";
 import { startedParam, startedText, startLinkText } from "./start-games";
 
 const copy = nb.overview;
@@ -90,6 +92,7 @@ function OverviewView({ sessionId, user, updatedAt }: { sessionId: string; user:
   const latest = found.data;
   useReadAt(sessionId, latest);
   const startedCount = useStartedCount(sessionId);
+  const filledCount = useFilledCount(sessionId);
   if (found.error instanceof ApiRequestError && found.error.code === "forbidden") {
     return <AccessDenied user={user} updatedAt={updatedAt} />;
   }
@@ -130,6 +133,7 @@ function OverviewView({ sessionId, user, updatedAt }: { sessionId: string; user:
       liveLines={liveLines}
     >
       {data && startedCount !== null ? <StartedLine count={startedCount} /> : null}
+      {data && filledCount !== null ? <FilledLine count={filledCount} /> : null}
       {shown && latest ? (
         <OverviewBody
           sessionId={sessionId}
@@ -190,6 +194,7 @@ function useReadAt(sessionId: string, answer: OverviewAnswer | undefined) {
 
 function OverviewHeader({ data, sessionId }: { data: ClassOverview; sessionId: string }) {
   const startLink = startLinkText(data.startable);
+  const fillLink = fillLinkText(data.fillable);
   return (
     <header className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
       <h1 className="text-title-phone text-ink lg:text-title-page">{copy.title}</h1>
@@ -209,6 +214,12 @@ function OverviewHeader({ data, sessionId }: { data: ClassOverview; sessionId: s
       {startLink ? (
         <Link href={startGamesPath(sessionId)} data-start-games-link="" standalone>
           {startLink}
+        </Link>
+      ) : null}
+      {/* Every waited-for Seat, for a Lecturer (Story 8.12); not shown with a count of 0. */}
+      {fillLink ? (
+        <Link href={fillSeatsPath(sessionId)} data-fill-seats-link="" standalone>
+          {fillLink}
         </Link>
       ) : null}
     </header>
@@ -241,6 +252,36 @@ function StartedLine({ count }: { count: number }) {
       className="mt-6 border-y border-ink-muted py-2 text-body-phone text-ink tabular-nums lining-nums focus:outline-none lg:text-body"
     >
       {startedText(count)}
+    </p>
+  );
+}
+
+/**
+ * «9 KI-spillere er satt inn.» after «Sett inn 9 KI-spillere» (Story 8.12): the count in
+ * `?satt-inn=`, read once when the Oversikt opens and then dropped from the address, as
+ * `useStartedCount`. The line takes focus once the page shows.
+ */
+function useFilledCount(sessionId: string): number | null {
+  const params = useSearchParams();
+  const [found] = useState<number | null>(() => filledParam(params));
+  useEffect(() => {
+    if (found !== null) window.history.replaceState(null, "", classOverviewPath(sessionId));
+  }, [found, sessionId]);
+  return found;
+}
+
+function FilledLine({ count }: { count: number }) {
+  const ref = useRef<HTMLParagraphElement>(null);
+  useEffect(() => ref.current?.focus(), []);
+  return (
+    <p
+      ref={ref}
+      tabIndex={-1}
+      role="status"
+      data-seats-filled=""
+      className="mt-6 border-y border-ink-muted py-2 text-body-phone text-ink tabular-nums lining-nums focus:outline-none lg:text-body"
+    >
+      {nb.overview.fill.done(count)}
     </p>
   );
 }

@@ -25,6 +25,20 @@ def has_ordered(turn: Mapping[str, object], *, guided: bool) -> bool:
     )
 
 
+def waited_for(turn: Mapping[str, object], *, guided: bool) -> bool:
+    """The one waiting predicate (Story 8.12, FR-24, FR-37, AD-20): the game waits for the Seat of
+    `turn` when a Student holds it in the turn's Week, its wait has started (`wait_started_at`,
+    Story 6.14: another Student has ordered, or viewed a Guided Week) and it has not ordered
+    (`has_ordered`: in a Guided Week the view counts). `game_status` gives `waiting` from it and
+    the fill of waited-for Seats lists by it, so «Venter» and that count never disagree. `turn` is
+    a `seat_turns` row with the `occupant_kind` in force that Week."""
+    return (
+        turn["occupant_kind"] == OccupantKind.STUDENT
+        and turn["wait_started_at"] is not None
+        and not has_ordered(turn, guided=guided)
+    )
+
+
 def week_complete(turns: Sequence[Mapping[str, object]], *, guided: bool) -> bool:
     """The one predicate for an advance: the open Week is complete when every Seat's turn in it
     `has_ordered`. `turns` are the open Week's `seat_turns` rows, one per Seat, each with the
@@ -113,9 +127,11 @@ def game_status(game: Mapping[str, object], turns: Sequence[Mapping[str, object]
     `game` is a `games` row (`lifecycle`, `purpose`, `settings`); `turns` are its open Week's
     `seat_turns` rows, each with the `occupant_kind` in force that Week
     (`repo.week_turns_with_occupant`). A Game that runs is `waiting` when at least one Student has
-    ordered in the open Week and at least one Student-held Seat has not (FR-25); in a Guided Week
-    viewing counts as ordering (FR-24). A Game that runs with a Pause in force is `paused` (FR-89,
-    Story 8.6), whoever it waits for. Otherwise it is `running`. Pure: no I/O, no clock."""
+    ordered in the open Week and at least one Student-held Seat has not (FR-25), which is one
+    `waited_for` turn (Story 8.12): the first Student's Order starts the wait of every Seat that has
+    not ordered (Story 6.14); in a Guided Week viewing counts as ordering (FR-24). A Game that
+    runs with a Pause in force is `paused` (FR-89, Story 8.6), whoever it waits for. Otherwise it
+    is `running`. Pure: no I/O, no clock."""
     lifecycle = game["lifecycle"]
     if lifecycle == Lifecycle.NOT_STARTED:
         return GameStatus.NOT_STARTED
@@ -131,8 +147,8 @@ def game_status(game: Mapping[str, object], turns: Sequence[Mapping[str, object]
     guided = guided_week(
         policy(str(game["purpose"])), GameSettings.model_validate(game["settings"]), week
     )
-    ordered = [has_ordered(turn, guided=guided) for turn in students]
-    return GameStatus.WAITING if any(ordered) and not all(ordered) else GameStatus.RUNNING
+    waiting = any(waited_for(turn, guided=guided) for turn in students)
+    return GameStatus.WAITING if waiting else GameStatus.RUNNING
 
 
 @dataclass(frozen=True)

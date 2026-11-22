@@ -2167,6 +2167,29 @@ export const nb = {
       /** [ASSUMPTION] */
       failed: "Spillene ble ikke startet. Prøv igjen.",
     },
+    /** «Sett inn KI-spillere» (Story 8.12, FR-37, UX-DR52, EXPERIENCE.md → Spillstyring → Fill
+     * waited-for Seats): the header Lenke, the page's lines, its primary and the result line on the
+     * Oversikt are the spine's; the list's label, the empty line and the failure are [ASSUMPTION]
+     * draft copy. */
+    fill: {
+      /** «Sett inn KI-spiller i alle seter som blir ventet på (9)», not shown with 0. */
+      link: (n: number) => `Sett inn KI-spiller i alle seter som blir ventet på (${n})`,
+      title: "Sett inn KI-spillere",
+      crumb: "Sett inn KI-spillere",
+      /** One waited-for Seat under its game: «Noah, 23 t». */
+      seat: (name: string, wait: string) => `${name}, ${wait}`,
+      consequence: "Studentene kan ta setene tilbake fra neste Uke.",
+      /** The primary: «Sett inn 9 KI-spillere». */
+      confirm: (n: number) => (n === 1 ? "Sett inn 1 KI-spiller" : `Sett inn ${n} KI-spillere`),
+      /** [ASSUMPTION] */
+      listLabel: "Seter som blir ventet på",
+      /** [ASSUMPTION] */
+      empty: "Ingen seter blir ventet på nå.",
+      /** On the Oversikt after the press: «9 KI-spillere er satt inn.» */
+      done: (n: number) => (n === 1 ? "1 KI-spiller er satt inn." : `${n} KI-spillere er satt inn.`),
+      /** [ASSUMPTION] */
+      failed: "KI-spillerne ble ikke satt inn. Prøv igjen.",
+    },
     /** «Klasseøkt 2, class-of-1994» beside the heading. */
     session: (number: number, className: string) => `Klasseøkt ${number}, ${className}`,
     counts: {
@@ -2571,6 +2594,25 @@ export const nb = {
         game_not_ready: "Spillet kan ikke startes før Startdatoen.",
       } as Record<string, string>,
       failed: "Spillet ble ikke startet. Prøv igjen.",
+    },
+    /** «Sett inn KI-spiller i alle seter som blir ventet på (2)» on one game (Story 8.12, FR-37,
+     * UX-DR52): the button, «Ikke med (tilrettelegging): Jonas» and «2 KI-spillere satt inn.» are
+     * the spine's; the consequence line (EXPERIENCE.md has none, open-assumptions.md), the line
+     * when none was put in and the failure are [ASSUMPTION] draft copy. */
+    fill: {
+      button: (n: number) => `Sett inn KI-spiller i alle seter som blir ventet på (${n})`,
+      /** [ASSUMPTION] «KI-spillere bestiller for Noah og Emma fra denne Uka. Studentene kan ta
+       * setene tilbake fra neste Uke.» */
+      consequence: (names: string) =>
+        `KI-spillere bestiller for ${names} fra denne Uka. Studentene kan ta setene tilbake fra neste Uke.`,
+      /** The Seats left out: «Ikke med (tilrettelegging): Jonas». */
+      leftOut: (names: string) => `Ikke med (tilrettelegging): ${names}`,
+      /** The result line that replaces the button and takes focus: «2 KI-spillere satt inn.» */
+      done: (n: number) => (n === 1 ? "1 KI-spiller satt inn." : `${n} KI-spillere satt inn.`),
+      /** [ASSUMPTION] every Seat had ordered or been taken meanwhile. */
+      none: "Ingen KI-spillere satt inn. Setene blir ikke ventet på lenger.",
+      /** [ASSUMPTION] */
+      failed: "KI-spillerne ble ikke satt inn. Prøv igjen.",
     },
     /** The Lecturer's Pause (Story 8.7, FR-89, UX-DR52, EXPERIENCE.md → Spillstyring → Pause). */
     pause: {

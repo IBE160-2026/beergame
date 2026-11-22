@@ -9,6 +9,7 @@ import {
   playKey,
   startGamesKey,
   startingTaskKey,
+  waitedForSeatsKey,
 } from "@/modules/games/api";
 import { meKey } from "@/modules/identity/api";
 import { messageFormKey, myMessagesKey, sentMessagesKey } from "@/modules/messaging/api";
@@ -60,6 +61,8 @@ const ALL = [
   studentPageKey("s2", "u1"),
   startGamesKey("s1"),
   startGamesKey("s2"),
+  waitedForSeatsKey("s1"),
+  waitedForSeatsKey("s2"),
 ] as const;
 
 describe("topicKeys", () => {
@@ -92,6 +95,8 @@ describe("topicKeys", () => {
       studentPageKey("s1", "u1"),
       // Its «Start spill» page (Story 8.10).
       startGamesKey("s1"),
+      // Its «Sett inn KI-spillere» page (Story 8.12).
+      waitedForSeatsKey("s1"),
     ]);
   });
 

@@ -300,11 +300,19 @@ def test_game_status_reads_the_lifecycle_and_the_students_turns():
     game = {"lifecycle": "running", "purpose": "class", "settings": GameSettings().model_dump()}
     guided_week = GameSettings().guided_weeks
 
-    def turn(kind: str, ordered: bool, viewed: bool = False, week: int = guided_week + 1) -> dict:
+    def turn(
+        kind: str,
+        ordered: bool,
+        viewed: bool = False,
+        week: int = guided_week + 1,
+        wait: bool = False,
+    ) -> dict:
         return {
             "occupant_kind": kind,
             "ordered_at": datetime(2026, 1, 1) if ordered else None,
             "viewed_at": datetime(2026, 1, 1) if viewed else None,
+            # Story 8.12: the first Student's Order starts the wait of every Seat not ordered.
+            "wait_started_at": datetime(2026, 1, 1) if wait else None,
             "week": week,
         }
 
@@ -313,7 +321,9 @@ def test_game_status_reads_the_lifecycle_and_the_students_turns():
     assert status({**game, "lifecycle": "finished"}, []) is GameStatus.FINISHED
     assert status(game, []) is GameStatus.RUNNING
     # One Student ordered and another has not: waiting.
-    assert status(game, [turn("student", True), turn("student", False)]) is GameStatus.WAITING
+    assert status(game, [turn("student", True), turn("student", False, wait=True)]) is (
+        GameStatus.WAITING
+    )
     # Nobody ordered yet, or every Student has: running.
     assert status(game, [turn("student", False), turn("student", False)]) is GameStatus.RUNNING
     assert status(game, [turn("student", True), turn("llm", False)]) is GameStatus.RUNNING
@@ -322,12 +332,14 @@ def test_game_status_reads_the_lifecycle_and_the_students_turns():
     # In a Guided Week viewing counts as ordering (FR-24): the Guided Order alone is not enough.
     guided = [
         turn("student", True, viewed=True, week=1),
-        turn("student", True, viewed=False, week=1),
+        turn("student", True, viewed=False, week=1, wait=True),
     ]
     assert status(game, guided) is GameStatus.WAITING
-    assert status(game, [{**t, "viewed_at": None} for t in guided]) is GameStatus.RUNNING
+    # Nobody has viewed: no wait has started.
+    unviewed = [{**t, "viewed_at": None, "wait_started_at": None} for t in guided]
+    assert status(game, unviewed) is GameStatus.RUNNING
     # Epic 8's playout still runs.
     playing_out = {**game, "lifecycle": "playing_out"}
-    assert status(playing_out, [turn("student", True), turn("student", False)]) is (
+    assert status(playing_out, [turn("student", True), turn("student", False, wait=True)]) is (
         GameStatus.WAITING
     )

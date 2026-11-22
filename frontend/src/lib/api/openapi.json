@@ -1018,6 +1018,11 @@
           "counts": {
             "$ref": "#/components/schemas/OverviewCountsOut"
           },
+          "fillable": {
+            "default": 0,
+            "title": "Fillable",
+            "type": "integer"
+          },
           "funnel": {
             "items": {
               "$ref": "#/components/schemas/FunnelStageOut"
@@ -2271,6 +2276,49 @@
         "title": "ErrorEnvelope",
         "type": "object"
       },
+      "FillSeatsIn": {
+        "additionalProperties": false,
+        "description": "«Sett inn 9 KI-spillere»: the Seats the page or Spillinnsikt listed (Story 8.12).",
+        "properties": {
+          "seat_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 4000,
+            "minItems": 1,
+            "title": "Seat Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "seat_ids"
+        ],
+        "title": "FillSeatsIn",
+        "type": "object"
+      },
+      "FilledSeatsOut": {
+        "description": "What the fill did (Story 8.12): the AI players put in and the Seats skipped. Real counts.",
+        "properties": {
+          "inserted": {
+            "title": "Inserted",
+            "type": "integer"
+          },
+          "skipped": {
+            "items": {
+              "$ref": "#/components/schemas/SkippedSeatOut"
+            },
+            "title": "Skipped",
+            "type": "array"
+          }
+        },
+        "required": [
+          "inserted",
+          "skipped"
+        ],
+        "title": "FilledSeatsOut",
+        "type": "object"
+      },
       "FinalIn": {
         "additionalProperties": false,
         "properties": {
@@ -2394,6 +2442,14 @@
             ],
             "title": "Lab Hour Ends At"
           },
+          "left_out": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/WaitedSeatOut"
+            },
+            "title": "Left Out",
+            "type": "array"
+          },
           "pause": {
             "anyOf": [
               {
@@ -2463,6 +2519,14 @@
           "version": {
             "title": "Version",
             "type": "integer"
+          },
+          "waited_for": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/WaitedSeatOut"
+            },
+            "title": "Waited For",
+            "type": "array"
           },
           "weeks_total": {
             "anyOf": [
@@ -6144,6 +6208,26 @@
         "title": "SettingsCheckOut",
         "type": "object"
       },
+      "SkippedSeatOut": {
+        "description": "A listed Seat the fill left alone, with why: the Takeover's stable refusal code\n(`order_exists`, `takeover_exists`, `seat_not_student_held`, `tilrettelegging`,\n`not_waited_for`, `game_paused`, …), `not_listed` for a Seat of no game of the Class session,\nor `failed`.",
+        "properties": {
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "seat_id": {
+            "format": "uuid",
+            "title": "Seat Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "seat_id",
+          "reason"
+        ],
+        "title": "SkippedSeatOut",
+        "type": "object"
+      },
       "StaffAssistant": {
         "description": "An Assistant of the Class: `active` (staff, `user_id` set), or an Invitation not yet\naccepted (`invitation_id` set): `invited` with its last valid day, or `expired`.",
         "properties": {
@@ -7222,6 +7306,125 @@
         "title": "ValidationError",
         "type": "object"
       },
+      "WaitedForSeatsOut": {
+        "description": "The «Sett inn KI-spillere» page (Story 8.12, FR-37, UX-DR52): the Seats the Class session's\ngames wait for now, by game number, those left out for Tilrettelegging, and the database clock\nthe waits are counted on.",
+        "properties": {
+          "class_id": {
+            "format": "uuid",
+            "title": "Class Id",
+            "type": "string"
+          },
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "class_session_id": {
+            "format": "uuid",
+            "title": "Class Session Id",
+            "type": "string"
+          },
+          "games": {
+            "items": {
+              "$ref": "#/components/schemas/WaitedGameOut"
+            },
+            "title": "Games",
+            "type": "array"
+          },
+          "left_out": {
+            "items": {
+              "$ref": "#/components/schemas/WaitedSeatOut"
+            },
+            "title": "Left Out",
+            "type": "array"
+          },
+          "server_now": {
+            "format": "date-time",
+            "title": "Server Now",
+            "type": "string"
+          },
+          "session_number": {
+            "title": "Session Number",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "class_session_id",
+          "class_id",
+          "class_name",
+          "session_number",
+          "server_now",
+          "games",
+          "left_out"
+        ],
+        "title": "WaitedForSeatsOut",
+        "type": "object"
+      },
+      "WaitedGameOut": {
+        "description": "One Class game on the «Sett inn KI-spillere» page (Story 8.12): its number and the Seats\nit waits for, each with since when («Spill 2: Noah, 23 t»).",
+        "properties": {
+          "game_id": {
+            "format": "uuid",
+            "title": "Game Id",
+            "type": "string"
+          },
+          "game_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Number"
+          },
+          "seats": {
+            "items": {
+              "$ref": "#/components/schemas/WaitingSeatOut"
+            },
+            "title": "Seats",
+            "type": "array"
+          }
+        },
+        "required": [
+          "game_id",
+          "game_number",
+          "seats"
+        ],
+        "title": "WaitedGameOut",
+        "type": "object"
+      },
+      "WaitedSeatOut": {
+        "description": "A Seat a Class game waits for (Story 8.12, FR-37): the Seat, its Role and its Student by\nname now (None when no longer of the Class).",
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "seat_id": {
+            "format": "uuid",
+            "title": "Seat Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "seat_id",
+          "role",
+          "name"
+        ],
+        "title": "WaitedSeatOut",
+        "type": "object"
+      },
       "WaitingClass": {
         "description": "A Class with Class sessions that still lack a date or a confirmed allocation.",
         "properties": {
@@ -7248,6 +7451,43 @@
           "sessions"
         ],
         "title": "WaitingClass",
+        "type": "object"
+      },
+      "WaitingSeatOut": {
+        "description": "A waited-for Seat with the start of its wait (Story 6.14).",
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "seat_id": {
+            "format": "uuid",
+            "title": "Seat Id",
+            "type": "string"
+          },
+          "since": {
+            "format": "date-time",
+            "title": "Since",
+            "type": "string"
+          }
+        },
+        "required": [
+          "seat_id",
+          "role",
+          "name",
+          "since"
+        ],
+        "title": "WaitingSeatOut",
         "type": "object"
       },
       "WallAggregatesOut": {
@@ -11058,6 +11298,140 @@
           }
         },
         "summary": "Start Test Game",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/waited-for-seats": {
+      "get": {
+        "description": "The «Sett inn KI-spillere» page (Story 8.12, FR-37): the Seats the Class session's games\nwait for now, per game, and those left out for Tilrettelegging. 403 `forbidden` for anyone\nbut a Lecturer of the Class (FR-5).",
+        "operationId": "getWaitedForSeats",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WaitedForSeatsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Waited For Seats",
+        "tags": [
+          "sessions"
+        ]
+      },
+      "post": {
+        "description": "«Sett inn 9 KI-spillere» (Story 8.12, FR-37, AD-2): puts an AI player in each listed Seat\nthe game still waits for, one Takeover per Seat in its own transaction, the Lecturer as actor.\nA Seat that ordered since, is no longer Student-held, now has Tilrettelegging, is not of this\nClass session or fails is skipped with why; the others go on, and a repeat inserts nothing\ntwice. Answers the real counts. 403 `forbidden` for anyone but a Lecturer of the Class.",
+        "operationId": "fillWaitedForSeats",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FillSeatsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilledSeatsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Fill Waited For Seats",
         "tags": [
           "sessions"
         ]

@@ -384,6 +384,20 @@ async def class_session_seats(
     return list(result.mappings())
 
 
+async def class_session_seat_ids(
+    session: AsyncSession, class_session_id: uuid.UUID
+) -> list[RowMapping]:
+    """Every Seat of the Class session's listed Games in one read (Story 8.12): `id`, `game_id`
+    and `role`, by Game and chain order."""
+    result = await session.execute(
+        select(seats.c.id, seats.c.game_id, seats.c.role)
+        .join(games, games.c.id == seats.c.game_id)
+        .where(games.c.class_session_id == class_session_id, _listed())
+        .order_by(seats.c.game_id, seats.c.position)
+    )
+    return list(result.mappings())
+
+
 async def set_lifecycle(session: AsyncSession, game_id: uuid.UUID, lifecycle: str) -> None:
     await session.execute(update(games).where(games.c.id == game_id).values(lifecycle=lifecycle))
 

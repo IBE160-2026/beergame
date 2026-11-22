@@ -18,6 +18,7 @@ const OVERVIEW = {
   alert: null,
   can_pause: false,
   startable: 0,
+  fillable: 0,
   class_id: "c1",
   class_name: "klasse",
   session_number: 1,

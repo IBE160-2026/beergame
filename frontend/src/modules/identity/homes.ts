@@ -52,6 +52,15 @@ export const classOverviewPath = (id: string) => `${classSessionPath(id)}/oversi
  * Lecturers. */
 export const startGamesPath = (id: string) => `${classOverviewPath(id)}/start`;
 
+/** «Sett inn KI-spillere» (Story 8.12): every Seat the Class session's games wait for, for its
+ * Lecturers. */
+export const fillSeatsPath = (id: string) => `${classOverviewPath(id)}/sett-inn`;
+
+/** The Oversikt after «Sett inn 9 KI-spillere» (Story 8.12): it reads «9 KI-spillere er satt inn.»
+ * once. */
+export const overviewFilledPath = (id: string, inserted: number) =>
+  `${classOverviewPath(id)}?satt-inn=${encodeURIComponent(String(inserted))}`;
+
 /** The Oversikt after «Start 12 spill» (Story 8.10): it reads «12 spill er startet.» once. */
 export const overviewStartedPath = (id: string, started: number) =>
   `${classOverviewPath(id)}?startet=${encodeURIComponent(String(started))}`;

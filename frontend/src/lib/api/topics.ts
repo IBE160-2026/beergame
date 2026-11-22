@@ -1,7 +1,7 @@
 import type { QueryKey } from "@tanstack/react-query";
 
 import { classesKey, enrolledClassesKey } from "@/modules/classes/api";
-import { classOverviewKey, gameInsightKey, startGamesKey } from "@/modules/games/api";
+import { classOverviewKey, gameInsightKey, startGamesKey, waitedForSeatsKey } from "@/modules/games/api";
 import { meKey } from "@/modules/identity/api";
 import { myMessagesKey, sentMessagesKey } from "@/modules/messaging/api";
 import {
@@ -37,8 +37,8 @@ export function topicKeys(event: ChangeEvent): QueryKey[] {
       ];
     // A Class session, for its staff: the Klasseøkt, its allocation block, the Lærerhjem parts of
     // Stories 5.2 and 5.9, the Class page's list of its sessions, its Oversikt (Story 7.1) and its
-    // «Meldinger» (Story 7.10), the Studentsides under it (Story 8.9) and its «Start spill» page
-    // (Story 8.10).
+    // «Meldinger» (Story 7.10), the Studentsides under it (Story 8.9), its «Start spill» page
+    // (Story 8.10) and its «Sett inn KI-spillere» page (Story 8.12).
     case "session":
       return [
         classSessionKey(event.id),
@@ -48,6 +48,7 @@ export function topicKeys(event: ChangeEvent): QueryKey[] {
         ["class-sessions", "of-class"],
         classOverviewKey(event.id),
         startGamesKey(event.id),
+        waitedForSeatsKey(event.id),
         sentMessagesKey(event.id),
       ];
     // A Game: the Student's own game and what hangs under it (briefing, Starting task, the play

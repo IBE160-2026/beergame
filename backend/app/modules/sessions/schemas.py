@@ -1010,6 +1010,10 @@ class ClassOverviewOut(BaseModel):
     """Story 8.10 (FR-22, UX-DR52): how many Class games a Lecturer of the Class may start now
     (not started, with their settings snapshot); the header Lenke «Start spill som ikke har
     startet (12)» shows it. 0 for an Assistant lecturer and before the lock."""
+    fillable: int = 0
+    """Story 8.12 (FR-37, UX-DR52): how many Seats the Class session's games wait for now, less
+    those whose Student has Tilrettelegging; the header Lenke «Sett inn KI-spiller i alle seter som
+    blir ventet på (9)» shows it. 0 for an Assistant lecturer."""
     class_id: uuid.UUID
     class_name: str
     session_number: int
@@ -1149,6 +1153,15 @@ class InRoomIn(BaseModel):
     minutes: int | float
 
 
+class WaitedSeatOut(BaseModel):
+    """A Seat a Class game waits for (Story 8.12, FR-37): the Seat, its Role and its Student by
+    name now (None when no longer of the Class)."""
+
+    seat_id: uuid.UUID
+    role: Role
+    name: str | None
+
+
 class GameInsightOut(BaseModel):
     """Spillinnsikt (Story 7.7, FR-62, AD-3, AD-12): one Game week by week, for the staff of its
     Class only. The only answer that gives the staff the full chain, the demand series and the
@@ -1197,6 +1210,13 @@ class GameInsightOut(BaseModel):
     lab_hour_ends_at: AwareDatetime | None = None
     """Story 8.11: the end of the Class session's Lab hour on now («Den gjelder til Labtimen
     slutter kl. 16:00.»); None outside every Lab hour, when «Marker som i rommet» is unavailable."""
+    waited_for: list[WaitedSeatOut] = []
+    """Story 8.12 (FR-37, UX-DR52): for a Lecturer of the Class, the Seats the game waits for now
+    that «Sett inn KI-spiller i alle seter som blir ventet på (2)» fills, in chain order. Empty
+    for an Assistant lecturer and when the game waits for no one."""
+    left_out: list[WaitedSeatOut] = []
+    """Story 8.12: the waited-for Seats left out because their Student has Tilrettelegging
+    («Ikke med (tilrettelegging): Jonas»); for a Lecturer only."""
 
 
 class StartGamesOut(BaseModel):
@@ -1224,6 +1244,60 @@ class StartedGamesOut(BaseModel):
 
     started: int
     skipped: int
+
+
+class WaitingSeatOut(WaitedSeatOut):
+    """A waited-for Seat with the start of its wait (Story 6.14)."""
+
+    since: AwareDatetime
+
+
+class WaitedGameOut(BaseModel):
+    """One Class game on the «Sett inn KI-spillere» page (Story 8.12): its number and the Seats
+    it waits for, each with since when («Spill 2: Noah, 23 t»)."""
+
+    game_id: uuid.UUID
+    game_number: int | None
+    seats: list[WaitingSeatOut]
+
+
+class WaitedForSeatsOut(BaseModel):
+    """The «Sett inn KI-spillere» page (Story 8.12, FR-37, UX-DR52): the Seats the Class session's
+    games wait for now, by game number, those left out for Tilrettelegging, and the database clock
+    the waits are counted on."""
+
+    class_session_id: uuid.UUID
+    class_id: uuid.UUID
+    class_name: str
+    session_number: int
+    server_now: AwareDatetime
+    games: list[WaitedGameOut]
+    left_out: list[WaitedSeatOut]
+
+
+class FillSeatsIn(BaseModel):
+    """«Sett inn 9 KI-spillere»: the Seats the page or Spillinnsikt listed (Story 8.12)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    seat_ids: list[uuid.UUID] = Field(min_length=1, max_length=4000)
+
+
+class SkippedSeatOut(BaseModel):
+    """A listed Seat the fill left alone, with why: the Takeover's stable refusal code
+    (`order_exists`, `takeover_exists`, `seat_not_student_held`, `tilrettelegging`,
+    `not_waited_for`, `game_paused`, …), `not_listed` for a Seat of no game of the Class session,
+    or `failed`."""
+
+    seat_id: uuid.UUID
+    reason: str
+
+
+class FilledSeatsOut(BaseModel):
+    """What the fill did (Story 8.12): the AI players put in and the Seats skipped. Real counts."""
+
+    inserted: int
+    skipped: list[SkippedSeatOut]
 
 
 class WallCells(StrEnum):

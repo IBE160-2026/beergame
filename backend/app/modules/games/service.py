@@ -82,6 +82,7 @@ __all__ = [
     "register_insight_links",
     "unregister_insight_links",
     "ClassGameSummary",
+    "WaitedSeat",
     "ClassGameWeeks",
     "WeekSeatValues",
     "assigned_students",
@@ -853,6 +854,65 @@ class ClassGameWeeks:
     game_id: uuid.UUID
     version: int
     weeks: tuple[tuple[int, tuple[WeekSeatValues, ...]], ...]
+
+
+@dataclass(frozen=True)
+class WaitedSeat:
+    """A Seat a Class game waits for (Story 8.12, FR-37): its Game, the Seat, its Student and since
+    when, as the game's `game_summaries` row lists it (`rules.waited_for`)."""
+
+    game_id: uuid.UUID
+    game_number: int | None
+    seat_id: uuid.UUID
+    role: str
+    user_id: uuid.UUID | None
+    since: datetime
+
+
+async def waited_for_seats(
+    session: AsyncSession, class_session_id: uuid.UUID, game_id: uuid.UUID | None = None
+) -> list[WaitedSeat]:
+    """The Seats the Class session's games wait for now (Story 8.12), or one game's (`game_id`),
+    by game number and chain order: the `waiting_for` of the `waiting` summary rows, the same rows
+    the Oversikt's «Venter» count reads, so the two never disagree. A paused game waits for no one
+    (its status is `paused`). Two reads."""
+    games = [
+        game
+        for game in await class_overview(session, class_session_id)
+        if game.status is GameStatus.WAITING and (game_id is None or game.game_id == game_id)
+    ]
+    if not games:
+        return []
+    seat_ids = {
+        (row["game_id"], row["role"]): row["id"]
+        for row in await repo.class_session_seat_ids(session, class_session_id)
+    }
+    return [
+        WaitedSeat(
+            game_id=game.game_id,
+            game_number=game.game_number,
+            seat_id=seat_ids[(game.game_id, wait.role)],
+            role=wait.role,
+            user_id=wait.user_id,
+            since=wait.since,
+        )
+        for game in games
+        for wait in game.waiting_for
+        if (game.game_id, wait.role) in seat_ids
+    ]
+
+
+async def class_seat_games(
+    session: AsyncSession, class_session_id: uuid.UUID, seat_ids: Collection[uuid.UUID]
+) -> dict[uuid.UUID, uuid.UUID]:
+    """The Game of each of `seat_ids` that is a Seat of the Class session's listed Games (Story
+    8.12); any other id is left out. One read."""
+    wanted = set(seat_ids)
+    return {
+        row["id"]: row["game_id"]
+        for row in await repo.class_session_seat_ids(session, class_session_id)
+        if row["id"] in wanted
+    }
 
 
 async def class_game_head(session: AsyncSession, game_id: uuid.UUID) -> ClassGameHead | None:

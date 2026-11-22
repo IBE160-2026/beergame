@@ -409,6 +409,39 @@ export function startGames(sessionId: string, gameIds: string[]) {
   );
 }
 
+/** The «Sett inn KI-spillere» page (Story 8.12): the Seats the Class session's games wait for. */
+export type WaitedForSeats = components["schemas"]["WaitedForSeatsOut"];
+export type FilledSeats = components["schemas"]["FilledSeatsOut"];
+export const waitedForSeatsKey = (sessionId: string) => ["games", "waited-for-seats", sessionId] as const;
+
+/** `/api/class-sessions/{id}/waited-for-seats`: anyone but a Lecturer of the Class answers 403
+ * `forbidden`. Read again on the session's `session:<id>` event (`topics.ts`). */
+export function useWaitedForSeats(sessionId: string) {
+  return useQuery({
+    queryKey: waitedForSeatsKey(sessionId),
+    queryFn: () =>
+      request(() =>
+        api.GET("/api/class-sessions/{session_id}/waited-for-seats", {
+          params: { path: { session_id: sessionId } },
+          cache: "no-store",
+        }),
+      ),
+    retry: false,
+  });
+}
+
+/** «Sett inn 9 KI-spillere» and the per-game «Sett inn KI-spiller i alle seter som blir ventet på
+ * (2)» (Story 8.12): puts an AI player in each listed Seat still waited for; answers the real
+ * counts. */
+export function fillWaitedForSeats(sessionId: string, seatIds: string[]) {
+  return request(() =>
+    api.POST("/api/class-sessions/{session_id}/waited-for-seats", {
+      params: { path: { session_id: sessionId } },
+      body: { seat_ids: seatIds },
+    }),
+  );
+}
+
 /** «Spillet er ferdig» (Story 6.18): the finished game's cost per Role, the chain's and the
  * chain's per Uke. The api answers 409 `game_not_finished` before the end. */
 export type GameResult = components["schemas"]["GameResult"];

@@ -13,12 +13,15 @@ import { roleName } from "@/modules/sessions/sessions";
 
 import {
   classOverviewKey,
+  fillWaitedForSeats,
   type GameInsight,
   gameInsightKey,
   startGameAsLecturer,
   startGamesKey,
   takeOverSeat,
+  waitedForSeatsKey,
 } from "./api";
+import { fillFailed, filledText, leftOutText, namesText, seatName } from "./fill-seats";
 import { InRoomStyring } from "./in-room-view";
 import { seatsUpstreamFirst } from "./insight";
 import { insightPauseText, type PauseMode, PauseResult, StaffPauseForm, useEndPause } from "./staff-pause";
@@ -27,6 +30,7 @@ import { type StartResult, startedFirst, startResultText } from "./start-games";
 const copy = nb.spillstyring;
 const pauseCopy = nb.spillstyring.pause;
 const startCopy = nb.spillstyring.start;
+const fillCopy = nb.spillstyring.fill;
 
 type Role = components["schemas"]["Role"];
 type From = "this_week" | "next_week";
@@ -185,13 +189,23 @@ export function Spillstyring({ data }: { data: GameInsight }) {
   const [pressed, setPressed] = useState<ReadonlyMap<Role, string>>(new Map());
   // «Start spillet»'s result line stays once the game runs, above the block's other actions.
   const [started, setStarted] = useState<StartResult | null>(null);
+  // «2 KI-spillere satt inn.» stays once the game no longer waits for those Seats (Story 8.12),
+  // until it waits for other Seats (a later Uke): then the button is offered again.
+  const [filled, setFilled] = useState<number | null>(null);
+  const waitedIds = data.waited_for.map((seat) => seat.seat_id).join(" ");
+  const [shownWaits, setShownWaits] = useState(waitedIds);
+  if (waitedIds !== shownWaits) {
+    setShownWaits(waitedIds);
+    if (waitedIds !== "") setFilled(null);
+  }
   const startShown = data.can_start || started !== null;
   // A paused game still runs: the staff's per-Seat action stays (Story 8.6).
   const running = data.status === "running" || data.status === "waiting" || data.status === "paused";
   const rows = running ? seatsUpstreamFirst(data).filter((seat) => seat.takeover != null || pressed.has(seat.role)) : [];
   const pauseShown = running && data.can_pause;
   const inRoomShown = running && data.can_mark_in_room;
-  if (!startShown && !pauseShown && !inRoomShown && rows.length === 0) return null;
+  const fillShown = running && (data.waited_for.length > 0 || data.left_out.length > 0 || filled !== null);
+  if (!startShown && !pauseShown && !inRoomShown && !fillShown && rows.length === 0) return null;
   return (
     <section aria-labelledby={id} className="mt-8" data-spillstyring="">
       <h2 id={id} className="text-label text-ink">
@@ -201,6 +215,8 @@ export function Spillstyring({ data }: { data: GameInsight }) {
       {pauseShown ? <PauseStyring data={data} /> : null}
       {/* «I rommet» (Story 8.11): a Lecturer, while the game runs. */}
       {inRoomShown ? <InRoomStyring data={data} /> : null}
+      {/* Every waited-for Seat of this game in one press (Story 8.12): a Lecturer. */}
+      {fillShown ? <FillStyring data={data} result={filled} onResult={setFilled} /> : null}
       {rows.length > 0 ? (
         <ul className="mt-3 flex flex-col gap-4">
           {rows.map((seat) => {
@@ -310,6 +326,92 @@ function StartStyring({
         {startCopy.button}
       </Button>
       {startedFirst(starting.error) ? null : <ActionError message={starting.errorMessage} />}
+    </div>
+  );
+}
+
+/**
+ * «Sett inn KI-spiller i alle seter som blir ventet på (2)» in Spillstyring (Story 8.12, FR-37,
+ * UX-DR52, EXPERIENCE.md → Spillstyring → Fill waited-for Seats), for a Lecturer: the consequence
+ * directly above the secondary button, full width below 1024 px, then «Ikke med (tilrettelegging):
+ * Jonas» for the Seats the api left out; one press, no dialog. The press posts the Seats the api
+ * listed; the api skips any that ordered or were taken meanwhile. «2 KI-spillere satt inn.», with
+ * the real count, replaces the button and takes focus (`tabindex="-1"`, `role="status"`); a failure
+ * is said inline and the button stays active.
+ */
+function FillStyring({
+  data,
+  result,
+  onResult,
+}: {
+  data: GameInsight;
+  result: number | null;
+  onResult: (inserted: number) => void;
+}) {
+  const queryClient = useQueryClient();
+  const lineId = useId();
+  const lineRef = useRef<HTMLParagraphElement>(null);
+  const seats = data.waited_for;
+  const leftOut = leftOutText(data.left_out);
+  const filling = useAction({
+    mutationFn: async () => {
+      const answer = await fillWaitedForSeats(
+        data.class_session_id,
+        seats.map((seat) => seat.seat_id),
+      );
+      if (fillFailed(answer)) throw new Error("fill failed");
+      return answer;
+    },
+    fallback: fillCopy.failed,
+    onSuccess: (answer) => {
+      onResult(answer.inserted);
+      void Promise.all([
+        queryClient.invalidateQueries({ queryKey: gameInsightKey(data.game_id) }),
+        queryClient.invalidateQueries({ queryKey: classOverviewKey(data.class_session_id) }),
+        queryClient.invalidateQueries({ queryKey: waitedForSeatsKey(data.class_session_id) }),
+      ]);
+    },
+  });
+  useEffect(() => {
+    if (result !== null) lineRef.current?.focus();
+  }, [result]);
+  if (result !== null) {
+    return (
+      <p
+        ref={lineRef}
+        tabIndex={-1}
+        role="status"
+        data-fill-result=""
+        className="mt-3 border-b border-hairline pb-4 text-body-phone text-ink tabular-nums lining-nums focus:outline-none lg:text-body"
+      >
+        {filledText(result)}
+      </p>
+    );
+  }
+  return (
+    <div className="mt-3 flex flex-col items-start gap-2 border-b border-hairline pb-4" data-spillstyring-fill="">
+      {seats.length > 0 ? (
+        <>
+          <p id={lineId} className="text-caption text-ink-secondary [overflow-wrap:anywhere]" data-fill-consequence="">
+            {fillCopy.consequence(namesText(seats.map(seatName)))}
+          </p>
+          <Button
+            data-fill-seats=""
+            className="w-full lg:w-auto"
+            aria-describedby={lineId}
+            unavailable={filling.isPending}
+            onClick={() => filling.mutate(undefined)}
+          >
+            {fillCopy.button(seats.length)}
+          </Button>
+        </>
+      ) : null}
+      {leftOut ? (
+        <p className="text-caption text-ink-secondary [overflow-wrap:anywhere]" data-fill-left-out="">
+          {leftOut}
+        </p>
+      ) : null}
+      <ActionError message={filling.errorMessage} />
     </div>
   );
 }

@@ -57,6 +57,8 @@ const insight = (weeks: InsightWeek[][]): GameInsight => ({
   can_adjust: false,
   can_start: false,
   can_mark_in_room: false,
+  waited_for: [],
+  left_out: [],
   demand: [],
   seats: [
     { role: "retailer", holder: "student", name: "Ida Berg", links: [], extra_time: false },

@@ -26,6 +26,7 @@ from app.modules.sessions.schemas import (
     ClassCostOut,
     ClassOverviewOut,
     DemandWeekOut,
+    FilledSeatsOut,
     FunnelStageOut,
     GameInsightOut,
     GameWeekOut,
@@ -43,8 +44,13 @@ from app.modules.sessions.schemas import (
     OverviewSeatOut,
     OverviewWaitOut,
     RoleCostOut,
+    SkippedSeatOut,
     StartedGamesOut,
     StartGamesOut,
+    WaitedForSeatsOut,
+    WaitedGameOut,
+    WaitedSeatOut,
+    WaitingSeatOut,
     WallAggregatesOut,
     WallCells,
     WallStatus,
@@ -59,6 +65,10 @@ log = structlog.get_logger(__name__)
 
 BATCH_START_CONCURRENCY = 4
 """How many Games «Start 12 spill» starts at once (Story 8.10): below the pool size (10)."""
+
+BATCH_FILL_CONCURRENCY = 4
+"""How many Games «Sett inn 9 KI-spillere» fills at once (Story 8.12); the Seats of one Game go
+one after another, each its own command on the Game row lock."""
 
 __all__ = [
     "WallFilter",
@@ -82,6 +92,8 @@ __all__ = [
     "start_game",
     "start_games",
     "start_games_page",
+    "fill_waited_for",
+    "waited_for_page",
     "wall_aggregates_out",
     "wall_games",
 ]
@@ -127,6 +139,14 @@ async def class_overview(user: authz.Principal, session_id: uuid.UUID) -> ClassO
             if not before_start and authz.can(user, "games.start", found)
             else 0
         )
+        # «Sett inn KI-spiller i alle seter som blir ventet på (9)» (Story 8.12): for a Lecturer,
+        # the waiting games' `waiting_for` less the Seats with Tilrettelegging, the rows the fill
+        # page lists; one read whatever the number of games.
+        fillable = (
+            await _fillable(s, session_id, games)
+            if authz.can(user, "games.fill_seats", found)
+            else 0
+        )
     counts = {status: 0 for status in GameStatus}
     for game in games:
         counts[game.status] += 1
@@ -153,6 +173,7 @@ async def class_overview(user: authz.Principal, session_id: uuid.UUID) -> ClassO
         can_pause=authz.can(user, "games.pause", found),
         play_deadline=row["play_deadline"],
         startable=startable,
+        fillable=fillable,
         class_id=found.id,
         class_name=found.name,
         session_number=number,
@@ -457,6 +478,21 @@ async def game_insight(user: authz.Principal, game_id: uuid.UUID) -> GameInsight
             if can_adjust
             else {}
         )
+        # «Sett inn KI-spiller i alle seter som blir ventet på (2)» (Story 8.12): for a Lecturer.
+        filled, left = (
+            await _waited_split(s, head.class_session_id, game_id)
+            if authz.can(user, "games.fill_seats", found)
+            else ([], [])
+        )
+        waited_names = (
+            await classes.student_names(
+                row["class_id"],
+                sorted({w.user_id for w in (*filled, *left) if w.user_id is not None}, key=str),
+                session=s,
+            )
+            if filled or left
+            else {}
+        )
     # «Marker som i rommet» (Story 8.11): a Lecturer, a running game, and the Lab hour on now on
     # the api's clock, the one Lab hours are judged on.
     can_mark = insight.markable and authz.can(user, "games.in_room", found)
@@ -530,6 +566,8 @@ async def game_insight(user: authz.Principal, game_id: uuid.UUID) -> GameInsight
         else None,
         can_mark_in_room=can_mark,
         lab_hour_ends_at=None if lab_hour is None else lab_hour.ends_at,
+        waited_for=[_waited_out(w, waited_names) for w in filled],
+        left_out=[_waited_out(w, waited_names) for w in left],
     )
 
 
@@ -804,6 +842,144 @@ async def start_games(
     started = sum(outcomes)
     log.info("lecturer_started_games", class_session_id=str(session_id), started=started)
     return StartedGamesOut(started=started, skipped=len(wanted) - started)
+
+
+async def _fillable(s: Any, session_id: uuid.UUID, games: list[ClassGameSummary]) -> int:
+    waits = [w for g in games if g.status is GameStatus.WAITING for w in g.waiting_for]
+    extra = await time_factors(s, session_id, [w.user_id for w in waits if w.user_id])
+    return sum(1 for w in waits if w.user_id not in extra)
+
+
+async def _waited_split(
+    s: Any, session_id: uuid.UUID, game_id: uuid.UUID | None = None
+) -> tuple[list[games_service.WaitedSeat], list[games_service.WaitedSeat]]:
+    """The Seats the Class session's games (or one game's) wait for now (Story 8.12), split into
+    those the fill takes and those left out because their Student has a Tilrettelegging time
+    factor (Story 8.9): the factor is what makes a Seat's time differ."""
+    waited = await games_service.waited_for_seats(s, session_id, game_id)
+    students = [w.user_id for w in waited if w.user_id is not None]
+    extra = await time_factors(s, session_id, students) if students else {}
+    return (
+        [w for w in waited if w.user_id not in extra],
+        [w for w in waited if w.user_id in extra],
+    )
+
+
+def _waited_out(seat: games_service.WaitedSeat, names: dict[uuid.UUID, str]) -> WaitedSeatOut:
+    return WaitedSeatOut(
+        seat_id=seat.seat_id,
+        role=Role(seat.role),
+        name=names.get(seat.user_id) if seat.user_id else None,
+    )
+
+
+async def _filler_session(user: authz.Principal, session_id: uuid.UUID) -> tuple[Any, Any] | None:
+    """The Class session row and its Class when `user` is a Lecturer of it (`games.fill_seats`);
+    None, one answer, for anyone else and a Class session that does not exist (FR-5)."""
+    async with get_sessionmaker()() as s:
+        row = await repo.session_row(s, session_id)
+    if row is None:
+        return None
+    found = await _class_for(user, row["class_id"], "games.fill_seats")
+    return None if found is None else (row, found)
+
+
+async def waited_for_page(user: authz.Principal, session_id: uuid.UUID) -> WaitedForSeatsOut | None:
+    """The «Sett inn KI-spillere» page (Story 8.12, FR-37, UX-DR52): the Seats the Class session's
+    games wait for now, per game by game number with each Student's name now and the start of the
+    wait, and the Seats left out for Tilrettelegging. None for anyone but a Lecturer of the Class
+    (FR-5)."""
+    own = await _filler_session(user, session_id)
+    if own is None:
+        return None
+    row, found = own
+    async with get_sessionmaker()() as s:
+        number = await repo.number_of(s, session_id, row["class_id"])
+        filled, left = await _waited_split(s, session_id)
+        students = sorted({w.user_id for w in (*filled, *left) if w.user_id is not None}, key=str)
+        names = (
+            await classes.student_names(row["class_id"], students, session=s) if students else {}
+        )
+        now = await games_service.database_now(s)
+    games: dict[uuid.UUID, WaitedGameOut] = {}
+    for seat in filled:
+        game = games.setdefault(
+            seat.game_id,
+            WaitedGameOut(game_id=seat.game_id, game_number=seat.game_number, seats=[]),
+        )
+        game.seats.append(WaitingSeatOut(**_waited_out(seat, names).model_dump(), since=seat.since))
+    return WaitedForSeatsOut(
+        class_session_id=session_id,
+        class_id=found.id,
+        class_name=found.name,
+        session_number=number,
+        server_now=now,
+        games=list(games.values()),
+        left_out=[_waited_out(w, names) for w in left],
+    )
+
+
+async def fill_waited_for(
+    user: authz.Principal, session_id: uuid.UUID, seat_ids: list[uuid.UUID]
+) -> FilledSeatsOut | None:
+    """«Sett inn 9 KI-spillere» and «Sett inn KI-spiller i alle seter som blir ventet på (2)»
+    (Story 8.12, FR-37, AD-2, AD-5): one `games.commands.takeover` per listed Seat with the
+    Lecturer as `staff` actor and `only_waited_for`, each in its own transaction under its Game's
+    row lock. Games go a few at a time, the Seats of one Game one after another. A Seat of no game
+    of this Class session is skipped `not_listed`; a refusal (ordered since, no longer
+    Student-held, Tilrettelegging now, paused, ...) is skipped with its code, any other failure
+    `failed`, and neither stops the others; a repeat inserts nothing twice (`takeover_exists`).
+    Returns the real counts; None for anyone but a Lecturer of the Class (FR-5)."""
+    own = await _filler_session(user, session_id)
+    if own is None:
+        return None
+    wanted = list(dict.fromkeys(seat_ids))  # each once, in the page's order
+    async with get_sessionmaker()() as s:
+        of_game = await games_service.class_seat_games(s, session_id, wanted)
+    skipped = [
+        SkippedSeatOut(seat_id=seat, reason="not_listed") for seat in wanted if seat not in of_game
+    ]
+    by_game: dict[uuid.UUID, list[uuid.UUID]] = {}
+    for seat in wanted:
+        if seat in of_game:
+            by_game.setdefault(of_game[seat], []).append(seat)
+    gate = asyncio.Semaphore(BATCH_FILL_CONCURRENCY)
+
+    async def fill_game(game_id: uuid.UUID, seats: list[uuid.UUID]) -> list[SkippedSeatOut | None]:
+        done: list[SkippedSeatOut | None] = []
+        async with gate:
+            for seat in seats:
+                try:
+                    await games_commands.takeover(
+                        str(game_id),
+                        str(seat),
+                        actor="staff",
+                        actor_user_id=user.id,
+                        only_waited_for=True,
+                    )
+                except games_commands.CommandError as refused:
+                    log.info("fill_seat_skipped", seat_id=str(seat), code=refused.code)
+                    done.append(SkippedSeatOut(seat_id=seat, reason=refused.code))
+                except Exception:
+                    log.exception("fill_seat_failed", game_id=str(game_id), seat_id=str(seat))
+                    done.append(SkippedSeatOut(seat_id=seat, reason="failed"))
+                else:
+                    done.append(None)
+        return done
+
+    outcomes = await asyncio.gather(*(fill_game(g, seats) for g, seats in by_game.items()))
+    results = [each for game in outcomes for each in game]
+    inserted = sum(1 for each in results if each is None)
+    skipped += [each for each in results if each is not None]
+    log.info(
+        "lecturer_filled_seats",
+        class_session_id=str(session_id),
+        requested=len(wanted),
+        inserted=inserted,
+        skipped=len(skipped),
+        failed=sum(1 for each in skipped if each.reason == "failed"),
+    )
+    return FilledSeatsOut(inserted=inserted, skipped=skipped)
 
 
 class InRoomRefused(Exception):

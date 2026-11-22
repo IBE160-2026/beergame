@@ -42,6 +42,8 @@ from app.modules.sessions.schemas import (
     CopySourceListOut,
     DemandSeriesOut,
     EnrolledSessionListOut,
+    FilledSeatsOut,
+    FillSeatsIn,
     GameInsightOut,
     GameResultOut,
     GameWeeksOut,
@@ -64,6 +66,7 @@ from app.modules.sessions.schemas import (
     StudentPageOut,
     TestGameIn,
     TimeProposalIn,
+    WaitedForSeatsOut,
     WallAggregatesOut,
     WallCells,
     WallStatus,
@@ -554,6 +557,47 @@ async def start_games(
     ready yet, is not of this Class session or fails is skipped; the others go on. Answers the
     real counts; a repeat is safe. 403 `forbidden` for anyone but a Lecturer of the Class."""
     found = await overview.start_games(user, _id(session_id), body.game_ids)
+    if found is None:
+        raise authz.Forbidden
+    return found
+
+
+@router.get(
+    "/class-sessions/{session_id}/waited-for-seats",
+    response_model=WaitedForSeatsOut,
+    responses=documented(401, 403),
+    operation_id="getWaitedForSeats",
+)
+async def get_waited_for_seats(
+    session_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("games.fill_seats"))],
+) -> WaitedForSeatsOut:
+    """The «Sett inn KI-spillere» page (Story 8.12, FR-37): the Seats the Class session's games
+    wait for now, per game, and those left out for Tilrettelegging. 403 `forbidden` for anyone
+    but a Lecturer of the Class (FR-5)."""
+    found = await overview.waited_for_page(user, _id(session_id))
+    if found is None:
+        raise authz.Forbidden
+    return found
+
+
+@router.post(
+    "/class-sessions/{session_id}/waited-for-seats",
+    response_model=FilledSeatsOut,
+    responses=documented(401, 403, 422),
+    operation_id="fillWaitedForSeats",
+)
+async def fill_waited_for_seats(
+    session_id: str,
+    body: FillSeatsIn,
+    user: Annotated[authz.Principal, Depends(authz.require("games.fill_seats"))],
+) -> FilledSeatsOut:
+    """«Sett inn 9 KI-spillere» (Story 8.12, FR-37, AD-2): puts an AI player in each listed Seat
+    the game still waits for, one Takeover per Seat in its own transaction, the Lecturer as actor.
+    A Seat that ordered since, is no longer Student-held, now has Tilrettelegging, is not of this
+    Class session or fails is skipped with why; the others go on, and a repeat inserts nothing
+    twice. Answers the real counts. 403 `forbidden` for anyone but a Lecturer of the Class."""
+    found = await overview.fill_waited_for(user, _id(session_id), body.seat_ids)
     if found is None:
         raise authz.Forbidden
     return found

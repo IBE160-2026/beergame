@@ -365,12 +365,14 @@ async def test_the_overview_reads_a_fixed_number_of_queries_whatever_the_number_
     )
     event.listen(engine, "before_cursor_execute", record)
     try:
-        add_games(10, 1)
+        # One waiting game and one finished from the start: a waiting game's Tilrettelegging read
+        # (Story 8.12) is one query for one game as for fifty.
+        add_games(9, 2)
         progress_service._funnels.clear()
         statements.clear()
         few = await overview(LECTURER, session_id)
         with_few = len(statements)
-        add_games(11, 99)
+        add_games(11, 98)
         progress_service._funnels.clear()  # both reads count the Trakt afresh
         statements.clear()
         many = await overview(LECTURER, session_id)
@@ -378,7 +380,7 @@ async def test_the_overview_reads_a_fixed_number_of_queries_whatever_the_number_
     finally:
         event.remove(engine, "before_cursor_execute", record)
     assert (few.status_code, many.status_code) == (200, 200)
-    assert len(many.json()["items"]) == len(few.json()["items"]) + 99
+    assert len(many.json()["items"]) == len(few.json()["items"]) + 98
     assert many.json()["cost"]["games"] == 50
     assert with_many == with_few
 

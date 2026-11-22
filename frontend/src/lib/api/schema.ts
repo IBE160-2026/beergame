@@ -980,6 +980,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/class-sessions/{session_id}/waited-for-seats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Waited For Seats
+         * @description The «Sett inn KI-spillere» page (Story 8.12, FR-37): the Seats the Class session's games
+         *     wait for now, per game, and those left out for Tilrettelegging. 403 `forbidden` for anyone
+         *     but a Lecturer of the Class (FR-5).
+         */
+        get: operations["getWaitedForSeats"];
+        put?: never;
+        /**
+         * Fill Waited For Seats
+         * @description «Sett inn 9 KI-spillere» (Story 8.12, FR-37, AD-2): puts an AI player in each listed Seat
+         *     the game still waits for, one Takeover per Seat in its own transaction, the Lecturer as actor.
+         *     A Seat that ordered since, is no longer Student-held, now has Tilrettelegging, is not of this
+         *     Class session or fails is skipped with why; the others go on, and a repeat inserts nothing
+         *     twice. Answers the real counts. 403 `forbidden` for anyone but a Lecturer of the Class.
+         */
+        post: operations["fillWaitedForSeats"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/classes": {
         parameters: {
             query?: never;
@@ -2655,6 +2685,11 @@ export interface components {
             class_name: string;
             cost: components["schemas"]["ClassCostOut"] | null;
             counts: components["schemas"]["OverviewCountsOut"];
+            /**
+             * Fillable
+             * @default 0
+             */
+            fillable: number;
             /** Funnel */
             funnel: components["schemas"]["FunnelStageOut"][];
             /** Items */
@@ -3140,6 +3175,24 @@ export interface components {
         ErrorEnvelope: {
             error: components["schemas"]["ErrorBody"];
         };
+        /**
+         * FillSeatsIn
+         * @description «Sett inn 9 KI-spillere»: the Seats the page or Spillinnsikt listed (Story 8.12).
+         */
+        FillSeatsIn: {
+            /** Seat Ids */
+            seat_ids: string[];
+        };
+        /**
+         * FilledSeatsOut
+         * @description What the fill did (Story 8.12): the AI players put in and the Seats skipped. Real counts.
+         */
+        FilledSeatsOut: {
+            /** Inserted */
+            inserted: number;
+            /** Skipped */
+            skipped: components["schemas"]["SkippedSeatOut"][];
+        };
         /** FinalIn */
         FinalIn: {
             choice: components["schemas"]["Choice"];
@@ -3208,6 +3261,11 @@ export interface components {
             in_room?: components["schemas"]["InsightInRoomOut"] | null;
             /** Lab Hour Ends At */
             lab_hour_ends_at?: string | null;
+            /**
+             * Left Out
+             * @default []
+             */
+            left_out: components["schemas"]["WaitedSeatOut"][];
             pause?: components["schemas"]["InsightPauseOut"] | null;
             /** Play Deadline */
             play_deadline?: string | null;
@@ -3224,6 +3282,11 @@ export interface components {
             status: components["schemas"]["GameStatus"];
             /** Version */
             version: number;
+            /**
+             * Waited For
+             * @default []
+             */
+            waited_for: components["schemas"]["WaitedSeatOut"][];
             /** Weeks Total */
             weeks_total: number | null;
         };
@@ -4862,6 +4925,22 @@ export interface components {
             warnings: components["schemas"]["SettingWarning"][];
         };
         /**
+         * SkippedSeatOut
+         * @description A listed Seat the fill left alone, with why: the Takeover's stable refusal code
+         *     (`order_exists`, `takeover_exists`, `seat_not_student_held`, `tilrettelegging`,
+         *     `not_waited_for`, `game_paused`, …), `not_listed` for a Seat of no game of the Class session,
+         *     or `failed`.
+         */
+        SkippedSeatOut: {
+            /** Reason */
+            reason: string;
+            /**
+             * Seat Id
+             * Format: uuid
+             */
+            seat_id: string;
+        };
+        /**
          * StaffAssistant
          * @description An Assistant of the Class: `active` (staff, `user_id` set), or an Invitation not yet
          *     accepted (`invitation_id` set): `invited` with its last valid day, or `expired`.
@@ -5351,6 +5430,68 @@ export interface components {
             type: string;
         };
         /**
+         * WaitedForSeatsOut
+         * @description The «Sett inn KI-spillere» page (Story 8.12, FR-37, UX-DR52): the Seats the Class session's
+         *     games wait for now, by game number, those left out for Tilrettelegging, and the database clock
+         *     the waits are counted on.
+         */
+        WaitedForSeatsOut: {
+            /**
+             * Class Id
+             * Format: uuid
+             */
+            class_id: string;
+            /** Class Name */
+            class_name: string;
+            /**
+             * Class Session Id
+             * Format: uuid
+             */
+            class_session_id: string;
+            /** Games */
+            games: components["schemas"]["WaitedGameOut"][];
+            /** Left Out */
+            left_out: components["schemas"]["WaitedSeatOut"][];
+            /**
+             * Server Now
+             * Format: date-time
+             */
+            server_now: string;
+            /** Session Number */
+            session_number: number;
+        };
+        /**
+         * WaitedGameOut
+         * @description One Class game on the «Sett inn KI-spillere» page (Story 8.12): its number and the Seats
+         *     it waits for, each with since when («Spill 2: Noah, 23 t»).
+         */
+        WaitedGameOut: {
+            /**
+             * Game Id
+             * Format: uuid
+             */
+            game_id: string;
+            /** Game Number */
+            game_number: number | null;
+            /** Seats */
+            seats: components["schemas"]["WaitingSeatOut"][];
+        };
+        /**
+         * WaitedSeatOut
+         * @description A Seat a Class game waits for (Story 8.12, FR-37): the Seat, its Role and its Student by
+         *     name now (None when no longer of the Class).
+         */
+        WaitedSeatOut: {
+            /** Name */
+            name: string | null;
+            role: components["schemas"]["Role"];
+            /**
+             * Seat Id
+             * Format: uuid
+             */
+            seat_id: string;
+        };
+        /**
          * WaitingClass
          * @description A Class with Class sessions that still lack a date or a confirmed allocation.
          */
@@ -5364,6 +5505,25 @@ export interface components {
             class_name: string;
             /** Sessions */
             sessions: components["schemas"]["SessionRef"][];
+        };
+        /**
+         * WaitingSeatOut
+         * @description A waited-for Seat with the start of its wait (Story 6.14).
+         */
+        WaitingSeatOut: {
+            /** Name */
+            name: string | null;
+            role: components["schemas"]["Role"];
+            /**
+             * Seat Id
+             * Format: uuid
+             */
+            seat_id: string;
+            /**
+             * Since
+             * Format: date-time
+             */
+            since: string;
         };
         /**
          * WallAggregatesOut
@@ -8071,6 +8231,108 @@ export interface operations {
             };
             /** @description Conflict */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getWaitedForSeats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WaitedForSeatsOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fillWaitedForSeats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FillSeatsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FilledSeatsOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

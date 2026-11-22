@@ -1815,6 +1815,7 @@ async def takeover(
     actor: rules.TakeoverActor,
     actor_user_id: uuid.UUID | str | None = None,
     now: datetime | None = None,
+    only_waited_for: bool = False,
 ) -> str:
     """Hand the Student-held `seat` (a Role or a Seat id) to an AI player (Stories 8.2 and 8.5,
     FR-36, FR-37, AD-2, AD-5). `actor` `system` is the sweep's automatic Takeover after the
@@ -1847,7 +1848,14 @@ async def takeover(
     Takeover of a paused Game, Story 8.6), `seat_not_student_held`, `order_exists`,
     `takeover_not_due`, and `takeover_exists` with `fields.acted_by` (`kind`
     `staff`, `student` or `system`, and `user_id`) and `fields.acted_at`: who acted first, by id
-    only (Story 8.5). Returns the occupancy row id."""
+    only (Story 8.5).
+
+    `only_waited_for` is the Lecturer's fill of every waited-for Seat (Story 8.12, FR-37): under
+    the same lock it takes only a Seat the game waits for now (`rules.waited_for`) and refuses 409
+    `game_paused` on a paused Game, `order_exists` when the Seat has ordered since, `not_waited_for`
+    when its wait has not started, and `tilrettelegging` when its Student has a Tilrettelegging
+    time factor (Story 8.9): such a Seat is left to the per-Seat action. Returns the occupancy row
+    id."""
     game_uuid = _game_uuid(game_id)
     person = _actor(actor_user_id) if actor in ("staff", "peer") else None
     if actor in ("staff", "peer") and person is None:
@@ -1886,6 +1894,8 @@ async def takeover(
         if refused is not None:
             raise CommandError(refused, "the Seat cannot be taken over now", 409)
         assert turn is not None and week is not None  # `can_take_over` refuses otherwise
+        if only_waited_for:
+            await _check_waited_for(session, game, turn, guided)
         student = turn["user_id"]
         ordered = rules.has_ordered(turn, guided=guided)
         if ordered and week >= GameSettings.model_validate(game["settings"]).weeks:
@@ -1953,6 +1963,21 @@ async def takeover(
     )
     await _settle(game_id)
     return str(occupancy_id)
+
+
+async def _check_waited_for(
+    session: AsyncSession, game: Mapping[str, Any], turn: Mapping[str, Any], guided: bool
+) -> None:
+    """The batch fill's re-check under the Game lock (Story 8.12): the game waits for the Seat
+    now, is not paused, and its Student has no Tilrettelegging time factor."""
+    if rules.is_paused(game):
+        raise CommandError("game_paused", "the game is paused", 409)
+    if not rules.waited_for(turn, guided=guided):
+        if rules.has_ordered(turn, guided=guided):
+            raise CommandError("order_exists", "the Seat has ordered this Week", 409)
+        raise CommandError("not_waited_for", "the game does not wait for the Seat", 409)
+    if turn["user_id"] in await _time_factors(session, game, [turn]):
+        raise CommandError("tilrettelegging", "the Student has more time", 409)
 
 
 SEAT_TAKEN_OVER = "seat.taken_over"
