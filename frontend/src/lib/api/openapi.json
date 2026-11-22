@@ -274,6 +274,58 @@
         "title": "AddressProblem",
         "type": "string"
       },
+      "AdjustmentIn": {
+        "additionalProperties": false,
+        "description": "«Lagre tilrettelegging» (Story 8.9): the factor and the share. There is no field for a\nreason, so no health data is stored (UX-DR53, C-1).",
+        "properties": {
+          "share_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Share Percent"
+          },
+          "time_factor": {
+            "title": "Time Factor",
+            "type": "number"
+          }
+        },
+        "required": [
+          "time_factor"
+        ],
+        "title": "AdjustmentIn",
+        "type": "object"
+      },
+      "AdjustmentOut": {
+        "description": "A Student's Tilrettelegging as the Lecturer reads it (Story 8.9, FR-17).",
+        "properties": {
+          "share_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Share Percent"
+          },
+          "time_factor": {
+            "title": "Time Factor",
+            "type": "number"
+          }
+        },
+        "required": [
+          "time_factor",
+          "share_percent"
+        ],
+        "title": "AdjustmentOut",
+        "type": "object"
+      },
       "AiAssessmentOut": {
         "description": "The «KI-vurdering» switch of a Class session (Story 12.1, FR-61), stored by\n`modules/assessment`.",
         "properties": {
@@ -1363,6 +1415,11 @@
             "title": "Before Start",
             "type": "boolean"
           },
+          "can_pause": {
+            "default": false,
+            "title": "Can Pause",
+            "type": "boolean"
+          },
           "class_id": {
             "format": "uuid",
             "title": "Class Id",
@@ -1384,6 +1441,11 @@
           },
           "counts": {
             "$ref": "#/components/schemas/OverviewCountsOut"
+          },
+          "fillable": {
+            "default": 0,
+            "title": "Fillable",
+            "type": "integer"
           },
           "funnel": {
             "items": {
@@ -1422,6 +1484,18 @@
             ],
             "title": "Next Cursor"
           },
+          "play_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Play Deadline"
+          },
           "server_now": {
             "format": "date-time",
             "title": "Server Now",
@@ -1442,6 +1516,11 @@
               }
             ],
             "title": "Start At"
+          },
+          "startable": {
+            "default": 0,
+            "title": "Startable",
+            "type": "integer"
           }
         },
         "required": [
@@ -2761,6 +2840,16 @@
       "EnrolledSessionOut": {
         "description": "A Class session as its Student reads it (Story 5.2, FR-18, AD-3): the dates and the next\ndeadline that applies. Never the Game settings, the number of Weeks or the demand.",
         "properties": {
+          "adjustment": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OwnAdjustmentOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "class_id": {
             "format": "uuid",
             "title": "Class Id",
@@ -2982,6 +3071,49 @@
         "title": "ExplanationOut",
         "type": "object"
       },
+      "FillSeatsIn": {
+        "additionalProperties": false,
+        "description": "«Sett inn 9 KI-spillere»: the Seats the page or Spillinnsikt listed (Story 8.12).",
+        "properties": {
+          "seat_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 4000,
+            "minItems": 1,
+            "title": "Seat Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "seat_ids"
+        ],
+        "title": "FillSeatsIn",
+        "type": "object"
+      },
+      "FilledSeatsOut": {
+        "description": "What the fill did (Story 8.12): the AI players put in and the Seats skipped. Real counts.",
+        "properties": {
+          "inserted": {
+            "title": "Inserted",
+            "type": "integer"
+          },
+          "skipped": {
+            "items": {
+              "$ref": "#/components/schemas/SkippedSeatOut"
+            },
+            "title": "Skipped",
+            "type": "array"
+          }
+        },
+        "required": [
+          "inserted",
+          "skipped"
+        ],
+        "title": "FilledSeatsOut",
+        "type": "object"
+      },
       "FinalIn": {
         "additionalProperties": false,
         "properties": {
@@ -3113,6 +3245,26 @@
       "GameInsightOut": {
         "description": "Spillinnsikt (Story 7.7, FR-62, AD-3, AD-12): one Game week by week, for the staff of its\nClass only. The only answer that gives the staff the full chain, the demand series and the\nnumber of Weeks. Seats and Roles in chain order, the Role serving the customer first.",
         "properties": {
+          "can_adjust": {
+            "default": false,
+            "title": "Can Adjust",
+            "type": "boolean"
+          },
+          "can_mark_in_room": {
+            "default": false,
+            "title": "Can Mark In Room",
+            "type": "boolean"
+          },
+          "can_pause": {
+            "default": false,
+            "title": "Can Pause",
+            "type": "boolean"
+          },
+          "can_start": {
+            "default": false,
+            "title": "Can Start",
+            "type": "boolean"
+          },
           "class_id": {
             "format": "uuid",
             "title": "Class Id",
@@ -3162,6 +3314,58 @@
             ],
             "title": "Game Number"
           },
+          "in_room": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InsightInRoomOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lab_hour_ends_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lab Hour Ends At"
+          },
+          "left_out": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/WaitedSeatOut"
+            },
+            "title": "Left Out",
+            "type": "array"
+          },
+          "pause": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InsightPauseOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "play_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Play Deadline"
+          },
           "replay": {
             "default": false,
             "title": "Replay",
@@ -3185,12 +3389,43 @@
             "title": "Session Number",
             "type": "integer"
           },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "started_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started By"
+          },
           "status": {
             "$ref": "#/components/schemas/GameStatus"
           },
           "version": {
             "title": "Version",
             "type": "integer"
+          },
+          "waited_for": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/WaitedSeatOut"
+            },
+            "title": "Waited For",
+            "type": "array"
           },
           "weeks_total": {
             "anyOf": [
@@ -3460,11 +3695,12 @@
         "type": "object"
       },
       "GameStatus": {
-        "description": "A Game's status as staff see it (FR-39), from `games.rules.game_status` only (AD-2); Epic 8\nadds `paused`.",
+        "description": "A Game's status as staff see it (FR-39), from `games.rules.game_status` only (AD-2);\n`paused` from Story 8.6 (FR-89).",
         "enum": [
           "not_started",
           "running",
           "waiting",
+          "paused",
           "finished"
         ],
         "title": "GameStatus",
@@ -3747,6 +3983,48 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "InRoomIn": {
+        "additionalProperties": false,
+        "description": "«Marker som i rommet, 10 min» (Story 8.11): the in-room limit in whole minutes. Any number\nis taken here; the command answers 422 `minutes_out_of_range` unless it is whole and from 2\nto 120.",
+        "properties": {
+          "minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Minutes"
+          }
+        },
+        "required": [
+          "minutes"
+        ],
+        "title": "InRoomIn",
+        "type": "object"
+      },
+      "InRoomOut": {
+        "description": "«I rommet til kl. 16:00. En KI-spiller tar setet etter 10 min uten ordre.» (Story 8.11,\nFR-36, UX-DR62): until when, and the reader's own whole minutes (Tilrettelegging included,\nnever another Student's).",
+        "properties": {
+          "minutes": {
+            "title": "Minutes",
+            "type": "integer"
+          },
+          "until": {
+            "format": "date-time",
+            "title": "Until",
+            "type": "string"
+          }
+        },
+        "required": [
+          "until",
+          "minutes"
+        ],
+        "title": "InRoomOut",
+        "type": "object"
+      },
       "IndividualItemOut": {
         "description": "One item of the Student's frozen Individual test (Story 11.3), in order: its number from 1,\nits type and its text; a choice item's option ids (Story 11.4, `[]` for other types), a table\nitem's value table or a number item's column (Story 11.5, null otherwise or when the item has\nnone) and the Student's saved answer (null before the first save). An Adapted item (Story\n11.7) is answered as a long answer; its `title` is its frozen text, and `wording` carries that\ntext with whether an AI wrote it (null for every other type). No weight, no answer key, no\nrule, no fact and no score are sent to the Student.",
         "properties": {
@@ -3853,6 +4131,26 @@
         "title": "InfoVisibility",
         "type": "object"
       },
+      "InsightInRoomOut": {
+        "description": "«I rommet til 16:00. KI tar over etter 10 min uten ordre.» on Spillinnsikt (Story 8.11,\nFR-36, UX-DR52): the Lab hour's end and the in-room limit in whole minutes.",
+        "properties": {
+          "minutes": {
+            "title": "Minutes",
+            "type": "integer"
+          },
+          "until": {
+            "format": "date-time",
+            "title": "Until",
+            "type": "string"
+          }
+        },
+        "required": [
+          "until",
+          "minutes"
+        ],
+        "title": "InsightInRoomOut",
+        "type": "object"
+      },
       "InsightLinkOut": {
         "description": "A link for one Seat's Student on Spillinnsikt (FR-62), from a provider a later module\nregistered (`games.service.register_insight_links`, Epic 9): `kind` names it, the page words\nit; `href` is a path in the web app.",
         "properties": {
@@ -3870,6 +4168,51 @@
           "href"
         ],
         "title": "InsightLinkOut",
+        "type": "object"
+      },
+      "InsightPauseOut": {
+        "description": "The Pause in force on Spillinnsikt (Story 8.7, FR-89, UX-DR52): «Pause siden ma. 14:10,\nsatt av Sara.» or «… satt av deg.», with the agreed time if any.",
+        "properties": {
+          "by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "By"
+          },
+          "mine": {
+            "title": "Mine",
+            "type": "boolean"
+          },
+          "paused_at": {
+            "format": "date-time",
+            "title": "Paused At",
+            "type": "string"
+          },
+          "resume_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resume At"
+          }
+        },
+        "required": [
+          "paused_at",
+          "by",
+          "mine",
+          "resume_at"
+        ],
+        "title": "InsightPauseOut",
         "type": "object"
       },
       "InsightRoleOut": {
@@ -3907,6 +4250,11 @@
       "InsightSeatOut": {
         "description": "A Seat of the Game on Spillinnsikt as held now, like the Oversikt's, with its links.",
         "properties": {
+          "extra_time": {
+            "default": false,
+            "title": "Extra Time",
+            "type": "boolean"
+          },
           "holder": {
             "enum": [
               "student",
@@ -3923,6 +4271,27 @@
             "title": "Links",
             "type": "array"
           },
+          "mark": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SeatMark"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mark_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mark By"
+          },
           "name": {
             "anyOf": [
               {
@@ -3936,6 +4305,21 @@
           },
           "role": {
             "$ref": "#/components/schemas/Role"
+          },
+          "takeover": {
+            "anyOf": [
+              {
+                "enum": [
+                  "this_week",
+                  "next_week"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Takeover"
           },
           "user_id": {
             "anyOf": [
@@ -4009,6 +4393,18 @@
             ],
             "title": "Name"
           },
+          "opened_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opened At"
+          },
           "order": {
             "anyOf": [
               {
@@ -4019,6 +4415,18 @@
               }
             ],
             "title": "Order"
+          },
+          "ordered_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ordered At"
           },
           "week": {
             "title": "Week",
@@ -4035,7 +4443,9 @@
           "backlog",
           "order",
           "cost",
-          "marks"
+          "marks",
+          "opened_at",
+          "ordered_at"
         ],
         "title": "InsightWeekOut",
         "type": "object"
@@ -5526,7 +5936,7 @@
         "type": "object"
       },
       "OverviewAlertOut": {
-        "description": "The Varselbånd (Story 7.11, FR-39, UX-DR45): the Class game chosen by the api, the Seat it\nwaits for longest and since when. Epic 8 changes the choice to the game closest to Takeover.",
+        "description": "The Varselbånd (Story 7.11, FR-39, UX-DR45): the Class game chosen by the api, closest to\nTakeover (Story 8.3), the Seat whose due time comes first, since when it waits and when the\nAI player takes it over.",
         "properties": {
           "game_id": {
             "format": "uuid",
@@ -5563,6 +5973,18 @@
             "title": "Since",
             "type": "string"
           },
+          "takeover_due_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Takeover Due At"
+          },
           "user_id": {
             "anyOf": [
               {
@@ -5588,7 +6010,7 @@
         "type": "object"
       },
       "OverviewCountsOut": {
-        "description": "The headline counts by status (FR-39).",
+        "description": "The headline counts by status (FR-39): «41 ferdig · 15 pågår (herav 2 pauset) · 4 venter».\n`running` counts the paused games too, and `paused` says how many of them are (Story 8.6).",
         "properties": {
           "finished": {
             "title": "Finished",
@@ -5596,6 +6018,10 @@
           },
           "not_started": {
             "title": "Not Started",
+            "type": "integer"
+          },
+          "paused": {
+            "title": "Paused",
             "type": "integer"
           },
           "running": {
@@ -5611,7 +6037,8 @@
           "waiting",
           "running",
           "not_started",
-          "finished"
+          "finished",
+          "paused"
         ],
         "title": "OverviewCountsOut",
         "type": "object"
@@ -5645,6 +6072,53 @@
               }
             ],
             "title": "Game Number"
+          },
+          "in_room_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "In Room Until"
+          },
+          "paused_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paused At"
+          },
+          "paused_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paused By"
+          },
+          "resume_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resume At"
           },
           "seats": {
             "items": {
@@ -5717,6 +6191,27 @@
             "title": "Holder",
             "type": "string"
           },
+          "mark": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SeatMark"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mark_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mark By"
+          },
           "name": {
             "anyOf": [
               {
@@ -5771,6 +6266,35 @@
         "title": "OverviewWaitOut",
         "type": "object"
       },
+      "OwnAdjustmentOut": {
+        "description": "The reading Student's own Tilrettelegging on Hjem (Story 8.9, UX-DR53): only they ever read\nit. Each part is None when it does not apply.",
+        "properties": {
+          "share_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Share Percent"
+          },
+          "time_factor": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Factor"
+          }
+        },
+        "title": "OwnAdjustmentOut",
+        "type": "object"
+      },
       "PasswordResetIn": {
         "properties": {
           "email": {
@@ -5783,6 +6307,58 @@
           "email"
         ],
         "title": "PasswordResetIn",
+        "type": "object"
+      },
+      "PauseOut": {
+        "description": "The game's pause line (Story 8.6, FR-89, UX-DR62): `paused` while a Pause is in force,\nnamed by who set it («Pause, satt av Sara.»); `ended` from the Order that ended it until the\nnext Uke opens, named by who ordered («Pausen er over. Sara har bestilt.»). Never a Week\ncount (FR-14).",
+        "properties": {
+          "mine": {
+            "title": "Mine",
+            "type": "boolean"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "resume_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resume At"
+          },
+          "staff": {
+            "default": false,
+            "title": "Staff",
+            "type": "boolean"
+          },
+          "state": {
+            "enum": [
+              "paused",
+              "ended"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "name",
+          "mine"
+        ],
+        "title": "PauseOut",
         "type": "object"
       },
       "PlayOut": {
@@ -8709,6 +9285,26 @@
         "title": "SimulatedRowOut",
         "type": "object"
       },
+      "SkippedSeatOut": {
+        "description": "A listed Seat the fill left alone, with why: the Takeover's stable refusal code\n(`order_exists`, `takeover_exists`, `seat_not_student_held`, `tilrettelegging`,\n`not_waited_for`, `game_paused`, …), `not_listed` for a Seat of no game of the Class session,\nor `failed`.",
+        "properties": {
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "seat_id": {
+            "format": "uuid",
+            "title": "Seat Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "seat_id",
+          "reason"
+        ],
+        "title": "SkippedSeatOut",
+        "type": "object"
+      },
       "StaffAssistant": {
         "description": "An Assistant of the Class: `active` (staff, `user_id` set), or an Invitation not yet\naccepted (`invitation_id` set): `invited` with its last valid day, or `expired`.",
         "properties": {
@@ -8862,6 +9458,29 @@
           "assistants"
         ],
         "title": "StaffOut",
+        "type": "object"
+      },
+      "StaffPauseIn": {
+        "additionalProperties": false,
+        "description": "«Pause spillet» and «Endre avtalt tid» (Story 8.7, FR-89): the agreed time as one instant,\nor None for «Uten avtalt tid»; nothing else.",
+        "properties": {
+          "resume_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resume At"
+          }
+        },
+        "required": [
+          "resume_at"
+        ],
+        "title": "StaffPauseIn",
         "type": "object"
       },
       "StaffQuizAttemptsOut": {
@@ -9093,6 +9712,85 @@
         "title": "StaffSummaryOut",
         "type": "object"
       },
+      "StartGamesIn": {
+        "additionalProperties": false,
+        "description": "«Start 12 spill»: the games the page listed (Story 8.10).",
+        "properties": {
+          "game_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "minItems": 1,
+            "title": "Game Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "game_ids"
+        ],
+        "title": "StartGamesIn",
+        "type": "object"
+      },
+      "StartGamesOut": {
+        "description": "The «Start spill» page (Story 8.10, FR-22, UX-DR52): the Class session's games that have not\nstarted and may start now, as the Oversikt words them, by game number.",
+        "properties": {
+          "class_id": {
+            "format": "uuid",
+            "title": "Class Id",
+            "type": "string"
+          },
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "class_session_id": {
+            "format": "uuid",
+            "title": "Class Session Id",
+            "type": "string"
+          },
+          "games": {
+            "items": {
+              "$ref": "#/components/schemas/OverviewGameOut"
+            },
+            "title": "Games",
+            "type": "array"
+          },
+          "session_number": {
+            "title": "Session Number",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "class_session_id",
+          "class_id",
+          "class_name",
+          "session_number",
+          "games"
+        ],
+        "title": "StartGamesOut",
+        "type": "object"
+      },
+      "StartedGamesOut": {
+        "description": "What «Start 12 spill» did (Story 8.10): the games it started, and the ones it skipped\nbecause they had started meanwhile, were not ready or failed. Real counts.",
+        "properties": {
+          "skipped": {
+            "title": "Skipped",
+            "type": "integer"
+          },
+          "started": {
+            "title": "Started",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "started",
+          "skipped"
+        ],
+        "title": "StartedGamesOut",
+        "type": "object"
+      },
       "StartedTestGameOut": {
         "description": "The test Game just started (Story 6.20); the web app opens its play route.",
         "properties": {
@@ -9288,6 +9986,11 @@
             "title": "Briefing First",
             "type": "boolean"
           },
+          "can_pause": {
+            "default": false,
+            "title": "Can Pause",
+            "type": "boolean"
+          },
           "class_session_id": {
             "format": "uuid",
             "title": "Class Session Id",
@@ -9326,6 +10029,16 @@
             "title": "Id",
             "type": "string"
           },
+          "in_room": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InRoomOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "number": {
             "anyOf": [
               {
@@ -9336,6 +10049,26 @@
               }
             ],
             "title": "Number"
+          },
+          "obligatory": {
+            "default": false,
+            "title": "Obligatory",
+            "type": "boolean"
+          },
+          "pause": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PauseOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "played_out": {
+            "default": false,
+            "title": "Played Out",
+            "type": "boolean"
           },
           "replay": {
             "default": false,
@@ -9432,6 +10165,64 @@
           "turn"
         ],
         "title": "StudentGameOut",
+        "type": "object"
+      },
+      "StudentPageOut": {
+        "description": "The Studentside of one Student of a Class session (Story 8.9, UX-DR53), for the Lecturers of\nits Class only: for now the block «Tilrettelegging»; Story 13.2 adds its own blocks.",
+        "properties": {
+          "adjustment": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AdjustmentOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "class_id": {
+            "format": "uuid",
+            "title": "Class Id",
+            "type": "string"
+          },
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "class_session_id": {
+            "format": "uuid",
+            "title": "Class Session Id",
+            "type": "string"
+          },
+          "class_share": {
+            "title": "Class Share",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "session_number": {
+            "title": "Session Number",
+            "type": "integer"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "class_session_id",
+          "class_id",
+          "class_name",
+          "session_number",
+          "user_id",
+          "name",
+          "class_share",
+          "adjustment"
+        ],
+        "title": "StudentPageOut",
         "type": "object"
       },
       "StudentReplayOut": {
@@ -9719,6 +10510,16 @@
       "TableSeatOut": {
         "description": "A Seat of the Student's Class game (Story 6.1, FR-22, FR-34): its Role and who holds it,\na Student by name, any AI player as «KI-spiller» (`ai`, never which kind), or free.",
         "properties": {
+          "can_insert": {
+            "default": false,
+            "title": "Can Insert",
+            "type": "boolean"
+          },
+          "guard_switched": {
+            "default": false,
+            "title": "Guard Switched",
+            "type": "boolean"
+          },
           "holder": {
             "enum": [
               "student",
@@ -9727,6 +10528,34 @@
             ],
             "title": "Holder",
             "type": "string"
+          },
+          "insert_agreed": {
+            "default": false,
+            "title": "Insert Agreed",
+            "type": "boolean"
+          },
+          "insert_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Insert At"
+          },
+          "inserted_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inserted By"
           },
           "mark": {
             "anyOf": [
@@ -9764,8 +10593,29 @@
             ],
             "title": "Ordered"
           },
+          "ordering_for": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ordering For"
+          },
+          "reclaim_queued": {
+            "default": false,
+            "title": "Reclaim Queued",
+            "type": "boolean"
+          },
           "role": {
             "$ref": "#/components/schemas/Role"
+          },
+          "taken_over": {
+            "default": false,
+            "title": "Taken Over",
+            "type": "boolean"
           },
           "wait_started_at": {
             "anyOf": [
@@ -9793,8 +10643,33 @@
         "type": "object"
       },
       "TableStatusOut": {
-        "description": "Who sits in each Seat of the game, Fabrikk first (AD-3, UX-DR73): people, never numbers.",
+        "description": "Who sits in each Seat of the game, Fabrikk first (AD-3, UX-DR73): people, never numbers;\nand the pause line and whether the reader may pause (Story 8.6).",
         "properties": {
+          "can_pause": {
+            "default": false,
+            "title": "Can Pause",
+            "type": "boolean"
+          },
+          "in_room": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InRoomOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pause": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PauseOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "seats": {
             "items": {
               "$ref": "#/components/schemas/TableSeatOut"
@@ -10144,6 +11019,125 @@
         "title": "ValidationError",
         "type": "object"
       },
+      "WaitedForSeatsOut": {
+        "description": "The «Sett inn KI-spillere» page (Story 8.12, FR-37, UX-DR52): the Seats the Class session's\ngames wait for now, by game number, those left out for Tilrettelegging, and the database clock\nthe waits are counted on.",
+        "properties": {
+          "class_id": {
+            "format": "uuid",
+            "title": "Class Id",
+            "type": "string"
+          },
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "class_session_id": {
+            "format": "uuid",
+            "title": "Class Session Id",
+            "type": "string"
+          },
+          "games": {
+            "items": {
+              "$ref": "#/components/schemas/WaitedGameOut"
+            },
+            "title": "Games",
+            "type": "array"
+          },
+          "left_out": {
+            "items": {
+              "$ref": "#/components/schemas/WaitedSeatOut"
+            },
+            "title": "Left Out",
+            "type": "array"
+          },
+          "server_now": {
+            "format": "date-time",
+            "title": "Server Now",
+            "type": "string"
+          },
+          "session_number": {
+            "title": "Session Number",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "class_session_id",
+          "class_id",
+          "class_name",
+          "session_number",
+          "server_now",
+          "games",
+          "left_out"
+        ],
+        "title": "WaitedForSeatsOut",
+        "type": "object"
+      },
+      "WaitedGameOut": {
+        "description": "One Class game on the «Sett inn KI-spillere» page (Story 8.12): its number and the Seats\nit waits for, each with since when («Spill 2: Noah, 23 t»).",
+        "properties": {
+          "game_id": {
+            "format": "uuid",
+            "title": "Game Id",
+            "type": "string"
+          },
+          "game_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Number"
+          },
+          "seats": {
+            "items": {
+              "$ref": "#/components/schemas/WaitingSeatOut"
+            },
+            "title": "Seats",
+            "type": "array"
+          }
+        },
+        "required": [
+          "game_id",
+          "game_number",
+          "seats"
+        ],
+        "title": "WaitedGameOut",
+        "type": "object"
+      },
+      "WaitedSeatOut": {
+        "description": "A Seat a Class game waits for (Story 8.12, FR-37): the Seat, its Role and its Student by\nname now (None when no longer of the Class).",
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "seat_id": {
+            "format": "uuid",
+            "title": "Seat Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "seat_id",
+          "role",
+          "name"
+        ],
+        "title": "WaitedSeatOut",
+        "type": "object"
+      },
       "WaitingClass": {
         "description": "A Class with Class sessions that still lack a date or a confirmed allocation.",
         "properties": {
@@ -10170,6 +11164,43 @@
           "sessions"
         ],
         "title": "WaitingClass",
+        "type": "object"
+      },
+      "WaitingSeatOut": {
+        "description": "A waited-for Seat with the start of its wait (Story 6.14).",
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "seat_id": {
+            "format": "uuid",
+            "title": "Seat Id",
+            "type": "string"
+          },
+          "since": {
+            "format": "date-time",
+            "title": "Since",
+            "type": "string"
+          }
+        },
+        "required": [
+          "seat_id",
+          "role",
+          "name",
+          "since"
+        ],
+        "title": "WaitingSeatOut",
         "type": "object"
       },
       "WalkthroughClassGameOut": {
@@ -10380,10 +11411,11 @@
         "type": "string"
       },
       "WallStatus": {
-        "description": "Which Class games the wall shows (Story 7.4, the Status filter): all, one status, or\nthose with a Seat held by an AI player.",
+        "description": "Which Class games the wall shows (Story 7.4, the Status filter): all, one status, or\nthose with a Seat held by an AI player. `paused` is a status of its own («Pause n», Epic 8\nclose-out), so `running` matches the running games only.",
         "enum": [
           "all",
           "waiting",
+          "paused",
           "running",
           "not_started",
           "finished",
@@ -14368,6 +15400,140 @@
         ]
       }
     },
+    "/api/class-sessions/{session_id}/start-games": {
+      "get": {
+        "description": "The «Start spill» page (Story 8.10, FR-22): the Class games a Lecturer of the Class may\nstart now, by game number with their Seats; none before the lock. 403 `forbidden` for anyone\nbut a Lecturer of the Class (FR-5).",
+        "operationId": "getStartGames",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartGamesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Start Games",
+        "tags": [
+          "sessions"
+        ]
+      },
+      "post": {
+        "description": "«Start 12 spill» (Story 8.10, FR-22, AD-2): starts the listed Class games, one start per\ngame in its own transaction, the Lecturer as actor. A game that started meanwhile, is not\nready yet, is not of this Class session or fails is skipped; the others go on. Answers the\nreal counts; a repeat is safe. 403 `forbidden` for anyone but a Lecturer of the Class.",
+        "operationId": "startGames",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartGamesIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartedGamesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Start Games",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
     "/api/class-sessions/{session_id}/students/{student_id}/debrief-summary": {
       "get": {
         "description": "A Student's Explanation and Debrief summary for the Class's owners and Assistant\nlecturers (Story 9.8, FR-47, AD-12), each null while not sent or not finished: the key\nmoments, the reflection answers, the completion time and whether it was after the Debrief\ndeadline. Story 9.10: the Student's Roster name now (null once they are no longer a Student\nof the Class) and every Debrief quiz attempt with its time and result. 403 `forbidden` for\nevery other caller.",
@@ -14522,6 +15688,170 @@
         ]
       }
     },
+    "/api/class-sessions/{session_id}/students/{user_id}": {
+      "get": {
+        "description": "The Studentside (Story 8.9, UX-DR53): one Student of the Class session with the block\n«Tilrettelegging», for the Lecturers of its Class only. 403 `forbidden` for an Assistant\nlecturer, anyone outside the Class, a User who is not a Student of the Class now and a Class\nsession that does not exist (FR-5, AD-12).",
+        "operationId": "getStudentPage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentPageOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Student Page",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/students/{user_id}/adjustment": {
+      "put": {
+        "description": "«Lagre tilrettelegging» (Story 8.9, FR-17): the Student's factor on the Inactivity limit\n(1, 1.5, 2 or 3) and the share of Weeks required of them (0 to the class share; null or the\nclass share: the class's own). Applies from now, also after the Start date: the open turn times\nof the Student's Class game are recomputed at once. Recorded in the audit log. Answers the\nStudentside. 422 `invalid_adjustment` with `fields` (`time_factor` `not_offered`,\n`share_percent` `out_of_range`); 409 `class_archived`; 403 `forbidden` as `getStudentPage`.",
+        "operationId": "saveAdjustment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdjustmentIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentPageOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Save Adjustment",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
     "/api/class-sessions/{session_id}/test-game": {
       "post": {
         "description": "«Start testspill» (Story 6.20, FR-87): the Lecturer plays a private test Game on the Class\nsession's current settings, in the chosen Role against three AI players; it starts at once.\n404 `not_found` while `FEATURE_LECTURER_TEST_GAME` is off (AD-17); 409 `session_locked` from\nthe Start date, `test_game_running` while their last test Game here runs, `llm_unavailable`;\n422 `unknown_role`; 403 `forbidden` for a session the User may not manage (FR-5).",
@@ -14610,6 +15940,140 @@
           }
         },
         "summary": "Start Test Game",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/waited-for-seats": {
+      "get": {
+        "description": "The «Sett inn KI-spillere» page (Story 8.12, FR-37): the Seats the Class session's games\nwait for now, per game, and those left out for Tilrettelegging. 403 `forbidden` for anyone\nbut a Lecturer of the Class (FR-5).",
+        "operationId": "getWaitedForSeats",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WaitedForSeatsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Waited For Seats",
+        "tags": [
+          "sessions"
+        ]
+      },
+      "post": {
+        "description": "«Sett inn 9 KI-spillere» (Story 8.12, FR-37, AD-2): puts an AI player in each listed Seat\nthe game still waits for, one Takeover per Seat in its own transaction, the Lecturer as actor.\nA Seat that ordered since, is no longer Student-held, now has Tilrettelegging, is not of this\nClass session or fails is skipped with why; the others go on, and a repeat inserts nothing\ntwice. Answers the real counts. 403 `forbidden` for anyone but a Lecturer of the Class.",
+        "operationId": "fillWaitedForSeats",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FillSeatsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilledSeatsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Fill Waited For Seats",
         "tags": [
           "sessions"
         ]
@@ -17829,6 +19293,160 @@
         "summary": "Stream Events"
       }
     },
+    "/api/games/{game_id}/in-room": {
+      "delete": {
+        "description": "«Ikke i rommet lenger» (Story 8.11, FR-36): a Lecturer of the game's Class ends the mark;\nthe due times go back to the Inactivity limit from the same wait starts. Recorded in the audit\nlog. Answers Spillinnsikt as it now stands. 409 `not_in_room`; 403 `forbidden` as\n`markInRoom`.",
+        "operationId": "endInRoom",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameInsightOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "End In Room",
+        "tags": [
+          "sessions"
+        ]
+      },
+      "post": {
+        "description": "«Marker som i rommet» (Story 8.11, FR-36, AD-2, AD-12): a Lecturer of the game's Class marks\nthe running game as played in the room during the Lab hour on now, with the in-room limit\n`minutes` in place of the Inactivity limit (times each Student's Tilrettelegging factor) until\nthe Lab hour ends. Recorded in the audit log. Answers Spillinnsikt as it now stands. 422\n`minutes_out_of_range` unless `minutes` is a whole number from 2 to 120; 409\n`not_in_lab_hour` outside every Lab hour of the Class session, `already_in_room` with\n`fields.acted_by` and `fields.acted_at`, `game_not_running`, `game_finished` or\n`in_room_not_allowed`. 403 `forbidden` for anyone but a Lecturer of the game's Class (an\nAssistant lecturer included) and any Game the Oversikt does not list (FR-5).",
+        "operationId": "markInRoom",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InRoomIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameInsightOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Mark In Room",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
     "/api/games/{game_id}/insight": {
       "get": {
         "description": "Spillinnsikt (Story 7.7, FR-62, AD-3, AD-12): one Class game week by week for the staff of\nits Class — per Role and opened Week the incoming order and delivery, inventory, backlog,\nOrder and cost as stored, who held the Seat and its marks (AD-15), the Seats with their link\nslots, the customer demand series and the number of Weeks. With an `ETag`; a request whose\n`If-None-Match` names it is answered 304. 403 `forbidden`, one answer, for anyone who is not\nstaff of the Game's Class, a Student included, and for a Game that does not exist or that\nthe Oversikt does not list (FR-5, NFR-7).",
@@ -17890,6 +19508,397 @@
           }
         },
         "summary": "Get Game Insight",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/games/{game_id}/pause": {
+      "delete": {
+        "description": "«Avslutt pausen» (Story 8.7, FR-89): a Lecturer of the game's Class ends the Pause in force,\nwhoever set it; every Student reads that it is over. Recorded in the audit log. Answers\nSpillinnsikt as it now stands. 409 `not_paused`, `game_finished`; 403 `forbidden` as\n`pauseGame`.",
+        "operationId": "endPause",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameInsightOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "End Pause",
+        "tags": [
+          "sessions"
+        ]
+      },
+      "post": {
+        "description": "«Pause spillet» (Story 8.7, FR-89, AD-2, AD-12): a Lecturer of the game's Class pauses it,\nwith the agreed time `resume_at` or without one; no AI player takes a Seat over while it is\npaused, the Play deadline stands, and the agreed time becomes the insert time of every Seat\nthat has not ordered this Uke. Recorded in the audit log. Answers Spillinnsikt as it now\nstands. 422 `time_out_of_range` unless the time lies after now and not after the Play\ndeadline; 409 `already_paused` with `fields.acted_by` (`kind`, `user_id`) and\n`fields.acted_at`, `game_not_running`, `game_finished` or `pause_not_allowed`. 403 `forbidden`\nfor anyone but a Lecturer of the game's Class (an Assistant lecturer included) and any Game\nthe Oversikt does not list (FR-5).",
+        "operationId": "pauseGame",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaffPauseIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameInsightOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Pause Game",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/games/{game_id}/pause/agreed-time": {
+      "put": {
+        "description": "«Endre avtalt tid» (Story 8.7, FR-89): a Lecturer of the game's Class sets, changes or\n(`resume_at` null) clears the agreed time of the Pause in force, also of one a Student set.\nRecorded in the audit log. Answers Spillinnsikt as it now stands. 409 `not_paused`,\n`game_finished`; 422 `time_out_of_range`; 403 `forbidden` as `pauseGame`.",
+        "operationId": "setPauseAgreedTime",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaffPauseIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameInsightOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Set Pause Agreed Time",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/games/{game_id}/seats/{role}/takeover": {
+      "post": {
+        "description": "«Sett inn KI-spiller for …» (Story 8.5, FR-37, AD-2, AD-12): a Lecturer or Assistant\nlecturer of the game's Class puts an AI player in the Student's Seat `role`, from this Uke when\nthe Student has not ordered in it, else from the next. One press, no dialog; recorded in the\naudit log. Answers Spillinnsikt as it now stands. 409 `takeover_exists` with `fields.acted_by`\n(`kind` `staff`, `student` or `system`, and `user_id`) and `fields.acted_at` when an AI player\nwas put in first; `seat_not_student_held`, `game_not_running` or `takeover_not_allowed`.\n403 `forbidden` for anyone not staff of the game's Class and any Game the Oversikt does not\nlist (FR-5).",
+        "operationId": "takeOverSeat",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "role",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Role"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameInsightOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Take Over Seat",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/games/{game_id}/start": {
+      "post": {
+        "description": "«Start spillet» in Spillstyring (Story 8.10, FR-22, AD-2, AD-12): a Lecturer of the game's\nClass starts it for all four Seats; the rules for waiting apply from now. Recorded in the\naudit log. Answers Spillinnsikt as it now stands. 409 `game_already_started` with\n`fields.acted_by` (`kind` `student`, `staff` or `system`, and `user_id`) and\n`fields.acted_at` when someone started it first; 409 `game_not_ready` before the lock has\ngiven it its snapshot. 403 `forbidden` for anyone but a Lecturer of the game's Class (an\nAssistant lecturer included) and any Game the Oversikt does not list (FR-5).",
+        "operationId": "startGame",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameInsightOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Game",
         "tags": [
           "sessions"
         ]
@@ -19011,6 +21020,79 @@
         ]
       }
     },
+    "/api/me/games/{game_id}/pause": {
+      "post": {
+        "description": "«Ta pause uten avtalt tid» (Story 8.6, FR-89, AD-2): a Student who holds a Seat pauses\ntheir Class game; no AI player takes a Seat over while it is paused, and any Student's Order\nends it. No time is taken: only a Lecturer sets an agreed time. Answers the game as it now\nstands. 409 `already_paused` with `fields.acted_by` (`kind`, `user_id`) and\n`fields.acted_at`, `seat_not_yours`, `game_finished`, `game_not_running` or\n`pause_not_allowed`; any other game answers 403 `forbidden` (FR-5).",
+        "operationId": "pauseMyGame",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentGameOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Pause My Game",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
     "/api/me/games/{game_id}/play": {
       "get": {
         "description": "The play screen's one envelope (Story 6.6, AD-3): `seat_state`, what the Student's own Seat\nsees in the open Week (numbers and Roles only), `table_status`, who sits where, and the\nserver's clock. Never the number of Weeks, future demand, another Seat's numbers or a\nreference Order (FR-14, FR-23). 409 `game_not_running` before the start and after the end;\nany other game answers 403 `forbidden` (FR-5).",
@@ -19152,6 +21234,168 @@
           }
         },
         "summary": "Get My Game Result",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/me/games/{game_id}/seats/{role}/reclaim": {
+      "post": {
+        "description": "«Ta tilbake setet» (Story 8.4, FR-37, AD-2): the Student whose Seat an AI player took over\nasks for it back. The request is queued and the Seat is theirs again when the next Uke opens;\na second press, or a repeat, changes nothing. Answers the game as it now stands. 409\n`seat_not_yours` (another Student's Seat, or one no AI player took over from this Student),\n`game_finished` or `game_not_running`; any other game answers 403 `forbidden` (FR-5).",
+        "operationId": "reclaimMySeat",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "role",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Role"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentGameOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reclaim My Seat",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/me/games/{game_id}/seats/{role}/takeover": {
+      "post": {
+        "description": "«Sett inn KI-spiller for Jonas» (Story 8.8, FR-89, FR-37, AD-2, AD-12): a Student who holds\nanother Seat of the Class game puts an AI player in the Seat `role` once its insert time has\npassed, paused or not; no dialog and no body, so no Student sets or shortens a time. Answers\nthe game as it now stands. 409 `takeover_exists` with `fields.acted_by` (`kind`, `user_id`;\nno staff id) and `fields.acted_at`, `insert_not_allowed_yet`, `seat_not_yours`,\n`order_exists`, `seat_not_student_held`, `game_not_running` or `takeover_not_allowed`; any\nother game answers 403 `forbidden` (FR-5).",
+        "operationId": "insertAiPlayer",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "role",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Role"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentGameOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Insert Ai Player",
         "tags": [
           "sessions"
         ]

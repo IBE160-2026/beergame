@@ -512,6 +512,30 @@ class TableSeatOut(BaseModel):
     from `server_now`); None once ordered, before any Student ordered, or not running."""
     mark: SeatMark | None
     """`guard_switch`: an AI Seat the Play guard gave a rule-based KI-spiller; else None."""
+    taken_over: bool = False
+    """Story 8.2 (FR-37): an AI player holds the Seat after a Takeover of its Student."""
+    ordering_for: str | None = None
+    """For a Seat `taken_over`: the name now of the Student whose Seat it was («bestiller for
+    Jonas»); None when they are no longer in the Class, and for every other Seat."""
+    guard_switched: bool = False
+    """Story 8.2 (FR-79): a Rule-based AI player because the Play guard switched the Seat once,
+    also before a later Takeover or Reclaim."""
+    reclaim_queued: bool = False
+    """Story 8.4 (FR-37): the reader's own Seat, taken over, with «Ta tilbake setet» pressed: the
+    Seat is theirs again when the next Uke opens. False on every other Seat."""
+    insert_at: AwareDatetime | None = None
+    """Story 8.8 (FR-89, UX-DR27): another Student's Seat that has not ordered, while the game is
+    paused or the time is agreed: its own insert time ahead, «Etter on. 10:00 kan dere sette inn
+    en KI-spiller.»; None otherwise. Never why one Seat's time is later."""
+    insert_agreed: bool = False
+    """Story 8.8: `insert_at` is the Lecturer's agreed time: «Avtalt tid to. 19:00. Etter det kan
+    dere sette inn en KI-spiller.»"""
+    can_insert: bool = False
+    """Story 8.8: the reader may press «Sett inn KI-spiller for …» on this Seat now (the api's
+    `rules.can_take_over`, AD-10); the web app only shows it."""
+    inserted_by: str | None = None
+    """Story 8.8: for a Seat a Student of the game put an AI player in, that Student's name now
+    («Sara har allerede satt inn en KI-spiller.»); None otherwise."""
 
 
 class RoleCapacityOut(BaseModel):
@@ -600,6 +624,44 @@ class TimeProposalIn(BaseModel):
     at: AwareDatetime
 
 
+class StaffPauseIn(BaseModel):
+    """«Pause spillet» and «Endre avtalt tid» (Story 8.7, FR-89): the agreed time as one instant,
+    or None for «Uten avtalt tid»; nothing else."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    resume_at: AwareDatetime | None
+    """Required, null for «Uten avtalt tid»: an omitted field is refused, never read as a clear."""
+
+
+class PauseOut(BaseModel):
+    """The game's pause line (Story 8.6, FR-89, UX-DR62): `paused` while a Pause is in force,
+    named by who set it («Pause, satt av Sara.»); `ended` from the Order that ended it until the
+    next Uke opens, named by who ordered («Pausen er over. Sara har bestilt.»). Never a Week
+    count (FR-14)."""
+
+    state: Literal["paused", "ended"]
+    name: str | None
+    """The Student's name now; None when they are no longer in the Class."""
+    mine: bool
+    """The reader set (or ended) it: «satt av deg», «Du har bestilt»."""
+    staff: bool = False
+    """Story 8.7: the Lecturer set (or ended) it, and `name` is None: «Pause, satt av
+    faglæreren.», «Pausen er over. Faglæreren har avsluttet den.»."""
+    resume_at: AwareDatetime | None = None
+    """Story 8.7: the Lecturer's agreed time while paused: «Pause til to. 19:00, satt av
+    faglæreren.» Only a Lecturer's agreed time ever shows here (UX-DR62)."""
+
+
+class InRoomOut(BaseModel):
+    """«I rommet til kl. 16:00. En KI-spiller tar setet etter 10 min uten ordre.» (Story 8.11,
+    FR-36, UX-DR62): until when, and the reader's own whole minutes (Tilrettelegging included,
+    never another Student's)."""
+
+    until: AwareDatetime
+    minutes: int
+
+
 class StudentGameOut(BaseModel):
     """The Student's Class game on Hjem (Story 6.1): «Spill 17 · Du er Grossist» and the four
     Seats, Fabrikk first (UX-DR73). Only from the Start date (`is_locked`)."""
@@ -643,12 +705,32 @@ class StudentGameOut(BaseModel):
     """Story 9.2: whether the Student's Debrief is `open`, `not_open` (the game has not finished)
     or `held` until every Class game has finished, from `debrief.rules`; None on a Lecturer's
     test Game, which has no Debrief."""
+    obligatory: bool = False
+    """Story 8.2 (FR-17): the Class session is Obligatorisk, so a Takeover of the Student's Seat
+    tells them it may affect the requirement (never how many Uker)."""
+    can_pause: bool = False
+    """Story 8.6 (FR-89): the reader may press «Ta pause»: a running Class game that is not
+    paused, in which they hold a Seat now."""
+    pause: PauseOut | None = None
+    """Story 8.6: the pause line above Setestatus; None when there is none to show."""
+    in_room: InRoomOut | None = None
+    """Story 8.11: the «I rommet» line above Setestatus, as on Spill (Epic 8 close-out); None
+    while the game is not marked."""
+    played_out: bool = False
+    """Story 8.14 (FR-38): the Play deadline playout took the game over: AI players play it out,
+    or it ended so. No Ordrefelt or Spillkort then, and «Spillet er ferdig» says it ended at the
+    Spillfrist; never how many Uker the AI players played."""
 
 
 class TableStatusOut(BaseModel):
-    """Who sits in each Seat of the game, Fabrikk first (AD-3, UX-DR73): people, never numbers."""
+    """Who sits in each Seat of the game, Fabrikk first (AD-3, UX-DR73): people, never numbers;
+    and the pause line and whether the reader may pause (Story 8.6)."""
 
     seats: list[TableSeatOut]
+    can_pause: bool = False
+    pause: PauseOut | None = None
+    in_room: InRoomOut | None = None
+    """Story 8.11: the «I rommet» line above Setestatus; None while the game is not marked."""
 
 
 class OrderIn(BaseModel):
@@ -673,9 +755,10 @@ class PlayOut(BaseModel):
     """The database clock when the envelope was read, the clock every stored time is on (AD-20):
     durations are counted from it, never from the browser's clock."""
     next_change_at: AwareDatetime | None
-    """The nearest time at which the envelope changes by time alone (Story 6.14): the earliest
-    stored AI deadline of a Seat that has not ordered, while it lies after `server_now`; None
-    while nothing is due. The web app reads the envelope again then."""
+    """The nearest time at which the envelope changes by time alone (Stories 6.14, 8.1): the
+    earliest stored AI deadline, Takeover due time or insert time of a Seat that has not ordered,
+    while it lies after `server_now`; None while nothing is due. The web app reads the envelope
+    again then."""
     projection: bool = False
     """Story 10.4 (UX-DR19): whether Graf over tabell draws the projection of Netto lager, from
     `games.policy`: on only for the Replay. The value itself is display arithmetic in the web app
@@ -737,6 +820,16 @@ class StudentReplayOut(BaseModel):
     """The Student's Replay once started; None before."""
 
 
+class OwnAdjustmentOut(BaseModel):
+    """The reading Student's own Tilrettelegging on Hjem (Story 8.9, UX-DR53): only they ever read
+    it. Each part is None when it does not apply."""
+
+    time_factor: float | None = None
+    """The factor on the Inactivity limit when above 1 (1.5, 2 or 3)."""
+    share_percent: int | None = None
+    """The share of Weeks required of the Student when it differs from the Class session's."""
+
+
 class EnrolledSessionOut(BaseModel):
     """A Class session as its Student reads it (Story 5.2, FR-18, AD-3): the dates and the next
     deadline that applies. Never the Game settings, the number of Weeks or the demand."""
@@ -768,6 +861,8 @@ class EnrolledSessionOut(BaseModel):
     steps: list[StepOut] = []
     """Story 6.1: Stegene's six steps in order, Klassespill first. With no game every step not
     done is `locked`; with one, the first step not done is `current`."""
+    adjustment: OwnAdjustmentOut | None = None
+    """Story 8.9: the Student's own Tilrettelegging, None without one (FR-17)."""
     replay: StudentReplayOut | None = None
     """Story 10.3: the Replay, once the Student has passed the Debrief quiz; None before."""
 
@@ -953,6 +1048,14 @@ class OverviewSeatOut(BaseModel):
     name: str | None
     """The Student's name now; None for an AI player, a free Seat, or a Student no longer in the
     Class."""
+    mark: SeatMark | None = None
+    """Why an AI player holds the Seat, from the one AD-15 mapping (Story 8.3, FR-34): a Takeover
+    and its reason, a switch or the playout; None for a Student, a free Seat, or an AI player with
+    no mark (put in at the start)."""
+    mark_by: str | None = None
+    """Who put the AI player in (Story 8.5, FR-37): the name now of the staff member or Student of
+    a Takeover by a person; None for any other mark, or one no longer staff or Student of the
+    Class."""
 
 
 class OverviewWaitOut(BaseModel):
@@ -965,8 +1068,9 @@ class OverviewWaitOut(BaseModel):
 
 
 class OverviewAlertOut(BaseModel):
-    """The Varselbånd (Story 7.11, FR-39, UX-DR45): the Class game chosen by the api, the Seat it
-    waits for longest and since when. Epic 8 changes the choice to the game closest to Takeover."""
+    """The Varselbånd (Story 7.11, FR-39, UX-DR45): the Class game chosen by the api, closest to
+    Takeover (Story 8.3), the Seat whose due time comes first, since when it waits and when the
+    AI player takes it over."""
 
     game_id: uuid.UUID
     game_number: int | None
@@ -976,6 +1080,10 @@ class OverviewAlertOut(BaseModel):
     user_id: uuid.UUID | None
     """The Student, for «Send Melding»; None when `name` is None."""
     since: AwareDatetime
+    takeover_due_at: AwareDatetime | None = None
+    """When an AI player takes the Seat over (Story 8.3, FR-36): the Seat's stored due time, else
+    the game's nearest; None when the game has none. The web app counts down to it from
+    `server_now`; it may lie in the past until the sweep has acted."""
 
 
 class OverviewGameOut(BaseModel):
@@ -995,15 +1103,27 @@ class OverviewGameOut(BaseModel):
     waiting_for: list[OverviewWaitOut]
     seats: list[OverviewSeatOut]
     """Fabrikk first (UX-DR73)."""
+    paused_at: AwareDatetime | None = None
+    """Story 8.6 (FR-89): since when the game is paused; None when it is not."""
+    paused_by: str | None = None
+    """Story 8.6: the name now of who paused it; None when it is not paused, or they are no longer
+    in the Class."""
+    in_room_until: AwareDatetime | None = None
+    """Story 8.11 (FR-36): until when the game is marked «I rommet»; the wall's row label carries
+    it. None when it is not."""
+    resume_at: AwareDatetime | None = None
+    """Story 8.7: the Lecturer's agreed time of the Pause; None without one or when not paused."""
 
 
 class OverviewCountsOut(BaseModel):
-    """The headline counts by status (FR-39)."""
+    """The headline counts by status (FR-39): «41 ferdig · 15 pågår (herav 2 pauset) · 4 venter».
+    `running` counts the paused games too, and `paused` says how many of them are (Story 8.6)."""
 
     waiting: int
     running: int
     not_started: int
     finished: int
+    paused: int
 
 
 class OverviewAiOut(BaseModel):
@@ -1069,16 +1189,31 @@ class ClassOverviewOut(BaseModel):
     allocation only, with no Week and no cost."""
     start_at: AwareDatetime | None
     next_change_at: AwareDatetime | None
-    """When the Oversikt changes by time alone (AD-8): the Start date while it has not passed, so
-    the page reads again then; None otherwise."""
+    """When the Oversikt changes by time alone (AD-8): the Start date while it has not passed;
+    after it the nearest stored Takeover due time of a waiting Class game that lies after
+    `server_now` (Story 8.1); None otherwise. The page reads again then."""
     ai: OverviewAiOut
     cost: ClassCostOut | None
     """None before the Start date and while no Class game has finished."""
     funnel: list[FunnelStageOut]
     """The Trakt's stages in order, «Registrert» first; a stage nobody records yet is 0."""
     alert: OverviewAlertOut | None
-    """The Varselbånd's game (Story 7.11): the longest-waiting Class game; None before the Start
-    date and while no Class game waits for a Student."""
+    """The Varselbånd's game (Stories 7.11, 8.3): the waiting Class game with the earliest
+    `takeover_due_at`, else the longest-waiting one; None before the Start date and while no
+    Class game waits for a Student."""
+    can_pause: bool = False
+    """Story 8.7 (FR-89, AD-12): the reader is a Lecturer of the Class, so the Varselbånd offers
+    «Pause spillet»; False for an Assistant lecturer."""
+    play_deadline: AwareDatetime | None = None
+    """Story 8.7: the Class session's Spillfrist, the latest agreed Pause time."""
+    startable: int = 0
+    """Story 8.10 (FR-22, UX-DR52): how many Class games a Lecturer of the Class may start now
+    (not started, with their settings snapshot); the header Lenke «Start spill som ikke har
+    startet (12)» shows it. 0 for an Assistant lecturer and before the lock."""
+    fillable: int = 0
+    """Story 8.12 (FR-37, UX-DR52): how many Seats the Class session's games wait for now, less
+    those whose Student has Tilrettelegging; the header Lenke «Sett inn KI-spiller i alle seter som
+    blir ventet på (9)» shows it. 0 for an Assistant lecturer."""
     class_id: uuid.UUID
     class_name: str
     session_number: int
@@ -1133,6 +1268,17 @@ class InsightSeatOut(BaseModel):
     """The Student's id when `name` is set, for the Seat's «Melding» (Story 7.9); else None."""
     links: list[InsightLinkOut]
     """Only on a Student-held Seat; empty until Epic 9 registers a provider."""
+    mark: SeatMark | None = None
+    """Why an AI player holds the Seat now, as on the Oversikt (Story 8.3, AD-15); else None."""
+    mark_by: str | None = None
+    """Who put the AI player in, as on the Oversikt (Story 8.5); else None."""
+    takeover: Literal["this_week", "next_week"] | None = None
+    """«Sett inn KI-spiller» (Story 8.5, FR-37): from when an AI player would order for the
+    Student if the staff put one in now, this Week or (the Student has ordered this Week) the next;
+    None where Spillstyring offers no Takeover: a Seat no Student holds, a game not running."""
+    extra_time: bool = False
+    """Story 8.9 (UX-DR52): the Student holding the Seat has Tilrettelegging with more time
+    («Jonas har tilrettelegging med mer tid.»). Only ever true for a Lecturer of the Class."""
 
 
 class InsightWeekOut(BaseModel):
@@ -1155,6 +1301,11 @@ class InsightWeekOut(BaseModel):
     marks: list[SeatMark]
     """The seat mark in the Week its occupancy began (a Takeover, a switch), then the Order's
     (a fallback); from `games.service.seat_mark` only."""
+    opened_at: AwareDatetime | None
+    """When the Week opened for the Seat (Story 8.1, FR-35), as stored."""
+    ordered_at: AwareDatetime | None
+    """When the Seat ordered, as stored: its Order's time, or in a Guided Week the time its
+    Student opened the Week (FR-24); None while it has not ordered."""
 
 
 class InsightRoleOut(BaseModel):
@@ -1169,6 +1320,46 @@ class DemandWeekOut(BaseModel):
     week: int
     demand: int
     """The customer demand the first Role received that Week, as stored."""
+
+
+class InsightPauseOut(BaseModel):
+    """The Pause in force on Spillinnsikt (Story 8.7, FR-89, UX-DR52): «Pause siden ma. 14:10,
+    satt av Sara.» or «… satt av deg.», with the agreed time if any."""
+
+    paused_at: AwareDatetime
+    by: str | None
+    """The name now of who paused it; None for someone no longer in the Class."""
+    mine: bool
+    """The reader paused it: «satt av deg»."""
+    resume_at: AwareDatetime | None
+    """The Lecturer's agreed time; None without one."""
+
+
+class InsightInRoomOut(BaseModel):
+    """«I rommet til 16:00. KI tar over etter 10 min uten ordre.» on Spillinnsikt (Story 8.11,
+    FR-36, UX-DR52): the Lab hour's end and the in-room limit in whole minutes."""
+
+    until: AwareDatetime
+    minutes: int
+
+
+class InRoomIn(BaseModel):
+    """«Marker som i rommet, 10 min» (Story 8.11): the in-room limit in whole minutes. Any number
+    is taken here; the command answers 422 `minutes_out_of_range` unless it is whole and from 2
+    to 120."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    minutes: int | float
+
+
+class WaitedSeatOut(BaseModel):
+    """A Seat a Class game waits for (Story 8.12, FR-37): the Seat, its Role and its Student by
+    name now (None when no longer of the Class)."""
+
+    seat_id: uuid.UUID
+    role: Role
+    name: str | None
 
 
 class GameInsightOut(BaseModel):
@@ -1194,6 +1385,124 @@ class GameInsightOut(BaseModel):
     demand: list[DemandWeekOut]
     seats: list[InsightSeatOut]
     roles: list[InsightRoleOut]
+    pause: InsightPauseOut | None = None
+    """Story 8.7: the Pause in force; None when the game is not paused."""
+    can_pause: bool = False
+    """Story 8.7 (FR-89, AD-12): the reader is a Lecturer of the game's Class and a Pause applies
+    to the game now, so Spillstyring offers «Pause spillet», or «Endre avtalt tid» and «Avslutt
+    pausen» while it is paused. False for an Assistant lecturer."""
+    play_deadline: AwareDatetime | None = None
+    """Story 8.7: the Class session's Spillfrist, the latest agreed time; None without one."""
+    can_adjust: bool = False
+    """Story 8.9 (AD-12): the reader is a Lecturer of the Class, so each Student's name leads to
+    their Studentside with «Tilrettelegging». False for an Assistant lecturer."""
+    can_start: bool = False
+    """Story 8.10 (FR-22, AD-12): the reader is a Lecturer of the Class and the game may start now
+    (not started, with its settings snapshot, in a locked Class session), so Spillstyring offers
+    «Start spillet». False for an Assistant lecturer and before the lock."""
+    started_by: str | None = None
+    """Story 8.10: who started the game, by name now (a Student or a Lecturer of the Class); None
+    when no person did, before the start, or when they are no longer of the Class."""
+    started_at: AwareDatetime | None = None
+    """Story 8.10: when the game started; None before, and for a game started before it was
+    recorded."""
+    in_room: InsightInRoomOut | None = None
+    """Story 8.11 (FR-36): the «I rommet» mark in force; None when the game is not marked."""
+    can_mark_in_room: bool = False
+    """Story 8.11 (AD-12): the reader is a Lecturer of the Class and the game runs (also paused)
+    with inactivity Takeover, so Spillstyring shows «Marker som i rommet» (or «Ikke i rommet
+    lenger» while marked). False for an Assistant lecturer."""
+    lab_hour_ends_at: AwareDatetime | None = None
+    """Story 8.11: the end of the Class session's Lab hour on now («Den gjelder til Labtimen
+    slutter kl. 16:00.»); None outside every Lab hour, when «Marker som i rommet» is unavailable."""
+    waited_for: list[WaitedSeatOut] = []
+    """Story 8.12 (FR-37, UX-DR52): for a Lecturer of the Class, the Seats the game waits for now
+    that «Sett inn KI-spiller i alle seter som blir ventet på (2)» fills, in chain order. Empty
+    for an Assistant lecturer and when the game waits for no one."""
+    left_out: list[WaitedSeatOut] = []
+    """Story 8.12: the waited-for Seats left out because their Student has Tilrettelegging
+    («Ikke med (tilrettelegging): Jonas»); for a Lecturer only."""
+
+
+class StartGamesOut(BaseModel):
+    """The «Start spill» page (Story 8.10, FR-22, UX-DR52): the Class session's games that have not
+    started and may start now, as the Oversikt words them, by game number."""
+
+    class_session_id: uuid.UUID
+    class_id: uuid.UUID
+    class_name: str
+    session_number: int
+    games: list[OverviewGameOut]
+
+
+class StartGamesIn(BaseModel):
+    """«Start 12 spill»: the games the page listed (Story 8.10)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    game_ids: list[uuid.UUID] = Field(min_length=1, max_length=1000)
+
+
+class StartedGamesOut(BaseModel):
+    """What «Start 12 spill» did (Story 8.10): the games it started, and the ones it skipped
+    because they had started meanwhile, were not ready or failed. Real counts."""
+
+    started: int
+    skipped: int
+
+
+class WaitingSeatOut(WaitedSeatOut):
+    """A waited-for Seat with the start of its wait (Story 6.14)."""
+
+    since: AwareDatetime
+
+
+class WaitedGameOut(BaseModel):
+    """One Class game on the «Sett inn KI-spillere» page (Story 8.12): its number and the Seats
+    it waits for, each with since when («Spill 2: Noah, 23 t»)."""
+
+    game_id: uuid.UUID
+    game_number: int | None
+    seats: list[WaitingSeatOut]
+
+
+class WaitedForSeatsOut(BaseModel):
+    """The «Sett inn KI-spillere» page (Story 8.12, FR-37, UX-DR52): the Seats the Class session's
+    games wait for now, by game number, those left out for Tilrettelegging, and the database clock
+    the waits are counted on."""
+
+    class_session_id: uuid.UUID
+    class_id: uuid.UUID
+    class_name: str
+    session_number: int
+    server_now: AwareDatetime
+    games: list[WaitedGameOut]
+    left_out: list[WaitedSeatOut]
+
+
+class FillSeatsIn(BaseModel):
+    """«Sett inn 9 KI-spillere»: the Seats the page or Spillinnsikt listed (Story 8.12)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    seat_ids: list[uuid.UUID] = Field(min_length=1, max_length=4000)
+
+
+class SkippedSeatOut(BaseModel):
+    """A listed Seat the fill left alone, with why: the Takeover's stable refusal code
+    (`order_exists`, `takeover_exists`, `seat_not_student_held`, `tilrettelegging`,
+    `not_waited_for`, `game_paused`, …), `not_listed` for a Seat of no game of the Class session,
+    or `failed`."""
+
+    seat_id: uuid.UUID
+    reason: str
+
+
+class FilledSeatsOut(BaseModel):
+    """What the fill did (Story 8.12): the AI players put in and the Seats skipped. Real counts."""
+
+    inserted: int
+    skipped: list[SkippedSeatOut]
 
 
 class WallCells(StrEnum):
@@ -1206,10 +1515,12 @@ class WallCells(StrEnum):
 
 class WallStatus(StrEnum):
     """Which Class games the wall shows (Story 7.4, the Status filter): all, one status, or
-    those with a Seat held by an AI player."""
+    those with a Seat held by an AI player. `paused` is a status of its own («Pause n», Epic 8
+    close-out), so `running` matches the running games only."""
 
     ALL = "all"
     WAITING = "waiting"
+    PAUSED = "paused"
     RUNNING = "running"
     NOT_STARTED = "not_started"
     FINISHED = "finished"
@@ -1243,3 +1554,38 @@ class WallAggregatesOut(BaseModel):
     """The Class games the Status filter matched."""
     weeks: list[WallWeekOut]
     """Uke 1 to the furthest any matched Game has reached; empty for no Game."""
+
+
+class AdjustmentOut(BaseModel):
+    """A Student's Tilrettelegging as the Lecturer reads it (Story 8.9, FR-17)."""
+
+    time_factor: float
+    """The factor on the Inactivity limit: 1 («Som klassen»), 1.5, 2 or 3."""
+    share_percent: int | None
+    """The share of Weeks required of the Student; None: the Class session's own."""
+
+
+class StudentPageOut(BaseModel):
+    """The Studentside of one Student of a Class session (Story 8.9, UX-DR53), for the Lecturers of
+    its Class only: for now the block «Tilrettelegging»; Story 13.2 adds its own blocks."""
+
+    class_session_id: uuid.UUID
+    class_id: uuid.UUID
+    class_name: str
+    session_number: int
+    user_id: uuid.UUID
+    name: str
+    class_share: int
+    """The Class session's required share of Weeks (`service.required_share`, Story 5.7)."""
+    adjustment: AdjustmentOut | None
+    """None: no Tilrettelegging («Ingen tilrettelegging.»)."""
+
+
+class AdjustmentIn(BaseModel):
+    """«Lagre tilrettelegging» (Story 8.9): the factor and the share. There is no field for a
+    reason, so no health data is stored (UX-DR53, C-1)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    time_factor: float
+    share_percent: StrictInt | None = None

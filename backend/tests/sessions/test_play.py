@@ -128,7 +128,27 @@ async def test_the_envelope_is_the_own_seat_in_the_open_week_for_every_role(klas
             "retailer",
         ]
         assert all(
-            set(seat) == {"role", "holder", "name", "mine", "ordered", "wait_started_at", "mark"}
+            set(seat)
+            == {
+                "role",
+                "holder",
+                "name",
+                "mine",
+                "ordered",
+                "wait_started_at",
+                "mark",
+                # Story 8.2: a Takeover's row and the Play guard switch it outlasts.
+                "taken_over",
+                "ordering_for",
+                "guard_switched",
+                # Story 8.4: the own Seat's queued Reclaim.
+                "reclaim_queued",
+                # Story 8.8: the insert time ahead, the control and who put the AI player in.
+                "insert_at",
+                "insert_agreed",
+                "can_insert",
+                "inserted_by",
+            }
             for seat in seats
         )
         assert [seat["role"] for seat in seats if seat["mine"]] == [role]

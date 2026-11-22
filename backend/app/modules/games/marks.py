@@ -15,6 +15,11 @@ _REASON_MARKS: dict[str, SeatMark] = {
 }
 """`initial` and `moved` mark nothing; `guard_switch` needs its Rule-based occupant (below)."""
 
+TAKEOVER_MARKS = frozenset(
+    {SeatMark.TAKEOVER_INACTIVITY, SeatMark.TAKEOVER_STAFF, SeatMark.TAKEOVER_PEER}
+)
+"""The marks of an AI player that took a Student's Seat over (Story 8.2, FR-37)."""
+
 _FALLBACK_MARKS: dict[str, SeatMark] = {
     Fallback.TIMEOUT: SeatMark.FALLBACK_TIMEOUT,
     Fallback.INVALID_OUTPUT: SeatMark.FALLBACK_INVALID_OUTPUT,

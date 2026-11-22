@@ -1,0 +1,8 @@
+{# The Class game has waited for the Student's Order for the reminder delay (Story 8.13, FR-27), a
+   digest kind: gathered with the day's other notices, never sent between 22:00 and 07:00.
+   `class_name`, `game_number` and `role` come from `sessions.service.turn_reminder_mail_context`
+   when the digest is built; a game that no longer waits is left out. Never a number of Uker,
+   demand or another Seat's numbers (FR-14). Draft copy. #}
+{% set roles = {"retailer": "Detaljist", "wholesaler": "Grossist", "distributor": "Distributør", "factory": "Fabrikk"} %}
+{% set subject = "Spillet venter på deg" %}
+Spill {{ game_number }} i Klassen {{ class_name }} venter på bestillingen din som {{ roles[role] }}. Gruppen spiller videre når du har bestilt. Du bestiller fra Hjem: {{ url("/hjem") }}

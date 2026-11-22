@@ -42,8 +42,10 @@ import { endTitle, GameEnd, GameEndHeading } from "./game-end";
 import { OrderField } from "./order-field";
 import { lastOrder, parseOrder } from "./order-input";
 import { gameTitle, roleGameText } from "./home";
-import { useServerNow, waitedFor } from "./seat-status";
-import { GameSeatStatus } from "./seat-status-view";
+import { ownSeatTakenOver, useServerNow, waitedFor } from "./seat-status";
+import { InRoomLine } from "./in-room-view";
+import { PauseControl, PauseLine } from "./pause-view";
+import { GameSeatStatus, TakenOverNote } from "./seat-status-view";
 import { TimeProposalBlock } from "./time-proposal-view";
 import { weekSummary } from "./week-summary";
 import { WeekSummaryView } from "./week-summary-view";
@@ -276,10 +278,13 @@ function Running({
   userId: string;
   allRows: AllRows;
 }) {
-  useGuidedView(game.id, envelope);
+  const seats = envelope.table_status.seats;
+  // Story 8.14: once the Play deadline playout took the game over, no Seat is the Student's to play.
+  const playedOut = game.played_out ?? false;
+  const takenOver = ownSeatTakenOver(seats);
+  useGuidedView(game.id, envelope, takenOver || playedOut);
   useRefetchAt(game.id, envelope);
   const now = useServerNow(envelope.server_now);
-  const seats = envelope.table_status.seats;
   const state = envelope.seat_state;
   const turn = envelope.turn;
   const field = orderDraftField(game.id, state.week);
@@ -309,6 +314,8 @@ function Running({
   const summary = weekSummary(state, turn);
   const dropped = useDroppedDraft(state, text, editable, send.outcome);
   const nowOrder = turn.guided ? (turn.order ?? undefined) : undefined;
+  // Story 8.6: while the Pausevalg is open its confirm is the primary, so «Bekreft ordre» steps back.
+  const [pausing, setPausing] = useState(false);
   // Story 10.4 (UX-DR19, AD-10): where the policy turns it on (the Replay), the projection with the
   // Order on screen: the placed one, a Veiledet uke's fixed one, or the valid typed one.
   const projection = envelope.projection ? orderProjection(state, preview?.order ?? nowOrder ?? null) : undefined;
@@ -338,7 +345,12 @@ function Running({
         <div className="mt-6 @min-[52rem]:grid @min-[52rem]:grid-cols-[minmax(0,1fr)_18rem] @min-[52rem]:gap-12 @min-[68rem]:grid-cols-[minmax(0,1fr)_24rem]">
           <div className="min-w-0">
             {/* Reading and focus order: Topplinje, Kjedebånd, Graf over tabell, the rest (FR-73). */}
-            <ChainBandView state={state} seatRoles={game.seats.map((seat) => seat.role)} typed={preview?.order} />
+            <ChainBandView
+              state={state}
+              seatRoles={game.seats.map((seat) => seat.role)}
+              typed={preview?.order}
+              byAi={takenOver || playedOut}
+            />
             {/* A placed Order (a Veiledet uke's fixed Order) stands in Din ordre at nå; a typed one
                 there and at its arrival Uke. */}
             <WeekTable
@@ -352,7 +364,7 @@ function Running({
               projection={projection}
             />
           </div>
-          <div>
+          <div className="lg:w-[18rem] lg:shrink-0 xl:w-[24rem]">
             {/* The Uke-overgang over the Ordrefelt, which is usable at once (Story 6.15). */}
             {summary ? (
               <WeekSummaryView
@@ -365,45 +377,82 @@ function Running({
             <div aria-live="polite" data-draft-dropped="">
               {dropped.line ? <p className={`${LINE} mt-8 max-w-md font-bold text-ink lg:mt-0 lg:mb-4`}>{dropped.line}</p> : null}
             </div>
-            {/* The Ordrefelt follows the table on phone and tops the right column on laptop. */}
-            <OrderField
-              week={state.week}
-              turn={turn}
-              max={state.max_order}
-              lastOrder={lastOrder(state.history)}
-              text={text}
-              onText={(next) => {
-                setTyped({ game: game.id, week: state.week, text: next });
-                saveDraft(userId, field, next);
-                send.clear(); // a new value is a new Order: the last send's words no longer apply
-                dropped.clear();
-              }}
-              preview={editable ? preview : null}
-              sending={send.sending === state.week}
-              onConfirm={(value) => {
-                dropped.clear();
-                send.confirm(value);
-              }}
-              waitingFor={waitedFor(seats, now, true)}
-              aside={
-                <button
-                  type="button"
-                  data-all-rows-link=""
-                  className={cn(LINK_BUTTON, "justify-end lg:hidden")}
-                  onClick={(event) => allRows.show("top", event.currentTarget)}
-                >
-                  {copy.allRows.link}
-                </button>
-              }
-              {...outcomeProps(send.outcome, state.week)}
-            />
+            {/* The Ordrefelt follows the table on phone and tops the right column on laptop. A Seat
+                an AI player took over has none: the Student is told so instead (Story 8.2). */}
+            {takenOver || playedOut ? (
+              <div className="mt-8 mb-8 max-w-md lg:mt-0">
+                {/* Alle rader stays one tap away at every width, right-aligned over the note as over
+                    the Ordrefelt (Story 8.4, the visual check of Story 8.2). */}
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    data-all-rows-link=""
+                    className={LINK_BUTTON}
+                    onClick={(event) => allRows.show("top", event.currentTarget)}
+                  >
+                    {copy.allRows.link}
+                  </button>
+                </div>
+                {playedOut ? (
+                  <p className={`${LINE} mt-2 font-semibold text-ink`} data-playing-out="">
+                    {nb.homes.student.playingOut}
+                  </p>
+                ) : (
+                  <TakenOverNote obligatory={game.obligatory} gameId={game.id} seats={seats} className="mt-2" />
+                )}
+              </div>
+            ) : (
+              <OrderField
+                week={state.week}
+                turn={turn}
+                max={state.max_order}
+                lastOrder={lastOrder(state.history)}
+                text={text}
+                onText={(next) => {
+                  setTyped({ game: game.id, week: state.week, text: next });
+                  saveDraft(userId, field, next);
+                  send.clear(); // a new value is a new Order: the last send's words no longer apply
+                  dropped.clear();
+                }}
+                preview={editable ? preview : null}
+                sending={send.sending === state.week}
+                onConfirm={(value) => {
+                  dropped.clear();
+                  send.confirm(value);
+                }}
+                waitingFor={waitedFor(seats, now, true)}
+                stepBack={pausing}
+                aside={
+                  <button
+                    type="button"
+                    data-all-rows-link=""
+                    className={cn(LINK_BUTTON, "justify-end lg:hidden")}
+                    onClick={(event) => allRows.show("top", event.currentTarget)}
+                  >
+                    {copy.allRows.link}
+                  </button>
+                }
+                {...outcomeProps(send.outcome, state.week)}
+              />
+            )}
             {/* «Kostnad så langt» pinned under the Ordrefelt from 1024 px (Story 6.16); on phone it
                 is one tap away in Alle rader. */}
             <CostPanel state={state} table="toggle" className="mb-8 hidden lg:block" />
+            {/* Story 8.6: the pause line above Setestatus, for every Student of the game. */}
+            <PauseLine gameId={game.id} pause={envelope.table_status.pause} className="mb-4" />
+            {/* Story 8.11: the «I rommet» line above Setestatus, with the reader's own minutes. */}
+            <InRoomLine inRoom={envelope.table_status.in_room} className="mb-4" />
             {/* Through the whole Uke, before and after the own Order, right under the Ordrefelt. */}
-            <GameSeatStatus seats={seats} now={now} titleId={`seats-${game.id}`} className="max-w-md" />
+            <GameSeatStatus gameId={game.id} seats={seats} now={now} titleId={`seats-${game.id}`} className="max-w-md" />
+            {/* Story 8.6: «Ta pause» under Setestatus, and the Pausevalg in place. */}
+            <PauseControl
+              gameId={game.id}
+              canPause={envelope.table_status.can_pause ?? false}
+              onFormOpen={setPausing}
+              className="mt-4"
+            />
             {/* Story 6.19: the proposed time to play and «Godta tidspunktet»; proposing is on Hjem. */}
-            <TimeProposalBlock game={game} now={now} className="mt-4 max-w-md" />
+            {playedOut ? null : <TimeProposalBlock game={game} now={now} className="mt-4 max-w-md" />}
             <BackLinks game={game} />
           </div>
         </div>
@@ -567,6 +616,13 @@ function useSendOrder(gameId: string, week: number, userId: string, field: strin
             confirmed();
             return;
           }
+          // A lost Seat (an AI player took it over, Story 8.2) is said before the stored Order is
+          // read: the Order there now is the AI player's, never this send's (GitHub issue 141).
+          if (code === "seat_not_yours") {
+            await reread();
+            setOutcome({ week: ordered, value, kind: "seatGone" });
+            return;
+          }
           // Story 10.6: a Replay past the Testfrist takes no Order; the game is read again, which
           // shows the closed Replay once the sweep has closed it.
           if (code === "test_deadline_passed") {
@@ -579,8 +635,6 @@ function useSendOrder(gameId: string, week: number, userId: string, field: strin
           const there = await stored(ordered, value);
           if (there === "stored") confirmed();
           else if (there === "other" || code === "week_not_open") setOutcome({ week: ordered, value, kind: "weekGone" });
-          // A lost Seat usually loses the envelope too (403): the code alone says why.
-          else if (code === "seat_not_yours") setOutcome({ week: ordered, value, kind: "seatGone" });
           else setOutcome({ week: ordered, value, kind: "failed" });
         },
       )
@@ -619,11 +673,12 @@ function outcomeProps(outcome: SendOutcome | null, week: number) {
  * which reads the envelope again; any other failure (offline, a dropped request, a 5xx) is sent
  * again after `VIEW_RETRY_MS`, since the Week waits for this view. Nothing is shown for either.
  */
-function useGuidedView(gameId: string, envelope: PlayEnvelope) {
+function useGuidedView(gameId: string, envelope: PlayEnvelope, takenOver = false) {
   const sent = useRef(new Set<number>());
   const [attempt, setAttempt] = useState(0);
   const week = envelope.seat_state.week;
-  const due = envelope.turn.guided && !envelope.turn.viewed;
+  // A Seat an AI player took over is not the Student's to open (Story 8.2).
+  const due = envelope.turn.guided && !envelope.turn.viewed && !takenOver;
   useEffect(() => {
     if (!due || sent.current.has(week)) return;
     sent.current.add(week);
@@ -709,7 +764,7 @@ function NotRunningSeats({ game }: { game: MyGame }) {
   const now = useServerNow(game.server_now);
   return (
     <>
-      <GameSeatStatus seats={game.seats} now={now} titleId={`seats-${game.id}`} className="mt-8 max-w-md" />
+      <GameSeatStatus gameId={game.id} seats={game.seats} now={now} titleId={`seats-${game.id}`} className="mt-8 max-w-md" />
       <TimeProposalBlock game={game} now={now} className="mt-4 max-w-md" />
     </>
   );

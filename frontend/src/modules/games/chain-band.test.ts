@@ -32,7 +32,7 @@ function withViews(state: BandState): BandState {
   };
 }
 
-function layout(state: BandState, width: number, fontSize: number, typed?: number) {
+function layout(state: BandState, width: number, fontSize: number, typed?: number, byAi = false) {
   return bandLayout({
     width,
     fontSize,
@@ -41,7 +41,7 @@ function layout(state: BandState, width: number, fontSize: number, typed?: numbe
     slots: state.supply_line_slots.map((slot) => slot.quantity),
     overdue: state.overdue,
     typed,
-    labels: bandLabels(state, bandEnds(state.role, SEAT_ROLES, state.neighbour_numbers), typed),
+    labels: bandLabels(state, bandEnds(state.role, SEAT_ROLES, state.neighbour_numbers), typed, byAi),
   });
 }
 
@@ -329,6 +329,15 @@ describe("the Kjedebånd's content", () => {
     // 0 is an Order with no box; nothing typed keeps «Din ordre» without a number.
     expect(layout(state, 328, 13, 0).typedBox).toBeNull();
     expect(layout(state, 328, 13).labels.find((l) => l.key === "order")!.text).toBe("Din ordre");
+  });
+
+  it("labels a KI-spiller's Order on the own Seat taken over «KI-ordre», at regular weight (Story 8.4)", () => {
+    const state = STATES.find((s) => s.role === "wholesaler" && s.week === 11)!;
+    const order = (band: ReturnType<typeof layout>) => band.labels.find((l) => l.key === "order")!;
+    const ai = order(layout(state, 328, 13, 9, true));
+    expect([ai.text, ai.weight]).toEqual(["KI-ordre 9", 400]);
+    const own = order(layout(state, 328, 13, 9));
+    expect([own.text, own.weight]).toEqual(["Din ordre 9", 600]);
   });
 
   it("reads as one sentence", () => {

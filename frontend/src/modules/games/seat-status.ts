@@ -31,15 +31,30 @@ function waited(seat: StatusSeat, now: number): string | null {
   return waitDuration(Math.max(0, now - Date.parse(seat.wait_started_at)));
 }
 
-/** The Seat's holder in words; an AI Seat the Play guard switched says it is rule-based. */
+/** The Seat's holder in words; an AI Seat the Play guard switched says it is rule-based, also
+ * when the switch came before a later Takeover (Story 8.2). */
 function holder(seat: StatusSeat): string {
-  if (seat.holder === "ai" && seat.mark === "guard_switch") return copy.guardSwitched;
+  if (seat.holder === "ai" && (seat.mark === "guard_switch" || seat.guard_switched)) return copy.guardSwitched;
   return holderText(seat);
 }
 
+/** «bestiller for Jonas» for an AI player that took a Student's Seat over (Story 8.2, UX-DR69),
+ * «bestiller for deg» on the viewer's own Seat; null for every other Seat. */
+export function takeoverStatus(seat: StatusSeat): string | null {
+  if (!seat.taken_over) return null;
+  if (seat.mine) return copy.takeover.orderingForYou;
+  return seat.ordering_for ? copy.takeover.orderingFor(seat.ordering_for) : copy.takeover.orderingForSeat;
+}
+
+/** Whether an AI player has taken over the viewer's own Seat (Story 8.2): «KI-spiller har bestilt
+ * for deg.» replaces the Ordrefelt and Hjem's Spillkort. */
+export function ownSeatTakenOver(seats: StatusSeat[]): boolean {
+  return seats.some((seat) => seat.mine && seat.taken_over);
+}
+
 /** The Setestatus rows (FR-25, UX-DR25): «har bestilt», «venter, 3 min» or «venter»; the own row
- * says «(deg)» once, after the name, so its status is plain «venter». A game that does not run
- * tells no state. */
+ * says «(deg)» once, after the name, so its status is plain «venter». A Seat taken over says whom
+ * its AI player orders for (Story 8.2). A game that does not run tells no state. */
 export function seatRows(seats: StatusSeat[], now: number): SeatStatusRow[] {
   return seats.map((seat) => {
     const state = seat.ordered == null ? null : seat.ordered ? "ordered" : "waiting";
@@ -47,11 +62,12 @@ export function seatRows(seats: StatusSeat[], now: number): SeatStatusRow[] {
     const status =
       state === null
         ? null
-        : state === "ordered"
-          ? copy.status.ordered
-          : duration && !seat.mine
-            ? copy.status.waitingFor(duration)
-            : copy.status.waiting;
+        : (takeoverStatus(seat) ??
+          (state === "ordered"
+            ? copy.status.ordered
+            : duration && !seat.mine
+              ? copy.status.waitingFor(duration)
+              : copy.status.waiting));
     return {
       key: seat.role,
       role: roleName(seat.role),
@@ -79,20 +95,30 @@ export function waitedFor(seats: StatusSeat[], now: number, others = false): str
   return names.length ? LIST.format(names) : null;
 }
 
-/** The roles the game waits for: what decides when «Venter på» is announced again. */
+/** The roles the game waits for, and those taken over: what decides when the line is announced
+ * again. */
 function waitingKey(seats: StatusSeat[]): string {
-  return seats
-    .filter((seat) => seat.ordered === false)
-    .map((seat) => seat.role)
-    .join(",");
+  const waiting = seats.filter((seat) => seat.ordered === false).map((seat) => seat.role);
+  const taken = seats.filter((seat) => seat.taken_over).map((seat) => `ai:${seat.role}`);
+  return [...waiting, ...taken].join(",");
+}
+
+/** «Fabrikk: KI-spiller bestiller for Jonas.» for each Seat an AI player took over while the game
+ * runs (Story 8.2, UX-DR69): announced politely with the wait line. */
+export function takeoverLines(seats: StatusSeat[]): string[] {
+  return seats.flatMap((seat) => {
+    const status = seat.ordered == null ? null : takeoverStatus(seat);
+    return status ? [copy.takeover.announced(roleName(seat.role), status)] : [];
+  });
 }
 
 /** «Venter på: Jonas (3 min) og deg.», changed only when whom the game waits for changes (not
- * every minute), so the polite live region speaks once per change (Story 6.14). */
+ * every minute), so the polite live region speaks once per change (Story 6.14); a Takeover's line
+ * comes first (Story 8.2). */
 export function useWaitAnnouncement(seats: StatusSeat[], now: number): string | null {
   const key = waitingKey(seats);
   const who = waitedFor(seats, now);
-  const text = who ? copy.waitingOn(who) : null;
+  const text = [...takeoverLines(seats), ...(who ? [copy.waitingOn(who)] : [])].join(" ") || null;
   const [shown, setShown] = useState({ key, text });
   if (shown.key !== key) setShown({ key, text });
   return shown.key === key ? shown.text : text;
@@ -103,7 +129,10 @@ const TICK_MS = 15_000;
 /** The server's clock now, in ms (AD-20): `serverNow` from the last read, moved on by the time
  * passed since, re-read every `TICK_MS`. The browser's clock gives only the time passed. */
 export function useServerNow(serverNow: string): number {
-  const [offset, setOffset] = useState(() => ({ at: serverNow, ms: Date.parse(serverNow) - Date.now() }));
+  const [offset, setOffset] = useState(() => ({
+    at: serverNow,
+    ms: Date.parse(serverNow) - Date.now(),
+  }));
   if (offset.at !== serverNow) setOffset({ at: serverNow, ms: Date.parse(serverNow) - Date.now() });
   const [, tick] = useState(0);
   useEffect(() => {

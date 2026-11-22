@@ -37,6 +37,10 @@ PUBLIC_ROUTES = {
     ("POST", "/api/dev/class-sessions/{class_session_id}/lock"),
     # Story 12.1: the local dev Test-deadline lock, never in production.
     ("POST", "/api/dev/class-sessions/{class_session_id}/lock-test"),
+    # The local dev Takeover at the stored due time (Story 8.3), likewise.
+    ("POST", "/api/dev/games/{game_id}/seats/{role}/takeover"),
+    # The local dev playout at the Play deadline (Story 8.14), likewise.
+    ("POST", "/api/dev/games/{game_id}/playout"),
     # Story 9.11: the local dev back-dating of a Group debrief step, never in production.
     ("POST", "/api/dev/debriefs/{debrief_id}/backdate"),
     ("POST", "/api/dev/games/{game_id}/seats/{seat}/narrate"),

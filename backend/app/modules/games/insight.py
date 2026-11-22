@@ -2,6 +2,8 @@
 Week the stored engine values, the Order from the Decision log, who held the Seat and the marks of
 the one mapping (`marks.seat_mark`). Ids only, never a name (AD-14): the caller resolves names.
 
+Each Week also says when it opened for the Seat and when the Seat ordered (Story 8.1, FR-35).
+
 Read in a fixed number of queries whatever the Game's length. Link providers registered by later
 modules (`register_insight_links`, Epic 9) add links to the Student-held Seats; `games` imports
 none of them."""
@@ -9,16 +11,18 @@ none of them."""
 import uuid
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, Literal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.analysis.facts import LARGE_ORDER
 from app.engine import GameSettings, WeekState
-from app.modules.games import overview, repo
+from app.modules.games import overview, repo, rules
 from app.modules.games.marks import seat_mark
-from app.modules.games.schemas import GameStatus, OccupantKind, SeatMark
+from app.modules.games.policy import policy
+from app.modules.games.schemas import GameStatus, Lifecycle, OccupantKind, SeatMark
 
 __all__ = [
     "LARGE_ORDER",
@@ -71,6 +75,14 @@ class InsightSeat:
     occupant_kind: str | None
     user_id: uuid.UUID | None
     links: tuple[InsightLink, ...]
+    reason: str | None = None
+    """The latest occupancy row's reason (Story 8.3): the Seat's AD-15 mark is read from it."""
+    actor_user_id: uuid.UUID | None = None
+    """Who triggered the latest occupancy row (Story 8.5): a Takeover's staff member or Student."""
+    takeover: Literal["this_week", "next_week"] | None = None
+    """Whether staff may put an AI player in the Seat now (Story 8.5, FR-37) and from when: this
+    Week when its Student has not ordered in the open Week (in a Guided Week: not opened it), the
+    next Week when they have. None for a Seat no Student holds or a Game not running."""
 
 
 @dataclass(frozen=True)
@@ -89,6 +101,11 @@ class InsightWeek:
     order: int | None
     cost: Decimal
     marks: tuple[SeatMark, ...]
+    opened_at: datetime | None = None
+    """When the Week opened for the Seat (Story 8.1, FR-35); None for a Week with no stored turn."""
+    ordered_at: datetime | None = None
+    """When the Seat ordered (`rules.has_ordered`): its Order's time, or in a Guided Week the time
+    the Student holding it opened the Week (FR-24); None while it has not ordered."""
 
 
 @dataclass(frozen=True)
@@ -116,6 +133,28 @@ class GameInsight:
     """(Week, the customer demand the first Role received that Week), per opened Week."""
     seats: tuple[InsightSeat, ...]
     roles: tuple[InsightRole, ...]
+    paused_at: datetime | None = None
+    """Story 8.7: since when the Pause in force runs; None when the Game is not paused."""
+    paused_by: uuid.UUID | None = None
+    """Story 8.7: who set the Pause in force, by id (AD-14)."""
+    resume_at: datetime | None = None
+    """Story 8.7: the Lecturer's agreed time of the Pause in force; None without one."""
+    pausable: bool = False
+    """Story 8.7 (FR-89): a Pause applies to the Game now: it runs and its policy has Pause."""
+    startable: bool = False
+    """Story 8.10 (FR-22): the Game has not started, has its settings snapshot (the lock) and a
+    Student in a Seat."""
+    started_by: uuid.UUID | None = None
+    """Story 8.10: who pressed «Start spillet», by id (AD-14); None when no person did."""
+    started_at: datetime | None = None
+    """Story 8.10: when the Game started; None before, and for a Game started before 0060."""
+    in_room_minutes: int | None = None
+    """Story 8.11: the in-room limit of the «I rommet» mark in force; None when not marked."""
+    in_room_until: datetime | None = None
+    """Story 8.11: until when the mark holds (the Lab hour's end); None when not marked."""
+    markable: bool = False
+    """Story 8.11 (FR-36): «I rommet» applies to the Game now: it runs (also paused) and its
+    policy has inactivity Takeover."""
     end_reason: str | None = None
     """Story 10.6: why a `finished` Game ended without its last Week (`test_deadline`); else
     None."""
@@ -128,6 +167,16 @@ def _in_force(history: Sequence[Mapping[str, Any]], week: int) -> Mapping[str, A
         if row["from_week"] <= week:
             found = row
     return found
+
+
+def _ordered_at(turn: Mapping[str, Any] | None, kind: object, guided: bool) -> datetime | None:
+    """When the Seat ordered in the turn's Week, by `rules.has_ordered`'s meaning: in a Guided
+    Week a Student-held Seat ordered when its Student opened the Week (FR-24, Story 8.1)."""
+    if turn is None:
+        return None
+    if guided and kind == OccupantKind.STUDENT:
+        return turn["viewed_at"] if turn["ordered_at"] is not None else None
+    return turn["ordered_at"]
 
 
 async def game_insight(session: AsyncSession, game_id: uuid.UUID) -> GameInsight | None:
@@ -155,6 +204,10 @@ async def game_insight(session: AsyncSession, game_id: uuid.UUID) -> GameInsight
         for state in map(WeekState.model_validate, await repo.week_states(session, game_id))
         if not state.finished
     ]
+    clock = {(row["week"], row["role"]): row for row in await repo.turn_clock(session, game_id)}
+    snapshot = game["settings"]
+    settings = GameSettings.model_validate(snapshot) if snapshot is not None else None
+    game_policy = policy(str(game["purpose"]))
     links: list[InsightLink] = []
     for provider in _providers:
         links.extend(await provider(session, game_id))
@@ -189,6 +242,8 @@ async def game_insight(session: AsyncSession, game_id: uuid.UUID) -> GameInsight
                 if kind == OccupantKind.STUDENT
                 else None
             )
+            turn = clock.get((state.week, role))
+            guided = settings is not None and rules.guided_week(game_policy, settings, state.week)
             rows.append(
                 InsightWeek(
                     week=state.week,
@@ -201,6 +256,8 @@ async def game_insight(session: AsyncSession, game_id: uuid.UUID) -> GameInsight
                     order=log["order"] if log is not None else None,
                     cost=values.cost,
                     marks=tuple(marks),
+                    opened_at=turn["opened_at"] if turn is not None else None,
+                    ordered_at=_ordered_at(turn, kind, guided),
                 )
             )
         large = next(
@@ -209,14 +266,14 @@ async def game_insight(session: AsyncSession, game_id: uuid.UUID) -> GameInsight
         roles.append(InsightRole(role=role, weeks=tuple(rows), first_large_order_week=large))
 
     first = held[0]["role"] if held else None
-    snapshot = game["settings"]
+    takeover = await _takeover_from(session, game, settings, clock)
     return GameInsight(
         game_id=game["id"],
         class_session_id=game["class_session_id"],
         game_number=game["game_number"],
         status=status,
         version=game["version"],
-        weeks_total=GameSettings.model_validate(snapshot).weeks if snapshot is not None else None,
+        weeks_total=settings.weeks if settings is not None else None,
         demand=tuple((state.week, state.seat(first).incoming_order) for state in states)
         if first is not None
         else (),
@@ -225,6 +282,11 @@ async def game_insight(session: AsyncSession, game_id: uuid.UUID) -> GameInsight
                 role=seat["role"],
                 occupant_kind=seat["occupant_kind"],
                 user_id=seat["user_id"],
+                reason=None if seat["reason"] is None else str(seat["reason"]),
+                actor_user_id=seat["actor_user_id"],
+                takeover=takeover.get(seat["role"])
+                if seat["occupant_kind"] == OccupantKind.STUDENT
+                else None,
                 links=tuple(link for link in links if link.role == seat["role"])
                 if seat["occupant_kind"] == OccupantKind.STUDENT
                 else (),
@@ -232,5 +294,49 @@ async def game_insight(session: AsyncSession, game_id: uuid.UUID) -> GameInsight
             for seat in held
         ),
         roles=tuple(roles),
+        paused_at=game["paused_at"],
+        paused_by=game["paused_by"],
+        resume_at=game["resume_at"],
+        pausable=game["lifecycle"] == Lifecycle.RUNNING and game_policy.pause,
+        # As `service.startable_class_games`: a Student must hold a Seat (Story 8.10).
+        startable=game["lifecycle"] == Lifecycle.NOT_STARTED
+        and snapshot is not None
+        and any(seat["occupant_kind"] == OccupantKind.STUDENT for seat in held),
+        started_by=game["started_by"],
+        started_at=game["started_at"],
+        in_room_minutes=game["in_room_minutes"],
+        in_room_until=game["in_room_until"],
+        markable=game["lifecycle"] == Lifecycle.RUNNING and game_policy.inactivity_takeover,
         end_reason=game["end_reason"],
     )
+
+
+async def _takeover_from(
+    session: AsyncSession,
+    game: Mapping[str, Any],
+    settings: GameSettings | None,
+    clock: Mapping[tuple[int, str], Mapping[str, Any]],
+) -> dict[str, Literal["this_week", "next_week"]]:
+    """Per Role, from when a staff Takeover would apply (Story 8.5): read from the open Week's
+    turns while the Game runs and its policy has Takeover; the caller keeps it to Student-held
+    Seats, as `rules.can_take_over` does."""
+    game_policy = policy(str(game["purpose"]))
+    if (
+        game["lifecycle"] != Lifecycle.RUNNING
+        or settings is None
+        or not game_policy.inactivity_takeover
+    ):
+        return {}
+    week = await repo.open_week(session, game["id"])
+    if week is None:
+        return {}
+    guided = rules.guided_week(game_policy, settings, week)
+    found: dict[str, Literal["this_week", "next_week"]] = {}
+    for (turn_week, role), turn in clock.items():
+        if turn_week != week:
+            continue
+        ordered = _ordered_at(turn, OccupantKind.STUDENT, guided) is not None
+        if ordered and week >= settings.weeks:
+            continue  # the last Week: no next Week for an AI player to take (as the command)
+        found[role] = "next_week" if ordered else "this_week"
+    return found

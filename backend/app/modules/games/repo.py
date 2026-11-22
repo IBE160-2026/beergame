@@ -6,7 +6,7 @@ from collections.abc import Collection, Sequence
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Numeric, RowMapping, func, select, text, update
+from sqlalchemy import Numeric, RowMapping, delete, func, select, text, update
 from sqlalchemy.dialects.postgresql import distinct_on, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,6 +18,7 @@ from app.modules.games.models import (
     game_weeks,
     games,
     seat_occupancy,
+    seat_reclaims,
     seat_turns,
     seat_weeks,
     seats,
@@ -102,7 +103,8 @@ async def get_game(session: AsyncSession, game_id: uuid.UUID) -> RowMapping | No
 
 
 async def seats_with_occupant(session: AsyncSession, game_id: uuid.UUID) -> list[RowMapping]:
-    """Each Seat of the Game in chain order, with its latest occupancy row (None when free)."""
+    """Each Seat of the Game in chain order, with its latest occupancy row (None when free): who
+    holds it, why, who triggered it (`actor_user_id`, Story 8.5) and when."""
     latest = _latest_occupancy()
     result = await session.execute(
         select(
@@ -112,6 +114,8 @@ async def seats_with_occupant(session: AsyncSession, game_id: uuid.UUID) -> list
             latest.c.policy_id,
             latest.c.user_id,
             latest.c.reason,
+            latest.c.actor_user_id,
+            latest.c.created_at,
         )
         .select_from(seats.outerjoin(latest, latest.c.seat_id == seats.c.id))
         .where(seats.c.game_id == game_id)
@@ -130,6 +134,8 @@ def _latest_occupancy(*where: Any) -> Any:
             seat_occupancy.c.policy_id,
             seat_occupancy.c.user_id,
             seat_occupancy.c.reason,
+            seat_occupancy.c.actor_user_id,
+            seat_occupancy.c.created_at,
         )
         .where(*where)
         .ext(distinct_on(seat_occupancy.c.seat_id))
@@ -382,6 +388,20 @@ async def class_session_seats(
     return list(result.mappings())
 
 
+async def class_session_seat_ids(
+    session: AsyncSession, class_session_id: uuid.UUID
+) -> list[RowMapping]:
+    """Every Seat of the Class session's listed Games in one read (Story 8.12): `id`, `game_id`
+    and `role`, by Game and chain order."""
+    result = await session.execute(
+        select(seats.c.id, seats.c.game_id, seats.c.role)
+        .join(games, games.c.id == seats.c.game_id)
+        .where(games.c.class_session_id == class_session_id, _listed())
+        .order_by(seats.c.game_id, seats.c.position)
+    )
+    return list(result.mappings())
+
+
 async def set_lifecycle(
     session: AsyncSession, game_id: uuid.UUID, lifecycle: str, *, end_reason: str | None = None
 ) -> None:
@@ -403,6 +423,265 @@ async def unfinished_games(session: AsyncSession, purposes: Collection[str]) -> 
         .order_by(games.c.id)
     )
     return list(result.mappings())
+
+
+async def set_started(session: AsyncSession, game_id: uuid.UUID, actor: uuid.UUID | None) -> Any:
+    """Story 8.10: the Game started at the transaction's `now()`, by `actor` (None when no person
+    did). Returns `started_at`."""
+    result = await session.execute(
+        update(games)
+        .where(games.c.id == game_id)
+        .values(started_at=func.now(), started_by=actor)
+        .returning(games.c.started_at)
+    )
+    return result.scalar_one()
+
+
+async def set_pause(
+    session: AsyncSession, game_id: uuid.UUID, user_id: uuid.UUID, resume_at: Any = None
+) -> Any:
+    """Story 8.6: the Pause in force from the transaction's `now()`, by `user_id`, with the
+    Lecturer's agreed time `resume_at` (Story 8.7; a Student's has none); the last Pause's end is
+    forgotten. Returns `paused_at`."""
+    result = await session.execute(
+        update(games)
+        .where(games.c.id == game_id)
+        .values(
+            paused_at=func.now(),
+            paused_by=user_id,
+            resume_at=resume_at,
+            agreed_time_reached_at=None,
+            pause_ended_at=None,
+            pause_ended_by=None,
+        )
+        .returning(games.c.paused_at)
+    )
+    return result.scalar_one()
+
+
+async def end_pause(session: AsyncSession, game_id: uuid.UUID, user_id: uuid.UUID) -> None:
+    """Story 8.6: a Student's Order ends the Pause in force at the transaction's `now()`; from
+    Story 8.7 also the Lecturer's «Avslutt pausen» (`user_id` the Lecturer)."""
+    await session.execute(
+        update(games)
+        .where(games.c.id == game_id)
+        .values(
+            paused_at=None,
+            paused_by=None,
+            resume_at=None,
+            agreed_time_reached_at=None,
+            pause_ended_at=func.now(),
+            pause_ended_by=user_id,
+        )
+    )
+
+
+async def set_agreed_time(session: AsyncSession, game_id: uuid.UUID, resume_at: Any) -> None:
+    """Story 8.7: the Lecturer's agreed time on the Pause in force (None clears it); the sweep
+    has not seen it pass yet."""
+    await session.execute(
+        update(games)
+        .where(games.c.id == game_id)
+        .values(resume_at=resume_at, agreed_time_reached_at=None)
+    )
+
+
+async def mark_agreed_time_reached(session: AsyncSession, game_id: uuid.UUID, at: Any) -> None:
+    """Story 8.7: the sweep saw the agreed time pass at `at`."""
+    await session.execute(
+        update(games).where(games.c.id == game_id).values(agreed_time_reached_at=at)
+    )
+
+
+async def due_agreed_times(session: AsyncSession, now: Any) -> list[uuid.UUID]:
+    """Story 8.7 (AD-9): the running, paused Games whose agreed time lies at or before `now` and
+    that the sweep has not announced yet, the earliest first."""
+    result = await session.execute(
+        select(games.c.id)
+        .where(
+            games.c.lifecycle == "running",
+            games.c.paused_at.is_not(None),
+            games.c.resume_at <= now,
+            games.c.agreed_time_reached_at.is_(None),
+        )
+        .order_by(games.c.resume_at, games.c.id)
+    )
+    return list(result.scalars())
+
+
+async def set_in_room(
+    session: AsyncSession,
+    game_id: uuid.UUID,
+    *,
+    minutes: int,
+    until: Any,
+    lab_hour_id: uuid.UUID,
+    user_id: uuid.UUID | None,
+) -> Any:
+    """Story 8.11: «I rommet» in force from the transaction's `now()`, by `user_id`, with the
+    in-room limit `minutes` until `until` (the Lab hour's end). Returns `in_room_marked_at`."""
+    result = await session.execute(
+        update(games)
+        .where(games.c.id == game_id)
+        .values(
+            in_room_minutes=minutes,
+            in_room_until=until,
+            in_room_lab_hour_id=lab_hour_id,
+            in_room_by=user_id,
+            in_room_marked_at=func.now(),
+        )
+        .returning(games.c.in_room_marked_at)
+    )
+    return result.scalar_one()
+
+
+async def move_in_room_end(session: AsyncSession, game_id: uuid.UUID, until: Any) -> None:
+    """Story 8.11: the Lab hour of the mark in force now ends at `until`."""
+    await session.execute(update(games).where(games.c.id == game_id).values(in_room_until=until))
+
+
+async def clear_in_room(session: AsyncSession, game_id: uuid.UUID) -> None:
+    """Story 8.11: the mark in force ends."""
+    await session.execute(
+        update(games)
+        .where(games.c.id == game_id)
+        .values(
+            in_room_minutes=None,
+            in_room_until=None,
+            in_room_lab_hour_id=None,
+            in_room_by=None,
+            in_room_marked_at=None,
+        )
+    )
+
+
+async def due_in_room_ends(session: AsyncSession, now: Any) -> list[uuid.UUID]:
+    """Story 8.11 (AD-9): the Games whose «I rommet» mark lies at or past its end at `now`, the
+    earliest first."""
+    result = await session.execute(
+        select(games.c.id)
+        .where(games.c.in_room_until.is_not(None), games.c.in_room_until <= now)
+        .order_by(games.c.in_room_until, games.c.id)
+    )
+    return list(result.scalars())
+
+
+async def games_in_room_of(session: AsyncSession, lab_hour_id: uuid.UUID) -> list[uuid.UUID]:
+    """Story 8.11: the Games marked «I rommet» for the Lab hour `lab_hour_id`."""
+    result = await session.execute(
+        select(games.c.id).where(games.c.in_room_lab_hour_id == lab_hour_id).order_by(games.c.id)
+    )
+    return list(result.scalars())
+
+
+async def set_insert_allowed(session: AsyncSession, turn_id: uuid.UUID, at: Any) -> None:
+    """Story 8.7: the turn's insert time, recomputed by a Lecturer's Pause command through
+    `rules.turn_times`; its Takeover due time is never moved. The sweep has not announced the new
+    time yet (Story 8.8)."""
+    await session.execute(
+        update(seat_turns)
+        .where(seat_turns.c.id == turn_id)
+        .values(insert_allowed_at=at, insert_announced_at=None)
+    )
+
+
+async def set_due_times(
+    session: AsyncSession,
+    turn_id: uuid.UUID,
+    *,
+    takeover_due_at: Any,
+    insert_allowed_at: Any,
+    insert_moved: bool,
+) -> None:
+    """Story 8.9: the turn's FR-36 due times, recomputed by `recompute_turn_times` through
+    `rules.turn_times` after a Student's Tilrettelegging changed; its wait start stays. When the
+    insert time moved (`insert_moved`) the sweep has not announced the new one yet (Story 8.8)."""
+    values: dict[str, Any] = {
+        "takeover_due_at": takeover_due_at,
+        "insert_allowed_at": insert_allowed_at,
+    }
+    if insert_moved:
+        values["insert_announced_at"] = None
+    await session.execute(update(seat_turns).where(seat_turns.c.id == turn_id).values(**values))
+
+
+async def mark_insert_announced(session: AsyncSession, turn_id: uuid.UUID, at: Any) -> None:
+    """Story 8.8: the sweep saw the turn's insert time pass at `at`."""
+    await session.execute(
+        update(seat_turns).where(seat_turns.c.id == turn_id).values(insert_announced_at=at)
+    )
+
+
+async def due_insert_times(session: AsyncSession, now: Any) -> list[tuple[uuid.UUID, uuid.UUID]]:
+    """Story 8.8 (AD-9): (Game id, Seat id) of each turn in the open Week of a running Game whose
+    insert time lies at or before `now` and that the sweep has not announced yet, the earliest
+    first. Whether the Seat still waits is the command's to judge under the lock."""
+    opened = (
+        select(func.max(game_weeks.c.week))
+        .where(game_weeks.c.game_id == seat_turns.c.game_id, game_weeks.c.finished.is_(False))
+        .scalar_subquery()
+    )
+    result = await session.execute(
+        select(seat_turns.c.game_id, seat_turns.c.seat_id)
+        .join(games, games.c.id == seat_turns.c.game_id)
+        .where(
+            games.c.lifecycle == "running",
+            seat_turns.c.insert_allowed_at <= now,
+            seat_turns.c.insert_announced_at.is_(None),
+            seat_turns.c.week == opened,
+        )
+        .order_by(seat_turns.c.insert_allowed_at, seat_turns.c.id)
+    )
+    return [(row.game_id, row.seat_id) for row in result]
+
+
+async def mark_reminder_queued(session: AsyncSession, turn_id: uuid.UUID, at: Any) -> None:
+    """Story 8.13: the sweep queued the turn's reminder at `at`, or found the Seat no longer
+    waited for."""
+    await session.execute(
+        update(seat_turns).where(seat_turns.c.id == turn_id).values(reminder_queued_at=at)
+    )
+
+
+async def close_reminders(session: AsyncSession, game_id: uuid.UUID, week: int) -> None:
+    """Story 8.13: `week` is complete, so none of its turns is waited for; each reminder not
+    queued yet is marked at the transaction's `now()`, which takes it out of the sweep's
+    partial index."""
+    await session.execute(
+        update(seat_turns)
+        .where(
+            seat_turns.c.game_id == game_id,
+            seat_turns.c.week == week,
+            seat_turns.c.reminder_due_at.is_not(None),
+            seat_turns.c.reminder_queued_at.is_(None),
+        )
+        .values(reminder_queued_at=func.now())
+    )
+
+
+async def due_turn_reminders(session: AsyncSession, now: Any) -> list[tuple[uuid.UUID, uuid.UUID]]:
+    """Story 8.13 (AD-9): (Game id, Seat id) of each turn in the open Week of a running Game with
+    no Pause in force whose reminder time lies at or before `now` and that the sweep has not
+    queued yet, the earliest first. A paused Game is left until its Pause ends (FR-27). Whether
+    the Seat still waits is the command's to judge under the lock."""
+    opened = (
+        select(func.max(game_weeks.c.week))
+        .where(game_weeks.c.game_id == seat_turns.c.game_id, game_weeks.c.finished.is_(False))
+        .scalar_subquery()
+    )
+    result = await session.execute(
+        select(seat_turns.c.game_id, seat_turns.c.seat_id)
+        .join(games, games.c.id == seat_turns.c.game_id)
+        .where(
+            games.c.lifecycle == "running",
+            games.c.paused_at.is_(None),
+            seat_turns.c.reminder_due_at <= now,
+            seat_turns.c.reminder_queued_at.is_(None),
+            seat_turns.c.week == opened,
+        )
+        .order_by(seat_turns.c.reminder_due_at, seat_turns.c.id)
+    )
+    return [(row.game_id, row.seat_id) for row in result]
 
 
 async def insert_week(
@@ -468,6 +747,16 @@ async def turn(
     return result.mappings().one_or_none()
 
 
+async def turn_with_role(session: AsyncSession, turn_id: uuid.UUID) -> RowMapping | None:
+    """The `seat_turns` row `turn_id` with its Seat's `role` (Story 8.13); None for no such row."""
+    result = await session.execute(
+        select(seat_turns, seats.c.role)
+        .join(seats, seats.c.id == seat_turns.c.seat_id)
+        .where(seat_turns.c.id == turn_id)
+    )
+    return result.mappings().one_or_none()
+
+
 async def week_turns_with_occupant(
     session: AsyncSession, game_id: uuid.UUID, week: int
 ) -> list[RowMapping]:
@@ -504,12 +793,27 @@ async def set_viewed_at(session: AsyncSession, turn_id: uuid.UUID) -> Any:
     return result.scalar_one()
 
 
-async def set_wait_started_at(session: AsyncSession, turn_id: uuid.UUID, at: Any) -> None:
-    """Store when the game began to wait for the turn's Seat (Story 6.14), only while unset."""
+async def set_wait_times(
+    session: AsyncSession,
+    turn_id: uuid.UUID,
+    *,
+    wait_started_at: Any,
+    takeover_due_at: Any,
+    insert_allowed_at: Any,
+    reminder_due_at: Any = None,
+) -> None:
+    """Store when the game began to wait for the turn's Seat (Story 6.14), its FR-36 due times
+    (Story 8.1) and its reminder time (Story 8.13), all from one `rules.turn_times` result, only
+    while the wait start is unset."""
     await session.execute(
         update(seat_turns)
         .where(seat_turns.c.id == turn_id, seat_turns.c.wait_started_at.is_(None))
-        .values(wait_started_at=at)
+        .values(
+            wait_started_at=wait_started_at,
+            takeover_due_at=takeover_due_at,
+            insert_allowed_at=insert_allowed_at,
+            reminder_due_at=reminder_due_at,
+        )
     )
 
 
@@ -522,6 +826,155 @@ async def set_ordered_at(session: AsyncSession, turn_id: uuid.UUID) -> Any:
         .returning(seat_turns.c.ordered_at)
     )
     return result.scalar_one()
+
+
+async def set_ai_deadline(session: AsyncSession, turn_id: uuid.UUID, at: Any) -> None:
+    """Give the turn its AI deadline (an LLM player that took the Seat mid-Week, Story 8.2),
+    only while it has none: the `seat_turns` trigger keeps one once set."""
+    await session.execute(
+        update(seat_turns)
+        .where(seat_turns.c.id == turn_id, seat_turns.c.ai_deadline_at.is_(None))
+        .values(ai_deadline_at=at)
+    )
+
+
+async def guard_switched(session: AsyncSession, seat_id: uuid.UUID) -> bool:
+    """Whether the Play guard has ever switched the Seat (a `guard_switch` row in its history):
+    the switch outlasts a later Takeover or Reclaim (Story 8.2, FR-79)."""
+    result = await session.execute(
+        select(seat_occupancy.c.id)
+        .where(seat_occupancy.c.seat_id == seat_id, seat_occupancy.c.reason == "guard_switch")
+        .limit(1)
+    )
+    return result.first() is not None
+
+
+TAKEOVER_REASONS = ("takeover_inactivity", "takeover_staff", "takeover_peer")
+"""The occupancy reasons of an AI player that took a Student's Seat over (Story 8.2)."""
+
+
+async def seat_histories(session: AsyncSession, game_id: uuid.UUID) -> dict[uuid.UUID, dict]:
+    """Per Seat of the Game: `last_student`, the user id of its latest `student` row (None when
+    no Student ever held it); `taken_over`, whether a Takeover row came after that row, so a later
+    Play guard or cost-limit switch of the AI player keeps the Seat taken over; and
+    `guard_switched`, whether it has a `guard_switch` row (Story 8.2): what the Setestatus says of
+    an AI player that took a Student's Seat. Rows by id (UUIDv7): the order they were appended."""
+    result = await session.execute(
+        select(
+            seat_occupancy.c.seat_id,
+            seat_occupancy.c.occupant_kind,
+            seat_occupancy.c.user_id,
+            seat_occupancy.c.reason,
+        )
+        .join(seats, seats.c.id == seat_occupancy.c.seat_id)
+        .where(seats.c.game_id == game_id)
+        .order_by(seat_occupancy.c.id)
+    )
+    found: dict[uuid.UUID, dict] = {}
+    for row in result.mappings():
+        entry = found.setdefault(
+            row["seat_id"], {"last_student": None, "taken_over": False, "guard_switched": False}
+        )
+        if row["occupant_kind"] == "student" and row["user_id"] is not None:
+            entry["last_student"] = row["user_id"]
+            entry["taken_over"] = False
+        if row["reason"] in TAKEOVER_REASONS:
+            entry["taken_over"] = True
+        if row["reason"] == "guard_switch":
+            entry["guard_switched"] = True
+    return found
+
+
+async def queue_reclaim(
+    session: AsyncSession, game_id: uuid.UUID, seat_id: uuid.UUID, user_id: uuid.UUID
+) -> bool:
+    """Queue the Student's Reclaim of the Seat (Story 8.4); False, writing nothing, when one is
+    queued already (one per Seat)."""
+    result = await session.execute(
+        insert(seat_reclaims)
+        .values(seat_id=seat_id, game_id=game_id, user_id=user_id)
+        .on_conflict_do_nothing(index_elements=[seat_reclaims.c.seat_id])
+        .returning(seat_reclaims.c.seat_id)
+    )
+    return result.first() is not None
+
+
+async def queued_reclaims(session: AsyncSession, game_id: uuid.UUID) -> dict[uuid.UUID, uuid.UUID]:
+    """The Game's queued Reclaims: Seat id to the Student who asked (Story 8.4)."""
+    result = await session.execute(
+        select(seat_reclaims.c.seat_id, seat_reclaims.c.user_id).where(
+            seat_reclaims.c.game_id == game_id
+        )
+    )
+    return {row.seat_id: row.user_id for row in result}
+
+
+async def delete_reclaim(session: AsyncSession, seat_id: uuid.UUID) -> None:
+    await session.execute(delete(seat_reclaims).where(seat_reclaims.c.seat_id == seat_id))
+
+
+async def delete_reclaims(session: AsyncSession, game_id: uuid.UUID) -> None:
+    """Drop every queued Reclaim of the Game (it finished: no Week opens again)."""
+    await session.execute(delete(seat_reclaims).where(seat_reclaims.c.game_id == game_id))
+
+
+async def takeover_row(session: AsyncSession, occupancy_id: uuid.UUID) -> RowMapping | None:
+    """A Takeover's occupancy row with its Game, Role and `student`: the Student who held the
+    Seat before it (the latest earlier `student` row); None for an id that is no Takeover."""
+    earlier = seat_occupancy.alias("earlier")
+    result = await session.execute(
+        select(
+            seat_occupancy.c.id,
+            seat_occupancy.c.from_week,
+            seats.c.game_id,
+            seats.c.role,
+            select(earlier.c.user_id)
+            .where(
+                earlier.c.seat_id == seat_occupancy.c.seat_id,
+                earlier.c.id < seat_occupancy.c.id,
+                earlier.c.occupant_kind == "student",
+            )
+            .order_by(earlier.c.id.desc())
+            .limit(1)
+            .scalar_subquery()
+            .label("student"),
+        )
+        .join(seats, seats.c.id == seat_occupancy.c.seat_id)
+        .where(
+            seat_occupancy.c.id == occupancy_id,
+            seat_occupancy.c.reason.in_(TAKEOVER_REASONS),
+        )
+    )
+    return result.mappings().one_or_none()
+
+
+async def due_takeover_turns(session: AsyncSession, now: Any) -> list[RowMapping]:
+    """The turns the sweep's Takeover may act on (Story 8.2, AD-9): in the open Week of a running
+    Game whose policy has inactivity Takeover and that is not paused (Story 8.6), with no Order
+    yet or (a Guided Week) no view, and a stored `takeover_due_at` at or before `now`, oldest due
+    first. `game_id`, `seat_id`, `week`;
+    `games.commands.takeover` decides under the lock (`rules.can_take_over`)."""
+    open_weeks = _open_weeks()
+    result = await session.execute(
+        select(seat_turns.c.game_id, seat_turns.c.seat_id, seat_turns.c.week)
+        .select_from(
+            seat_turns.join(
+                open_weeks,
+                (open_weeks.c.game_id == seat_turns.c.game_id)
+                & (open_weeks.c.week == seat_turns.c.week),
+            ).join(games, games.c.id == seat_turns.c.game_id)
+        )
+        .where(
+            games.c.purpose.in_(purposes_with("inactivity_takeover")),
+            # A paused Game takes no Seat over (Story 8.6); `can_take_over` says so too.
+            games.c.paused_at.is_(None),
+            seat_turns.c.takeover_due_at.is_not(None),
+            seat_turns.c.takeover_due_at <= now,
+            (seat_turns.c.ordered_at.is_(None)) | (seat_turns.c.viewed_at.is_(None)),
+        )
+        .order_by(seat_turns.c.takeover_due_at, seat_turns.c.game_id, seat_turns.c.seat_id)
+    )
+    return list(result.mappings())
 
 
 async def occupancy_in_force(
@@ -606,6 +1059,24 @@ async def placed_orders(session: AsyncSession, game_id: uuid.UUID) -> list[RowMa
         .select_from(seat_weeks.join(seats, seats.c.id == seat_weeks.c.seat_id))
         .where(seat_weeks.c.game_id == game_id)
         .order_by(seat_weeks.c.week, seats.c.position)
+    )
+    return list(result.mappings())
+
+
+async def turn_clock(session: AsyncSession, game_id: uuid.UUID) -> list[RowMapping]:
+    """When each opened Week opened for each Seat, when its Order was placed and when a Student
+    viewed it (Story 8.1, FR-35), with the Seat's Role, by Week and chain order."""
+    result = await session.execute(
+        select(
+            seat_turns.c.week,
+            seats.c.role,
+            seat_turns.c.opened_at,
+            seat_turns.c.ordered_at,
+            seat_turns.c.viewed_at,
+        )
+        .select_from(seat_turns.join(seats, seats.c.id == seat_turns.c.seat_id))
+        .where(seat_turns.c.game_id == game_id)
+        .order_by(seat_turns.c.week, seats.c.position)
     )
     return list(result.mappings())
 
@@ -767,11 +1238,11 @@ async def running_games_of_config(
     session: AsyncSession, purpose: str, model_config_id: uuid.UUID
 ) -> list[uuid.UUID]:
     """The id of every running Game of `purpose` whose `SessionRuntime` froze
-    `model_config_id`, oldest first."""
+    `model_config_id`, oldest first; a Game playing out at the Play deadline runs too (8.14)."""
     result = await session.execute(
         select(games.c.id)
         .where(
-            games.c.lifecycle == "running",
+            games.c.lifecycle.in_(("running", "playing_out")),
             games.c.purpose == purpose,
             games.c.session_runtime["model_config_id"].astext == str(model_config_id),
         )
@@ -783,10 +1254,14 @@ async def running_games_of_config(
 async def running_games_of_session(
     session: AsyncSession, class_session_id: uuid.UUID
 ) -> list[uuid.UUID]:
-    """The id of every running Game of the Class session, oldest first."""
+    """The id of every running Game of the Class session, oldest first; a Game playing out at the
+    Play deadline runs too (Story 8.14), so the cost-limit switch reaches its LLM Seats."""
     result = await session.execute(
         select(games.c.id)
-        .where(games.c.lifecycle == "running", games.c.class_session_id == class_session_id)
+        .where(
+            games.c.lifecycle.in_(("running", "playing_out")),
+            games.c.class_session_id == class_session_id,
+        )
         .order_by(games.c.id)
     )
     return list(result.scalars())
@@ -804,11 +1279,12 @@ async def stored_rules_versions(session: AsyncSession) -> list[int]:
 
 
 def _open_weeks() -> Any:
-    """Each running Game's open Week (`game_id`, `week`) as a subquery."""
+    """Each running Game's open Week (`game_id`, `week`) as a subquery; a Game the Play deadline
+    playout plays out runs on too (Story 8.14), so the rescue loop advances it."""
     return (
         select(game_weeks.c.game_id, func.max(game_weeks.c.week).label("week"))
         .select_from(game_weeks.join(games, games.c.id == game_weeks.c.game_id))
-        .where(games.c.lifecycle == "running", game_weeks.c.finished.is_(False))
+        .where(games.c.lifecycle.in_(("running", "playing_out")), game_weeks.c.finished.is_(False))
         .group_by(game_weeks.c.game_id)
         .subquery()
     )
@@ -855,6 +1331,101 @@ async def complete_running_games(session: AsyncSession) -> list[uuid.UUID]:
         .order_by(open_weeks.c.game_id)
     )
     return list(result.scalars())
+
+
+async def set_played_out(session: AsyncSession, game_id: uuid.UUID) -> Any:
+    """Story 8.14: the Play deadline playout takes the Game over at the transaction's `now()`:
+    `lifecycle = playing_out`, `played_out_at` set, and the Pause and «I rommet» mark in force
+    cleared (no one ended them, so `pause_ended_*` stay as they were). Returns `played_out_at`."""
+    result = await session.execute(
+        update(games)
+        .where(games.c.id == game_id)
+        .values(
+            lifecycle="playing_out",
+            played_out_at=func.now(),
+            paused_at=None,
+            paused_by=None,
+            resume_at=None,
+            agreed_time_reached_at=None,
+            in_room_minutes=None,
+            in_room_until=None,
+            in_room_lab_hour_id=None,
+            in_room_by=None,
+            in_room_marked_at=None,
+        )
+        .returning(games.c.played_out_at)
+    )
+    return result.scalar_one()
+
+
+async def playout_games(
+    session: AsyncSession, class_session_ids: Collection[uuid.UUID]
+) -> list[RowMapping]:
+    """Story 8.14 (AD-9, AD-13): `id` and `class_session_id` of every Game of the Class sessions
+    that has not finished or started its playout, where `games.policy` has the playout, oldest
+    first. A Game without a snapshot is listed too: the command refuses it."""
+    if not class_session_ids:
+        return []
+    result = await session.execute(
+        select(games.c.id, games.c.class_session_id)
+        .where(
+            games.c.class_session_id.in_(list(class_session_ids)),
+            games.c.purpose.in_(purposes_with("play_deadline_playout")),
+            games.c.lifecycle.in_(("not_started", "running")),
+        )
+        .order_by(games.c.id)
+    )
+    return list(result.mappings())
+
+
+async def sessions_with_playout_games(session: AsyncSession) -> list[uuid.UUID]:
+    """Story 8.14: the Class sessions with a Game the playout has still to take, by id: a short
+    list, whatever the number of Class sessions run before."""
+    result = await session.execute(
+        select(games.c.class_session_id)
+        .where(
+            games.c.class_session_id.is_not(None),
+            games.c.purpose.in_(purposes_with("play_deadline_playout")),
+            games.c.lifecycle.in_(("not_started", "running")),
+        )
+        .distinct()
+        .order_by(games.c.class_session_id)
+    )
+    return list(result.scalars())
+
+
+async def overdue_playouts(session: AsyncSession, before: Any) -> list[uuid.UUID]:
+    """Story 8.14: the Games still playing out whose playout began at or before `before`."""
+    result = await session.execute(
+        select(games.c.id)
+        .where(games.c.lifecycle == "playing_out", games.c.played_out_at <= before)
+        .order_by(games.c.played_out_at, games.c.id)
+    )
+    return list(result.scalars())
+
+
+async def playout_turns_without_order(session: AsyncSession) -> list[RowMapping]:
+    """Story 8.14 (AD-5): `game_id`, `seat_id`, `week` of each turn in the open Week of a Game
+    playing out that has no Order and no AI deadline: an LLM Order deferred on `llm-batch`, which
+    the sweep defers again when no job for it is alive. Oldest first."""
+    open_weeks = _open_weeks()
+    result = await session.execute(
+        select(seat_turns.c.game_id, seat_turns.c.seat_id, seat_turns.c.week)
+        .select_from(
+            seat_turns.join(
+                open_weeks,
+                (open_weeks.c.game_id == seat_turns.c.game_id)
+                & (open_weeks.c.week == seat_turns.c.week),
+            ).join(games, games.c.id == seat_turns.c.game_id)
+        )
+        .where(
+            games.c.lifecycle == "playing_out",
+            seat_turns.c.ordered_at.is_(None),
+            seat_turns.c.ai_deadline_at.is_(None),
+        )
+        .order_by(seat_turns.c.opened_at, seat_turns.c.id)
+    )
+    return list(result.mappings())
 
 
 async def insert_batch(session: AsyncSession, values: dict[str, Any]) -> None:

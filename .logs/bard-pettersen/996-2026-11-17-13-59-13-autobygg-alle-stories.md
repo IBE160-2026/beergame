@@ -2530,3 +2530,646 @@ Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Den visue
 
 ### Åpne punkter
 - Issue #163: beslutninger (hvem båndet nevner, likhet mellom spill, plassering av «Melding»).
+
+## Story 8.1: Registrer når hver uke åpnet og når hvert sete bestilte (spor 1)
+
+### Oppgave
+Bygge Story 8.1 på `epic-8` i spor 1. `epic-8` er laget fra den ferdige `epic-7`, mens avslutningen av Epic 7 kjører i et eget worktree.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet (datamodell). Neste byggeagent ble startet med en gang storyen var committet, etter den nye flyten.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-8-1-record-when-week-opened-and-seat-ordered.md`.
+- Commit: 8b940a2. Migrasjon 0053 med utfylling for spill som allerede venter.
+- Spillet har sin egen klokke for FR-36: frister for overtakelse og innsetting per tur, nærmeste frist i `game_summaries`, `next_change_at` fra lesemodellen, og tre nye kolonner i Spillinnsikt.
+- Tester: backend 2880, Vitest 830, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 73 med `--workers=4`, ingen ustabile tester.
+- Gjennomgang: 42 funn, 3 middels (utfyllingen for spill i gang, rettet), 5 lave rettet, 1 utsatt til 8.9.
+- Visuell kontroll: tas sammen med neste visuelle kontroll av Spillinnsikt, for å unngå fire stacker samtidig.
+- Status: done.
+
+### Åpne punkter
+- Issue #164: beslutninger og utsatte punkter.
+
+## Avslutning av Epic 7
+
+### Oppgave
+Avslutte Epic 7 (7.1–7.11) med visuell kontroll av 7.11, oppfølgende rettinger, stabilisering, PR og CI, i et eget worktree mens spor 1 startet Epic 8 og spor 2 bygde Epic 9.
+
+### Plan
+Én agent i `.claude/worktrees/epic7` med egen stack (8090/5434), etter «Faster flow» i kjøreboka. Orkestratoren merget etter grønn CI.
+
+### Resultat
+- Visuell kontroll av 7.11 i `screenshots/7.11/`, og bilder etter rettingene i `screenshots/epic-7-avslutning/`.
+- Rettinger (6c31495, 06486a0): «Fordeling 0» og avstand i «Ikke startet», overskriften på Landing ved 200 % tekst, harde mellomrom i ventetider, verdietiketter i «Lager og restordre», `ScrollRegion` uten fading (1 px linje og synlig rullefelt), sidehodet på én linje ved 390 px, e2e for en student i to klasser, og `nextMail` som venter på bestemt tekst.
+- Hele Playwright-pakken passerte to ganger på rad, 464 av 464. Vitest 830, typecheck, `lint:colours`, `check:copy` og bygg passerte.
+- Backend-pakken ble ikke raskere: 121–162 s mens to andre agenter brukte maskinen. Summen av testtidene er 755 s, så 8 prosesser kan ikke komme mye under 94 s. Det trengs felles, ferdigspilte spill som fikstur.
+- PR #165 med grønn CI, merget til `main`. `epic-7` satt til done.
+
+### Åpne punkter
+- Issue #166: utsatte punkter fra Epic 7 (gjenoppbygging av `game_summaries`, hendelse ved endring i klasselista, gruppe for «pause» i Epic 8, fart på backend-pakken, mindre UX-punkter, én test i `test_place_order.py` som feilet én gang under last).
+
+## Story 9.11: Gå gjennom Debrief sammen som gruppe (spor 2)
+
+### Oppgave
+Bygge Story 9.11 på `epic-9` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Etter den nye flyten startet byggeagenten for 9.12 med en gang, og den visuelle kontrollen gikk samtidig i et eget worktree med egen stack, bare med rapport.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-9-11-go-through-the-debrief-together-as-a-group.md` (på `epic-9`).
+- Commit: d23993b. Migrasjon 0110.
+- Felles Debrief når minst to studenter er aktive: felles steg 1–3, «Ferdig med steget», åpneren kan flytte alle videre etter en ventetid, låste steg i api-et (403 `step_locked`), og `debrief:<id>` videresendt til nettleseren.
+- Tester: backend 2939, Vitest 773, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 118 med `--workers=4`, ingen ustabile tester. Én backend-kjøring hang mens Docker bygde ved siden av; ny kjøring alene passerte.
+- Gjennomgang: 28 funn, 5 lave rettet, 1 middels sendt videre til 9.12 (gruppe uten åpner kan ikke gå videre).
+- Visuell kontroll (Sonnet, bare rapport, eget worktree og egen stack): 42 skjermbilder i `screenshots/9.11/`, ingen klare feil i 9.11. Tre punkter sendt til 9.12 på samme side: ingen fylt primærknapp i gruppelinja, samme klokkeslett vist to ganger, og en kuttet etikett i grafen på steg 2 i korte spill.
+- Status: done.
+
+### Åpne punkter
+- Issue #167: beslutninger (felles steg 1–3, ventetid på 5 min som plassholder, varsling).
+
+## Story 8.2: En KI-spiller tar over etter Inaktivitetsgrensen (spor 1)
+
+### Oppgave
+Bygge Story 8.2 på `epic-8` i spor 1.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet (samtidighet). Etter storyen merget orkestratoren `main` (avslutningen av Epic 7) inn i `epic-8`, løste én konflikt i `nb.ts` og kjørte typecheck, Vitest og `check:copy` (d52d84c). Neste byggeagent startet før den visuelle kontrollen.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-8-2-ai-player-takes-over-after-inactivity-limit.md`.
+- Commit: 159838f. Migrasjon 0054.
+- Sweepen gir et sete til en KI-spiller etter Inaktivitetsgrensen, ett sete per transaksjon; KI-spilleren bestiller med en gang og alle studentene får e-post. «KI-spiller bestiller for Jonas» på Spill og Hjem, og «KI-spiller har bestilt for deg.» i stedet for Ordrefeltet.
+- Tester: backend 2907, Vitest 838, typecheck, `check:copy`, `lint:colours`, bygg, Playwright 94 med `--workers=4`, ingen ustabile tester.
+- Gjennomgang: 38 funn, 5 middels, alle rettet. Punkt 2 i Issue #141 er løst.
+- Visuell kontroll av 8.1 og 8.2 (Sonnet, bare rapport, eget worktree og egen stack): 21 skjermbilder i `screenshots/8.2/`, ingen klare feil. Til Story 8.4 på samme skjerm: lenken «Alle rader og kostnad» forsvinner ved 1280 px når setet er tatt over, og «Din ordre 9» viser KI-spillerens ordre som om den var studentens.
+- Status: done.
+
+### Åpne punkter
+- Issue #168: beslutninger, og oppfølgende gjennomgang anbefalt til slutten av Epic 8.
+
+## Story 9.12: Fortsett alene når gruppen ikke er der (spor 2)
+
+### Oppgave
+Bygge Story 9.12 på `epic-9` i spor 2, med det utsatte punktet fra 9.11 (gruppe uten åpner) og tre visuelle rettinger fra kontrollen av 9.11.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter i to runder. Den blinde gjennomgangen klarte ikke å levere tilbake; orkestratoren pekte byggeagenten til filen. Visuell kontroll som bare rapporterer, i eget worktree.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-9-12-continue-alone-when-the-group-is-not-there.md` (på `epic-9`).
+- Commit: f93c388. Migrasjon 0111.
+- En student i gruppedebrief går videre alene ved å forlate gruppen, ved frafall etter 2 min uten hjerteslag, ved tilbakefall etter 48 timer, eller når gruppen allerede har passert steg 3. Den som ble med først kan flytte gruppen videre når åpneren er borte.
+- Tester: backend 2946, Vitest 776, typecheck, `check:copy`, `lint:colours`, bygg, Playwright 136 av 137 (`order-confirm` feilet én gang og passerte ved ny kjøring).
+- Gjennomgang: 18 rettet (2 middels), 1 lavt utsatt.
+- Visuelle rettinger fra kontrollen av 9.11 (1b33fb5): én fylt primærknapp i gruppelinja, klokkeslettet vises én gang, og grafen på steg 2 klemmes ikke i korte spill. Playwright 137 av 137 etterpå.
+- Visuell kontroll (Sonnet, bare rapport, eget worktree): skjermbilder i `screenshots/9.12/`, tatt av f93c388, altså før 1b33fb5; de tre funnene den rapporterte er rettet der. Nytt punkt: i bekreftelsen av «Forlat gruppen» har de to knappene samme stil; tatt med i lista til slutten av epicen.
+- Status: done.
+
+### Åpne punkter
+- Issue #169: beslutninger, og at 48 timer regnes fra spillets slutt (en tilbakeholdt Debrief kan falle tilbake med én gang).
+
+## Story 8.3: Se på Oversikt hvilket klassespill som er nærmest overtakelse (spor 1)
+
+### Oppgave
+Bygge Story 8.3 på `epic-8` i spor 1. Første story etter at `main` (avslutningen av Epic 7) ble merget inn i `epic-8`.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Neste byggeagent (8.4) startet med en gang; den visuelle kontrollen venter til den forrige kontrollens stack er ledig.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-8-3-see-on-the-oversikt-which-class-game-is-closest-to-takeover.md`.
+- Commit: 007e8e9. Ingen migrasjon.
+- Varselbåndet viser spillet med tidligste frist for overtakelse og teller ned («KI overtar om 1 t.», «KI overtar nå.»). Seter med KI-spiller får merke i tekst på Oversikt og i Spillinnsikt.
+- Tester: backend 2916, Vitest 842, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 138 av 139 (`homes` ved 320 px feilet én gang og passerte ved ny kjøring). Rettet et regex med hardt mellomrom som merge med `main` hadde ødelagt.
+- Gjennomgang: 25 funn, ingen høye eller middels, 3 lave rettet.
+- Byggeagenten endret ved en feil linjeslutt i 15 skjermbilder fra 8.2 og satte dem tilbake til innholdet i HEAD; git ser dem som uendret.
+- Visuell kontroll (Sonnet, bare rapport, eget worktree): 15 skjermbilder i `screenshots/8.3/`, ingen klare feil. «Pause spillet» og «Sett inn KI-spiller» i båndet kommer med 8.5 og 8.6. Fargen på raden i spillista går 8 px forbi venstre marg; tatt med i lista til slutten av epicen.
+- Status: done.
+
+### Åpne punkter
+- Issue #170: beslutninger (regel for båndet, merker for KI-spillere, ingen migrasjon).
+
+## Story 9.13: Vis gruppedebriefen på en delt skjerm (spor 2)
+
+### Oppgave
+Bygge Story 9.13 på `epic-9` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Byggeagenten for 9.12 gjorde ferdig visuelle rettinger i samme worktree mens denne startet; orkestratoren fikk dem committet først (1b33fb5) og varslet om at stacken var stoppet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-9-13-show-the-group-debrief-on-a-shared-screen.md` (på `epic-9`).
+- Commit: e7499d0.
+- Lenken «Delt skjerm: hele kjeden» og siden `/delt-skjerm/<debrief id>`, som leser et svar uten tekstfelt (ingen navn kan komme med): kjeden i valgt uke med egen skrubber, netto lager per rolle på felles skala, og kostnad per rolle med totalen for kjeden. Låst til alle i gruppen har sendt Forklaringen.
+- Tester: backend 2949, Vitest 780, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 138 av 138, ingen ustabile tester.
+- Gjennomgang: 24 funn, 5 lave rettet.
+- Visuell kontroll (Sonnet, bare rapport, eget worktree): skjermbilder i `screenshots/9.13/`, også ved 1920 px. Én klar feil: ved 200 % tekst forsvinner de fire lagergrafene. I tillegg skalerer ikke siden opp for projektor (samme 13 px tekst ved 1920 px), og lagergrafene er flate striper. Alt går til avslutningen av Epic 9, siden ingen story igjen endrer siden.
+- Status: done.
+
+### Åpne punkter
+- Issue #171: beslutninger (lås bare på Forklaringene, egen side uten navn).
+
+## Story 8.4: Ta setet tilbake med «Ta tilbake setet» (spor 1)
+
+### Oppgave
+Bygge Story 8.4 på `epic-8` i spor 1, og rette to feil på spillskjermen fra den visuelle kontrollen av 8.2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet (alle fire leverte via fil). Orkestratoren pekte byggeagenten til edge case-filen. Neste byggeagent startet med en gang, og den visuelle kontrollen gikk samtidig.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-8-4-take-the-seat-back-with-ta-tilbake-setet.md`.
+- Commit: 48cd2bb. Migrasjon 0055 (`seat_reclaims`).
+- «Ta tilbake setet» på Spill og Hjem; ønsket lagres og setet går tilbake til studenten når neste uke åpner. «Alle rader og kostnad» står over merknaden i alle bredder, og kjeden viser «KI-ordre 9» i vanlig vekt.
+- Tester: backend 2927, Vitest 844, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 168 uten ustabile tester.
+- Gjennomgang: 29 funn, ingen høye eller middels, 3 lave rettet (blant dem at et ønske som står igjen når spillet er ferdig, slettes).
+- Visuell kontroll (Sonnet, bare rapport, eget worktree): 18 skjermbilder i `screenshots/8.4/`, ingen klare feil; de to rettingene fra 8.2 er bekreftet.
+- Status: done.
+
+### Åpne punkter
+- Issue #172: beslutninger (egen tabell, ønske i siste uke godtas og bortfaller for ikke å avsløre spillets lengde).
+
+## Story 9.14: Les KI-fortelling som bare binder sammen beregnede fakta (spor 2)
+
+### Oppgave
+Bygge Story 9.14 på `epic-9` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` mot KI-mocken og fire gjennomgangsagenter på Sonnet. Visuell kontroll som bare rapporterer, i eget worktree.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-9-14-read-ai-narration-that-only-connects-computed-facts.md` (på `epic-9`).
+- Commit: 98ab88c. Migrasjon 0112.
+- KI-fortelling på steg 4: én jobb per sete, maler med fire setninger der modellen bare velger setninger og fakta og koden skriver alle ord, teksten låses ved første visning, og en ekstra KI-linje under forklaringen ved feil quizsvar. Bruker modelloppsettet til klasseøkta.
+- Tester: backend 2981 (117 s), Vitest 782, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 240 av 240 (`homes` feilet én gang under last).
+- Gjennomgang: 44 funn, 2 middels og 12 lave rettet.
+- Visuell kontroll (Sonnet, bare rapport, eget worktree): 15 skjermbilder i `screenshots/9.14/`, ingen klare feil; KI-tekst er merket og kodetekst ikke. To punkter sendt til 9.15: plasseringen og størrelsen på fortellingen sammenlignet med mockupen, og bryteren «KI-tekst i Debriefen» som ser fylt ut når den er av.
+- Status: review. Fortellingen er aldri kjørt mot en ekte modell fordi nøkkelen er sperret for agenter (Issue #9).
+
+### Åpne punkter
+- Issue #173: kommandoene grunnleggeren må kjøre med ekte nøkkel, og beslutningene.
+
+## Story 8.5: Sett inn en KI-spiller i ett sete fra Spillstyring (spor 1)
+
+### Oppgave
+Bygge Story 8.5 på `epic-8` i spor 1.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den blinde gjennomgangen leverte via fil, og orkestratoren pekte byggeagenten dit. Neste byggeagent startet med en gang, og den visuelle kontrollen gikk samtidig.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-8-5-put-an-ai-player-in-one-seat-from-spillstyring.md`.
+- Commit: 5fe60c5. Ingen migrasjon.
+- «Sett inn KI-spiller for …» i Spillstyring på Spillinnsikt og i Varselbåndet, `POST /api/games/{id}/seats/{role}/takeover`, 409 `takeover_exists` som sier hvem som handlet, og merket «KI satt inn av {navn}».
+- Tester: backend 2947, Vitest 852, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 179 av 180 (`reclaim` ved 320 px feilet én gang og passerte ved ny kjøring).
+- Gjennomgang: 44 funn, 2 middels; den ekte (trykk i siste uke på et sete som har bestilt) og 10 lave er rettet. Fire punkter fra den blinde gjennomgangen er beholdt med vilje, med begrunnelse i specen.
+- Visuell kontroll (Sonnet, bare rapport, eget worktree): skjermbilder i `screenshots/8.5/`, ingen klare feil. Tittelen «Spillstyring» har feil typografi (headline i stedet for label); sendt til 8.6. To visuelle kontroller brukte samme compose-prosjekt samtidig, så denne byttet til et eget; fra nå får hver kontroll eget prosjektnavn og egne porter.
+- Status: done.
+
+### Åpne punkter
+- Issue #174: beslutninger (overtakelse fra neste uke når studenten har bestilt, avvisning i siste uke).
+
+## Story 8.6: Sett klassespillet på pause med «Ta pause» (spor 1)
+
+### Oppgave
+Bygge Story 8.6 på `epic-8` i spor 1, med gruppen «Pause» på Oversikt som Story 7.1 lot stå til Epic 8.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Neste byggeagent startet med en gang, og den visuelle kontrollen gikk samtidig med eget compose-prosjekt.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-8-6-pause-the-class-game-with-ta-pause.md`.
+- Commits: 3c18bd5 og 7eaa5e1 (to punkter fra 8.5 satt tilbake til slik 8.5 ville ha dem). Migrasjon 0056.
+- Studenter kan ta pause fra Spill og Hjem; ingen overtakelse mens spillet står; pauselinja og «Pausen er over»; gruppen «Pause» på Oversikt og pausede spill holdt utenfor Varselbåndet.
+- Tester: backend 2953, Vitest 861, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 182 uten ustabile tester.
+- Gjennomgang: 39 funn, 1 middels og 10 lave rettet.
+- Visuell kontroll (Sonnet, bare rapport, eget compose-prosjekt): 30 skjermbilder i `screenshots/8.6/`. Én klar feil: statusfilteret på Oversikt mangler «Pause n»; sendt til 8.7 sammen med spørsmålet om pauser i «Venter ellers».
+- Status: done.
+
+### Åpne punkter
+- Issue #175: beslutninger (hvem kan ta pause, frister løper under pause, gruppe på Oversikt).
+
+## Story 9.15: Still avgrensede oppfølgingsspørsmål om spillet mitt (spor 2)
+
+### Oppgave
+Bygge Story 9.15 på `epic-9` i spor 2, den siste storyen i Epic 9, og gjøre testene for fortelling fra 9.14 raskere.
+
+### Plan
+Byggeagent med `bmad-build-auto` mot KI-mocken og fire gjennomgangsagenter på Sonnet, én av dem med vinkel på injeksjon og lekkasje av data. Den visuelle kontrollen gjøres i avslutningen av Epic 9.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-9-15-ask-bounded-follow-up-questions-about-my-game.md` (på `epic-9`).
+- Commit: d248214. Migrasjon 0113.
+- Oppfølgingsspørsmål i Debrief der svaret alltid er en hint-mal, aldri en påstand; Forklaringen sendes med etter vasking av navn, e-postadresser og lange tall; tidsfrist 20 s og grense på antall spørsmål.
+- Tester: backend 3004 på 106 s, Vitest 785, typecheck, `lint:colours`, `check:copy`, Playwright 141 av 141. Testene for fortelling er raskere (8,6 s ble 5,1 s for den tregeste).
+- Rettet to feil fra 9.14: utfall i dev-mocken traff alle kall i prosessen, og testfikstrer slettet maler som andre tester trengte.
+- Gjennomgang: 51 funn, 8 middels; 2 middels og 15 lave rettet, 2 utsatt.
+- Status: review. Ingen ekte modell har svart ennå (Issue #9).
+
+### Åpne punkter
+- Issue #176: kommandoen for ekte kall, beslutninger og to utsatte punkter.
+
+## Story 8.7: Sett et klassespill på pause med avtalt tid som faglærer (spor 1)
+
+### Oppgave
+Bygge Story 8.7 på `epic-8` i spor 1, og rette typografien i tittelen «Spillstyring».
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Neste byggeagent startet med en gang, og den visuelle kontrollen gikk samtidig med eget compose-prosjekt.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-8-7-pause-a-class-game-with-an-agreed-time-as-lecturer.md`.
+- Commit: a658811. Migrasjon 0057.
+- Faglæreren kan sette pause fra Spillstyring og Varselbåndet, med eller uten avtalt tid, endre tiden og avslutte pausen. Den avtalte tiden blir tidspunktet studentene kan sette inn en KI-spiller fra; tidspunktet for automatisk overtakelse flyttes aldri.
+- Tester: backend 2975, Vitest 869, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 182 av 183 (`spillstyring` måtte telle bare knappene per sete etter at «Pause spillet» kom til).
+- Gjennomgang: 42 funn, 1 middels (pause uten tid nullstilte innsettingstidene) og 9 lave rettet.
+- Filteret «Pause n» på Oversikt ble holdt utenfor storyen; det går til avslutningen av Epic 8.
+- Visuell kontroll (Sonnet, bare rapport, eget compose-prosjekt): skjermbilder i `screenshots/8.7/`, ingen klare feil. Til avslutningen av Epic 8: «Pause n» i statusfilteret, primærknappen «Ta pause» som ikke navngir tiden, og feilmeldingen for tidsrom som bare står under klokkeslettet mens knappen er aktiv.
+- Status: done.
+
+### Åpne punkter
+- Issue #177: beslutninger (avtalt tid som innsettingstid, kunngjøring én gang, tekst for elevene).
+
+## Story 10.1: Få et standard Replay-scenario som er ulikt for hver student (spor 2)
+
+### Oppgave
+Bygge Story 10.1 på `epic-10` i spor 2, den første storyen i Epic 10. `epic-10` er laget fra den ferdige `epic-9`, mens avslutningen av Epic 9 kjører i eget worktree.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Neste byggeagent startet med en gang, og den visuelle kontrollen gikk samtidig med eget compose-prosjekt.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-10-1-get-a-default-replay-scenario-that-differs-per-student.md`, pluss `epic-10-context.md` (på `epic-10`).
+- Commit: 86a4606. Migrasjon 0114.
+- Mal for Replay-scenario i motoren, festet ved låsing, og en blokk «Replay-scenario» på Klasseøkt som bare kan leses. Simuleringer kan kjøre scenariet; 10 spill med alle kontroller i orden.
+- Tester: backend 3046, motoren med 100 % dekning, Vitest 788, typecheck, `check:copy`, `lint:colours`, bygg, Playwright 151.
+- Postgres i spor 2 gikk i gjenoppretting etter krasj i rundt 10 minutter under kjøringen; to tester feilet på tilkobling og passerte etterpå.
+- Gjennomgang: 34 funn, 11 rettet.
+- Visuell kontroll (Sonnet, bare rapport, eget compose-prosjekt): tolv skjermbilder i `screenshots/10.1/`, ingen klare feil. Tre punkter om blokken (overskrift, plassering, bredde) sendt til 10.2, som gjør blokken redigerbar.
+- Status: done.
+
+### Åpne punkter
+- Issue #178: beslutninger (ny Play guard-sett `placeholder-1`, hvordan etterspørselen trekkes) og oppfølgende gjennomgang anbefalt.
+
+## Story 8.8: Sett inn en KI-spiller i et sete der studenten er borte, som student (spor 1)
+
+### Oppgave
+Bygge Story 8.8 på `epic-8` i spor 1.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Orkestratoren ba om en test for at id-en til faglæreren ikke når studenter. Neste byggeagent startet med en gang, og den visuelle kontrollen gikk samtidig med eget compose-prosjekt.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-8-8-put-an-ai-player-in-an-absent-seat-as-a-student.md`.
+- Commit: ff759ff. Migrasjon 0058.
+- En student med et annet sete kan sette inn en KI-spiller i et fravært sete når innsettingstiden har gått, også under pause. Linja før innsettingstiden, teksten om konsekvensen og «Sett inn KI-spiller for …» på Spill og Hjem; sweepen kunngjør innsettingstiden én gang.
+- Tester: backend 2996, Vitest 873, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 178 av 178. To backend-kjøringer døde fordi Postgres gikk i gjenoppretting under last; nye kjøringer passerte.
+- Gjennomgang: 32 funn, 1 middels og 8 lave rettet.
+- Visuell kontroll (Sonnet, bare rapport, eget compose-prosjekt): 31 skjermbilder i `screenshots/8.8/`, ingen klare feil. Små punkter om tekststørrelse og fullt navn i setelinja er tatt med i lista til slutten av epicen.
+- Status: done.
+
+### Åpne punkter
+- Issue #181: beslutninger og at Postgres krasjet under last.
+
+## Avslutning av Epic 9
+
+### Oppgave
+Avslutte Epic 9 (9.1–9.15; 9.14 og 9.15 står i review) med merge av `main` (Epic 7), visuell kontroll av 9.15, rettinger, stabilisering, PR og CI, i et eget worktree mens spor 1 bygde Epic 8 og spor 2 startet Epic 10.
+
+### Plan
+Én agent i `.claude/worktrees/epic9` med egen stack (8090/5434). Orkestratoren merget etter grønn CI.
+
+### Resultat
+- Merge av `main` (36eecc1): 20 filer i konflikt, begge sider beholdt, api-klienten generert på nytt. Én Alembic-head (0113), der 0101 nå følger 0052. Debrief-lenkene i Spillinnsikt er koblet inn fast og tilbys bare for ferdige spill, med en test.
+- Visuell kontroll av 9.15 i `screenshots/9.15/`, ingen avvik.
+- Rettinger: den felles skjermen fra 9.13 beholder grafene ved 200 % tekst, skalerer opp på projektor og har større låst tilstand (69ce009); fortellingen fra 9.14 er en dempet linje i kolonnen for øyeblikket (70efbd7); bekreftelsen av «Forlat gruppen» har fylt primærknapp, og 48 timer regnes fra første åpning i en tilbakeholdt klasseøkt (e5c716e); quizkolonnene flukter og valgknappene har mellomrom (ce1ba00); e2e- og CI-rettinger (7326795, 4ad0a7a, a619663), blant dem `system-states:250`, som feilet på `main`.
+- Backend: 3079 tester på 141 s (266 s med 19 feil i første kjøring under tung last). Testene ble ikke raskere; hver av de trege spiller sitt eget spill.
+- Playwright: tre kjøringer på rad uten feil, 527 tester hver. Vitest 898, typecheck, `lint:colours`, `check:copy`, bygg.
+- PR #179 med grønn CI, merget til `main`.
+
+### Åpne punkter
+- Issue #180: utsatte punkter (tilbakeholdt Debrief når et spill aldri blir ferdig, nøytral tekst for tilbakefall, et oppfølgingsspørsmål uten svar da klokka i Docker hoppet, trege tester i Epic 9).
+- Issue #173 og #176: 9.14 og 9.15 venter på prøve mot ekte modell.
+
+## Story 10.2: Sett Replay-scenariet fritt (spor 2)
+
+### Oppgave
+Bygge Story 10.2 på `epic-10` i spor 2, og ta hensyn til tre punkter fra den visuelle kontrollen av 10.1 på samme blokk.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Etter storyen merget orkestratoren `main` (Epic 7 og 9) inn i `epic-10`. Neste byggeagent startet med en gang, og den visuelle kontrollen gikk samtidig med eget compose-prosjekt.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-10-2-set-the-replay-scenario-freely.md`.
+- Commit: e7942c1. Migrasjon 0115. Merge av `main`: 3e81126.
+- «Standard» og «Eget scenario» på Klasseøkt, et eget skjema med uker og endringsuke som enkeltverdi eller spenn, sjekk når et felt forlates, advarsler når et valg trolig gjør Replay lettere, og låsing og kopiering av eget scenario.
+- Tester: backend 3064 (112 s), Vitest 794, typecheck, `check:copy`, `lint:colours`, bygg, Playwright 268. Én backend-kjøring hang til tidsavbrudd mens gjennomgangsagentene arbeidet.
+- Merge med `main`: konflikt i `moments-step.tsx` (beholdt versjonen fra `main`) og api-klienten (generert på nytt); Vitest 907 og `test_migrations` passerte.
+- Gjennomgang: 26 funn, 7 rettet (1 middels).
+- Visuell kontroll (Sonnet, bare rapport, eget compose-prosjekt): skjermbilder i `screenshots/10.2/`. Én klar feil: skjemaet viser bare én feil om gangen når flere felt er feil. Den og tre punkter om overskrift, bredde og omvendt spenn går til avslutningen av Epic 10.
+- Status: done.
+
+### Åpne punkter
+- Issue #182: beslutninger (advarsler, spenn, eget scenario følger spillinnstillingene).
+
+## Story 8.9: Gi én student mer tid med Tilrettelegging (spor 1)
+
+### Oppgave
+Bygge Story 8.9 på `epic-8` i spor 1, og lukke det utsatte punktet fra 8.1 om nærmeste frist per spill.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet, én med vinkel på personvern. Neste byggeagent startet med en gang, og den visuelle kontrollen gikk samtidig med eget compose-prosjekt.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-8-9-give-one-student-more-time-with-tilrettelegging.md`.
+- Commit: ffc06e1. Migrasjon 0059.
+- Studentside bare for faglærere med blokken «Tilrettelegging» (faktor 1, 1,5, 2 eller 3), fristene i åpen uke flyttes når faktoren lagres, linje i Spillstyring for faglæreren og to linjer på Hjem for studenten selv. Andre studenter ser ingenting.
+- Tester: backend 3032, Vitest 880, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 185. En test i `test_turn_clock.py` ble rettet (ikke ustabil); én mellomkjøring etterlot 20 feilede tester som passerte ved ny kjøring.
+- Gjennomgang: 41 funn, 1 middels og 13 lave rettet.
+- En tom fil `policy.py` dukket opp i roten av repoet under kjøringen; den er ikke committet.
+- Visuell kontroll (Sonnet, bare rapport, eget compose-prosjekt): skjermbilder i `screenshots/8.9/`, ingen klare feil. Bekreftet at Tilrettelegging aldri vises for andre studenter, og at assistenten får 403.
+- Status: done.
+
+### Åpne punkter
+- Issue #183: beslutninger (faktorer, tilgang bare for faglærere, gulvet fra FR-89).
+
+## Story 10.3: Start Replay etter bestått Debrief-quiz (spor 2)
+
+### Oppgave
+Bygge Story 10.3 på `epic-10` i spor 2, første story etter merge av `main` inn i `epic-10`.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Neste byggeagent startet med en gang, og den visuelle kontrollen gikk samtidig med eget compose-prosjekt.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-10-3-start-the-replay-after-passing-the-debrief-quiz.md`.
+- Commit: ae5efdf. Migrasjon 0116.
+- Modulen `replay` med én Replay per student og klasseøkt, start bare etter bestått quiz og før Testfristen, og «Start Replay» og «Replay · Du er Grossist» på Hjem.
+- Tester: backend 3138 på 117 s (på ferske testdatabaser), Vitest 910, typecheck, `check:copy`, `lint:colours`, bygg, Playwright 246 (`homes` og `order-confirm` feilet én gang hver og passerte ved ny kjøring).
+- Funn etter merge av `main`: databaser som allerede var på 0115, mangler tabellene fra 0051 og 0052. Testene i spor 2 bruker nå ferske databaser, og utviklingsdatabasen fikk tabellene lagt inn. CI er ikke berørt.
+- Gjennomgang: 39 funn, 11 rettet, 1 utsatt til 10.5.
+- Visuell kontroll (Sonnet, bare rapport, eget compose-prosjekt): skjermbilder i `screenshots/10.3/`, ingen klare feil. «Fortsett Replay, Uke N» på Hjem mangler; sendt til 10.4, som gjør Replay spillbart.
+- Status: done.
+
+### Åpne punkter
+- Issue #184: beslutninger og rekkefølgen på migrasjoner etter merge.
+
+## Story 8.10: Start ett klassespill eller alle som faglærer (spor 1)
+
+### Oppgave
+Bygge Story 8.10 på `epic-8` i spor 1.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Neste byggeagent startet med en gang, og den visuelle kontrollen gikk samtidig med eget compose-prosjekt.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-8-10-start-one-class-game-or-all-of-them-as-lecturer.md`.
+- Commit: 49a7bbe. Migrasjon 0060.
+- Faglæreren kan starte ett spill fra Spillstyring («Start spillet») eller alle fra siden «Start spill» via Oversikt; hvem som startet og når, lagres og revideres.
+- Tester: backend 3041 (to feil forårsaket av endringen, rettet), Vitest 885, typecheck, lint, `check:copy`, bygg, Playwright 162 av 163 (`game-card` feilet én gang og passerte ved ny kjøring). Testen med 100 spill tar 8–9 s.
+- Gjennomgang: 36 funn, 1 middels (spill uten student kunne startes) og 8 lave rettet.
+- En tidlig kjøring som normaliserte linjeslutt, skadet skjermbilder og `sprint-status.yaml` i arbeidstreet; satt tilbake med en gang, ingenting skadet er committet. Byggeagentene får nå beskjed om aldri å gjøre slike kjøringer over hele repoet.
+- Visuell kontroll (Sonnet, bare rapport, eget compose-prosjekt): 21 skjermbilder i `screenshots/8.10/`, ingen klare feil.
+- Status: done.
+
+### Åpne punkter
+- Issue #185: beslutninger (bare faglærer, avvisninger, 4 spill om gangen).
+
+## Story 10.4: Spill Replay med projeksjonslinja (spor 2)
+
+### Oppgave
+Bygge Story 10.4 på `epic-10` i spor 2, med inngangen «Fortsett Replay, Uke N» på Hjem fra den visuelle kontrollen av 10.3.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Neste byggeagent startet med en gang, og den visuelle kontrollen gikk samtidig med eget compose-prosjekt.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-10-4-play-the-replay-with-the-projection-line.md`.
+- Commit: a67de9f.
+- Replay spilles på spillskjermen fra Epic 6, med stiplet projeksjonslinje til nå + horisont, hul prikk og en forklarende setning; regnestykket er testet mot motorens fasitverdier. «Fortsett Replay, Uke 9» på Hjem og i Stegene.
+- Tester: backend 3141 på 116,6 s, Vitest 1022, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 193 uten ustabile tester.
+- Gjennomgang: 37 funn, 4 lave rettet, 1 middels utsatt til 10.5 (sluttskjermen for Replay viser «Gå til Debrief»). En ekte e2e-test for projeksjonen er også sendt til 10.5.
+- Visuell kontroll (Sonnet, bare rapport, eget compose-prosjekt): skjermbilder i `screenshots/10.4/`. Én klar feil: projeksjonslinja og prikken går gjennom etiketten «Restordre 20» i grafen. Sendt til 10.5 mens den bygges, sammen med at formelen brytes ved 390 px.
+- Status: done.
+
+### Åpne punkter
+- Issue #186: beslutninger (horisonten, setningen uten bestilling, linja forbi nå + 4).
+
+## Story 8.11: Merk et klassespill som «I rommet» i en labtime (spor 1)
+
+### Oppgave
+Bygge Story 8.11 på `epic-8` i spor 1.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Neste byggeagent startet med en gang, og den visuelle kontrollen gikk samtidig med eget compose-prosjekt.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-8-11-mark-a-class-game-as-i-rommet-during-a-lab-hour.md`.
+- Commit: 5bb7bbd. Migrasjon 0061.
+- Faglæreren kan merke et spill som «I rommet» i en labtime; da gjelder den kortere grensen for overtakelse. Merket avsluttes av sweepen eller når labtimen flyttes eller fjernes. Skjema i Spillstyring, linje for studenten og merket «I rommet» i veggen.
+- Tester: backend 3055, Vitest 895, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 139 uten ustabile tester (to ekte feil i første kjøring ble rettet).
+- Gjennomgang: 51 funn, 7 rettet, 1 utsatt (test for ferdige spill).
+- Visuell kontroll (Sonnet, bare rapport, eget compose-prosjekt): 36 skjermbilder i `screenshots/8.11/`, ingen klare feil. Hjem har ingen linje for «I rommet», og resultatlinja gjentar statusen; tatt med i lista til slutten av epicen.
+- Status: done.
+
+### Åpne punkter
+- Issue #187: beslutninger (ny beregning ved merking, avrunding, ett merke per spill).
+
+## Story 10.5: Fullfør Replay og lås opp neste steg (spor 2)
+
+### Oppgave
+Bygge Story 10.5 på `epic-10` i spor 2, med to utsatte punkter fra 10.3 og 10.4 og en ekte e2e-test for projeksjonen.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Neste byggeagent startet med en gang, og den visuelle kontrollen gikk samtidig med eget compose-prosjekt.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-10-5-finish-the-replay-and-unlock-the-next-step.md`.
+- Commit: 2469010.
+- Siste ordre fullfører Replay og registrerer steget som låser opp den individuelle prøven. Egen sluttskjerm for Replay uten «Gå til Debrief», «Se Replay» på Hjem, og Spillinnsikt for Replay for stab.
+- Ny dev-rute og en ekte e2e-test som starter en Replay på stacken og ser projeksjonslinja der, og ikke i klassespillet.
+- Tester: backend 3144 på 137 s, Vitest 1024, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 180 uten ustabile tester.
+- Gjennomgang: 29 funn, 3 lave rettet, 1 middels utsatt. Linja over etiketten fra 10.4 kom ikke med og er sendt til 10.6.
+- Visuell kontroll (Sonnet, bare rapport, eget compose-prosjekt): 15 skjermbilder i `screenshots/10.5/`, ingen klare feil. Setelista for en ferdig Replay på Hjem viser «har bestilt»/«venter»; tatt med i lista til slutten av epicen.
+- Status: done.
+
+### Åpne punkter
+- Issue #188: beslutninger og utsatt punkt om lenken for stab etter overtakelse.
+
+## Story 8.12: Fyll alle seter det ventes på, i én handling (spor 1)
+
+### Oppgave
+Bygge Story 8.12 på `epic-8` i spor 1.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Neste byggeagent startet med en gang, og den visuelle kontrollen gikk samtidig med eget compose-prosjekt.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-8-12-fill-every-waited-for-seat-in-one-action.md`.
+- Commit: 5ce0bd3. Ingen migrasjon.
+- Én regel for hvem det ventes på (`rules.waited_for`). Faglæreren kan sette inn KI-spillere i alle seter det ventes på, per spill i Spillstyring eller for hele klasseøkta på siden `/oversikt/sett-inn`; seter med tilrettelegging tas aldri med.
+- Tester: backend 3065 (to fulle kjøringer), Vitest 902, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 138 uten ustabile tester. Testen med 100 spill tar 10–13 s.
+- Gjennomgang: 33 funn, 6 middels; 2 middels og 8 lave rettet.
+- Visuell kontroll (Sonnet, bare rapport, eget compose-prosjekt): 25 skjermbilder i `screenshots/8.12/`, ingen feil i 8.12. Én klar feil i eldre kode: Varselbåndet på Oversikt klemmes til én bokstav per linje ved 200 % tekst (siden blir 9400 px høy); går til Story 8.14.
+- Status: done.
+
+### Åpne punkter
+- Issue #189: beslutninger (pausede spill holdes utenfor, bare faglærer, tilrettelegging tas aldri med).
+
+## Story 10.6: Steng Replay som ikke er ferdig, ved Testfristen (spor 2)
+
+### Oppgave
+Bygge Story 10.6 på `epic-10` i spor 2, og rette at projeksjonslinja krysset etikettene i grafen (fra den visuelle kontrollen av 10.4).
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet; orkestratoren pekte den til hullene som gjennomgangen av testdekningen fant. Neste byggeagent startet med en gang, og den visuelle kontrollen gikk samtidig med eget compose-prosjekt.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-10-6-close-unfinished-replays-at-the-test-deadline.md`.
+- Commit: b211c33. Migrasjon 0117.
+- Sweepen stenger en Replay som ikke er ferdig når Testfristen har gått for alle studentene i den; den blir ikke regnet som fullført, og ordrene beholdes. «Replay stengt» på egen skjerm, Hjem, Stegene og Spillinnsikt. Etikettene i grafen flytter seg unna projeksjonslinja, og formelen holder seg samlet.
+- Tester: backend 3146 på 133 s, Vitest 1031, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 130. En Vitest-test for farger var ustabil i to kjøringer under last.
+- Gjennomgang: 36 funn, 8 rettet (1 middels).
+- Visuell kontroll (Sonnet, bare rapport, eget compose-prosjekt): skjermbilder i `screenshots/10.6/`. Rettingen av grafen er bekreftet ved 390 og 1280 px. Én klar feil: ved 200 % tekst blir grafkolonnen på spillskjermen så smal at etikettene kuttes («Pos», «Rest»); trolig eldre, går til avslutningen av Epic 10.
+- Status: done.
+
+### Åpne punkter
+- Issue #190: beslutninger (når en Replay stenges, KI-ordre før sweepen, etiketter i grafen).
+
+## Story 8.13: Få e-post når spillet venter på ordren din (spor 1)
+
+### Oppgave
+Bygge Story 8.13 på `epic-8` i spor 1.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet i to runder. Ingen skjerm ble endret, så ingen visuell kontroll.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-8-13-get-an-email-when-the-game-waits-for-your-order.md`.
+- Commit: 351d946. Migrasjon 0062.
+- En student som spillet venter på, får én påminnelse på e-post to timer etter at ventingen begynte, i den daglige samlemeldingen. Ingen påminnelse under pause, før andre har bestilt, eller når spillet ikke lenger venter på studenten.
+- Tester: backend 3081, Vitest 902, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 47. `test_pause_view` feilet én gang i en full kjøring og passerte alene og i neste kjøring.
+- Gjennomgang: første runde sendte specen tilbake én gang (pause etter at påminnelsen var lagt i kø); andre runde ga tre små rettinger.
+- Status: done.
+
+### Åpne punkter
+- Issue #191: beslutninger (påminnelse under pause, ingen endring med tilrettelegging eller «I rommet», ingen utfylling bakover).
+
+## Story 10.7: Les gjennomgangen av Replay (spor 2)
+
+### Oppgave
+Bygge Story 10.7 på `epic-10` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` mot KI-mocken og fire gjennomgangsagenter på Sonnet. Neste byggeagent startet med en gang, og den visuelle kontrollen gikk samtidig med eget compose-prosjekt.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-10-7-read-the-replay-walkthrough.md`.
+- Commit: ff8792a. Migrasjon 0118.
+- Siden `/spill/<id>/gjennomgang` setter Replay ved siden av klassespillet i én graf, viser to øyeblikk og en KI-linje som bare viser til øyeblikkene som vises. Bare studenten selv kan lese den.
+- Tester: backend 3148 på 134,6 s, Vitest 1038, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 143 uten ustabile tester. Én ny test tar 13–15 s og skal kortes ned i avslutningen av epicen.
+- Gjennomgang: 39 funn, 13 rettet (1 middels), 1 utsatt.
+- Visuell kontroll (Sonnet, bare rapport, eget compose-prosjekt): 19 skjermbilder i `screenshots/10.7/`, ingen klare feil. Grafen mangler direkte etiketter på linjene slik mockupen har; tatt med i lista til slutten av epicen.
+- Status: review. KI-linja er aldri kjørt mot en ekte modell (Issue #9).
+
+### Åpne punkter
+- Issue #192: kommandoen for ekte kall og beslutningene.
+
+## Story 10.8: Vurder hvor troverdige KI-spillerne var (spor 2)
+
+### Oppgave
+Bygge Story 10.8 på `epic-10` i spor 2, uten tester som spiller et spill hver.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Neste byggeagent startet med en gang, og den visuelle kontrollen gikk samtidig med eget compose-prosjekt.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-10-8-rate-how-believable-the-ai-players-were.md`.
+- Commit: 5dbad27. Migrasjon 0119.
+- Studenten svarer én gang på hvor troverdige KI-spillerne var (1–5) og om de vil spille en runde til. Spørsmålene står på «Spillet er ferdig» og under gjennomgangen av Replay; bare studenten selv kan lese svaret.
+- Tester: backend 3150 på 124 s (ned fra 135 s), Vitest 1040, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 118 uten ustabile tester. Den nye testen spiller ikke noe spill.
+- Gjennomgang: 20 funn, 3 rettet.
+- Visuell kontroll (Sonnet, bare rapport, eget compose-prosjekt): 24 skjermbilder i `screenshots/10.8/`, ingen klare feil. To like «Send svar»-knapper under hverandre på gjennomgangen er tatt med i lista til slutten av epicen.
+- Status: done.
+
+### Åpne punkter
+- Issue #193: beslutninger (spørsmålet står til det er besvart, når det spørres, lagring uten fremmednøkkel).
+
+## Story 10.9: La Informasjonssynlighet være annerledes i Replay (spor 2)
+
+### Oppgave
+Bygge Story 10.9 på `epic-10` i spor 2, den siste storyen i Epic 10 (kuttlista, bak `FEATURE_INFO_VISIBILITY`).
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Den visuelle kontrollen gjøres i avslutningen av Epic 10.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-10-9-let-information-visibility-differ-in-the-replay.md`.
+- Commit: b94450d.
+- Med flagget på kan et eget Replay-scenario ha sin egen informasjonssynlighet, med én advarsel per visning som klassespillene ikke viser. Med flagget av vises ingenting, og nye visninger avvises.
+- Tester: backend 3160, Vitest 1043 (én feil i en kjøring under last, fire nye kjøringer passerte), typecheck, `check:copy`, `lint:colours`, bygg, Playwright 75 og 82 med flagget på og av.
+- Gjennomgang: 15 funn, 6 lave rettet.
+- Status: done.
+
+### Åpne punkter
+- Issue #194: beslutninger (visninger følger ikke klasseøkta etter lagring, ingen advarsel ved færre visninger).
+
+## Story 8.14: Gjør ferdig alle klassespill ved Spillfristen (spor 1)
+
+### Oppgave
+Bygge Story 8.14 på `epic-8` i spor 1, den siste storyen i Epic 8, og rette at Varselbåndet ble klemt sammen ved 200 % tekst.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den visuelle kontrollen gjøres i avslutningen av Epic 8.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-8-14-finish-every-unfinished-class-game-at-the-play-deadline.md`.
+- Commit: 62e0feb. Migrasjon 0063.
+- Ved Spillfristen spiller sweepen ferdig alle klassespill som ikke er ferdige; etterpå avvises kommandoer fra personer med 409. Spill og Hjem sier at spillet ble spilt ferdig. Varselbåndet bryter knappene under teksten ved 200 % tekst. En tilbakeholdt Debrief frigjøres når alle spill er ferdige (Issue #180).
+- Tester: backend 3095 på 145 s, Vitest 905, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 101 med axe ved 320 px, 200 % tekst og 1440 px, ingen ustabile tester. Testen med 100 spill tar 27–33 s.
+- Gjennomgang: 36 funn, 15 rettet, 1 utsatt; oppfølgende gjennomgang anbefalt.
+- Status: done.
+
+### Åpne punkter
+- Issue #195: beslutninger, oppfølgende gjennomgang og den trege testen.
+
+## Avslutning av Epic 10 (spor 2)
+
+### Oppgave
+Avslutte Epic 10 på `epic-10`: visuell kontroll av 10.9, punktene som må gjøres fra storyene, stabilisering, PR og CI.
+
+### Plan
+Én avslutningsagent i worktreet for spor 2, parallelt med avslutningen av Epic 8. Agenten stoppet på ukegrensen og ble gjenopptatt etter compact.
+
+### Resultat
+- PR #196 er merget til `main` (e9817a0), med grønn CI på begge kjøringene. Epic 10 ble merget før Epic 8, slik at spor 2 kunne starte Epic 12. Epic 8 kobler migrasjonene sine etter 0119.
+- Rettinger: alle feil i eget Replay-scenario vises samtidig (17447ec); spillskjermen ved 200 % tekst, gjennomgangsgrafen, «Send svar»-navn, Hjem og ordrefeltet (25f6b6d); raskere tester (3dec467); blokkbredde (7756e14); e2e-rettinger (63aad61, 5c59e1f); skjermbilder (45d6ceb, 9bc51c6).
+- Ikke nådd: backend-pakken ble bare litt raskere (117–139 s), og det ble aldri to grønne Playwright-kjøringer på rad lokalt. Feilene var tidsavbrudd under last, ingen feil i innhold.
+- Minnemangel på maskinen under avslutningen: Docker-maskinen holdt 26 GB filmellomlager. Mellomlageret ble tømt og 429 gamle `tail`-prosesser stoppet.
+- Status: `epic-10: done`.
+
+### Åpne punkter
+- Issue #197: testfart, ustabile Playwright-kjøringer under last, lave funn fra gjennomgangen av 10.1 og eldre UX-punkter.
+- Story 10.7 står som review.
+
+## Story 12.1: Slå av KI-vurderingen for en Klasseøkt (spor 2)
+
+### Oppgave
+Bygge Story 12.1 på `epic-12` i spor 2, den første storyen etter compact.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Den visuelle kontrollen gjøres i avslutningen av epicen, for å spare minne og CPU.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-12-1-switch-the-ai-assessment-off-for-a-class-session.md`.
+- Commit: a753981. Migrasjon 0120.
+- Bryteren «KI-vurdering» lagres gjennom `assessment.service` og låses ved den opprinnelige Testfristen gjennom en minimal `sessions.lock_test`, som Epic 11 skal utvide. Bare eieren kan endre den.
+- Tester: hele backend-pakken (én feil rettet og kjørt på nytt), tsc, Vitest, `lint:colours`, `check:copy`, bygg, Playwright 186 før rettingene og 48 etter.
+- Gjennomgang: 19 funn, 6 rettet.
+- Status: done.
+- Omlegging av planen: 12.2–12.10 trenger Epic 11 (spørsmålssett, Sensorveiledning, svar). Spor 2 bygger derfor Epic 11 på `epic-11`, laget fra `epic-12`, og spor 1 tar Epic 15 etter avslutningen av Epic 8.
+
+### Åpne punkter
+- Issue #198: beslutninger og oppfølgende gjennomgang.

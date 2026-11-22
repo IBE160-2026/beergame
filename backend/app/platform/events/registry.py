@@ -26,6 +26,42 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # reads Hjem again. A simulation emits `game` alone.
         "games.advance": frozenset({"game", "session", "user"}),
         "games.switch_to_rule_based": frozenset({"game"}),
+        # An AI player took a Student's Seat over (Story 8.2): only Class games take over, so
+        # their Class session hears of it, and every Student of the Game and the one whose Seat
+        # it was read it again, each through a `takeover_notice` too.
+        "games.takeover": frozenset({"game", "session", "user"}),
+        # A Student asked for their Seat back (Story 8.4): only Class games take over, so their
+        # Class session hears of it, and the Student's pages read the queued request. The Week
+        # opening that hands the Seat back emits under its own command (place_order, advance).
+        "games.request_reclaim": frozenset({"game", "session", "user"}),
+        # A Student paused the Class game (Story 8.6): its Class session hears of it, and every
+        # Student of the Game reads the pause line. The Order that ends it emits as place_order.
+        "games.pause": frozenset({"game", "session", "user"}),
+        # The Lecturer's agreed Pause time and «Avslutt pausen» (Story 8.7), and the sweep crossing
+        # the agreed time: the Class session hears of each, and every seated Student reads it.
+        "games.set_agreed_time": frozenset({"game", "session", "user"}),
+        "games.resume": frozenset({"game", "session", "user"}),
+        "games.reach_agreed_time": frozenset({"game", "session", "user"}),
+        # The sweep crossed a Seat's insert time (Story 8.8): every Student of the Game reads
+        # «Sett inn KI-spiller for …» without a reload, and the Class session hears of it.
+        "games.announce_insert_time": frozenset({"game", "session", "user"}),
+        # A turn reminder queued (Story 8.13): nothing a game view shows changes, so only the
+        # reminded Student's `user` topic, which `platform/notify.enqueue` emits.
+        "games.queue_turn_reminder": frozenset({"user"}),
+        # A Student's Tilrettelegging moved the open Week's due times (Story 8.9): the Varselbånd
+        # and every Student of the Game read the new times.
+        "games.recompute_turn_times": frozenset({"game", "session", "user"}),
+        # «I rommet» marked or ended (Story 8.11): the wall's row label, Spillstyring and every
+        # Student's line above Setestatus read it again with the new due times.
+        "games.mark_in_room": frozenset({"game", "session", "user"}),
+        "games.end_in_room": frozenset({"game", "session", "user"}),
+        # The Play deadline playout took a Class game over (Story 8.14): its Class session hears
+        # of it, and every Student who ever held a Seat reads Spill and Hjem again. The Weeks it
+        # then plays emit as `advance` and `place_order` do.
+        "games.playout": frozenset({"game", "session", "user"}),
+        # A lost LLM job of a Game playing out deferred again (Story 8.14): only a job row is
+        # written, so nothing a view shows changes; the Order's own command emits.
+        "games.ensure_playout_order": frozenset(),
         # An unfinished Replay closed at its Student's Test deadline (Story 10.6, AD-9 sweep): the
         # Student's Hjem and play screen read it again. No Lecturer overview lists a purpose this
         # closes, so no `session`.
@@ -45,6 +81,9 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # `user`; an acceptance tells every seated Student, so all see who accepted.
         "games.propose_time": frozenset({"game", "session", "user"}),
         "games.accept_time": frozenset({"game", "session", "user"}),
+        # A due Takeover the sweep found but `takeover` refused (Story 8.3, AD-8): the time has
+        # passed with no command, so the Game and its Class session are announced again.
+        "ops.takeover_skipped": frozenset({"game", "session"}),
         # A notice to a User (Story 3.5, AD-9); a notice addressed by reference emits nothing.
         "notify.enqueue": frozenset({"user"}),
         # A role the Admin grants or revokes (Story 3.9): the User's open pages reload it.
@@ -92,6 +131,8 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         "sessions.replace_removed_student": frozenset({"game", "session", "user"}),
         # A deadline reminder (Story 5.14): one notice per Student, which emits `user`.
         "sessions.send_deadline_reminder": frozenset({"user"}),
+        # The Play deadline playout of one Class game (Story 8.14), through `games.playout`.
+        "sessions.playout": frozenset({"game", "session", "user"}),
         # Student choice (Story 5.17). A save that opens it creates the empty Class games
         # (`game`), the staff read the session again and each registered Student's notice emits
         # `user`. A Seat taken or changed (`games.assign_seat`/`move_seat`) tells every Student

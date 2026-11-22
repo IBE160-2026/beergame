@@ -1,7 +1,7 @@
 "use client";
 
 import NextLink from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button, buttonClassName } from "@/components/button";
 import { GameCard } from "@/components/game-card";
@@ -15,6 +15,7 @@ import { enrolledClassesKey, useEnrolledClasses } from "@/modules/classes/api";
 import { gamePath, rulesPath, seatChoicePath } from "@/modules/identity/homes";
 import { MyMessages } from "@/modules/messaging/my-messages";
 import { type EnrolledSession, enrolledSessionsKey, useEnrolledSessions } from "@/modules/sessions/api";
+import { ownLines } from "@/modules/reports/adjustment";
 import { ReplayBlock } from "@/modules/replay/replay-block";
 import { wantsReplayPrimary } from "@/modules/replay/replay";
 import { homeLine } from "@/modules/sessions/seat-choice";
@@ -31,8 +32,10 @@ import {
   stepItems,
   toWeekText,
 } from "./home";
-import { useServerNow } from "./seat-status";
-import { GameSeatStatus } from "./seat-status-view";
+import { InRoomLine } from "./in-room-view";
+import { ownSeatTakenOver, useServerNow } from "./seat-status";
+import { PauseControl, PauseLine } from "./pause-view";
+import { GameSeatStatus, TakenOverNote } from "./seat-status-view";
 import { TimeProposalBlock } from "./time-proposal-view";
 import { MiniWeekTable } from "./week-table-view";
 
@@ -42,9 +45,15 @@ const PRIMARY_ACTIONS: ReadonlySet<NextAction> = new Set(["rules", "start", "pla
 type StudentGame = NonNullable<EnrolledSession["game"]>;
 
 /** Whether the game asks for Hjem's one primary button: its next action is a control, except a
- * game the Student has ordered in, whose Spillkort has no primary action (Story 6.17, UX-DR28). */
+ * game the Student has ordered in, whose Spillkort has no primary action (Story 6.17, UX-DR28), and
+ * a game the Play deadline playout took over, which waits for nothing from them (Story 8.14). */
 function wantsPrimary(game: StudentGame): boolean {
-  return PRIMARY_ACTIONS.has(nextAction(game)) && cardState(game) !== "ordered";
+  return (
+    PRIMARY_ACTIONS.has(nextAction(game)) &&
+    cardState(game) !== "ordered" &&
+    !ownSeatTakenOver(game.seats) &&
+    !(game.status === "running" && game.played_out)
+  );
 }
 
 const copy = nb.homes.student;
@@ -183,6 +192,14 @@ function SessionBlock({
       {/* Story 10.3: the Replay, once the Debrief quiz is passed. */}
       {session.replay ? <ReplayBlock replay={session.replay} sessionId={session.id} primary={replayPrimary} /> : null}
       <Stegene title={copy.steps} titleId={`steps-${session.id}`} items={stepItems(session.steps, session.id, session.replay)} />
+      {/* The Student's own Tilrettelegging (Story 8.9): only they read it. */}
+      {ownLines(session.adjustment).length > 0 ? (
+        <div className="mt-3 flex flex-col gap-1 text-body-phone text-ink-secondary lg:text-body" data-own-adjustment="">
+          {ownLines(session.adjustment).map((line) => (
+            <p key={line}>{line}</p>
+          ))}
+        </div>
+      ) : null}
       {deadline || labs.length > 0 ? (
         <dl className="mt-6 flex flex-col gap-2 border-t border-hairline pt-4 text-body-phone lg:text-body">
           {deadline ? (
@@ -225,6 +242,18 @@ function GameBlock({
   // A finished game waits for no one: its Seats show no status, and the rules are behind it.
   const finished = game.status === "finished";
   const seats = finished ? game.seats.map((seat) => ({ ...seat, ordered: null })) : game.seats;
+  // An open «Foreslå tidspunkt» form or Pausevalg (Story 8.6) has its own primary: Hjem's steps back.
+  const [forms, setForms] = useState({ proposal: false, pause: false });
+  const formOpen = forms.proposal || forms.pause;
+  const told = useRef(onProposing);
+  useEffect(() => {
+    told.current = onProposing;
+  });
+  // Told on every change, and `false` when the block goes, so Hjem's primary never stays stepped back.
+  useEffect(() => {
+    told.current(formOpen);
+    return () => told.current(false);
+  }, [formOpen]);
   return (
     <div className="mt-2">
       <h3 className="text-step-title font-semibold text-ink">{gameTitle(game)}</h3>
@@ -235,16 +264,34 @@ function GameBlock({
       {card && game.seat_state ? (
         <PlayCard game={game} state={game.seat_state} card={card} primary={primary} titleId={`card-${session.id}`} />
       ) : null}
+      {/* Story 8.2: an AI player took the Student's Seat over while the game runs. */}
+      {game.status === "running" && !game.played_out && ownSeatTakenOver(game.seats) ? (
+        <TakenOverNote obligatory={game.obligatory} gameId={game.id} seats={game.seats} className="mt-4" />
+      ) : null}
+      {/* Story 8.6: the pause line above Setestatus, as on the play screen. */}
+      {finished ? null : <PauseLine gameId={game.id} pause={game.pause} className="mt-4" />}
+      {/* Story 8.11: the «I rommet» line above Setestatus, as on Spill (Epic 8 close-out). */}
+      {finished ? null : <InRoomLine inRoom={game.in_room} className="mt-4" />}
       {/* Story 6.14: the Setestatus, as on the play screen. */}
-      <GameSeatStatus seats={seats} now={now} titleId={seatsId} level={4} className="mt-4" />
-      {/* Story 6.19: the proposed time to play, and «Foreslå tidspunkt» while the game is not over. */}
-      <TimeProposalBlock
-        game={game}
-        now={now}
-        playDeadline={session.play_deadline ?? null}
-        onFormOpen={onProposing}
+      <GameSeatStatus gameId={game.id} seats={seats} now={now} titleId={seatsId} level={4} className="mt-4" />
+      {/* Story 8.6: «Ta pause» under Setestatus, and the Pausevalg in place. */}
+      <PauseControl
+        gameId={game.id}
+        canPause={game.can_pause ?? false}
+        onFormOpen={(open) => setForms((was) => (was.pause === open ? was : { ...was, pause: open }))}
         className="mt-4"
       />
+      {/* Story 6.19: the proposed time to play, and «Foreslå tidspunkt» while the game is not over;
+          after the Play deadline playout took it over, none (Story 8.14). */}
+      {game.played_out ? null : (
+        <TimeProposalBlock
+          game={game}
+          now={now}
+          playDeadline={session.play_deadline ?? null}
+          onFormOpen={(open) => setForms((was) => (was.proposal === open ? was : { ...was, proposal: open }))}
+          className="mt-4"
+        />
+      )}
       {card ? null : <GameAction game={game} primary={primary} />}
       {/* Story 6.2: once the briefing no longer comes first, it stays a Lenke. */}
       {game.briefing_first || finished ? null : (

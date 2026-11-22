@@ -49,6 +49,17 @@ def _empty(ai_db, mail_db, games_db):
     no notices, deliveries or mails."""
 
 
+@pytest.fixture(autouse=True)
+def _no_playout(monkeypatch):
+    """The sweeps after the Play deadline would play the locked Class game out (Story 8.14),
+    seconds of work per test that no reminder depends on: these sweeps leave it unfinished."""
+    monkeypatch.setattr(
+        sweep,
+        "DUE_ACTIONS",
+        tuple(action for action in sweep.DUE_ACTIONS if action.name != "sessions.playout"),
+    )
+
+
 async def dated(class_id: str, **body) -> str:
     session_id = await new_session(class_id)
     assert (await save(session_id, PLAN)).status_code == 200

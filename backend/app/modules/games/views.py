@@ -4,9 +4,12 @@
 the Decision log read the `SeatState` it returns and nothing else about the Game.
 """
 
+import math
 import uuid
 from collections.abc import Awaitable, Callable, Mapping, Sequence
+from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 
 from sqlalchemy import RowMapping
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,7 +23,7 @@ from app.engine import (
     seat_view,
 )
 from app.modules.games import repo, rules
-from app.modules.games.marks import seat_mark
+from app.modules.games.marks import TAKEOVER_MARKS, seat_mark
 from app.modules.games.policy import policy
 from app.modules.games.schemas import (
     ChainWeekCost,
@@ -28,10 +31,13 @@ from app.modules.games.schemas import (
     DecisionLogRow,
     GameResult,
     Lifecycle,
+    OccupancyReason,
     OccupancyRow,
     OccupantKind,
     RoleCost,
     SeatState,
+    TableInRoom,
+    TablePause,
     TableSeat,
     TableStatus,
     TurnOverview,
@@ -294,7 +300,11 @@ Class). `games` imports no feature module, so the caller passes it (`classes.stu
 
 
 async def table_status(
-    session: AsyncSession, game_id: uuid.UUID, viewer_id: uuid.UUID, names: NameResolver
+    session: AsyncSession,
+    game_id: uuid.UUID,
+    viewer_id: uuid.UUID,
+    names: NameResolver,
+    factor: float | None = None,
 ) -> TableStatus:
     """Who sits in each Seat of the Game, as `viewer_id` sees it (Story 6.1, AD-3): Fabrikk first
     (UX-DR73), a Student by the name `names` gives now, every AI player as an AI player with no
@@ -303,13 +313,43 @@ async def table_status(
 
     While the Game runs, each Seat also says whether it has ordered in the open Week
     (`rules.has_ordered`), the stored wait start of a Seat that has not, and its mark
-    (`marks.seat_mark`); and the stored AI deadlines still open (Story 6.14, AD-20).
+    (`marks.seat_mark`); and the stored due times still open: AI deadlines (Story 6.14), Takeover
+    due times and insert times (Story 8.1, AD-20). While the Game is marked «I rommet», the line's
+    end and the viewer's own minutes: the in-room limit times `factor`, the viewer's own
+    Tilrettelegging factor the caller read (Story 8.11).
     Nothing here computes a wait."""
     rows = await repo.seats_with_occupant(session, game_id)
     held = {row["role"]: row["user_id"] for row in rows}
     own = await repo.last_seat_of(session, game_id, viewer_id)
-    found = await names(sorted({u for u in held.values() if u is not None}))
-    turns, guided = await _open_turns(session, game_id)
+    histories = await repo.seat_histories(session, game_id)
+    game = await repo.get_game(session, game_id)
+    turns, guided = await _open_turns(session, game)
+    pause_by = _pause_by(game, turns)
+    students = {row["user_id"] for row in rows if row["occupant_kind"] == OccupantKind.STUDENT} | {
+        h["last_student"] for h in histories.values() if h["last_student"] is not None
+    }
+    # Story 8.7: a Pause a staff member set or ended names no one to the Students.
+    staff_pause = pause_by is not None and pause_by[1] not in students
+    # Story 8.8: who pressed for each Seat a Student of the game put an AI player in.
+    peers = {
+        row["id"]: row["actor_user_id"]
+        for row in rows
+        if row["reason"] == OccupancyReason.TAKEOVER_PEER and row["actor_user_id"] is not None
+    }
+    named = (
+        {u for u in held.values() if u is not None}
+        | {h["last_student"] for h in histories.values() if h["last_student"] is not None}
+        | ({pause_by[1]} if pause_by is not None and not staff_pause else set())
+        | set(peers.values())
+    )
+    found = await names(sorted(named))
+    queued = await repo.queued_reclaims(session, game_id)
+    now = await repo.clock_now(session) if turns else None
+    own_seats = {
+        row["id"]
+        for row in rows
+        if row["occupant_kind"] == OccupantKind.STUDENT and row["user_id"] == viewer_id
+    }
     seats = []
     for row in reversed(rows):  # chain order serves the customer first; Fabrikk leads here
         kind = row["occupant_kind"]
@@ -323,6 +363,13 @@ async def table_status(
         mine = row["role"] == own and (holder != "student" or row["user_id"] == viewer_id)
         turn = turns.get(row["id"])
         ordered = None if turn is None else rules.has_ordered(turn, guided=guided)
+        mark = seat_mark(None, None, kind, row["reason"])
+        history = histories.get(
+            row["id"], {"last_student": None, "taken_over": False, "guard_switched": False}
+        )
+        # Taken over since its Student's last row, also after a later guard or cost-limit switch.
+        taken_over = holder == "ai" and (mark in TAKEOVER_MARKS or history["taken_over"])
+        insert = _insert_state(game, row, turn, guided, now, own_seats)
         seats.append(
             TableSeat(
                 role=row["role"],
@@ -331,25 +378,137 @@ async def table_status(
                 mine=mine,
                 ordered=ordered,
                 wait_started_at=turn["wait_started_at"] if ordered is False else None,
-                mark=seat_mark(None, None, kind, row["reason"]),
+                mark=mark,
+                taken_over=taken_over,
+                ordering_for=found.get(history["last_student"]) if taken_over else None,
+                guard_switched=kind == OccupantKind.RULE_BASED and history["guard_switched"],
+                # Story 8.4: only the Student who asked sees their queued Reclaim.
+                reclaim_queued=mine and taken_over and queued.get(row["id"]) == viewer_id,
+                insert_at=insert[0],
+                insert_agreed=insert[1],
+                can_insert=insert[2],
+                inserted_by=found.get(peers[row["id"]])
+                if taken_over and row["id"] in peers
+                else None,
             )
         )
     due = sorted(
-        turn["ai_deadline_at"]
+        at
         for turn in turns.values()
-        if turn["ai_deadline_at"] is not None and not rules.has_ordered(turn, guided=guided)
+        if not rules.has_ordered(turn, guided=guided)
+        for at in _due_times_of(turn)
+        if at is not None
     )
-    return TableStatus(seats=tuple(seats), due_times=tuple(due))
+    seated = any(
+        row["occupant_kind"] == OccupantKind.STUDENT and row["user_id"] == viewer_id for row in rows
+    )
+    return TableStatus(
+        seats=tuple(seats),
+        due_times=tuple(due),
+        can_pause=game is not None
+        and game["lifecycle"] == Lifecycle.RUNNING
+        and policy(game["purpose"]).pause
+        and not rules.is_paused(game)
+        and seated,
+        pause=None
+        if pause_by is None
+        else TablePause(
+            state=pause_by[0],
+            name=None if staff_pause else found.get(pause_by[1]),
+            mine=pause_by[1] == viewer_id,
+            staff=staff_pause,
+            resume_at=game["resume_at"] if pause_by[0] == "paused" and game is not None else None,
+        ),
+        in_room=_in_room(game, factor),
+    )
+
+
+def _in_room(game: RowMapping | None, factor: float | None) -> TableInRoom | None:
+    """Story 8.11: the «I rommet» line of a running Game marked as in the room, with the
+    viewer's own whole minutes (never more than they have)."""
+    if (
+        game is None
+        or game["in_room_minutes"] is None
+        or game["lifecycle"] not in (Lifecycle.RUNNING, Lifecycle.PLAYING_OUT)
+    ):
+        return None
+    minutes = math.floor(game["in_room_minutes"] * max(factor or 1.0, 1.0))
+    return TableInRoom(until=game["in_room_until"], minutes=minutes)
+
+
+def _insert_state(
+    game: RowMapping | None,
+    row: RowMapping,
+    turn: RowMapping | None,
+    guided: bool,
+    now: datetime | None,
+    own_seats: set[uuid.UUID],
+) -> tuple[datetime | None, bool, bool]:
+    """Story 8.8 (FR-89, UX-DR27, AD-10, AD-20): what the viewer sees of the right to put an AI
+    player in another Student's Seat: the stored insert time while it lies ahead and the game is
+    paused or the time is agreed (the insert time is not the Takeover due time), whether that is
+    the agreed time, and whether the viewer may press now (`rules.can_take_over`, `peer`). Only
+    for a viewer who holds another Seat; stored times only, judged on the database clock `now`."""
+    if (
+        game is None
+        or turn is None
+        or now is None
+        or row["id"] in own_seats
+        or not own_seats
+        or turn["occupant_kind"] != OccupantKind.STUDENT
+    ):
+        return None, False, False
+    can = (
+        rules.can_take_over(game, turn, "peer", now, guided=guided, seat=row, peer_seated=True)
+        is None
+    )
+    allowed = turn["insert_allowed_at"]
+    agreed = allowed is not None and allowed != turn["takeover_due_at"]
+    ahead = (
+        allowed is not None
+        and allowed > now
+        and not rules.has_ordered(turn, guided=guided)
+        and row["occupant_kind"] == OccupantKind.STUDENT
+        and (rules.is_paused(game) or agreed)
+    )
+    return (allowed if ahead else None), (agreed and ahead), can
+
+
+def _pause_by(
+    game: RowMapping | None, turns: Mapping[uuid.UUID, RowMapping]
+) -> tuple[Literal["paused", "ended"], uuid.UUID] | None:
+    """The Pause line's state and whom it names (Story 8.6, FR-89): the Pause in force and who set
+    it; else the Order that ended the last one and who placed it, while the Week it ended in is
+    still open (its turns opened before the end; an Order that ended the Pause and completed its
+    Week opened the next one in the same transaction, so the new Week shows none); else None.
+    Reads stored times only."""
+    if game is None or game["lifecycle"] not in (Lifecycle.RUNNING, Lifecycle.PLAYING_OUT):
+        return None
+    if rules.is_paused(game) and game["paused_by"] is not None:
+        return "paused", game["paused_by"]
+    ended, by = game["pause_ended_at"], game["pause_ended_by"]
+    opened = [turn["opened_at"] for turn in turns.values() if turn["opened_at"] is not None]
+    if ended is None or by is None or not opened or min(opened) >= ended:
+        return None
+    return "ended", by
+
+
+def _due_times_of(turn: RowMapping) -> tuple[datetime | None, ...]:
+    """A turn's stored due times that still apply: its AI deadline, and its FR-36 due times
+    while a Student holds the Seat (Story 8.1)."""
+    if turn["occupant_kind"] != OccupantKind.STUDENT:
+        return (turn["ai_deadline_at"],)
+    return (turn["ai_deadline_at"], turn["takeover_due_at"], turn["insert_allowed_at"])
 
 
 async def _open_turns(
-    session: AsyncSession, game_id: uuid.UUID
+    session: AsyncSession, game: RowMapping | None
 ) -> tuple[dict[uuid.UUID, RowMapping], bool]:
     """The open Week's turns by Seat id, each with its occupant in force, and whether it is a
     Guided Week; none when the Game is not running."""
-    game = await repo.get_game(session, game_id)
     if game is None or game["lifecycle"] not in (Lifecycle.RUNNING, Lifecycle.PLAYING_OUT):
         return {}, False
+    game_id = game["id"]
     week = await repo.open_week(session, game_id)
     if week is None:
         return {}, False

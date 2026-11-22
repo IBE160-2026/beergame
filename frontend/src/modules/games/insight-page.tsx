@@ -18,13 +18,24 @@ import {
   HOME_PATH,
   messagePath,
   overviewReturnPath,
+  studentPagePath,
 } from "@/modules/identity/homes";
 import { PageShell } from "@/modules/identity/page-shell";
 import { roleName } from "@/modules/sessions/sessions";
 
 import { type GameInsight, gameInsightKey, type InsightSeat, useGameInsight } from "./api";
 import { InsightCharts } from "./insight-charts";
-import { hasWeeks, holderText, linkTexts, roleTables, seatsUpstreamFirst, statusText, type WeekRow } from "./insight";
+import { Spillstyring } from "./spillstyring";
+import {
+  hasWeeks,
+  holderText,
+  linkTexts,
+  roleTables,
+  seatMarkText,
+  seatsUpstreamFirst,
+  statusText,
+  type WeekRow,
+} from "./insight";
 
 const copy = nb.insight;
 
@@ -35,7 +46,8 @@ const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * Spillinnsikt (Story 7.7, charts from Story 7.8; FR-62, FR-34, UX-DR55): one Class game for the staff of its Class — its
  * number, status and four Seats upstream first, each Student Seat with its link slot, and per Role
  * (Detaljist to Fabrikk) a table of every opened Week in its own scrolling region: what came in,
- * inventory, backlog, the Order, the Week's cost, who played it and its marks in words. Every
+ * inventory, backlog, the Order, the Week's cost, when the Week opened and the Order came and the time
+ * between (Story 8.1, FR-35, Europe/Oslo), who played it and its marks in words. Every
  * number is the api's (AD-10). A new Week arrives on the game's `game:<id>` event (AD-8). Anyone
  * but the Class's staff sees the permission-denied page (FR-5).
  */
@@ -148,11 +160,14 @@ export function InsightBody({ data }: { data: GameInsight }) {
               seat={seat}
               sessionId={data.class_session_id}
               gameId={data.game_id}
+              canAdjust={data.can_adjust ?? false}
               replay={data.replay}
             />
           ))}
         </ol>
       </section>
+      {/* Spillstyring under the four Seats while the game runs (Story 8.5). */}
+      <Spillstyring data={data} />
       {!hasWeeks(data) ? (
         <p className="mt-8 text-body-phone text-ink lg:text-body">{copy.notStarted}</p>
       ) : (
@@ -176,19 +191,35 @@ function SeatItem({
   seat,
   sessionId,
   gameId,
+  canAdjust,
   replay,
 }: {
   seat: InsightSeat;
   sessionId: string;
   gameId: string;
+  /** A Lecturer of the Class: the Student's name leads to their Studentside (Story 8.9). */
+  canAdjust: boolean;
   replay: boolean;
 }) {
   const links = linkTexts(seat, replay);
+  const mark = seatMarkText(seat);
+  const student = seat.holder === "student" && seat.user_id && seat.name ? { id: seat.user_id, name: seat.name } : null;
   return (
     <li className="min-w-0" data-role={seat.role}>
       <p className="text-label text-ink">{roleName(seat.role)}</p>
       <p className="flex flex-wrap items-baseline gap-x-3 text-body-phone text-ink [overflow-wrap:anywhere] lg:text-body">
-        <span>{holderText(seat)}</span>
+        {student && canAdjust ? (
+          <Link
+            href={studentPagePath(sessionId, student.id)}
+            aria-label={nb.reports.studentPage.linkLabel(student.name)}
+            data-student-page=""
+            standalone
+          >
+            {student.name}
+          </Link>
+        ) : (
+          <span>{holderText(seat)}</span>
+        )}
         {/* A Message to the Student of this Seat (Story 7.9), titled with the game. */}
         {seat.holder === "student" && seat.user_id && seat.name && !replay ? (
           <Link
@@ -201,6 +232,12 @@ function SeatItem({
           </Link>
         ) : null}
       </p>
+      {/* Why an AI player holds the Seat: the Takeover and its reason, in text (Story 8.3). */}
+      {mark ? (
+        <p className="mt-1 text-caption text-ink-secondary" data-seat-mark="">
+          {mark}
+        </p>
+      ) : null}
       {typeof links === "string" ? (
         <p className="mt-1 text-caption text-ink-secondary" data-links="">
           {links}
@@ -257,6 +294,11 @@ function RoleTable({ name, rows }: { name: string; rows: readonly WeekRow[] }) {
                   </th>
                 ),
               )}
+              {[COLUMNS.opened, COLUMNS.ordered, COLUMNS.took].map((header) => (
+                <th key={header} scope="col" className={cn(CELL, HEAD, "text-right")}>
+                  {header}
+                </th>
+              ))}
               <th scope="col" className={cn(CELL, HEAD, "text-left")}>
                 {COLUMNS.marks}
               </th>
@@ -277,6 +319,15 @@ function RoleTable({ name, rows }: { name: string; rows: readonly WeekRow[] }) {
                   {row.order === "" ? <span className="sr-only">{copy.noOrder}</span> : row.order}
                 </td>
                 <td className={cn(CELL, NUMBER)}>{row.cost}</td>
+                <td className={cn(CELL, NUMBER)} data-opened="">
+                  {row.opened}
+                </td>
+                <td className={cn(CELL, NUMBER)} data-ordered="">
+                  {row.ordered === "" ? <span className="sr-only">{copy.noOrder}</span> : row.ordered}
+                </td>
+                <td className={cn(CELL, NUMBER)} data-took="">
+                  {row.took}
+                </td>
                 <td className={cn(CELL, "min-w-[12em] text-left")}>{row.marks}</td>
               </tr>
             ))}

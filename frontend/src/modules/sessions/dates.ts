@@ -96,6 +96,14 @@ export function osloDayAndTime(iso: string): { day: string; time: string } {
   };
 }
 
+/** «ma. 14:10»: an instant's weekday and time, in Europe/Oslo (Story 8.6, the Oversikt's pause
+ * line). */
+export function osloWeekdayTime(iso: string): string {
+  const p = osloParts(Date.parse(iso));
+  const weekday = new Date(Date.UTC(p.year, p.month - 1, p.day)).getUTCDay();
+  return `${copy.weekdays[weekday]} ${pad(p.hour)}:${pad(p.minute)}`;
+}
+
 /** «ti. 24. nov. kl. 10:00»: a date as text, in Europe/Oslo, where it can no longer change
  * (Story 5.11, GitHub issue 103). */
 export function osloDateText(iso: string): string {

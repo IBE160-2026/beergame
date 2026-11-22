@@ -103,6 +103,24 @@ POLICIES: dict[str, frozenset[str]] = {
     # Spillinnsikt (Story 7.7, FR-62): one Game week by week, with the full chain, the demand
     # series and the number of Weeks, for the staff of its Class only.
     "games.insight": frozenset({LECTURER, ASSISTANT}),
+    # «Sett inn KI-spiller for …» in Spillstyring and the Varselbånd (Story 8.5, FR-37): the staff
+    # of the game's Class, Lecturers and Assistant lecturers alike (the per-Seat Takeover is the
+    # one Spillstyring action an Assistant lecturer has, AD-12).
+    "games.takeover": frozenset({LECTURER, ASSISTANT}),
+    # «Pause spillet», «Endre avtalt tid» and «Avslutt pausen» in Spillstyring and the Varselbånd
+    # (Story 8.7, FR-89): the Lecturers of the game's Class only; an Assistant lecturer may not
+    # pause, set an agreed time or end a Pause (AD-12, EXPERIENCE.md → Spillstyring → Who).
+    "games.pause": frozenset({LECTURER}),
+    # «Start spillet» in Spillstyring and «Start spill» for every Class game not started (Story
+    # 8.10, FR-22): the Lecturers of the Class only (AD-12, EXPERIENCE.md → Spillstyring → Who).
+    "games.start": frozenset({LECTURER}),
+    # «Marker som i rommet» and «Ikke i rommet lenger» in Spillstyring (Story 8.11, FR-36): the
+    # Lecturers of the Class only (AD-12, EXPERIENCE.md → Spillstyring → Who).
+    "games.in_room": frozenset({LECTURER}),
+    # «Sett inn KI-spiller i alle seter som blir ventet på» on one game and on every game (Story
+    # 8.12, FR-37): the Lecturers of the Class only; an Assistant lecturer keeps the per-Seat
+    # action (AD-12, EXPERIENCE.md → Spillstyring → Who).
+    "games.fill_seats": frozenset({LECTURER}),
     # A Message to a Student, a Class game or a whole Class session (Story 7.9, FR-40): the staff
     # of its Class, Lecturers and Assistant lecturers alike.
     "messages.send": frozenset({LECTURER, ASSISTANT}),
@@ -182,6 +200,11 @@ CLASS_STAFF_ROLES: dict[str, frozenset[str]] = {
     "scoring_guide.change": frozenset({OWNER}),
     "class_sessions.overview": frozenset({OWNER, ASSISTANT_STAFF}),
     "games.insight": frozenset({OWNER, ASSISTANT_STAFF}),
+    "games.takeover": frozenset({OWNER, ASSISTANT_STAFF}),
+    "games.pause": frozenset({OWNER}),
+    "games.start": frozenset({OWNER}),
+    "games.in_room": frozenset({OWNER}),
+    "games.fill_seats": frozenset({OWNER}),
     "messages.send": frozenset({OWNER, ASSISTANT_STAFF}),
     "messages.read_sent": frozenset({OWNER, ASSISTANT_STAFF}),
 }

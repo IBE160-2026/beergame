@@ -143,6 +143,14 @@ class Settings(BaseSettings):
     # Messages from staff to Students (Story 7.9, FR-40). PLACEHOLDER: the most characters a
     # Message may hold; a longer one is refused with `message_too_long` and this limit.
     message_max_length: int = Field(2000, ge=1, le=20000)
+    # The turn reminder (Story 8.13, FR-27). PLACEHOLDER from FR-27's assumption, to be confirmed
+    # by the founder: how long, in minutes, a Class game has waited for a Student's Order before
+    # a `turn_reminder` digest notice is queued.
+    turn_reminder_delay_minutes: int = Field(120, ge=1, le=10080)
+    # Story 8.14 (FR-38, NFR-3, spine Deferred): placeholder, an open input set after the
+    # prototype: how long, in minutes, a Class game may stay `playing_out` after the Play deadline
+    # playout took it over; a Game still playing out after it is logged as an error.
+    playout_allowed_minutes: int = Field(60, ge=1, le=10080)
 
     # Mail (AD-9, AD-17, Story 3.5). With no RESEND_API_KEY outside production every mail goes
     # to the `[email:mock]` sender; the compose file never passes a key.

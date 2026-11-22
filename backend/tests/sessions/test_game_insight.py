@@ -7,6 +7,7 @@ the customer demand series and the number of Weeks; anyone else gets the same 40
 One short Class game (`short_game`, 6 Weeks, two Students and two Rule-based players) per test."""
 
 import uuid
+from datetime import datetime
 from decimal import Decimal
 
 from app.engine import GameSettings
@@ -53,6 +54,20 @@ def orders(game_id: str) -> dict[tuple[int, str], int]:
     return {(week, role): order for week, role, order in found}
 
 
+def clock_of(game_id: str) -> dict[tuple[int, str], tuple]:
+    """Per (Week, Role) the turn's stored opened_at, ordered_at and viewed_at (Story 8.1)."""
+    found = rows(
+        "SELECT t.week, s.role, t.opened_at, t.ordered_at, t.viewed_at FROM seat_turns t "
+        "JOIN seats s ON s.id = t.seat_id WHERE t.game_id = %s",
+        game_id,
+    )
+    return {(week, role): tuple(values) for week, role, *values in found}
+
+
+def at(value: str | None) -> datetime | None:
+    return None if value is None else datetime.fromisoformat(value)
+
+
 def holders(game_id: str) -> dict[str, tuple[str, str | None]]:
     """Each Role's current occupant kind and Student name (from `users`)."""
     found = rows(
@@ -82,7 +97,10 @@ async def test_staff_read_every_week_of_every_role_as_stored(klass):
         assert seat["holder"] == ("student" if kind == "student" else "ai")
         assert seat["name"] == (name if kind == "student" else None)
         assert seat["links"] == []  # the Debrief's links come once the game has finished
-    values, placed = stored(game_id), orders(game_id)
+    values, placed, clock = stored(game_id), orders(game_id), clock_of(game_id)
+    [(guided_weeks,)] = rows(
+        "SELECT (settings->>'guided_weeks')::int FROM games WHERE id = %s", game_id
+    )
     assert [role["role"] for role in body["roles"]] == CHAIN
     for role in body["roles"]:
         assert [week["week"] for week in role["weeks"]] == [1, 2, 3]
@@ -101,6 +119,12 @@ async def test_staff_read_every_week_of_every_role_as_stored(klass):
             assert week["holder"] == ("student" if kind == "student" else "ai")
             assert week["name"] == (name if kind == "student" else None)
             assert week["marks"] == []
+            # When the Week opened and when the Seat ordered (Story 8.1, FR-35): in a Guided
+            # Week a Student's Seat ordered when the Student opened the Week (FR-24).
+            opened, ordered, viewed = clock[key]
+            guided = week["week"] <= guided_weeks and kind == "student"
+            assert at(week["opened_at"]) == opened
+            assert at(week["ordered_at"]) == (viewed if guided else ordered)
         # The first stored Order of 10 or more (Story 7.8), none in the open Week.
         large = [w for w in (1, 2, 3) if (placed.get((w, role["role"])) or 0) >= 10]
         assert role["first_large_order_week"] == (large[0] if large else None)
@@ -111,7 +135,16 @@ async def test_staff_read_every_week_of_every_role_as_stored(klass):
     # An Assistant lecturer of the Class reads the same; the ETag answers 304 until a change.
     put_staff(klass, await make(ASSISTANT, roles=()), "assistant")
     assistant = await insight(ASSISTANT, game_id)
-    assert (assistant.status_code, assistant.json()) == (200, body)
+    # The same answer, but only a Lecturer may pause the game (Story 8.7, AD-12).
+    assert body["can_pause"] is True
+    # Story 8.9: Tilrettelegging (the names' Studentside) is for Lecturers only.
+    assert body["can_adjust"] is True
+    # Story 8.11: «Marker som i rommet» is for Lecturers only.
+    assert body["can_mark_in_room"] is True
+    assert (assistant.status_code, assistant.json()) == (
+        200,
+        {**body, "can_pause": False, "can_adjust": False, "can_mark_in_room": False},
+    )
     etag = response.headers["etag"]
     repeat = await insight(LECTURER, game_id, headers={"If-None-Match": etag})
     assert (repeat.status_code, repeat.content) == (304, b"")
@@ -119,6 +152,22 @@ async def test_staff_read_every_week_of_every_role_as_stored(klass):
     changed = await insight(LECTURER, game_id, headers={"If-None-Match": etag})
     assert changed.status_code == 200
     assert [w["week"] for w in changed.json()["roles"][0]["weeks"]] == [1, 2, 3, 4]
+
+
+async def test_in_an_open_guided_week_a_student_who_has_not_opened_it_has_not_ordered(klass):
+    """Story 8.1, FR-24: the Guided Order was placed when the Week opened, but the Student's Seat
+    orders when the Student opens the Week; the AI Seats ordered at the opening."""
+    _, game_id, _ = await short_game(klass)
+    body = (await insight(LECTURER, game_id)).json()
+    held = holders(game_id)
+    clock = clock_of(game_id)
+    for role in body["roles"]:
+        [week] = role["weeks"]
+        opened, ordered, _ = clock[(1, role["role"])]
+        assert at(week["opened_at"]) == opened
+        student = held[role["role"]][0] == "student"
+        assert at(week["ordered_at"]) == (None if student else ordered)
+        assert ordered is not None  # the Order itself is placed
 
 
 async def test_anyone_but_the_staff_and_any_unlisted_game_is_refused_the_same(klass):

@@ -117,6 +117,10 @@ PREPARED_TABLES = {"test_prepared_items"}
 """The tables of revision 0126 (Story 11.8)."""
 SITTING_TABLES = {"test_sittings"}
 """The tables of revision 0129 (Story 11.12)."""
+RECLAIM_TABLES = {"seat_reclaims"}
+"""The table of revision 0055 (Story 8.4)."""
+ADJUSTMENT_TABLES = {"student_adjustments"}
+"""The table of revision 0059 (Story 8.9)."""
 HEAD_TABLES = (
     PRE_SESSION_TABLES
     | SESSION_TABLES
@@ -146,8 +150,10 @@ HEAD_TABLES = (
     | ATTEMPT_TABLES
     | PREPARED_TABLES
     | SITTING_TABLES
+    | RECLAIM_TABLES
+    | ADJUSTMENT_TABLES
 )
-HEAD = "0129"  # 0129 adds a Class session's one timed sitting (11.12)
+HEAD = "0129"  # 0129 adds a Class session's one timed sitting (11.12), after main's 0064
 
 
 def reset_schema(url: str) -> None:
@@ -414,10 +420,24 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     assert {"enabled", "pinned_at"} <= columns(url, "assessment_switches")
     assert "test_locked_at" in columns(url, "class_sessions")
     assert function_names(url, "assessment_switches_pinned")
-    command.downgrade(cfg, "0119")
+    # Epic 11's revisions follow Epic 8's (0120's down_revision is 0064 since the merge of main).
+    command.downgrade(cfg, "0064")
     assert ASSESSMENT_SWITCH_TABLES.isdisjoint(tables(url))
     assert "test_locked_at" not in columns(url, "class_sessions")
     assert not function_names(url, "assessment_switches_pinned")
+
+    # 0064 (Story 8.7, Epic 8 close-out): the agreed Pause time on the summaries.
+    assert "resume_at" in columns(url, "game_summaries")
+    command.downgrade(cfg, "0063")
+    assert "resume_at" not in columns(url, "game_summaries")
+    # 0055 (Story 8.4): at most one queued Reclaim per Seat.
+    assert definition(url, "seat_reclaims_pkey") == "PRIMARY KEY (seat_id)"
+    command.downgrade(cfg, "0054")
+    assert RECLAIM_TABLES.isdisjoint(tables(url))
+    # Epic 8's revisions follow Epics 9 and 10 (0053's down_revision is 0119 since the merges of
+    # main).
+    command.downgrade(cfg, "0119")
+    assert "takeover_due_at" not in columns(url, "seat_turns")
 
     # 0119 (Story 10.8): a believability answer per Student and Game (1 to 5), an another-round
     # answer per Student and Class session, each stored once.

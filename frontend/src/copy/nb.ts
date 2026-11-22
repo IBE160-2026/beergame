@@ -396,8 +396,114 @@ export const nb = {
         waiting: "venter",
         waitingFor: (duration: string) => `venter, ${duration}`,
       },
-      /** A Seat whose LLM player the Play guard switched (FR-79). [ASSUMPTION] */
+      /** A Seat whose LLM player the Play guard switched (FR-79), also when the switch came before
+       * a later Takeover or Reclaim (Story 8.2). [ASSUMPTION] */
       guardSwitched: "KI-spiller (regelbasert)",
+      /** Takeover (Story 8.2, FR-36, FR-37, UX-DR62, UX-DR69, EXPERIENCE.md → Takeover): the row
+       * «Fabrikk  KI-spiller  bestiller for Jonas» and «KI-spiller har bestilt for deg.» are the
+       * spine's; the own row's words, the row of a Student no longer in the Class and the
+       * requirement warning are [ASSUMPTION] draft copy. */
+      takeover: {
+        orderingFor: (name: string) => `bestiller for ${name}`,
+        orderingForYou: "bestiller for deg",
+        orderingForSeat: "bestiller for setet",
+        /** One polite line per Seat taken over: «Fabrikk: KI-spiller bestiller for Jonas.» */
+        announced: (role: string, status: string) => `${role}: KI-spiller ${status}.`,
+        takenOver: "KI-spiller har bestilt for deg.",
+        /** FR-17, FR-14: the only place the product builds this warning (the mail's twin is
+         * `_takeover_warning.j2`). Never a number or how many Uker: `check:copy` fails on a digit
+         * or «uke» here. */
+        requirementWarning:
+          "Klassespillet er obligatorisk. At en KI-spiller bestiller for deg, kan påvirke om du oppfyller kravet.",
+        /** «Ta tilbake setet» (Story 8.4, FR-37) is the spine's; the line that replaces it, the
+         * refusals and the failure are [ASSUMPTION] draft copy. Never how many Uker remain. */
+        reclaim: "Ta tilbake setet",
+        reclaimQueued: "Du får setet tilbake når neste Uke åpner.",
+        reclaimRefusals: {
+          seat_not_yours: "Setet er ikke ditt å ta tilbake.",
+          game_finished: "Spillet er ferdig.",
+          game_not_running: "Spillet er ikke i gang.",
+          /** Story 8.14 [ASSUMPTION] the Play deadline playout took the game over. */
+          play_deadline_passed: "Spillfristen er nådd, og KI-spillere har tatt over spillet.",
+        } as Record<string, string>,
+        reclaimFailed: "Setet ble ikke tatt tilbake. Prøv igjen.",
+      },
+      /** The Student's own Tilrettelegging under Stegene (Story 8.9, FR-17, UX-DR53, EXPERIENCE.md
+       * → Tilrettelegging → Student's own view): the spine's lines. Only that Student reads them. */
+      adjustment: {
+        /** «Du har mer tid før en KI-spiller tar setet ditt (2 × vanlig ventetid).» */
+        moreTime: (factor: string) =>
+          `Du har mer tid før en KI-spiller tar setet ditt (${factor} vanlig ventetid).`,
+        /** «For deg er kravet 60 % av ukene.» */
+        share: (percent: string) => `For deg er kravet ${percent} av ukene.`,
+      },
+      /** «Sett inn KI-spiller» on another Student's Setestatus row (Story 8.8, FR-89, UX-DR27,
+       * EXPERIENCE.md → Sett inn KI-spiller and State Patterns → Student game). The two lines before
+       * the insert time are the spine's; the button, its consequence and «Sara har allerede satt
+       * inn en KI-spiller.» are Spillstyring's (`nb.spillstyring`). The staff line, the refusals and
+       * the failure are [ASSUMPTION] draft copy. Never why one Seat's time is later. */
+      insert: {
+        /** With the Lecturer's agreed time: «Avtalt tid to. 19:00. Etter det kan dere sette inn en
+         * KI-spiller.» */
+        agreed: (when: string) => `Avtalt tid ${when}. Etter det kan dere sette inn en KI-spiller.`,
+        /** The Seat's own insert time: «Etter on. 10:00 kan dere sette inn en KI-spiller.» */
+        after: (when: string) => `Etter ${when} kan dere sette inn en KI-spiller.`,
+        /** [ASSUMPTION] a Lecturer or Assistant lecturer put the AI player in first. */
+        takenByStaff: "Faglæreren har allerede satt inn en KI-spiller.",
+        refusals: {
+          insert_not_allowed_yet: "Det er ikke tid for å sette inn en KI-spiller ennå.",
+          seat_not_yours: "Du kan bare sette inn en KI-spiller fra ditt eget sete i spillet.",
+          order_exists: "Studenten har bestilt nå.",
+          seat_not_student_held: "Ingen student har dette setet nå.",
+          game_not_running: "Spillet er ikke i gang.",
+          takeover_not_allowed: "KI-spiller kan ikke settes inn i dette spillet.",
+          play_deadline_passed: "Spillfristen er nådd, og KI-spillere har tatt over spillet.",
+        } as Record<string, string>,
+        failed: "KI-spilleren ble ikke satt inn. Prøv igjen.",
+      },
+      /** Pausevalg and the pause lines (Story 8.6, FR-89, UX-DR26, UX-DR62, EXPERIENCE.md →
+       * Pausevalg and State Patterns → Student game): «Ta pause», the two consequence lines, «Ta
+       * pause uten avtalt tid», «Avbryt», «Pause, satt av Sara.» and «Pausen er over. Sara har
+       * bestilt.» are the spine's; the reader's own lines («deg», «Du»), the line for a Student no
+       * longer in the Class, the refusals and the failure are [ASSUMPTION] draft copy. Never how
+       * many Uker remain (FR-14). */
+      pause: {
+        open: "Ta pause",
+        noTakeover: "Mens spillet har pause, tar ingen KI-spiller over setene. Spillfristen flyttes ikke.",
+        onlyLecturer:
+          "Bare faglæreren kan avtale et tidspunkt. Uten det har hver av dere sin vanlige ventetid før en KI-spiller kan settes inn.",
+        confirm: "Ta pause uten avtalt tid",
+        cancel: "Avbryt",
+        pausedBy: (name: string) => `Pause, satt av ${name}.`,
+        pausedByYou: "Pause, satt av deg.",
+        pausedByUnknown: "Pause, satt av en annen student.",
+        endedBy: (name: string) => `Pausen er over. ${name} har bestilt.`,
+        endedByYou: "Pausen er over. Du har bestilt.",
+        endedByUnknown: "Pausen er over. En annen student har bestilt.",
+        /** Story 8.7 (UX-DR62): the Lecturer paused, or set the agreed time. Only the Lecturer's
+         * line carries a time. */
+        pausedByLecturer: "Pause, satt av faglæreren.",
+        pausedUntil: (when: string) => `Pause til ${when}, satt av faglæreren.`,
+        /** [ASSUMPTION] the Lecturer ended the Pause with «Avslutt pausen». */
+        endedByLecturer: "Pausen er over. Faglæreren har avsluttet den.",
+        refusals: {
+          seat_not_yours: "Du har ikke et sete i dette spillet nå.",
+          game_finished: "Spillet er ferdig.",
+          game_not_running: "Spillet er ikke i gang.",
+          pause_not_allowed: "Dette spillet kan ikke settes på pause.",
+          play_deadline_passed: "Spillfristen er nådd, og KI-spillere har tatt over spillet.",
+        } as Record<string, string>,
+        failed: "Spillet ble ikke satt på pause. Prøv igjen.",
+      },
+      /** «I rommet» above Setestatus (Story 8.11, FR-36, UX-DR62, EXPERIENCE.md → State Patterns →
+       * Student game): the line is the spine's, with the reader's own minutes (Tilrettelegging); the
+       * line read out when the mark ends is [ASSUMPTION] draft copy. Never another's minutes. */
+      inRoom: {
+        line: (until: string, minutes: number) =>
+          `I rommet til kl. ${until}. En KI-spiller tar setet etter ${minutes}\u00a0min uten ordre.`,
+        /** [ASSUMPTION] read out (not shown) when the mark ends while the page is open. */
+        ended: "Spillet er ikke i rommet lenger. Den vanlige ventetiden gjelder igjen.",
+      },
       /** With non-breaking spaces, so «min» never wraps away from its number (Epic 7 close-out). */
       duration: {
         underMinute: "under 1 min",
@@ -493,6 +599,9 @@ export const nb = {
       /** A finished game on Hjem (Story 6.18). [ASSUMPTION] draft copy: the spine names no
        * Hjem string for it; the Lenke leads to «Spillet er ferdig». */
       finished: "Spillet er ferdig.",
+      /** Story 8.14 (FR-38) [ASSUMPTION] draft copy: the Play deadline playout has taken the game
+       * over and AI players play it to the end. No blame, and never how many Uker are left. */
+      playingOut: "Spillfristen er nådd. KI-spillere spiller spillet ferdig.",
       /** [ASSUMPTION] */
       toResult: "Se kjedens totalkostnad",
       /** Spillkort (Story 6.17, UX-DR28, EXPERIENCE.md → Spillkort, State Patterns → Student game).
@@ -1772,6 +1881,10 @@ export const nb = {
         totalNote: "Fire Roller, to kostnadsarter, hele spillet.",
         why: "Hvorfor ble den slik? Det finner dere ut i Debriefen, med alle fire Rollene.",
         toDebrief: "Gå til Debrief",
+        /** Story 8.14 (FR-38, EXPERIENCE.md → Spill → Ended by playout) [ASSUMPTION] draft copy:
+         * the game ended at the Spillfrist. No blame, and never how many Uker the KI-spillere
+         * played. */
+        playedOut: "Spillet ble avsluttet ved Spillfristen. KI-spillere spilte det ferdig.",
         /** Story 9.2: the Faglærer holds the Debriefs until all Class games have finished; never
          * how many remain. [ASSUMPTION] */
         held: "Debriefen åpner når alle Klassespillene er ferdige.",
@@ -1979,6 +2092,9 @@ export const nb = {
         production: "Produksjon",
         customers: "Kundene",
         order: "Din ordre",
+        /** The Order of the KI-spiller that took the own Seat over (Story 8.4): «KI-ordre 9», never
+         * «Din ordre». [ASSUMPTION] */
+        aiOrder: "KI-ordre",
         labelled: (term: string, value: string) => `${term} ${value}`,
         /** With a typed Order (Story 6.11, UX-DR14): «På vei 16 + 24» drawn, «På vei 16 pluss 24»
          * read. */
@@ -3060,11 +3176,56 @@ export const nb = {
     crumb: "Oversikt",
     /** The Lenke on the Klasseøkt. */
     open: "Oversikt",
+    /** «Start spill» (Story 8.10, FR-22, UX-DR52, EXPERIENCE.md → Spillstyring → Start): the header
+     * Lenke, the page and the result line on the Oversikt are the spine's; the empty line, the
+     * refusals and the failure are [ASSUMPTION] draft copy. */
+    start: {
+      /** «Start spill som ikke har startet (12)», not shown with 0. */
+      link: (n: number) => `Start spill som ikke har startet (${n})`,
+      title: "Start spill",
+      crumb: "Start spill",
+      consequence: "Spillene starter for alle i dem. Reglene for ventetid gjelder fra nå.",
+      /** The primary: «Start 12 spill». */
+      confirm: (n: number) => `Start ${n} spill`,
+      /** [ASSUMPTION] */
+      listLabel: "Spill som ikke har startet",
+      /** [ASSUMPTION] */
+      empty: "Ingen spill venter på start.",
+      /** On the Oversikt after the press: «12 spill er startet.» */
+      done: (n: number) => `${n} spill er startet.`,
+      /** [ASSUMPTION] */
+      failed: "Spillene ble ikke startet. Prøv igjen.",
+    },
+    /** «Sett inn KI-spillere» (Story 8.12, FR-37, UX-DR52, EXPERIENCE.md → Spillstyring → Fill
+     * waited-for Seats): the header Lenke, the page's lines, its primary and the result line on the
+     * Oversikt are the spine's; the list's label, the empty line and the failure are [ASSUMPTION]
+     * draft copy. */
+    fill: {
+      /** «Sett inn KI-spiller i alle seter som blir ventet på (9)», not shown with 0. */
+      link: (n: number) => `Sett inn KI-spiller i alle seter som blir ventet på (${n})`,
+      title: "Sett inn KI-spillere",
+      crumb: "Sett inn KI-spillere",
+      /** One waited-for Seat under its game: «Noah, 23 t». */
+      seat: (name: string, wait: string) => `${name}, ${wait}`,
+      consequence: "Studentene kan ta setene tilbake fra neste Uke.",
+      /** The primary: «Sett inn 9 KI-spillere». */
+      confirm: (n: number) => (n === 1 ? "Sett inn 1 KI-spiller" : `Sett inn ${n} KI-spillere`),
+      /** [ASSUMPTION] */
+      listLabel: "Seter som blir ventet på",
+      /** [ASSUMPTION] */
+      empty: "Ingen seter blir ventet på nå.",
+      /** On the Oversikt after the press: «9 KI-spillere er satt inn.» */
+      done: (n: number) => (n === 1 ? "1 KI-spiller er satt inn." : `${n} KI-spillere er satt inn.`),
+      /** [ASSUMPTION] */
+      failed: "KI-spillerne ble ikke satt inn. Prøv igjen.",
+    },
     /** «Klasseøkt 2, class-of-1994» beside the heading. */
     session: (number: number, className: string) => `Klasseøkt ${number}, ${className}`,
     counts: {
       finished: (n: number) => `${n} ferdig`,
       running: (n: number) => `${n} pågår`,
+      /** Story 8.6: «15 pågår (herav 2 pauset)», EXPERIENCE.md → Oversikt Live. */
+      runningPaused: (n: number, paused: number) => `${n} pågår (herav ${paused} pauset)`,
       waiting: (n: number) => `${n} venter`,
       /** [ASSUMPTION] Class games that have not started after the Start date. */
       notStarted: (n: number) => `${n} ikke startet`,
@@ -3072,12 +3233,21 @@ export const nb = {
     updated: (clock: string) => `Oppdatert ${clock}`,
     groups: {
       waiting: "Venter",
+      /** Story 8.6: between Venter and Pågår (EXPERIENCE.md → Oversikt → Grouping). */
+      paused: "Pause",
       running: "Pågår",
       /** [ASSUMPTION] */
       notStarted: "Ikke startet",
       finished: "Ferdig, lavest kjedekost øverst",
     },
+    /** «Pause siden ma. 14:10, satt av Sara.» (Story 8.6, EXPERIENCE.md → Spillinnsikt Paused, the
+     * Oversikt's «since when and by whom»): [ASSUMPTION] copy. Never a Week count. */
+    pausedSince: (since: string, name: string | null) =>
+      name ? `Pause siden ${since}, satt av ${name}.` : `Pause siden ${since}.`,
     game: (number: number | null) => gameName(number),
+    /** The wall's and the table's row label of a game marked «I rommet» (Story 8.11, FR-36,
+     * EXPERIENCE.md → Spillstyring → I rommet): «Spill 3 · I rommet». */
+    gameInRoom: (number: number | null) => `${gameName(number)} · I rommet`,
     week: (week: number) => `Uke ${week}`,
     /** «Venter på Noah (Grossist), 23 t». [ASSUMPTION] */
     waitingFor: (who: string, role: string, duration: string) => `Venter på ${who} (${role}), ${duration}`,
@@ -3086,6 +3256,11 @@ export const nb = {
     /** [ASSUMPTION] the wall row's note where the full one has no room (Story 7.6): «Venter, 23 t». */
     waitingShort: (duration: string) => `Venter, ${duration}`,
     seat: (role: string, holder: string) => `${role}: ${holder}`,
+    /** [ASSUMPTION] Story 8.3: an AI-held Seat with its AD-15 mark in the game list, «Fabrikk:
+     * KI-spiller (KI tok over etter ventetiden)», and in the wall row's note, «Fabrikk: KI tok over
+     * etter ventetiden». */
+    seatMarked: (role: string, holder: string, mark: string) => `${role}: ${holder} (${mark})`,
+    seatMark: (role: string, mark: string) => `${role}: ${mark}`,
     aiPlayer: "KI-spiller",
     /** [ASSUMPTION] a free Seat, before the lock gives it an AI player. */
     freeSeat: "Ledig",
@@ -3104,11 +3279,16 @@ export const nb = {
     empty: "Klasseøkten har ingen klassespill.",
     /** [ASSUMPTION] Story 7.2: the heading of the game list under the Matrisevegg. */
     listTitle: "Spill og seter",
-    /** The Varselbånd (Story 7.11, UX-DR45): «Spill 2 venter på Noah (Grossist) i 23 t.» is the
-     * spine's; the rest is [ASSUMPTION]. Epic 8 adds the countdown and its other actions. */
+    /** The Varselbånd (Stories 7.11 and 8.3, UX-DR45): «Spill 2 venter på Noah (Grossist) i 23 t.
+     * KI overtar om 1 t.» is the spine's; the rest is [ASSUMPTION]. Stories 8.5–8.7 add its other
+     * actions. */
     band: {
-      /** [ASSUMPTION] the band's accessible name. */
-      label: "Spillet som har ventet lengst",
+      /** [ASSUMPTION] the band's accessible name: the game an AI player takes over first. */
+      label: "Spillet nærmest at KI tar over",
+      /** The countdown after the wait, from the api's due time (Story 8.3): «KI overtar om 1 t.» */
+      takeover: (duration: string) => `KI overtar om ${duration}.`,
+      /** [ASSUMPTION] the due time has passed and the sweep acts within the minute. */
+      takeoverNow: "KI overtar nå.",
       text: (game: string, name: string | null, role: string, duration: string) =>
         name ? `${game} venter på ${name} (${role}) i ${duration}.` : `${game} venter på ${role} i ${duration}.`,
       /** [ASSUMPTION] read out when the band appears or changes game: the line without its duration. */
@@ -3144,6 +3324,10 @@ export const nb = {
         /** «Ida, Detaljist, 18 t». */
         who: (name: string, role: string, duration: string) => `${name}, ${role}, ${duration}`,
         whoRole: (role: string, duration: string) => `${role}, ${duration}`,
+        /** A Pause with an agreed time (Story 8.7, Epic 8 close-out): «Pause i Uke 29, fortsetter
+         * to. 19:00». [ASSUMPTION] the line without a Week. */
+        pausedUntil: (week: number | null, when: string) =>
+          week == null ? `Pause, fortsetter ${when}` : `Pause i Uke ${week}, fortsetter ${when}`,
         /** «22 KI-spillere i 17 spill, alle merket.»; [ASSUMPTION] the singular and none. */
         ai: (seats: number, games: number) =>
           seats === 0
@@ -3257,6 +3441,8 @@ export const nb = {
     status: {
       waiting: "Venter",
       running: "Pågår",
+      /** Story 8.6: a paused Class game. */
+      paused: "Pause",
       notStarted: "Ikke startet",
       finished: "Ferdig",
     },
@@ -3293,6 +3479,8 @@ export const nb = {
     status: {
       waiting: "Venter",
       running: "Pågår",
+      /** Story 8.6: a paused Class game. */
+      paused: "Pause",
       not_started: "Ikke startet",
       finished: "Ferdig",
     },
@@ -3365,8 +3553,15 @@ export const nb = {
       backlog: "Restordre",
       order: "Ordre",
       cost: "Kost, kr",
+      /** When the Week opened for the Seat, when its Order came and the time between (Story 8.1,
+       * FR-35). [ASSUMPTION] */
+      opened: "Uke åpnet",
+      ordered: "Bestilt",
+      took: "Tid brukt",
       marks: "Merknad",
     },
+    /** «18. nov. kl. 13:01», Europe/Oslo: when a Week opened or an Order came. [ASSUMPTION] */
+    at: (date: string, time: string) => `${date} kl. ${time}`,
     /** An Order not placed yet in the open Week, as read. */
     noOrder: "ikke lagt inn",
     /** The marks of the one AD-15 mapping, always in text (FR-34). */
@@ -3382,6 +3577,207 @@ export const nb = {
       fallback_invalid_output: "Reserveordre: KI ga ugyldig svar",
       fallback_budget_exhausted: "Reserveordre: KI-budsjettet var brukt opp",
       fallback_provider_error: "Reserveordre: feil hos KI-tjenesten",
+    },
+    /** A Takeover by a person, named at read time (Story 8.5, FR-37): «KI satt inn av Bård».
+     * [ASSUMPTION] */
+    markedBy: (name: string) => `KI satt inn av ${name}`,
+  },
+
+  /** Spillstyring on Spillinnsikt, and the Varselbånd's Takeover (Story 8.5, FR-37, UX-DR45,
+   * UX-DR52, EXPERIENCE.md → Spillstyring). */
+  spillstyring: {
+    title: "Spillstyring",
+    /** The secondary per-Seat button: «Sett inn KI-spiller for Jonas». */
+    takeover: (name: string) => `Sett inn KI-spiller for ${name}`,
+    /** The consequence directly above the button: the Student has not ordered this Uke… */
+    thisWeek: (name: string) =>
+      `KI-spilleren bestiller for ${name} fra denne Uka. ${name} kan ta setet tilbake fra neste Uke.`,
+    /** …or has. */
+    nextWeek: (name: string) => `KI-spilleren bestiller for ${name} fra neste Uke.`,
+    /** The result line that replaces the button and takes focus. */
+    done: (name: string) => `KI-spiller satt inn for ${name}.`,
+    /** A Seat row's name: «Fabrikk: Jonas». [ASSUMPTION] */
+    seat: (role: string, name: string) => `${role}: ${name}`,
+    /** A Seat with Tilrettelegging, for the Lecturer only (Story 8.9, UX-DR52, EXPERIENCE.md →
+     * Spillstyring → Manual Takeover): «Jonas har tilrettelegging med mer tid.» */
+    extraTime: (name: string) => `${name} har tilrettelegging med mer tid.`,
+    /** Who acted first, from the view read again (`takeover_exists`, EXPERIENCE.md → AI put in by
+     * two at once): «Sara har allerede satt inn en KI-spiller.» */
+    taken: (name: string) => `${name} har allerede satt inn en KI-spiller.`,
+    /** [ASSUMPTION] the automatic Takeover came first. */
+    takenBySystem: "KI-spilleren har allerede tatt over setet etter ventetiden.",
+    /** [ASSUMPTION] someone no longer named in the Class came first. */
+    takenByUnknown: "En KI-spiller er allerede satt inn.",
+    /** The other refusals. [ASSUMPTION] */
+    refusals: {
+      seat_not_student_held: "Ingen student har dette setet nå.",
+      game_not_running: "Spillet er ikke i gang.",
+      takeover_not_allowed: "KI-spiller kan ikke settes inn i dette spillet.",
+      /** The Student has ordered the game's last Uke: no Uke is left for a KI-spiller. */
+      order_exists: "Studenten har bestilt, og det er ingen neste Uke.",
+      play_deadline_passed: "Spillfristen er nådd, og KI-spillere har tatt over spillet.",
+    } as Record<string, string>,
+    /** [ASSUMPTION] */
+    failed: "KI-spilleren ble ikke satt inn. Prøv igjen.",
+    /** «Start spillet» (Story 8.10, FR-22, UX-DR52, EXPERIENCE.md → Spillstyring → Start): the
+     * button, its consequence and «Spillet er startet.» are the spine's; who started it first and
+     * the refusals are [ASSUMPTION] draft copy. */
+    start: {
+      consequence: "Spillet starter for alle fire. Reglene for ventetid gjelder fra nå.",
+      button: "Start spillet",
+      done: "Spillet er startet.",
+      /** Someone started it first, named from the view read again: «Spillet ble startet av Sara.» */
+      startedBy: (name: string) => `Spillet ble startet av ${name}.`,
+      /** …by no one the Class still names. */
+      startedAlready: "Spillet er allerede startet.",
+      refusals: {
+        game_not_ready: "Spillet kan ikke startes før Startdatoen.",
+      } as Record<string, string>,
+      failed: "Spillet ble ikke startet. Prøv igjen.",
+    },
+    /** «Sett inn KI-spiller i alle seter som blir ventet på (2)» on one game (Story 8.12, FR-37,
+     * UX-DR52): the button, «Ikke med (tilrettelegging): Jonas» and «2 KI-spillere satt inn.» are
+     * the spine's; the consequence line (EXPERIENCE.md has none, open-assumptions.md), the line
+     * when none was put in and the failure are [ASSUMPTION] draft copy. */
+    fill: {
+      button: (n: number) => `Sett inn KI-spiller i alle seter som blir ventet på (${n})`,
+      /** [ASSUMPTION] «KI-spillere bestiller for Noah og Emma fra denne Uka. Studentene kan ta
+       * setene tilbake fra neste Uke.» */
+      consequence: (names: string) =>
+        `KI-spillere bestiller for ${names} fra denne Uka. Studentene kan ta setene tilbake fra neste Uke.`,
+      /** The Seats left out: «Ikke med (tilrettelegging): Jonas». */
+      leftOut: (names: string) => `Ikke med (tilrettelegging): ${names}`,
+      /** The result line that replaces the button and takes focus: «2 KI-spillere satt inn.» */
+      done: (n: number) => (n === 1 ? "1 KI-spiller satt inn." : `${n} KI-spillere satt inn.`),
+      /** [ASSUMPTION] every Seat had ordered or been taken meanwhile. */
+      none: "Ingen KI-spillere satt inn. Setene blir ikke ventet på lenger.",
+      /** [ASSUMPTION] */
+      failed: "KI-spillerne ble ikke satt inn. Prøv igjen.",
+    },
+    /** The Lecturer's Pause (Story 8.7, FR-89, UX-DR52, EXPERIENCE.md → Spillstyring → Pause). */
+    pause: {
+      open: "Pause spillet",
+      change: "Endre avtalt tid",
+      end: "Avslutt pausen",
+      title: "Når fortsetter spillet?",
+      date: "Dato",
+      time: "Klokkeslett",
+      noTime: "Uten avtalt tid",
+      noTakeover: "Mens spillet har pause, tar ingen KI-spiller over setene. Spillfristen flyttes ikke.",
+      afterTime: "Etter avtalt tid kan studentene sette inn en KI-spiller for den som ikke har bestilt.",
+      /** The primary: «Ta pause til to. 19:00», «Ta pause uten avtalt tid», or «Ta pause til …»
+       * while no time is chosen yet: it names that a time comes (Epic 8 close-out, from the 8.7
+       * visual check). [ASSUMPTION] */
+      confirmAt: (when: string) => `Ta pause til ${when}`,
+      confirmNoTime: "Ta pause uten avtalt tid",
+      confirm: "Ta pause til …",
+      /** «Endre avtalt tid»'s primary. [ASSUMPTION] */
+      saveAt: (when: string) => `Lagre avtalt tid ${when}`,
+      saveNoTime: "Lagre uten avtalt tid",
+      save: "Lagre avtalt tid",
+      cancel: "Avbryt",
+      /** Spillinnsikt → Paused: «Pause siden ma. 14:10, satt av Sara.» or «… satt av deg.». */
+      since: (since: string, name: string | null) =>
+        name ? `Pause siden ${since}, satt av ${name}.` : `Pause siden ${since}.`,
+      sinceMine: (since: string) => `Pause siden ${since}, satt av deg.`,
+      /** [ASSUMPTION] the agreed time after the line. */
+      agreed: (when: string) => `Avtalt tid ${when}.`,
+      /** The result lines that replace the form and take focus. */
+      doneAt: (when: string) => `Pause til ${when} er satt.`,
+      /** [ASSUMPTION] */
+      doneNoTime: "Spillet har pause uten avtalt tid.",
+      /** [ASSUMPTION] */
+      ended: "Pausen er avsluttet.",
+      /** [ASSUMPTION] a time not after now, in a Class session with no Spillfrist. */
+      afterNow: "Velg et tidspunkt etter nå.",
+      /** [ASSUMPTION] someone paused first: the line read again says who. */
+      already: "Spillet har allerede pause.",
+      refusals: {
+        game_finished: "Spillet er ferdig.",
+        game_not_running: "Spillet er ikke i gang.",
+        pause_not_allowed: "Dette spillet kan ikke settes på pause.",
+        not_paused: "Spillet har ikke pause lenger.",
+        play_deadline_passed: "Spillfristen er nådd, og KI-spillere har tatt over spillet.",
+      } as Record<string, string>,
+      /** [ASSUMPTION] */
+      failed: "Det gikk ikke. Prøv igjen.",
+    },
+    /** «I rommet» (Story 8.11, FR-36, UX-DR52, EXPERIENCE.md → Spillstyring → I rommet): the
+     * button, the form's label, line and primary, the marked line, «Ikke i rommet lenger», «I rommet
+     * til 16:00.» and «Kan bare brukes i en Labtime.» are the spine's; the field's help and error,
+     * the ended line, the refusals and the failure are [ASSUMPTION] draft copy. */
+    inRoom: {
+      open: "Marker som i rommet",
+      /** Shown with the unavailable button outside every Labtime. */
+      onlyInLabHour: "Kan bare brukes i en Labtime.",
+      field: "Ventetid i rommet",
+      /** [ASSUMPTION] the field's unit and range, under its label. */
+      help: "Hele minutter, fra 2 til 120.",
+      /** [ASSUMPTION] the Ordrefelt error pattern. */
+      error: "Skriv et helt antall minutter fra 2 til 120.",
+      consequence: (until: string) =>
+        `Studentene i spillet ser den kortere ventetiden. Den gjelder til Labtimen slutter kl. ${until}.`,
+      /** The primary: «Marker som i rommet, 10 min»; without a valid number, without minutes. */
+      confirm: (minutes: number | null) =>
+        minutes === null ? "Marker som i rommet" : `Marker som i rommet, ${minutes}\u00a0min`,
+      cancel: "Avbryt",
+      /** «I rommet til 16:00. KI tar over etter 10 min uten ordre.» */
+      marked: (until: string, minutes: number) =>
+        `I rommet til ${until}. KI tar over etter ${minutes}\u00a0min uten ordre.`,
+      end: "Ikke i rommet lenger",
+      /** The result line that replaces the form and takes focus: «I rommet til 16:00.» */
+      done: (until: string) => `I rommet til ${until}.`,
+      /** [ASSUMPTION] */
+      ended: "Ikke i rommet lenger. Den vanlige ventetiden gjelder igjen.",
+      refusals: {
+        not_in_lab_hour: "Kan bare brukes i en Labtime.",
+        already_in_room: "Spillet er allerede markert som i rommet.",
+        not_in_room: "Spillet er ikke i rommet lenger.",
+        game_finished: "Spillet er ferdig.",
+        game_not_running: "Spillet er ikke i gang.",
+        in_room_not_allowed: "Dette spillet kan ikke markeres som i rommet.",
+        minutes_out_of_range: "Skriv et helt antall minutter fra 2 til 120.",
+      } as Record<string, string>,
+      /** [ASSUMPTION] */
+      failed: "Det gikk ikke. Prøv igjen.",
+    },
+  },
+
+  /** The Studentside (Story 8.9, UX-DR53, EXPERIENCE.md → Studentside and Tilrettelegging), for
+   * the Lecturers of the Class: for now the block «Tilrettelegging»; Story 13.2 adds its own. */
+  reports: {
+    studentPage: {
+      /** The crumb and the link from Spillinnsikt are the Student's name. */
+      linkLabel: (name: string) => `Studentside for ${name}`,
+      /** [ASSUMPTION] the line under the name. */
+      session: (number: number) => `Klasseøkt ${number}`,
+    },
+    /** The block (EXPERIENCE.md → Tilrettelegging): the idle lines, the form, «Lagret. Gjelder fra
+     * nå.» are the spine's; the refusals and the failure are [ASSUMPTION] draft copy. */
+    adjustment: {
+      title: "Tilrettelegging",
+      none: "Ingen tilrettelegging.",
+      /** «Mer tid: 2 ×.» */
+      moreTime: (factor: string) => `Mer tid: ${factor}.`,
+      /** «Andel uker: 60 %.» */
+      share: (percent: string) => `Andel uker: ${percent}.`,
+      change: "Endre tilrettelegging",
+      factorLegend: "Mer tid før KI tar over",
+      asClass: "Som klassen",
+      shareLabel: "Andel uker som kreves",
+      /** The help line: «Klassen: 80 %.» */
+      classShare: (percent: string) => `Klassen: ${percent}.`,
+      /** «Skriv et helt tall fra 0 til 80.» */
+      shareError: (max: number) => `Skriv et helt tall fra 0 til ${max}.`,
+      /** «Gjelder bare Jonas, fra nå. Ingen andre studenter ser det. Endringen logges.» */
+      scope: (name: string) => `Gjelder bare ${name}, fra nå. Ingen andre studenter ser det. Endringen logges.`,
+      save: "Lagre tilrettelegging",
+      cancel: "Avbryt",
+      saved: "Lagret. Gjelder fra nå.",
+      refusals: {
+        invalid_adjustment: "Sjekk feltene.",
+      } as Record<string, string>,
+      failed: "Tilretteleggingen ble ikke lagret. Prøv igjen.",
     },
   },
 

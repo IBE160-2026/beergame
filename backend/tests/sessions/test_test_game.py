@@ -81,7 +81,7 @@ async def test_only_the_owner_starts_one_and_only_before_the_start_date(klass, m
     # A start that fails after the Game was stored: the next press starts that Game, no second.
     real_start = games_commands.start
 
-    async def failing(game_id: str) -> int:
+    async def failing(game_id: str, *, actor=None) -> int:
         raise RuntimeError("the start failed")
 
     monkeypatch.setattr(games_commands, "start", failing)

@@ -14,6 +14,8 @@ const PASSWORD = "spill-passord-1";
 
 export type LiveStudent = { email: string; name: string; context: BrowserContext };
 export type LiveGame = { gameId: string; sessionId: string; students: LiveStudent[] };
+/** With `start: false` (Story 8.10): the locked Class session's games, not started, by game number. */
+export type LockedGames = { gameIds: string[]; sessionId: string; students: LiveStudent[] };
 
 /** `count` fresh Students in a fresh Class of `lecturerSession`, logged in each in a context of
  * its own at `width`; the rest of the game's Seats are AI players of the session's AI mode. */
@@ -35,6 +37,61 @@ export async function liveClassGame(
     gameSettings?: Record<string, unknown>;
   } = {},
 ): Promise<LiveGame> {
+  const locked = await lockedClassGames(browser, lecturerSession, count, {
+    aiMode,
+    width,
+    gameSettings,
+    debriefMode,
+  });
+  const { sessionId, students } = locked;
+  // Each Student's Starting task, the Students side by side (each answers its own Seat's items).
+  const gameIds = new Set<string>();
+  await Promise.all(
+    students.map(async (student) => {
+      const sessions = await (await student.context.request.get("/api/me/class-sessions")).json();
+      const item = (sessions.items as { id: string; game: { id: string } | null }[]).find((s) => s.id === sessionId)!;
+      const gameId = item.game!.id;
+      gameIds.add(gameId);
+      const task = await (await student.context.request.get(`/api/me/games/${gameId}/starting-task`)).json();
+      for (const each of task.items as { id: string }[]) {
+        const answered = await student.context.request.post(`/api/me/games/${gameId}/starting-task/answers`, {
+          data: { item_id: each.id, answer: 0 },
+          headers: CSRF,
+        });
+        expect(answered.status()).toBe(200);
+      }
+      const done = await student.context.request.post(`/api/me/games/${gameId}/starting-task/final`, {
+        data: { choice: "skipped" },
+        headers: CSRF,
+      });
+      expect(done.status()).toBe(200);
+    }),
+  );
+  expect(gameIds.size, "every Student holds a Seat in the one Class game").toBe(1);
+  const [gameId] = [...gameIds] as [string];
+  const started = await students[0]!.context.request.post(`/api/me/games/${gameId}/start`, { headers: CSRF });
+  expect(started.status()).toBe(200);
+  return { gameId, sessionId, students };
+}
+
+/** As `liveClassGame`, up to the lock (Story 8.10): the Class session's games have their snapshot
+ * and none has started; `count` Students fill as many games as the allocation draws. */
+export async function lockedClassGames(
+  browser: Browser,
+  lecturerSession: Session,
+  count: number,
+  {
+    aiMode = "llm",
+    width = 360,
+    gameSettings = {},
+    debriefMode,
+  }: {
+    aiMode?: "llm" | "rule_based";
+    width?: number;
+    gameSettings?: Record<string, unknown>;
+    debriefMode?: "group" | "personal";
+  } = {},
+): Promise<LockedGames> {
   const lecturer = await lecturerPage(browser, lecturerSession, { width: 1280, height: 800 });
   try {
     const klass = await freshClass(lecturer);
@@ -92,35 +149,10 @@ export async function liveClassGame(
     expect(confirmed.ok()).toBe(true);
     const locked = await lecturer.request.post(`/api/dev/class-sessions/${sessionId}/lock`, { headers: CSRF });
     expect(locked.status()).toBe(200);
-
-    // Each Student's Starting task, the Students side by side (each answers its own Seat's items).
-    const gameIds = new Set<string>();
-    await Promise.all(
-      students.map(async (student) => {
-        const sessions = await (await student.context.request.get("/api/me/class-sessions")).json();
-        const item = (sessions.items as { id: string; game: { id: string } | null }[]).find((s) => s.id === sessionId)!;
-        const gameId = item.game!.id;
-        gameIds.add(gameId);
-        const task = await (await student.context.request.get(`/api/me/games/${gameId}/starting-task`)).json();
-        for (const each of task.items as { id: string }[]) {
-          const answered = await student.context.request.post(`/api/me/games/${gameId}/starting-task/answers`, {
-            data: { item_id: each.id, answer: 0 },
-            headers: CSRF,
-          });
-          expect(answered.status()).toBe(200);
-        }
-        const done = await student.context.request.post(`/api/me/games/${gameId}/starting-task/final`, {
-          data: { choice: "skipped" },
-          headers: CSRF,
-        });
-        expect(done.status()).toBe(200);
-      }),
-    );
-    expect(gameIds.size, "every Student holds a Seat in the one Class game").toBe(1);
-    const [gameId] = [...gameIds] as [string];
-    const started = await students[0]!.context.request.post(`/api/me/games/${gameId}/start`, { headers: CSRF });
-    expect(started.status()).toBe(200);
-    return { gameId, sessionId, students };
+    const games = await (
+      await lecturer.request.get(`/api/class-sessions/${sessionId}/start-games`, { headers: CSRF })
+    ).json();
+    return { gameIds: (games.games as { game_id: string }[]).map((g) => g.game_id), sessionId, students };
   } finally {
     await lecturer.context().close();
   }

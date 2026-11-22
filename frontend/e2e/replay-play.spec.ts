@@ -61,7 +61,7 @@ test.afterEach(async ({ page }) => {
   await page.unrouteAll({ behavior: "ignoreErrors" });
 });
 
-const REPLAY: Envelope = { ...CLASS, projection: true, table_status: { seats: AI_SEATS as Envelope["table_status"]["seats"] } };
+const REPLAY: Envelope = { ...CLASS, projection: true, table_status: { seats: AI_SEATS as Envelope["table_status"]["seats"], can_pause: false } };
 
 test.describe("1280 px at 200 % text", () => {
   test.use({ viewport: { width: 1280, height: 800 } });

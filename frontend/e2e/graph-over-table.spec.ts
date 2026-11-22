@@ -85,8 +85,10 @@ for (const vp of VIEWPORTS) {
       test(`${when}: every mark within 1 px of its column, labels apart, readable, accessible`, async ({ page }) => {
         await openPlay(page, envelope, vp.text200);
         const week = envelope.seat_state.week;
+        // The graph measures itself again after the fonts and the scrollbar settle; under load
+        // that can come after the first look (Epic 8 close-out, a flake in the full run).
+        await expect.poll(async () => (await alignment(page)).off).toEqual([]);
         const found = await alignment(page);
-        expect(found.off).toEqual([]);
         expect(found.worst).toBeLessThanOrEqual(1);
         expect(found.nowLine).toBeLessThanOrEqual(1);
         // Both lines stop at nå; nothing is drawn right of it.

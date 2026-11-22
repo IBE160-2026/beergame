@@ -29,6 +29,12 @@ const seat = (over: Partial<Seat>): Seat => ({
   ordered: null,
   wait_started_at: null,
   mark: null,
+  taken_over: false,
+  ordering_for: null,
+  guard_switched: false,
+  reclaim_queued: false,
+  can_insert: false,
+  insert_agreed: false,
   ...over,
 });
 
@@ -42,6 +48,9 @@ describe("Hjem's game card (Story 6.1)", () => {
       replay: false,
       class_session_id: "s",
       seats: [],
+      obligatory: false,
+      can_pause: false,
+      played_out: false,
       briefing_first: true,
       rules: {
         order_delay: 2,
@@ -197,6 +206,11 @@ describe("Hjem's Spillkort state (Story 6.17, UX-DR28)", () => {
     expect(cardState(running(false, { briefing_first: true }))).toBeNull();
     expect(cardState(running(null))).toBeNull();
     expect(cardState({ ...running(false), seats: [seat({ ordered: false })] })).toBeNull();
+  });
+
+  it("has no card once an AI player took the Student's Seat over (Story 8.2)", () => {
+    const taken = seat({ mine: true, holder: "ai", name: null, ordered: true, taken_over: true });
+    expect(cardState({ ...running(true), seats: [taken] })).toBeNull();
   });
 
   it("says the hidden graph's value at nå in words, with a true minus", () => {

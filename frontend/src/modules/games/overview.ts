@@ -1,6 +1,7 @@
 import { nb } from "@/copy/nb";
 import { formatNumber, KRONER } from "@/lib/number-format";
 import { messagePath } from "@/modules/identity/homes";
+import { osloWeekdayTime } from "@/modules/sessions/dates";
 import { roleName } from "@/modules/sessions/sessions";
 
 import type { WallSummary } from "@/components/charts/matrix-median";
@@ -9,19 +10,23 @@ import type { TableSort } from "@/components/charts/matrix-table-sort";
 import type { WallGroup, WallLink, WallRow } from "@/components/charts/matrix-wall";
 
 import type { ClassOverview, GameWeeks, OverviewGame, WallAggregates, WallFilter } from "./api";
+import { markWords } from "./insight";
 import { waitDuration } from "./seat-status";
 import type { WallCells, WallRole } from "./wall-copy";
 
 const copy = nb.overview;
 const wall = nb.wall;
 
-export type GroupName = "waiting" | "running" | "notStarted" | "finished";
+export type GroupName = "waiting" | "paused" | "running" | "notStarted" | "finished";
 export type OverviewGroup = { name: GroupName; title: string; games: OverviewGame[] };
 
-/** «41 ferdig · 15 pågår · 4 venter», with «· 3 ikke startet» only when some have not started
- * (FR-39). The counts are the api's; nothing here counts Weeks or hints at a game's length. */
+/** «41 ferdig · 15 pågår (herav 2 pauset) · 4 venter», with «· 3 ikke startet» only when some have
+ * not started (FR-39) and «(herav n pauset)» only when some are paused (Story 8.6). The counts are
+ * the api's; nothing here counts Weeks or hints at a game's length. */
 export function headline(counts: ClassOverview["counts"]): string {
-  const parts = [copy.counts.finished(counts.finished), copy.counts.running(counts.running), copy.counts.waiting(counts.waiting)];
+  const running =
+    counts.paused > 0 ? copy.counts.runningPaused(counts.running, counts.paused) : copy.counts.running(counts.running);
+  const parts = [copy.counts.finished(counts.finished), running, copy.counts.waiting(counts.waiting)];
   if (counts.not_started > 0) parts.push(copy.counts.notStarted(counts.not_started));
   return parts.join(" · ");
 }
@@ -30,8 +35,9 @@ const time = (iso: string | null | undefined) => (iso ? Date.parse(iso) : Number
 const cost = (game: OverviewGame) => (game.chain_cost == null ? Number.POSITIVE_INFINITY : Number(game.chain_cost));
 const number = (game: OverviewGame) => game.game_number ?? Number.POSITIVE_INFINITY;
 
-/** The rows the api sent, grouped by status in the order Venter, Pågår, Ikke startet, Ferdig, each
- * header with its count (UX-DR40). Venter puts the longest wait first, Ferdig the lowest chain
+/** The rows the api sent, grouped by status in the order Venter, Pause, Pågår, Ikke startet,
+ * Ferdig, each header with its count (UX-DR40; Pause from Story 8.6, so a paused game never drops
+ * out). Venter puts the longest wait first, Pause the one paused longest, Ferdig the lowest chain
  * cost; the others keep the game number. Empty groups are left out. Only groups and sorts what it
  * received (AD-10). */
 export function groupsOf(games: readonly OverviewGame[]): OverviewGroup[] {
@@ -42,6 +48,11 @@ export function groupsOf(games: readonly OverviewGame[]): OverviewGroup[] {
       name: "waiting",
       title: copy.groups.waiting,
       games: pick("waiting").sort((a, b) => time(a.wait_started_at) - time(b.wait_started_at) || byNumber(a, b)),
+    },
+    {
+      name: "paused",
+      title: copy.groups.paused,
+      games: pick("paused").sort((a, b) => time(a.paused_at) - time(b.paused_at) || byNumber(a, b)),
     },
     { name: "running", title: copy.groups.running, games: pick("running").sort(byNumber) },
     { name: "notStarted", title: copy.groups.notStarted, games: pick("not_started").sort(byNumber) },
@@ -135,6 +146,16 @@ export function waitLines(game: OverviewGame, now: number): string[] {
   });
 }
 
+/** What a game's row says beside its numbers: «Venter på …» per Seat it waits for (`waitLines`),
+ * or, while it is paused, «Pause siden ma. 14:10, satt av Sara.» (Story 8.6): since when and by
+ * whom, in Europe/Oslo, from the api's `paused_at` and name. */
+export function statusLines(game: OverviewGame, now: number): string[] {
+  if (game.status === "paused" && game.paused_at) {
+    return [copy.pausedSince(osloWeekdayTime(game.paused_at), game.paused_by ?? null)];
+  }
+  return waitLines(game, now);
+}
+
 /** «23 t»: how long the game's longest wait has lasted at `now` (its earliest `since`). */
 function longestWait(game: OverviewGame, now: number): string {
   const since = Math.min(...game.waiting_for.map((wait) => Date.parse(wait.since)).filter((ms) => !Number.isNaN(ms)));
@@ -142,13 +163,22 @@ function longestWait(game: OverviewGame, now: number): string {
 }
 
 /** «Fabrikk: Mikkel», «Grossist: KI-spiller», «Detaljist: Ledig», in the order the api sent
- * (Fabrikk first). */
+ * (Fabrikk first); an AI player with a mark says why it holds the Seat, in text (Story 8.3,
+ * FR-34): «Grossist: KI-spiller (KI tok over etter ventetiden)». */
 export function seatTexts(game: OverviewGame): string[] {
   return game.seats.map((seat) => {
+    const role = roleName(seat.role);
+    if (seat.holder === "ai" && seat.mark) return copy.seatMarked(role, copy.aiPlayer, markWords(seat.mark, seat.mark_by));
     const holder =
       seat.holder === "ai" ? copy.aiPlayer : seat.holder === "free" ? copy.freeSeat : (seat.name ?? copy.unknownStudent);
-    return copy.seat(roleName(seat.role), holder);
+    return copy.seat(role, holder);
   });
+}
+
+/** «Grossist: KI tok over etter ventetiden» for each AI-held Seat with a mark (Story 8.3): the
+ * wall row's note names the Takeover and its reason in text. */
+export function seatMarks(game: OverviewGame): string[] {
+  return game.seats.flatMap((seat) => (seat.holder === "ai" && seat.mark ? [copy.seatMark(roleName(seat.role), markWords(seat.mark, seat.mark_by))] : []));
 }
 
 /** «1 058 kr»: the chain's Total cost so far in whole kroner; null when there is none yet. */
@@ -178,6 +208,7 @@ export const DEFAULT_WALL_FILTER: WallFilter = { role: DEFAULT_WALL_ROLE, cells:
 
 const STATUS_WORD: Record<OverviewGame["status"], string> = {
   waiting: wall.status.waiting,
+  paused: wall.status.paused,
   running: wall.status.running,
   not_started: wall.status.notStarted,
   finished: wall.status.finished,
@@ -211,8 +242,12 @@ export type StatusFilter = WallFilter["status"];
 
 const hasAi = (game: OverviewGame) => game.seats.some((seat) => seat.holder === "ai");
 
-const GROUP_STATUS: Record<GroupName, OverviewGame["status"]> = {
+/** The Status filter a group answers to. «Pause n» is a choice of its own (mockup 08, DESIGN.md →
+ * `wall-filters`), so «Pågår» takes the running games only; the headline still reads «15 pågår
+ * (herav 2 pauset)» (Story 8.6). */
+const GROUP_STATUS: Record<GroupName, StatusFilter> = {
   waiting: "waiting",
+  paused: "paused",
   running: "running",
   notStarted: "not_started",
   finished: "finished",
@@ -236,6 +271,7 @@ export function statusCounts(games: readonly OverviewGame[]): Record<StatusFilte
   return {
     all: games.length,
     waiting: count("waiting"),
+    paused: count("paused"),
     running: count("running"),
     not_started: count("not_started"),
     finished: count("finished"),
@@ -262,13 +298,19 @@ export function messageLink(sessionId: string, game: OverviewGame): WallLink {
 }
 
 /**
- * The Varselbånd's line (Story 7.11, UX-DR45): «Spill 2 venter på Noah (Grossist) i 23 t.», the
- * wait counted from the api's `since` at `now` (ms on the server's clock); a Student no longer in
- * the Class is named by Role.
+ * The Varselbånd's line (Stories 7.11 and 8.3, UX-DR45): «Spill 2 venter på Noah (Grossist) i 23 t.
+ * KI overtar om 1 t.», the wait counted from the api's `since` and the countdown to its
+ * `takeover_due_at`, both at `now` (ms on the server's clock, AD-20); «KI overtar nå.» once the due
+ * time has passed, and no countdown when the api sent none. A Student no longer in the Class is
+ * named by Role.
  */
 export function bandText(alert: NonNullable<OverviewAlert>, now: number): string {
   const duration = waitDuration(Math.max(0, now - Date.parse(alert.since)));
-  return copy.band.text(copy.game(alert.game_number ?? null), alert.name, roleName(alert.role), duration);
+  const waiting = copy.band.text(copy.game(alert.game_number ?? null), alert.name, roleName(alert.role), duration);
+  const due = alert.takeover_due_at ? Date.parse(alert.takeover_due_at) : Number.NaN;
+  if (Number.isNaN(due)) return waiting;
+  const left = due - now;
+  return `${waiting} ${left > 0 ? copy.band.takeover(waitDuration(left)) : copy.band.takeoverNow}`;
 }
 
 /** What is announced when the band appears or names another game or Student: the line without
@@ -301,17 +343,17 @@ export function wallGroups(
     key: group.name,
     title: `${group.title} ${group.games.length}`,
     rows: group.games.map((game): WallRow => {
-      const label = copy.game(game.game_number ?? null);
-      const waits = waitLines(game, now);
+      const label = rowLabel(game);
+      const waits = statusLines(game, now);
       const cost = costText(game);
-      const status = waits.length > 0 ? waits.join("; ") : STATUS_WORD[game.status];
+      const status = [...(waits.length > 0 ? waits : [STATUS_WORD[game.status]]), ...seatMarks(game)].join("; ");
       const found = weeks.get(game.game_id);
       return {
         id: game.game_id,
         label,
         figure: game.chain_cost == null ? undefined : formatNumber(game.chain_cost, { decimals: 0 }),
         detail: status,
-        shortDetail: waits.length > 0 ? copy.waitingShort(longestWait(game, now)) : status,
+        shortDetail: game.waiting_for.length > 0 ? copy.waitingShort(longestWait(game, now)) : STATUS_WORD[game.status],
         rowName: wall.rowName([label, status.charAt(0).toLowerCase() + status.slice(1), ...(cost ? [wall.chainCost(cost)] : [])]),
         values: cellValues(found?.data, role, cells),
         loading: !found?.data && !found?.failed && game.status !== "not_started",
@@ -319,6 +361,12 @@ export function wallGroups(
       };
     }),
   }));
+}
+
+/** A game's row label on the wall and in the table: «Spill 3», and «Spill 3 · I rommet» while the
+ * api says it is marked as played in the room (Story 8.11, `in_room_until`). */
+export function rowLabel(game: OverviewGame): string {
+  return game.in_room_until ? copy.gameInRoom(game.game_number ?? null) : copy.game(game.game_number ?? null);
 }
 
 function rowExtras(game: OverviewGame, actions: RowActions | undefined): { tint?: boolean; link?: WallLink } {
@@ -438,7 +486,7 @@ export function tableRows(
       const since = game.waiting_for.map((wait) => Date.parse(wait.since)).filter((ms) => !Number.isNaN(ms));
       return {
         id: game.game_id,
-        label: copy.game(game.game_number ?? null),
+        label: rowLabel(game),
         cells: {
           status: STATUS_WORD[game.status],
           wait: waitTexts(game, now).join("; "),
@@ -465,10 +513,24 @@ export type WaitingRow = { id: string; game: string; who: string[] };
 /**
  * «Venter ellers» (Story 7.6, UX-DR40): the waiting games as the Venter group orders them, longest
  * wait first, each with whom it waits for and for how long at `now`, leaving out the Varselbånd's
- * game (`alertId`, Story 7.11, UX-DR45). Reads the groups it is given.
+ * game (`alertId`, Story 7.11, UX-DR45). Then the paused games with an agreed time, the soonest
+ * first: «Pause i Uke 29, fortsetter to. 19:00» (Story 8.7, Epic 8 close-out). Reads the groups it
+ * is given.
  */
 export function waitingElsewhere(groups: readonly OverviewGroup[], now: number, alertId: string | null = null): WaitingRow[] {
   const waiting = groups.find((group) => group.name === "waiting")?.games ?? [];
+  const agreed = (groups.find((group) => group.name === "paused")?.games ?? [])
+    .filter((game) => game.resume_at != null && game.game_id !== alertId)
+    .sort((a, b) => Date.parse(a.resume_at!) - Date.parse(b.resume_at!))
+    .map((game) => ({
+      id: game.game_id,
+      game: copy.game(game.game_number ?? null),
+      who: [rail.waiting.pausedUntil(game.week ?? null, osloWeekdayTime(game.resume_at!))],
+    }));
+  return [...waitingRows(waiting, now, alertId), ...agreed];
+}
+
+function waitingRows(waiting: readonly OverviewGame[], now: number, alertId: string | null): WaitingRow[] {
   return waiting.filter((game) => game.game_id !== alertId).map((game) => ({
     id: game.game_id,
     game: copy.game(game.game_number ?? null),

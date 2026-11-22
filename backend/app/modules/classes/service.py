@@ -636,6 +636,33 @@ async def student_names(
     return await identity.student_names(class_id, user_ids, session=session)
 
 
+async def actor_names(
+    session: AsyncSession, class_id: uuid.UUID, user_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, str]:
+    """The names now of those of `user_ids` who are staff (Lecturers and Assistant lecturers) or
+    Students of the Class (Story 8.5, AD-12, AD-14): who put an AI player in a Seat. Anyone else,
+    and a staff member with no name, is left out. The caller has checked that the User may read
+    the Class."""
+    if not user_ids:
+        return {}
+    wanted = set(user_ids)
+    staff = [row["user_id"] for row in await repo.staff_of(session, class_id)]
+    on_staff = sorted(wanted.intersection(staff), key=str)
+    found = (
+        {
+            person.id: person.name
+            for person in (await identity.people(session, on_staff)).values()
+            if person.name
+        }
+        if on_staff
+        else {}
+    )
+    rest = sorted(wanted - found.keys(), key=str)
+    if rest:
+        found.update(await identity.student_names(class_id, rest, session=session))
+    return found
+
+
 async def owners_of(session: AsyncSession, class_id: uuid.UUID) -> list[uuid.UUID]:
     """The ids of the Class's owners and co-owners (Story 5.11: who is told that a Class session
     cannot lock). Assistant lecturers are not among them."""

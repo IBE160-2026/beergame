@@ -70,12 +70,37 @@ export const LANDING_RULES = [
   },
 ];
 
-/** Rule ids the text breaks. `landing` adds the Landing's content rules. */
-export function checkText(text, { preDebrief = true, landing = false } = {}) {
-  return [...RULES, ...(landing ? LANDING_RULES : [])]
+/**
+ * The Takeover requirement warning (Story 8.2, FR-17, FR-14) must never reveal how many Uker the
+ * game has or has left: no digit and no «uke» in it. It is built in exactly two places, the
+ * `requirementWarning` copy in nb.ts and the mail macro `_takeover_warning.j2`, and only those
+ * are held to this rule.
+ */
+export const WARNING_KEY = "requirementWarning";
+export const WARNING_TEMPLATE = "_takeover_warning.j2";
+export const WARNING_RULE = {
+  id: "takeover-warning-weeks",
+  message: "tall eller uker i advarselen om kravet",
+  pattern: new RegExp(`\\d|${NOT_LETTER_BEFORE}uke`, "iu"),
+};
+
+/** Rule ids the text breaks. `landing` adds the Landing's content rules; `warning` the Takeover
+ * warning's. */
+export function checkText(text, { preDebrief = true, landing = false, warning = false } = {}) {
+  return [...RULES, ...(landing ? LANDING_RULES : []), ...(warning ? [WARNING_RULE] : [])]
     .filter((rule) => preDebrief || !rule.preDebriefOnly)
     .filter((rule) => rule.pattern.test(rule.prepare ? rule.prepare(text) : text))
     .map((rule) => rule.id);
+}
+
+/** The name of the property the node's text is the value of (the nearest enclosing one). */
+function ownKey(node) {
+  for (let n = node.parent; n; n = n.parent) {
+    if (ts.isPropertyAssignment(n) && n.name && (ts.isIdentifier(n.name) || ts.isStringLiteral(n.name))) {
+      return n.name.text;
+    }
+  }
+  return undefined;
 }
 
 function topLevelSection(node) {
@@ -97,7 +122,7 @@ export function stringsFromSource(source, fileName = "copy.tsx") {
   const push = (node, text) => {
     if (text.trim() === "") return;
     const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
-    out.push({ text, line, section: topLevelSection(node) });
+    out.push({ text, line, section: topLevelSection(node), key: ownKey(node) });
   };
   const visit = (node) => {
     if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) return;
@@ -176,7 +201,9 @@ export function checkRepo(root = REPO_ROOT) {
     for (const s of stringsFromSource(fs.readFileSync(file, "utf8"), file)) {
       const preDebrief = !POST_DEBRIEF_SECTIONS.has(s.section);
       const landing = s.section === LANDING_SECTION;
-      for (const rule of checkText(s.text, { preDebrief, landing })) findings.push({ file, line: s.line, rule, text: s.text });
+      const warning = s.key === WARNING_KEY;
+      for (const rule of checkText(s.text, { preDebrief, landing, warning }))
+        findings.push({ file, line: s.line, rule, text: s.text });
     }
   }
   // The print route renders the Student report, which comes after the Debrief.
@@ -188,8 +215,10 @@ export function checkRepo(root = REPO_ROOT) {
   // Mail templates (Invitation, password reset, notices) reach people before the Debrief.
   for (const file of files.templates) {
     const lines = textFromTemplate(fs.readFileSync(file, "utf8")).split("\n");
+    const warning = path.basename(file) === WARNING_TEMPLATE;
     lines.forEach((text, i) => {
-      for (const rule of checkText(text, { preDebrief: true })) findings.push({ file, line: i + 1, rule, text: text.trim() });
+      for (const rule of checkText(text, { preDebrief: true, warning }))
+        findings.push({ file, line: i + 1, rule, text: text.trim() });
     });
   }
   return findings;
@@ -197,7 +226,7 @@ export function checkRepo(root = REPO_ROOT) {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const findings = checkRepo();
-  const messages = Object.fromEntries([...RULES, ...LANDING_RULES].map((r) => [r.id, r.message]));
+  const messages = Object.fromEntries([...RULES, ...LANDING_RULES, WARNING_RULE].map((r) => [r.id, r.message]));
   for (const f of findings) {
     console.error(`${path.relative(REPO_ROOT, f.file)}:${f.line}: ${messages[f.rule]}: ${JSON.stringify(f.text)}`);
   }

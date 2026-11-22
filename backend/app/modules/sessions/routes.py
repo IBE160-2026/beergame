@@ -28,8 +28,9 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse, Response
 
 from app.engine.settings import Role
-from app.modules.sessions import overview, service
+from app.modules.sessions import adjustments, overview, service
 from app.modules.sessions.schemas import (
+    AdjustmentIn,
     AllocationConfirmIn,
     AllocationMoveIn,
     AllocationOut,
@@ -43,9 +44,12 @@ from app.modules.sessions.schemas import (
     CopySourceListOut,
     DemandSeriesOut,
     EnrolledSessionListOut,
+    FilledSeatsOut,
+    FillSeatsIn,
     GameInsightOut,
     GameResultOut,
     GameWeeksOut,
+    InRoomIn,
     LabHourIn,
     LabHourOut,
     LecturerOverviewOut,
@@ -56,10 +60,16 @@ from app.modules.sessions.schemas import (
     SeatChoiceOut,
     SettingsCheckIn,
     SettingsCheckOut,
+    StaffPauseIn,
+    StartedGamesOut,
     StartedTestGameOut,
+    StartGamesIn,
+    StartGamesOut,
     StudentGameOut,
+    StudentPageOut,
     TestGameIn,
     TimeProposalIn,
+    WaitedForSeatsOut,
     WallAggregatesOut,
     WallCells,
     WallStatus,
@@ -321,6 +331,279 @@ async def get_game_insight(
     if _not_modified(request, etag):
         return Response(status_code=304, headers=headers)
     return JSONResponse(found.model_dump(mode="json"), headers=headers)
+
+
+@router.post(
+    "/games/{game_id}/seats/{role}/takeover",
+    response_model=GameInsightOut,
+    responses=documented(401, 403, 409),
+    operation_id="takeOverSeat",
+)
+async def take_over_seat(
+    game_id: str,
+    role: Role,
+    user: Annotated[authz.Principal, Depends(authz.require("games.takeover"))],
+) -> Response:
+    """«Sett inn KI-spiller for …» (Story 8.5, FR-37, AD-2, AD-12): a Lecturer or Assistant
+    lecturer of the game's Class puts an AI player in the Student's Seat `role`, from this Uke when
+    the Student has not ordered in it, else from the next. One press, no dialog; recorded in the
+    audit log. Answers Spillinnsikt as it now stands. 409 `takeover_exists` with `fields.acted_by`
+    (`kind` `staff`, `student` or `system`, and `user_id`) and `fields.acted_at` when an AI player
+    was put in first; `seat_not_student_held`, `game_not_running` or `takeover_not_allowed`.
+    403 `forbidden` for anyone not staff of the game's Class and any Game the Oversikt does not
+    list (FR-5)."""
+    try:
+        found = await overview.take_over_seat(user, _id(game_id), role)
+    except overview.TakeoverRefused as refused:
+        if refused.code == "seat_not_found":
+            raise authz.Forbidden from None
+        return error_response(
+            refused.status, refused.code, "The AI player was not put in.", refused.fields
+        )
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+def _pause_answer(found: GameInsightOut | None) -> Response:
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+def _pause_refused(refused: overview.PauseRefused, message: str) -> Response:
+    return error_response(refused.status, refused.code, message, refused.fields)
+
+
+@router.post(
+    "/games/{game_id}/pause",
+    response_model=GameInsightOut,
+    responses=documented(401, 403, 409, 422),
+    operation_id="pauseGame",
+)
+async def pause_game(
+    game_id: str,
+    body: StaffPauseIn,
+    user: Annotated[authz.Principal, Depends(authz.require("games.pause"))],
+) -> Response:
+    """«Pause spillet» (Story 8.7, FR-89, AD-2, AD-12): a Lecturer of the game's Class pauses it,
+    with the agreed time `resume_at` or without one; no AI player takes a Seat over while it is
+    paused, the Play deadline stands, and the agreed time becomes the insert time of every Seat
+    that has not ordered this Uke. Recorded in the audit log. Answers Spillinnsikt as it now
+    stands. 422 `time_out_of_range` unless the time lies after now and not after the Play
+    deadline; 409 `already_paused` with `fields.acted_by` (`kind`, `user_id`) and
+    `fields.acted_at`, `game_not_running`, `game_finished` or `pause_not_allowed`. 403 `forbidden`
+    for anyone but a Lecturer of the game's Class (an Assistant lecturer included) and any Game
+    the Oversikt does not list (FR-5)."""
+    try:
+        found = await overview.pause_game(user, _id(game_id), body.resume_at)
+    except overview.PauseRefused as refused:
+        return _pause_refused(refused, "The game was not paused.")
+    return _pause_answer(found)
+
+
+@router.put(
+    "/games/{game_id}/pause/agreed-time",
+    response_model=GameInsightOut,
+    responses=documented(401, 403, 409, 422),
+    operation_id="setPauseAgreedTime",
+)
+async def set_pause_agreed_time(
+    game_id: str,
+    body: StaffPauseIn,
+    user: Annotated[authz.Principal, Depends(authz.require("games.pause"))],
+) -> Response:
+    """«Endre avtalt tid» (Story 8.7, FR-89): a Lecturer of the game's Class sets, changes or
+    (`resume_at` null) clears the agreed time of the Pause in force, also of one a Student set.
+    Recorded in the audit log. Answers Spillinnsikt as it now stands. 409 `not_paused`,
+    `game_finished`; 422 `time_out_of_range`; 403 `forbidden` as `pauseGame`."""
+    try:
+        found = await overview.set_agreed_time(user, _id(game_id), body.resume_at)
+    except overview.PauseRefused as refused:
+        return _pause_refused(refused, "The agreed time was not set.")
+    return _pause_answer(found)
+
+
+@router.delete(
+    "/games/{game_id}/pause",
+    response_model=GameInsightOut,
+    responses=documented(401, 403, 409),
+    operation_id="endPause",
+)
+async def end_pause(
+    game_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("games.pause"))],
+) -> Response:
+    """«Avslutt pausen» (Story 8.7, FR-89): a Lecturer of the game's Class ends the Pause in force,
+    whoever set it; every Student reads that it is over. Recorded in the audit log. Answers
+    Spillinnsikt as it now stands. 409 `not_paused`, `game_finished`; 403 `forbidden` as
+    `pauseGame`."""
+    try:
+        found = await overview.end_pause(user, _id(game_id))
+    except overview.PauseRefused as refused:
+        return _pause_refused(refused, "The pause was not ended.")
+    return _pause_answer(found)
+
+
+@router.post(
+    "/games/{game_id}/in-room",
+    response_model=GameInsightOut,
+    responses=documented(401, 403, 409, 422),
+    operation_id="markInRoom",
+)
+async def mark_in_room(
+    game_id: str,
+    body: InRoomIn,
+    user: Annotated[authz.Principal, Depends(authz.require("games.in_room"))],
+) -> Response:
+    """«Marker som i rommet» (Story 8.11, FR-36, AD-2, AD-12): a Lecturer of the game's Class marks
+    the running game as played in the room during the Lab hour on now, with the in-room limit
+    `minutes` in place of the Inactivity limit (times each Student's Tilrettelegging factor) until
+    the Lab hour ends. Recorded in the audit log. Answers Spillinnsikt as it now stands. 422
+    `minutes_out_of_range` unless `minutes` is a whole number from 2 to 120; 409
+    `not_in_lab_hour` outside every Lab hour of the Class session, `already_in_room` with
+    `fields.acted_by` and `fields.acted_at`, `game_not_running`, `game_finished` or
+    `in_room_not_allowed`. 403 `forbidden` for anyone but a Lecturer of the game's Class (an
+    Assistant lecturer included) and any Game the Oversikt does not list (FR-5)."""
+    try:
+        found = await overview.mark_in_room(user, _id(game_id), body.minutes)
+    except overview.InRoomRefused as refused:
+        return error_response(
+            refused.status, refused.code, "The game was not marked.", refused.fields
+        )
+    return _pause_answer(found)
+
+
+@router.delete(
+    "/games/{game_id}/in-room",
+    response_model=GameInsightOut,
+    responses=documented(401, 403, 409),
+    operation_id="endInRoom",
+)
+async def end_in_room(
+    game_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("games.in_room"))],
+) -> Response:
+    """«Ikke i rommet lenger» (Story 8.11, FR-36): a Lecturer of the game's Class ends the mark;
+    the due times go back to the Inactivity limit from the same wait starts. Recorded in the audit
+    log. Answers Spillinnsikt as it now stands. 409 `not_in_room`; 403 `forbidden` as
+    `markInRoom`."""
+    try:
+        found = await overview.end_in_room(user, _id(game_id))
+    except overview.InRoomRefused as refused:
+        return error_response(
+            refused.status, refused.code, "The mark was not ended.", refused.fields
+        )
+    return _pause_answer(found)
+
+
+@router.post(
+    "/games/{game_id}/start",
+    response_model=GameInsightOut,
+    responses=documented(401, 403, 409),
+    operation_id="startGame",
+)
+async def start_game(
+    game_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("games.start"))],
+) -> Response:
+    """«Start spillet» in Spillstyring (Story 8.10, FR-22, AD-2, AD-12): a Lecturer of the game's
+    Class starts it for all four Seats; the rules for waiting apply from now. Recorded in the
+    audit log. Answers Spillinnsikt as it now stands. 409 `game_already_started` with
+    `fields.acted_by` (`kind` `student`, `staff` or `system`, and `user_id`) and
+    `fields.acted_at` when someone started it first; 409 `game_not_ready` before the lock has
+    given it its snapshot. 403 `forbidden` for anyone but a Lecturer of the game's Class (an
+    Assistant lecturer included) and any Game the Oversikt does not list (FR-5)."""
+    try:
+        found = await overview.start_game(user, _id(game_id))
+    except overview.StartRefused as refused:
+        return error_response(
+            refused.status, refused.code, "The game was not started.", refused.fields
+        )
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.get(
+    "/class-sessions/{session_id}/start-games",
+    response_model=StartGamesOut,
+    responses=documented(401, 403),
+    operation_id="getStartGames",
+)
+async def get_start_games(
+    session_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("games.start"))],
+) -> StartGamesOut:
+    """The «Start spill» page (Story 8.10, FR-22): the Class games a Lecturer of the Class may
+    start now, by game number with their Seats; none before the lock. 403 `forbidden` for anyone
+    but a Lecturer of the Class (FR-5)."""
+    found = await overview.start_games_page(user, _id(session_id))
+    if found is None:
+        raise authz.Forbidden
+    return found
+
+
+@router.post(
+    "/class-sessions/{session_id}/start-games",
+    response_model=StartedGamesOut,
+    responses=documented(401, 403, 422),
+    operation_id="startGames",
+)
+async def start_games(
+    session_id: str,
+    body: StartGamesIn,
+    user: Annotated[authz.Principal, Depends(authz.require("games.start"))],
+) -> StartedGamesOut:
+    """«Start 12 spill» (Story 8.10, FR-22, AD-2): starts the listed Class games, one start per
+    game in its own transaction, the Lecturer as actor. A game that started meanwhile, is not
+    ready yet, is not of this Class session or fails is skipped; the others go on. Answers the
+    real counts; a repeat is safe. 403 `forbidden` for anyone but a Lecturer of the Class."""
+    found = await overview.start_games(user, _id(session_id), body.game_ids)
+    if found is None:
+        raise authz.Forbidden
+    return found
+
+
+@router.get(
+    "/class-sessions/{session_id}/waited-for-seats",
+    response_model=WaitedForSeatsOut,
+    responses=documented(401, 403),
+    operation_id="getWaitedForSeats",
+)
+async def get_waited_for_seats(
+    session_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("games.fill_seats"))],
+) -> WaitedForSeatsOut:
+    """The «Sett inn KI-spillere» page (Story 8.12, FR-37): the Seats the Class session's games
+    wait for now, per game, and those left out for Tilrettelegging. 403 `forbidden` for anyone
+    but a Lecturer of the Class (FR-5)."""
+    found = await overview.waited_for_page(user, _id(session_id))
+    if found is None:
+        raise authz.Forbidden
+    return found
+
+
+@router.post(
+    "/class-sessions/{session_id}/waited-for-seats",
+    response_model=FilledSeatsOut,
+    responses=documented(401, 403, 422),
+    operation_id="fillWaitedForSeats",
+)
+async def fill_waited_for_seats(
+    session_id: str,
+    body: FillSeatsIn,
+    user: Annotated[authz.Principal, Depends(authz.require("games.fill_seats"))],
+) -> FilledSeatsOut:
+    """«Sett inn 9 KI-spillere» (Story 8.12, FR-37, AD-2): puts an AI player in each listed Seat
+    the game still waits for, one Takeover per Seat in its own transaction, the Lecturer as actor.
+    A Seat that ordered since, is no longer Student-held, now has Tilrettelegging, is not of this
+    Class session or fails is skipped with why; the others go on, and a repeat inserts nothing
+    twice. Answers the real counts. 403 `forbidden` for anyone but a Lecturer of the Class."""
+    found = await overview.fill_waited_for(user, _id(session_id), body.seat_ids)
+    if found is None:
+        raise authz.Forbidden
+    return found
 
 
 TEST_GAME_REFUSED = {
@@ -1018,6 +1301,87 @@ async def start_my_game(
 
 
 @router.post(
+    "/me/games/{game_id}/seats/{role}/reclaim",
+    response_model=StudentGameOut,
+    responses=documented(401, 403, 409),
+    operation_id="reclaimMySeat",
+)
+async def reclaim_my_seat(
+    game_id: str,
+    role: Role,
+    user: Annotated[authz.Principal, Depends(authz.require("games.play_own"))],
+) -> Response:
+    """«Ta tilbake setet» (Story 8.4, FR-37, AD-2): the Student whose Seat an AI player took over
+    asks for it back. The request is queued and the Seat is theirs again when the next Uke opens;
+    a second press, or a repeat, changes nothing. Answers the game as it now stands. 409
+    `seat_not_yours` (another Student's Seat, or one no AI player took over from this Student),
+    `game_finished` or `game_not_running`; any other game answers 403 `forbidden` (FR-5)."""
+    try:
+        found = await service.reclaim_own_seat(user, game_id, role)
+    except service.ReclaimRefused as refused:
+        return error_response(refused.status, refused.code, "The Seat was not reclaimed.")
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.post(
+    "/me/games/{game_id}/seats/{role}/takeover",
+    response_model=StudentGameOut,
+    responses=documented(401, 403, 409),
+    operation_id="insertAiPlayer",
+)
+async def insert_ai_player(
+    game_id: str,
+    role: Role,
+    user: Annotated[authz.Principal, Depends(authz.require("games.play_own"))],
+) -> Response:
+    """«Sett inn KI-spiller for Jonas» (Story 8.8, FR-89, FR-37, AD-2, AD-12): a Student who holds
+    another Seat of the Class game puts an AI player in the Seat `role` once its insert time has
+    passed, paused or not; no dialog and no body, so no Student sets or shortens a time. Answers
+    the game as it now stands. 409 `takeover_exists` with `fields.acted_by` (`kind`, `user_id`;
+    no staff id) and `fields.acted_at`, `insert_not_allowed_yet`, `seat_not_yours`,
+    `order_exists`, `seat_not_student_held`, `game_not_running` or `takeover_not_allowed`; any
+    other game answers 403 `forbidden` (FR-5)."""
+    try:
+        found = await service.insert_ai_player(user, game_id, role)
+    except service.InsertRefused as refused:
+        return error_response(
+            refused.status, refused.code, "No AI player was put in.", refused.fields
+        )
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.post(
+    "/me/games/{game_id}/pause",
+    response_model=StudentGameOut,
+    responses=documented(401, 403, 409),
+    operation_id="pauseMyGame",
+)
+async def pause_my_game(
+    game_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("games.play_own"))],
+) -> Response:
+    """«Ta pause uten avtalt tid» (Story 8.6, FR-89, AD-2): a Student who holds a Seat pauses
+    their Class game; no AI player takes a Seat over while it is paused, and any Student's Order
+    ends it. No time is taken: only a Lecturer sets an agreed time. Answers the game as it now
+    stands. 409 `already_paused` with `fields.acted_by` (`kind`, `user_id`) and
+    `fields.acted_at`, `seat_not_yours`, `game_finished`, `game_not_running` or
+    `pause_not_allowed`; any other game answers 403 `forbidden` (FR-5)."""
+    try:
+        found = await service.pause_own_game(user, game_id)
+    except service.PauseRefused as refused:
+        return error_response(
+            refused.status, refused.code, "The game was not paused.", refused.fields
+        )
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.post(
     "/me/games/{game_id}/time-proposal",
     response_model=StudentGameOut,
     responses=documented(401, 403, 409, 422),
@@ -1152,3 +1516,57 @@ async def take_seat(
     if taken is None:
         return _no_seat_choice()
     return JSONResponse(taken.model_dump(mode="json"))
+
+
+PERSONAL = {"Cache-Control": "no-store"}
+"""A Student's Tilrettelegging is personal data: no cache keeps it (Story 8.9)."""
+
+
+@router.get(
+    "/class-sessions/{session_id}/students/{user_id}",
+    response_model=StudentPageOut,
+    responses=documented(401, 403),
+    operation_id="getStudentPage",
+)
+async def get_student_page(
+    session_id: str,
+    user_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("class_sessions.manage"))],
+) -> Response:
+    """The Studentside (Story 8.9, UX-DR53): one Student of the Class session with the block
+    «Tilrettelegging», for the Lecturers of its Class only. 403 `forbidden` for an Assistant
+    lecturer, anyone outside the Class, a User who is not a Student of the Class now and a Class
+    session that does not exist (FR-5, AD-12)."""
+    found = await adjustments.student_page(user, _id(session_id), _id(user_id))
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"), headers=PERSONAL)
+
+
+@router.put(
+    "/class-sessions/{session_id}/students/{user_id}/adjustment",
+    response_model=StudentPageOut,
+    responses=documented(401, 403, 409, 422),
+    operation_id="saveAdjustment",
+)
+async def save_adjustment(
+    session_id: str,
+    user_id: str,
+    body: AdjustmentIn,
+    user: Annotated[authz.Principal, Depends(authz.require("class_sessions.manage"))],
+) -> Response:
+    """«Lagre tilrettelegging» (Story 8.9, FR-17): the Student's factor on the Inactivity limit
+    (1, 1.5, 2 or 3) and the share of Weeks required of them (0 to the class share; null or the
+    class share: the class's own). Applies from now, also after the Start date: the open turn times
+    of the Student's Class game are recomputed at once. Recorded in the audit log. Answers the
+    Studentside. 422 `invalid_adjustment` with `fields` (`time_factor` `not_offered`,
+    `share_percent` `out_of_range`); 409 `class_archived`; 403 `forbidden` as `getStudentPage`."""
+    try:
+        found = await adjustments.save_adjustment(user, _id(session_id), _id(user_id), body)
+    except adjustments.InvalidAdjustment as refused:
+        return error_response(
+            422, refused.code, "The Tilrettelegging breaks a rule.", refused.fields
+        )
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"), headers=PERSONAL)
