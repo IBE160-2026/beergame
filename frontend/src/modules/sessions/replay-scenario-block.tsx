@@ -124,7 +124,7 @@ export function ReplayScenarioBlock({
   const helpId = useId();
   const choice = editable ? state.choice : item.replay_scenario;
   return (
-    <section aria-labelledby={titleId} className="mt-12 border-t border-hairline pt-8" data-replay-scenario="">
+    <section aria-labelledby={titleId} className="mt-12 max-w-4xl border-t border-hairline pt-8" data-replay-scenario="">
       <h2 id={titleId} className="text-headline text-ink">
         {copy.title}
       </h2>
