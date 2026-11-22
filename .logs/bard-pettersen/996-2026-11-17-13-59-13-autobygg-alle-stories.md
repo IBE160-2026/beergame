@@ -3209,3 +3209,22 @@ Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Den visue
 
 ### Åpne punkter
 - Issue #201: beslutninger, og at spørsmålssettet er plassholdere som grunnleggeren må skrive før piloten.
+
+## Story 11.2: Rediger Sensorveiledningen for en Klasseøkt (spor 2)
+
+### Oppgave
+Bygge Story 11.2 på `epic-11` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Den visuelle kontrollen gjøres i avslutningen av Epic 11.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-11-2-edit-the-scoring-guide-for-a-class-session.md`.
+- Commit: ec1fcb1. Migrasjon 0122.
+- Blokken «Sensorveiledning» på Klasseøkta med ett tekstfelt per spørsmål, merket «Standard» eller «Endret». Hver lagring er en ny versjon. `sessions.lock_test` fester veiledningen ved Testfristen.
+- Tester: backend 3225, Vitest 1050, tsc, `lint:colours`, `check:copy`, bygg, Playwright 144 med axe.
+- Gjennomgang: 24 funn, 3 rettet.
+- Status: done.
+
+### Åpne punkter
+- Issue #202: beslutninger, plassholdertekst og hva slettingen i Story 15.2 må dekke ved merge.
