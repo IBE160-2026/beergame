@@ -9,7 +9,7 @@ import asyncio
 import json
 import uuid
 
-from psycopg import sql
+import pytest
 
 from app.modules.games import commands as games_commands
 from app.modules.games import service as games_service
@@ -18,8 +18,8 @@ from app.modules.sessions import overview as sessions_overview
 from tests.classes.test_classes import LECTURER, make
 from tests.classes.test_invitation_counts import execute
 from tests.classes.test_staff import ASSISTANT, call, put_staff
-from tests.conftest import TEST_DATABASE_URL, kept_connection
-from tests.games.helpers import _UUID, _dump
+from tests.conftest import TEST_DATABASE_URL
+from tests.games.helpers import class_game_copies
 from tests.messaging.helpers import rows
 from tests.sessions.test_adjustment import save, user_id
 from tests.sessions.test_dates import OUTSIDER, START
@@ -272,45 +272,7 @@ async def test_a_lecturer_fills_the_waited_for_seats_of_one_game_and_of_all(klas
     assert peak == {"all": sessions_overview.BATCH_FILL_CONCURRENCY, "one_game": 1}
 
 
-def _copies_keeping(session_id: str, game_id: str, numbers: range, keep: set[str]) -> list[str]:
-    """Copies of the Class game under new ids in the same Class session, one per game number in
-    `numbers`, its rows copied rather than played. As Story 8.10's `_copies`, but the ids in `keep`
-    (the Class session, the Students, the Lecturer) stay, so the copies' Seats are the same
-    Students' and their Orders and names are real."""
-    dumped = _dump(TEST_DATABASE_URL, game_id)
-    columns = {
-        table: [
-            name
-            for (name,) in rows(
-                "SELECT column_name FROM information_schema.columns WHERE table_name = %s "
-                "ORDER BY ordinal_position",
-                table,
-            )
-        ]
-        for table in ("games", "game_summaries")
-    }
-    made = []
-    for number in numbers:
-        copy = dict(dumped)
-        for table, names in columns.items():
-            at = names.index("game_number")
-            lines = []
-            for line in copy[table].splitlines():
-                values = line.split("\t")
-                values[at] = str(number)
-                lines.append("\t".join(values))
-            copy[table] = "\n".join(lines) + "\n"
-        old = sorted(set(_UUID.findall("".join(copy.values()))) - keep)
-        new = {value: str(uuid.uuid7()) for value in old}
-        conn = kept_connection(TEST_DATABASE_URL)
-        with conn.transaction(), conn.cursor() as cur:
-            for table, text in copy.items():
-                with cur.copy(sql.SQL("COPY {} FROM STDIN").format(sql.Identifier(table))) as out:
-                    out.write(_UUID.sub(lambda m, new=new: new.get(m.group(), m.group()), text))
-        made.append(new[game_id])
-    return made
-
-
+@pytest.mark.long
 async def test_a_hundred_class_games_fill_in_one_action(klass, monkeypatch):
     lecturer = user_id(LECTURER)
     session_id, seated = await confirmed(klass, 4)  # one Class game, four Students
@@ -327,7 +289,8 @@ async def test_a_hundred_class_games_fill_in_one_action(klass, monkeypatch):
     for student in students[:3]:
         await place(student, 1)  # the game waits for the fourth: one Seat per game keeps it quick
     keep = {session_id, lecturer, *(student[1] for student in students)}
-    games = [game_id, *_copies_keeping(session_id, game_id, range(2, 101), keep)]
+    copies = class_game_copies(TEST_DATABASE_URL, session_id, game_id, range(2, 101), keep)
+    games = [game_id, *copies]
     holder = dict(
         rows(
             "SELECT s.role, o.user_id::text FROM seats s JOIN seat_occupancy o ON o.seat_id = s.id "

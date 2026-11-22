@@ -7,14 +7,15 @@ fixed and the sweep is handed its `now`."""
 
 import uuid
 
+import pytest
+
 from app.modules.games import commands as games_commands
 from app.modules.games.models import SNAPSHOT_COLUMNS
 from app.modules.ops import sweep
 from tests.classes.test_classes import LECTURER, make
-from tests.classes.test_invitation_counts import execute
 from tests.classes.test_staff import ASSISTANT, call, put_staff
 from tests.conftest import TEST_DATABASE_URL
-from tests.games.helpers import _dump, _restore
+from tests.games.helpers import class_game_copies
 from tests.messaging.helpers import rows
 from tests.sessions.test_dates import OUTSIDER, START
 from tests.sessions.test_game_end import _empty, clock, klass
@@ -161,50 +162,12 @@ async def test_the_page_lists_the_games_not_started_and_the_batch_skips_the_rest
     assert (await start_all(LECTURER, session_id, [])).status_code == 422
 
 
-def _copies(session_id: str, game_id: str, numbers: range) -> list[str]:
-    """Copies of the not-started Class game under new ids in the same Class session, one per game
-    number in `numbers` (their rows copied, not played: no game per number is built)."""
-    dumped = _dump(TEST_DATABASE_URL, game_id)
-    columns = {
-        table: [
-            name
-            for (name,) in rows(
-                "SELECT column_name FROM information_schema.columns WHERE table_name = %s "
-                "ORDER BY ordinal_position",
-                table,
-            )
-        ]
-        for table in ("games", "game_summaries")
-    }
-    made = []
-    for number in numbers:
-        copy = dict(dumped)
-        for table, names in columns.items():
-            if not copy[table]:
-                continue
-            at = names.index("game_number")
-            lines = []
-            for line in copy[table].splitlines():
-                values = line.split("\t")
-                values[at] = str(number)
-                lines.append("\t".join(values))
-            copy[table] = "\n".join(lines) + "\n"
-        made.append(_restore(TEST_DATABASE_URL, copy))
-    # `_restore` gives every id a new value; the copies stay in the Class session.
-    for table, key in (("games", "id"), ("game_summaries", "game_id")):
-        execute(
-            f"UPDATE {table} SET class_session_id = %s WHERE {key} = ANY(%s::uuid[])",
-            session_id,
-            made,
-        )
-    return made
-
-
+@pytest.mark.long
 async def test_a_hundred_class_games_start_in_one_action(klass):
     session_id, _ = await confirmed(klass, 4)  # one Class game, four Students
     await sweep.run(START + MINUTE)
     [(first, *_)] = games_of(session_id)
-    ids = [first, *_copies(session_id, first, range(2, 101))]
+    ids = [first, *class_game_copies(TEST_DATABASE_URL, session_id, first, range(2, 101))]
     assert (await overview(LECTURER, session_id)).json()["startable"] == 100
     done = await start_all(LECTURER, session_id, ids)
     assert done.json() == {"started": 100, "skipped": 0}

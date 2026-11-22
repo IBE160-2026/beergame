@@ -23,7 +23,7 @@ from app.platform import jobs
 from app.platform.config import get_settings
 from tests.ai.helpers import MOCK, stored_config
 from tests.conftest import TEST_DATABASE_URL
-from tests.games.helpers import execute, query
+from tests.games.helpers import class_game_copies, execute, query
 from tests.games.test_in_room import mark
 from tests.games.test_reclaim import occupancy
 from tests.games.test_set_snapshot import SETTINGS, snapshot
@@ -356,13 +356,14 @@ async def test_the_sweep_plays_out_every_unfinished_class_game_at_the_live_deadl
     ) == sorted([(running, True), (never, True)])
 
 
+@pytest.mark.long
 async def test_a_hundred_unfinished_class_games_all_finish_in_one_sweep(games_db, mail_db):
     """NFR-3, NFR-4: 100 unfinished Class games of one Class session (one Week each, so the test
     stays short; Rule-based players, never started) are all finished by one sweep at the Play
     deadline."""
     session = class_session()
-    for number in range(1, 101):
-        await class_game((), session=session, number=number, start=False, weeks=1)
+    first, _ = await class_game((), session=session, start=False, weeks=1)
+    class_game_copies(TEST_DATABASE_URL, session, first, range(2, 101))  # rows copied, not built
     await sweep.run(DEADLINE)
     assert query(
         TEST_DATABASE_URL,

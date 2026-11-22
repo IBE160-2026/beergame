@@ -7,6 +7,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import pytest
 from sqlalchemy import event
 
 from app.engine import GameSettings
@@ -42,10 +43,10 @@ async def _run_assign_seat() -> str:
     return game_id
 
 
-async def _started_simulation() -> str:
+async def _started_simulation(settings: GameSettings = FREE) -> str:
     """A Student holds every Seat, so the Game waits in Week 1; with no Student ids, its start
     tells no Student (`user:`) and only the commands' own topics remain."""
-    game_id = await commands.create("simulation", FREE, seed=1)
+    game_id = await commands.create("simulation", settings, seed=1)
     seat_student(TEST_DATABASE_URL, game_id, *(role.value for role in FREE.roles), anonymous=True)
     await commands.start(game_id)
     return game_id
@@ -85,8 +86,13 @@ async def _run_place_order() -> str:
 
 
 async def _run_finish() -> str:
-    """`finish` runs inside the `place_order` that completes the last Week."""
-    game_id = await _started_simulation()
+    """`finish` runs inside the `place_order` that completes the last Week (of two: a longer
+    game only made the test slower)."""
+    game_id = await _started_simulation(
+        FREE.model_copy(
+            update={"weeks": 2, "demand": FREE.demand.model_copy(update={"change_week": 2})}
+        )
+    )
     await play_to_end(game_id)
     return game_id
 
@@ -487,23 +493,24 @@ def test_every_command_is_exported_and_registered():
     assert games_entries == found
 
 
-async def test_each_command_emits_exactly_its_registered_topics(games_db):
-    for name, runner in RUNNERS.items():
-        with listening(games_db) as events:
-            game_id = await runner()
-            received = events.drain()
-        if name in CLASS_SETUP_EVENTS:
-            # A Class game (its Class session hears of each command): only this command's events.
-            received = received[CLASS_SETUP_EVENTS[name] :]
-            assert {item["topic"] for item in received} == COMMAND_TOPICS[f"games.{name}"]
-            if "game" in COMMAND_TOPICS[f"games.{name}"]:
-                assert {item["id"] for item in received if item["topic"] == "game"} == {game_id}
-            continue
-        if name != "create":
-            received = received[1:]  # the first event is the setup's create
+@pytest.mark.parametrize("name", list(RUNNERS))
+async def test_each_command_emits_exactly_its_registered_topics(games_db, name):
+    """One test per command, so the workers share them (one loop over all of them took 8 s)."""
+    with listening(games_db) as events:
+        game_id = await RUNNERS[name]()
+        received = events.drain()
+    if name in CLASS_SETUP_EVENTS:
+        # A Class game (its Class session hears of each command): only this command's events.
+        received = received[CLASS_SETUP_EVENTS[name] :]
         assert {item["topic"] for item in received} == COMMAND_TOPICS[f"games.{name}"]
-        assert all(item["id"] == game_id for item in received)
-        assert "session" not in {item["topic"] for item in received}  # simulation Games
+        if "game" in COMMAND_TOPICS[f"games.{name}"]:
+            assert {item["id"] for item in received if item["topic"] == "game"} == {game_id}
+        return
+    if name != "create":
+        received = received[1:]  # the first event is the setup's create
+    assert {item["topic"] for item in received} == COMMAND_TOPICS[f"games.{name}"]
+    assert all(item["id"] == game_id for item in received)
+    assert "session" not in {item["topic"] for item in received}  # simulation Games
 
 
 async def test_each_command_locks_bumps_and_notifies_in_one_transaction(games_db):
