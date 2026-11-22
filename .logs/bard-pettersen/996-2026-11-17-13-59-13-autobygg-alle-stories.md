@@ -3782,3 +3782,22 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
 
 ### Åpne punkter
 - Issue #232: beslutninger og plassholdergrensene.
+
+## Story 13.3: Rett en students fullføringsstatus med begrunnelse (spor 2)
+
+### Oppgave
+Bygge Story 13.3 på `epic-13` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-13-3-correct-a-students-completion-status-with-a-reason.md`.
+- Commit: 5c2d48b. Migrasjon 0301.
+- Læreren retter ett steg i blokken «Fullføring» med obligatorisk begrunnelse. Rettingen lagres som en ny rad, og Hjem viser «rettet av faglærer» uten begrunnelsen.
+- Tester: backend 3735, Vitest 1196, tsc, `lint:colours`, `check:copy`, bygg, Playwright 49 med axe.
+- Gjennomgang: 38 funn; det alvorlige (triggeren hindret sletting av en lærerkonto) og 8 lave rettet; oppfølgende gjennomgang anbefalt.
+- Status: done.
+
+### Åpne punkter
+- Issue #233: beslutninger og ny tabell med persondata som slettingen i Story 15.2 må dekke.
