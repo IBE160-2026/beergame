@@ -3267,3 +3267,22 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den vis
 
 ### Åpne punkter
 - Issue #204: beslutninger og nye tabeller med persondata for registeret i Story 15.2.
+
+## Story 11.4: Svar på flervalgsoppgaver med automatisk lagring (spor 2)
+
+### Oppgave
+Bygge Story 11.4 på `epic-11` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den visuelle kontrollen gjøres i avslutningen av Epic 11.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-11-4-answer-multiple-choice-items-with-autosave.md`.
+- Commit: a280436. Ingen migrasjon.
+- Flervalg med Quizvalg, automatisk lagring med revisjoner, statuslinje «Lagret hh:mm», nye forsøk hvert 5. sekund og utkast som overlever en omlasting. Ren poengfunksjon `score_choice`.
+- Tester: backend 3240, Vitest 1065, tsc, `lint:colours`, `check:copy`, bygg, Playwright 101 med axe.
+- Gjennomgang: 30 funn, 5 lave rettet.
+- Status: done.
+
+### Åpne punkter
+- Issue #205: beslutninger (svaralternativene er plassholdere til Issue #16 gir ekte tekster).
