@@ -2832,3 +2832,23 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Orkestr
 
 ### Åpne punkter
 - Issue #181: beslutninger og at Postgres krasjet under last.
+
+## Avslutning av Epic 9
+
+### Oppgave
+Avslutte Epic 9 (9.1–9.15; 9.14 og 9.15 står i review) med merge av `main` (Epic 7), visuell kontroll av 9.15, rettinger, stabilisering, PR og CI, i et eget worktree mens spor 1 bygde Epic 8 og spor 2 startet Epic 10.
+
+### Plan
+Én agent i `.claude/worktrees/epic9` med egen stack (8090/5434). Orkestratoren merget etter grønn CI.
+
+### Resultat
+- Merge av `main` (36eecc1): 20 filer i konflikt, begge sider beholdt, api-klienten generert på nytt. Én Alembic-head (0113), der 0101 nå følger 0052. Debrief-lenkene i Spillinnsikt er koblet inn fast og tilbys bare for ferdige spill, med en test.
+- Visuell kontroll av 9.15 i `screenshots/9.15/`, ingen avvik.
+- Rettinger: den felles skjermen fra 9.13 beholder grafene ved 200 % tekst, skalerer opp på projektor og har større låst tilstand (69ce009); fortellingen fra 9.14 er en dempet linje i kolonnen for øyeblikket (70efbd7); bekreftelsen av «Forlat gruppen» har fylt primærknapp, og 48 timer regnes fra første åpning i en tilbakeholdt klasseøkt (e5c716e); quizkolonnene flukter og valgknappene har mellomrom (ce1ba00); e2e- og CI-rettinger (7326795, 4ad0a7a, a619663), blant dem `system-states:250`, som feilet på `main`.
+- Backend: 3079 tester på 141 s (266 s med 19 feil i første kjøring under tung last). Testene ble ikke raskere; hver av de trege spiller sitt eget spill.
+- Playwright: tre kjøringer på rad uten feil, 527 tester hver. Vitest 898, typecheck, `lint:colours`, `check:copy`, bygg.
+- PR #179 med grønn CI, merget til `main`.
+
+### Åpne punkter
+- Issue #180: utsatte punkter (tilbakeholdt Debrief når et spill aldri blir ferdig, nøytral tekst for tilbakefall, et oppfølgingsspørsmål uten svar da klokka i Docker hoppet, trege tester i Epic 9).
+- Issue #173 og #176: 9.14 og 9.15 venter på prøve mot ekte modell.
