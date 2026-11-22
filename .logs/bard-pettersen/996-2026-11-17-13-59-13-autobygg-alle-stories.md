@@ -2956,3 +2956,23 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Neste b
 
 ### Åpne punkter
 - Issue #186: beslutninger (horisonten, setningen uten bestilling, linja forbi nå + 4).
+
+## Story 8.11: Merk et klassespill som «I rommet» i en labtime (spor 1)
+
+### Oppgave
+Bygge Story 8.11 på `epic-8` i spor 1.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Neste byggeagent startet med en gang, og den visuelle kontrollen gikk samtidig med eget compose-prosjekt.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-8-11-mark-a-class-game-as-i-rommet-during-a-lab-hour.md`.
+- Commit: 5bb7bbd. Migrasjon 0061.
+- Faglæreren kan merke et spill som «I rommet» i en labtime; da gjelder den kortere grensen for overtakelse. Merket avsluttes av sweepen eller når labtimen flyttes eller fjernes. Skjema i Spillstyring, linje for studenten og merket «I rommet» i veggen.
+- Tester: backend 3055, Vitest 895, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 139 uten ustabile tester (to ekte feil i første kjøring ble rettet).
+- Gjennomgang: 51 funn, 7 rettet, 1 utsatt (test for ferdige spill).
+- Visuell kontroll (Sonnet, bare rapport, eget compose-prosjekt): 36 skjermbilder i `screenshots/8.11/`, ingen klare feil. Hjem har ingen linje for «I rommet», og resultatlinja gjentar statusen; tatt med i lista til slutten av epicen.
+- Status: done.
+
+### Åpne punkter
+- Issue #187: beslutninger (ny beregning ved merking, avrunding, ett merke per spill).
