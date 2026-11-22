@@ -3056,3 +3056,23 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet i to run
 
 ### Åpne punkter
 - Issue #191: beslutninger (påminnelse under pause, ingen endring med tilrettelegging eller «I rommet», ingen utfylling bakover).
+
+## Story 10.7: Les gjennomgangen av Replay (spor 2)
+
+### Oppgave
+Bygge Story 10.7 på `epic-10` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` mot KI-mocken og fire gjennomgangsagenter på Sonnet. Neste byggeagent startet med en gang, og den visuelle kontrollen gikk samtidig med eget compose-prosjekt.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-10-7-read-the-replay-walkthrough.md`.
+- Commit: ff8792a. Migrasjon 0118.
+- Siden `/spill/<id>/gjennomgang` setter Replay ved siden av klassespillet i én graf, viser to øyeblikk og en KI-linje som bare viser til øyeblikkene som vises. Bare studenten selv kan lese den.
+- Tester: backend 3148 på 134,6 s, Vitest 1038, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 143 uten ustabile tester. Én ny test tar 13–15 s og skal kortes ned i avslutningen av epicen.
+- Gjennomgang: 39 funn, 13 rettet (1 middels), 1 utsatt.
+- Visuell kontroll (Sonnet, bare rapport, eget compose-prosjekt): 19 skjermbilder i `screenshots/10.7/`, ingen klare feil. Grafen mangler direkte etiketter på linjene slik mockupen har; tatt med i lista til slutten av epicen.
+- Status: review. KI-linja er aldri kjørt mot en ekte modell (Issue #9).
+
+### Åpne punkter
+- Issue #192: kommandoen for ekte kall og beslutningene.
