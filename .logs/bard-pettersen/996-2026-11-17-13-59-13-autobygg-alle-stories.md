@@ -2894,3 +2894,24 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet, én med
 
 ### Åpne punkter
 - Issue #183: beslutninger (faktorer, tilgang bare for faglærere, gulvet fra FR-89).
+
+## Story 10.3: Start Replay etter bestått Debrief-quiz (spor 2)
+
+### Oppgave
+Bygge Story 10.3 på `epic-10` i spor 2, første story etter merge av `main` inn i `epic-10`.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Neste byggeagent startet med en gang, og den visuelle kontrollen gikk samtidig med eget compose-prosjekt.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-10-3-start-the-replay-after-passing-the-debrief-quiz.md`.
+- Commit: ae5efdf. Migrasjon 0116.
+- Modulen `replay` med én Replay per student og klasseøkt, start bare etter bestått quiz og før Testfristen, og «Start Replay» og «Replay · Du er Grossist» på Hjem.
+- Tester: backend 3138 på 117 s (på ferske testdatabaser), Vitest 910, typecheck, `check:copy`, `lint:colours`, bygg, Playwright 246 (`homes` og `order-confirm` feilet én gang hver og passerte ved ny kjøring).
+- Funn etter merge av `main`: databaser som allerede var på 0115, mangler tabellene fra 0051 og 0052. Testene i spor 2 bruker nå ferske databaser, og utviklingsdatabasen fikk tabellene lagt inn. CI er ikke berørt.
+- Gjennomgang: 39 funn, 11 rettet, 1 utsatt til 10.5.
+- Visuell kontroll (Sonnet, bare rapport, eget compose-prosjekt): skjermbilder i `screenshots/10.3/`, ingen klare feil. «Fortsett Replay, Uke N» på Hjem mangler; sendt til 10.4, som gjør Replay spillbart.
+- Status: done.
+
+### Åpne punkter
+- Issue #184: beslutninger og rekkefølgen på migrasjoner etter merge.
