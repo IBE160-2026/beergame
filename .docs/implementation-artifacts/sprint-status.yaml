@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-17-2026 12:28
-last_updated: 11-22-2026 01:25
+last_updated: 11-22-2026 01:35
 project: beergame
 project_key: NOKEY
 tracking_system: file-system
@@ -194,7 +194,7 @@ development_status:
 
   epic-10: in-progress
   10-1-get-a-default-replay-scenario-that-differs-per-student: done
-  10-2-set-the-replay-scenario-freely: in-progress
+  10-2-set-the-replay-scenario-freely: done
   10-3-start-the-replay-after-passing-the-debrief-quiz: backlog
   10-4-play-the-replay-with-the-projection-line: backlog
   10-5-finish-the-replay-and-unlock-the-next-step: backlog
