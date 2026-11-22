@@ -111,6 +111,130 @@ async def _verify_finished(game_id: object, now: datetime) -> object:
     return checked
 
 
+async def _due_takeovers(now: datetime) -> Sequence[tuple[str, str]]:
+    return await games.due_takeovers(now)
+
+
+TAKEOVER_RACES = frozenset(
+    {
+        "seat_not_student_held",
+        "order_exists",
+        "takeover_not_due",
+        "game_not_running",
+        "takeover_not_allowed",
+        # A staff member put an AI player in first (Story 8.5).
+        "takeover_exists",
+        # A Student paused the game after the finder's read (Story 8.6).
+        "game_paused",
+        # The Play deadline playout took the Game over after the finder's read (Story 8.14).
+        "play_deadline_passed",
+    }
+)
+"""`rules.can_take_over`'s refusals: what changed between the finder's read and the lock."""
+
+
+async def _take_over(item: object, now: datetime) -> bool:
+    """Story 8.2 (FR-36, AD-9): hand one due Seat to an AI player in its own transaction. A
+    refusal under the lock is the race the command settles (the Student ordered first, another
+    sweep took it, the Week moved on): nothing to do and nothing to log as a failure, but the due
+    time has passed, so the Game's events are emitted and open pages read it again (Story 8.3,
+    AD-8). Any other refusal (a snapshot the engine cannot run, say) is raised, so the sweep logs
+    it."""
+    assert isinstance(item, tuple)
+    game_id, seat_id = item
+    try:
+        await games_commands.takeover(game_id, seat_id, actor="system", now=now)
+    except games_commands.CommandError as refused:
+        if refused.code not in TAKEOVER_RACES:
+            raise
+        log.info("takeover_skipped", game_id=game_id, seat_id=seat_id, code=refused.code)
+        await games.announce(game_id)
+        return False
+    return True
+
+
+async def _due_agreed_times(now: datetime) -> Sequence[str]:
+    return await games.due_agreed_times(now)
+
+
+async def _reach_agreed_time(item: object, now: datetime) -> bool:
+    """Story 8.7 (FR-89, AD-8, AD-9): the agreed time of one paused Game has passed. The Pause
+    goes on and nothing is taken over; the command marks the Game once and emits its events, so
+    every view reads it again. A Game whose Pause ended or whose time changed meanwhile is
+    skipped by the command itself."""
+    assert isinstance(item, str)
+    return await games_commands.reach_agreed_time(item, now=now)
+
+
+async def _due_in_room_ends(now: datetime) -> Sequence[str]:
+    return await games.due_in_room_ends(now)
+
+
+async def _end_in_room(item: object, now: datetime) -> bool:
+    """Story 8.11 (FR-36, AD-9): the Lab hour of one Game marked «I rommet» has ended. The command
+    clears the mark and puts the due times back on the Inactivity limit; a mark ended or moved
+    meanwhile is skipped by the command itself."""
+    assert isinstance(item, str)
+    return await games_commands.end_in_room(item, actor=None, now=now)
+
+
+async def _due_insert_times(now: datetime) -> Sequence[tuple[str, str]]:
+    return await games.due_insert_times(now)
+
+
+async def _announce_insert_time(item: object, now: datetime) -> bool:
+    """Story 8.8 (FR-89, AD-8, AD-9): one Seat's insert time has passed. The command marks the
+    turn once and, while the Seat still waits, emits the Game's events, so «Sett inn KI-spiller
+    for …» shows on every open view without a reload. It never takes the Seat."""
+    assert isinstance(item, tuple)
+    game_id, seat_id = item
+    return await games_commands.announce_insert_time(game_id, seat_id, now=now)
+
+
+async def _due_turn_reminders(now: datetime) -> Sequence[tuple[str, str]]:
+    return await games.due_turn_reminders(now)
+
+
+async def _queue_turn_reminder(item: object, now: datetime) -> bool:
+    """Story 8.13 (FR-27, AD-9): one Seat's reminder time has passed. While the game still waits
+    for it, the command queues one `turn_reminder` digest notice for its Student; the next
+    minute's digest claim gathers it. A paused Game is not found; a Seat no longer waited for is
+    marked quietly by the command itself."""
+    assert isinstance(item, tuple)
+    game_id, seat_id = item
+    return await games_commands.queue_turn_reminder(game_id, seat_id, now=now)
+
+
+async def _stalled_playout_turns(now: object) -> Sequence[tuple[str, str]]:
+    return await games.stalled_playout_turns()
+
+
+async def _ensure_playout_order(item: object, now: datetime) -> bool:
+    """Story 8.14 (AD-5, AD-9): a turn of a Game playing out has no Order and no live job: its
+    LLM job was lost, so the Seat gets its Order again on `llm-batch`."""
+    assert isinstance(item, tuple)
+    game_id, seat_id = item
+    return await games_commands.ensure_playout_order(game_id, seat_id)
+
+
+_overdue_logged: set[str] = set()
+"""Games logged as playing out past the allowed time in this process: each is logged once."""
+
+
+async def _overdue_playouts(now: datetime) -> Sequence[str]:
+    allowed = timedelta(minutes=get_settings().playout_allowed_minutes)
+    return [g for g in await games.overdue_playouts(now - allowed) if g not in _overdue_logged]
+
+
+async def _log_overdue_playout(item: object, now: datetime) -> bool:
+    """Story 8.14 (FR-38, NFR-3): a Game still playing out after `playout_allowed_minutes` (a
+    placeholder, set after the prototype) is logged as an error with its id, once."""
+    assert isinstance(item, str)
+    _overdue_logged.add(item)
+    log.error("playout_overdue", game_id=item)
+    return True
+
+
 async def _close_at_test_deadline(game_id: object, now: datetime) -> bool:
     """Close one unfinished Game at its Test deadline (Story 10.6): `games.commands.close`, which
     judges the deadline again at `now` under the Game row lock and does nothing to a Game already
@@ -150,6 +274,30 @@ DUE_ACTIONS: tuple[DueAction, ...] = (
     ),
     # Story 6.18: the finished-game check (FR-29, NFR-9, AD-4): replay each finished Game that
     # has no `game_checks` row yet, one Game per transaction, so the end screen never waits.
+    # Story 8.2: an AI player takes the Seat of a Student who has not ordered by the stored
+    # `takeover_due_at` (FR-36, NFR-4), one Seat per transaction; within a minute of the due time,
+    # so before the finished-game checks, whose replays may take a while.
+    DueAction("games.takeover", _due_takeovers, _take_over),
+    # Story 8.11: end each «I rommet» mark whose Lab hour has ended (FR-36); the due times go back
+    # to the Inactivity limit. After the Takeover, so a Seat due under the in-room limit this
+    # minute is still taken.
+    DueAction("games.end_in_room", _due_in_room_ends, _end_in_room),
+    # Story 8.7: announce once that a Lecturer's agreed Pause time has passed (FR-89).
+    DueAction("games.reach_agreed_time", _due_agreed_times, _reach_agreed_time),
+    # Story 8.8: announce once that a Seat's insert time has passed (FR-89); after the Takeover,
+    # so a Seat taken over this minute is not announced as waiting.
+    DueAction("games.announce_insert_time", _due_insert_times, _announce_insert_time),
+    # Story 8.13: queue a turn reminder for each Seat the game has waited for since its reminder
+    # time (FR-27); after the Takeover, so a Seat taken over this minute is not reminded.
+    DueAction("games.queue_turn_reminder", _due_turn_reminders, _queue_turn_reminder),
+    # Story 8.14: at the Play deadline every unfinished Class game (never started and paused ones
+    # too) is played out by AI players, one Game per transaction (FR-38). After the Takeover and
+    # the reminders, which then find nothing more in it, and before the finished-game checks, so a
+    # Game played out by Rule-based players is checked in the same minute. A lost LLM job of a
+    # Game playing out is deferred again, and one playing out too long is logged.
+    DueAction("sessions.playout", sessions.due_playouts, sessions.playout_due),
+    DueAction("games.playout_orders", _stalled_playout_turns, _ensure_playout_order),
+    DueAction("games.playout_overdue", _overdue_playouts, _log_overdue_playout),
     DueAction("games.verify_finished", _unchecked_finished_games, _verify_finished),
     # Story 10.6 (FR-18, AD-13): close each unfinished Replay once its Student's Test deadline has
     # passed (`effective_test_deadline`), never played out; one Game per transaction.

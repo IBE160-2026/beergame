@@ -41,8 +41,29 @@ export const classStaffPath = (id: string) => `${classPath(id)}/faglaerere`;
 /** A Class session's Klasseøkt screen (Story 5.1). */
 export const classSessionPath = (id: string) => `/klasseokter/${encodeURIComponent(id)}`;
 
+/** The Studentside of one Student of a Class session, for its Lecturers (Story 8.9). */
+export const studentPagePath = (sessionId: string, userId: string) =>
+  `${classSessionPath(sessionId)}/studenter/${encodeURIComponent(userId)}`;
+
 /** The Oversikt of a Class session's Class games, for its staff (Story 7.1). */
 export const classOverviewPath = (id: string) => `${classSessionPath(id)}/oversikt`;
+
+/** «Start spill» (Story 8.10): every Class game of the session that has not started, for its
+ * Lecturers. */
+export const startGamesPath = (id: string) => `${classOverviewPath(id)}/start`;
+
+/** «Sett inn KI-spillere» (Story 8.12): every Seat the Class session's games wait for, for its
+ * Lecturers. */
+export const fillSeatsPath = (id: string) => `${classOverviewPath(id)}/sett-inn`;
+
+/** The Oversikt after «Sett inn 9 KI-spillere» (Story 8.12): it reads «9 KI-spillere er satt inn.»
+ * once. */
+export const overviewFilledPath = (id: string, inserted: number) =>
+  `${classOverviewPath(id)}?satt-inn=${encodeURIComponent(String(inserted))}`;
+
+/** The Oversikt after «Start 12 spill» (Story 8.10): it reads «12 spill er startet.» once. */
+export const overviewStartedPath = (id: string, started: number) =>
+  `${classOverviewPath(id)}?startet=${encodeURIComponent(String(started))}`;
 
 /** The Oversikt again, back from Spillinnsikt (Story 7.7): focus returns to the game `gameId`, in
  * the wall or, with `view` «tabell», in «Vis som tabell». */

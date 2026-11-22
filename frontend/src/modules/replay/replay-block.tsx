@@ -75,7 +75,7 @@ function ReplaySeats({ game, titleId }: { game: ReplayGame; titleId: string }) {
   // A finished or closed Replay waits for no one: its Seats show no status, as a finished Class
   // game's on Hjem.
   const seats = game.status === "finished" ? game.seats.map((seat) => ({ ...seat, ordered: null })) : game.seats;
-  return <GameSeatStatus seats={seats} now={now} titleId={titleId} level={4} className="mt-4" />;
+  return <GameSeatStatus gameId={game.id} seats={seats} now={now} titleId={titleId} level={4} className="mt-4" />;
 }
 
 /** «Fortsett Replay, Uke 9» (Story 10.4): the play screen at the open Uke; Hjem's primary button

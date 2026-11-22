@@ -1,0 +1,10 @@
+# Visual check, Story 8.14 and the Epic 8 close-out
+
+Branch `epic-8` after the merge of main and the close-out fixes. Chromium with `--lang=nb-NO`. Each name exists as -390.png, -1280.png and -1280-200.png (200 % text at 1280). One live Class game: two Students, two Rule-based players, three Uker; one Student has ordered Uke 1. No page scrolls sideways in any shot.
+
+- spillinnsikt-kolonner: Story 8.1's columns «Uke åpnet», «Bestilt» and «Tid brukt» in each Role's «uke for uke» table, Oslo time, «under 1 min». Matches. At 390 px the table scrolls in its region.
+- oversikt-varselband: the Varselbånd for the waiting Student. At 200 % text its line wraps as words and the buttons wrap under it (the one-letter-per-line collapse from the 8.12 check is gone). At 390 px the wall row's «Melding» sits at the end of the wall's scroll region, half outside the first view: deferred (the long row note «Venter, under 1 min» takes the room).
+- oversikt-pause-avtalt: a Lecturer's Pause with an agreed time. The Status filter reads «Alle 1 · Pause 1 · Med KI-spiller 1» (no «Pågår» while the only game is paused), the headline «0 ferdig · 1 pågår (herav 1 pauset) · 0 venter», and «Venter ellers» lists «Spill 1 — Pause i Uke 1, fortsetter ma. 13:00». Matches mockup 08 and DESIGN.md `wall-filters`.
+- spill-for-fristen: Spill before the deadline. At 200 % text the two columns now stack, so the Kjedebånd, the charts and the Uke table are whole (they clipped in a narrow left column before) and Setestatus keeps its rows. 390 and 1280 are unchanged.
+- spill-spilt-ferdig: after the playout at the Play deadline, «Spillet er ferdig» with «Spillet ble avsluttet ved Spillfristen. KI-spillere spilte det ferdig.», Kjedens regning, the cost chart and «Gå til Debrief». No number of Uker played by the AI players. Matches.
+- hjem-spilt-ferdig: Hjem says «Spillet er ferdig.», every Seat «KI-spiller», «Se kjedens totalkostnad», Klassespill «ferdig» and Debrief «pågår» in Stegene. Matches. «Neste frist: Spillfrist» still shows because the local dev route played the game out before the real Play deadline.

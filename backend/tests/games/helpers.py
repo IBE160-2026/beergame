@@ -144,10 +144,10 @@ def _dump(url: str, game_id: str) -> dict[str, str]:
         return dumped
 
 
-def _restore(url: str, dumped: dict[str, str]) -> str:
+def _restore(url: str, dumped: dict[str, str], keep: set[str] = frozenset()) -> str:
     """Store a copy of a dumped Game under new ids (UUIDv7, drawn in the order of the old ones,
-    so every ordering by id is kept); returns the new Game id."""
-    old = sorted(set(_UUID.findall("".join(dumped.values()))))
+    so every ordering by id is kept), but the ids in `keep`; returns the new Game id."""
+    old = sorted(set(_UUID.findall("".join(dumped.values()))) - keep)
     new = {value: str(uuid.uuid7()) for value in old}
     game_id = new[_UUID.search(dumped["games"]).group()]
     conn = kept_connection(url)
@@ -156,6 +156,51 @@ def _restore(url: str, dumped: dict[str, str]) -> str:
             with cur.copy(sql.SQL("COPY {} FROM STDIN").format(sql.Identifier(table))) as copy:
                 copy.write(_UUID.sub(lambda m: new.get(m.group(), m.group()), rows))
     return game_id
+
+
+def class_game_copies(
+    url: str, session_id: object, game_id: str, numbers: range, keep: set | None = None
+) -> list[str]:
+    """Copies of a not-started Class game under new ids in the same Class session, one per game
+    number in `numbers`: its rows copied, not built again command by command, which made the
+    100-game tests (Stories 8.10, 8.12, 8.14) slow. The ids in `keep` stay as they are (the
+    Students and the session)."""
+    dumped = _dump(url, game_id)
+    columns = {
+        table: [
+            name
+            for (name,) in query(
+                url,
+                "SELECT column_name FROM information_schema.columns WHERE table_name = %s "
+                "ORDER BY ordinal_position",
+                (table,),
+            )
+        ]
+        for table in ("games", "game_summaries")
+    }
+    keep = {str(value) for value in keep or ()}
+    made = []
+    for number in numbers:
+        copy = dict(dumped)
+        for table, names in columns.items():
+            if not copy[table]:
+                continue
+            at = names.index("game_number")
+            lines = []
+            for line in copy[table].splitlines():
+                values = line.split("\t")
+                values[at] = str(number)
+                lines.append("\t".join(values))
+            copy[table] = "\n".join(lines) + "\n"
+        made.append(_restore(url, copy, keep))
+    # `_restore` gives every other id a new value; the copies stay in the Class session.
+    for table, key in (("games", "id"), ("game_summaries", "game_id")):
+        execute(
+            url,
+            f"UPDATE {table} SET class_session_id = %s WHERE {key} = ANY(%s::uuid[])",
+            (session_id, made),
+        )
+    return made
 
 
 def _shared_file(key: object) -> Path | None:

@@ -2,6 +2,7 @@
 read or manage the Class the rows belong to (AD-12)."""
 
 import uuid
+from collections.abc import Collection
 from datetime import datetime
 from typing import Any
 
@@ -29,6 +30,7 @@ from app.modules.sessions.models import (
     class_sessions,
     deadline_reminders,
     lab_hours,
+    student_adjustments,
 )
 from app.platform import authz
 
@@ -310,6 +312,21 @@ async def due_locks(session: AsyncSession, now: datetime) -> list[RowMapping]:
     return list(result.mappings())
 
 
+async def passed_play_deadlines(
+    session: AsyncSession, now: datetime, among: Collection[uuid.UUID]
+) -> list[uuid.UUID]:
+    """Of the Class sessions `among`, those whose Play deadline lies at or before `now` (Story
+    8.14), by id."""
+    if not among:
+        return []
+    result = await session.execute(
+        select(class_sessions.c.id)
+        .where(class_sessions.c.id.in_(list(among)), class_sessions.c.play_deadline <= now)
+        .order_by(class_sessions.c.id)
+    )
+    return list(result.scalars())
+
+
 async def set_lock_refused(session: AsyncSession, session_id: uuid.UUID, at: datetime) -> bool:
     """Mark the first refusal of an unlocked session's lock (GitHub issue 109); a later refusal
     keeps the first time. True when this call marked it."""
@@ -485,3 +502,82 @@ async def reminder_row(session: AsyncSession, reminder_id: uuid.UUID) -> RowMapp
         select(deadline_reminders).where(deadline_reminders.c.id == reminder_id)
     )
     return result.mappings().one_or_none()
+
+
+_with_class_share = select(
+    student_adjustments, class_sessions.c.required_share_percent.label("class_share")
+).join(class_sessions, class_sessions.c.id == student_adjustments.c.class_session_id)
+"""A Tilrettelegging row with its Class session's required share, so a read can tell a share
+above the class's own (the class lowered it since) from a real adjustment (Story 8.9)."""
+
+
+async def adjustment_row(
+    session: AsyncSession, class_session_id: uuid.UUID, user_id: uuid.UUID
+) -> RowMapping | None:
+    """The Student's Tilrettelegging in the Class session (Story 8.9), or None."""
+    result = await session.execute(
+        _with_class_share.where(
+            student_adjustments.c.class_session_id == class_session_id,
+            student_adjustments.c.user_id == user_id,
+        )
+    )
+    return result.mappings().one_or_none()
+
+
+async def adjustments_of_user(
+    session: AsyncSession, user_id: uuid.UUID, class_session_ids: list[uuid.UUID]
+) -> list[RowMapping]:
+    """The Student's Tilrettelegging in each of these Class sessions, in one read (Hjem)."""
+    if not class_session_ids:
+        return []
+    result = await session.execute(
+        _with_class_share.where(
+            student_adjustments.c.user_id == user_id,
+            student_adjustments.c.class_session_id.in_(class_session_ids),
+        )
+    )
+    return list(result.mappings())
+
+
+async def delete_adjustment(
+    session: AsyncSession, class_session_id: uuid.UUID, user_id: uuid.UUID
+) -> None:
+    """«Som klassen» and the class share: no Tilrettelegging is kept (Story 8.9)."""
+    await session.execute(
+        delete(student_adjustments).where(
+            student_adjustments.c.class_session_id == class_session_id,
+            student_adjustments.c.user_id == user_id,
+        )
+    )
+
+
+async def adjustment_rows(
+    session: AsyncSession, class_session_id: uuid.UUID, user_ids: list[uuid.UUID]
+) -> list[RowMapping]:
+    """The Tilrettelegging of these Students in the Class session, in one read (Story 8.9)."""
+    if not user_ids:
+        return []
+    result = await session.execute(
+        select(student_adjustments).where(
+            student_adjustments.c.class_session_id == class_session_id,
+            student_adjustments.c.user_id.in_(user_ids),
+        )
+    )
+    return list(result.mappings())
+
+
+async def save_adjustment(session: AsyncSession, **values: Any) -> None:
+    """Insert or replace the Student's Tilrettelegging (Story 8.9): one row per Class session and
+    Student."""
+    statement = pg_insert(student_adjustments).values(**values)
+    await session.execute(
+        statement.on_conflict_do_update(
+            index_elements=[student_adjustments.c.class_session_id, student_adjustments.c.user_id],
+            set_={
+                "time_factor": statement.excluded.time_factor,
+                "share_percent": statement.excluded.share_percent,
+                "updated_by": statement.excluded.updated_by,
+                "updated_at": statement.excluded.updated_at,
+            },
+        )
+    )

@@ -1,0 +1,8 @@
+{# An AI player took a Student's Seat over (Story 8.2, FR-36), an immediate kind. See the text
+   part for the variables. Draft copy. #}
+{% import "kinds/_takeover_warning.j2" as w %}
+{% set roles = {"retailer": "Detaljist", "wholesaler": "Grossist", "distributor": "Distributør", "factory": "Fabrikk"} %}
+{% if own %}<p style="margin:0 0 12px;">KI-spiller har bestilt for deg som {{ roles[role] }} i Spill {{ game_number }} i Klassen {{ class_name }}.</p>
+{% if obligatory %}<p style="margin:0 0 12px;">{{ w.warning() }}</p>
+{% endif %}{% else %}<p style="margin:0 0 12px;">KI-spiller bestiller nå for {{ student or ("setet som " ~ roles[role]) }} i Spill {{ game_number }} i Klassen {{ class_name }}, så gruppen kan spille videre.</p>
+{% endif %}<p style="margin:0;">Du ser spillet på <a href="{{ url('/hjem') }}" style="color:#2B6CA3;font-weight:600;">Hjem</a>.</p>

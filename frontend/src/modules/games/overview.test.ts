@@ -24,6 +24,7 @@ import {
   netValues,
   orderOf,
   readAgainAt,
+  seatMarks,
   seatTexts,
   statusCounts,
   TABLE_COLUMNS,
@@ -55,8 +56,8 @@ function game(over: Partial<OverviewGame> & Pick<OverviewGame, "game_number" | "
 
 describe("headline", () => {
   it("reads «41 ferdig · 15 pågår · 4 venter» and adds the games not started only when there are any", () => {
-    expect(headline({ finished: 41, running: 15, waiting: 4, not_started: 0 })).toBe("41 ferdig · 15 pågår · 4 venter");
-    expect(headline({ finished: 0, running: 1, waiting: 0, not_started: 3 })).toBe(
+    expect(headline({ finished: 41, running: 15, waiting: 4, not_started: 0, paused: 0 })).toBe("41 ferdig · 15 pågår · 4 venter");
+    expect(headline({ finished: 0, running: 1, waiting: 0, not_started: 3, paused: 0 })).toBe(
       "0 ferdig · 1 pågår · 0 venter · 3 ikke startet",
     );
   });
@@ -103,6 +104,17 @@ describe("seatTexts and costText", () => {
       "Grossist: Student",
       "Detaljist: Ledig",
     ]);
+    // Story 8.3: an AI player's mark says why it holds the Seat, in text (AD-15); none at the start.
+    const takenOver = game({
+      game_number: 1,
+      status: "running",
+      seats: [
+        { role: "factory", holder: "ai", name: null, mark: "takeover_inactivity" },
+        { role: "distributor", holder: "ai", name: null, mark: null },
+      ],
+    });
+    expect(seatTexts(takenOver)).toEqual(["Fabrikk: KI-spiller (KI tok over etter ventetiden)", "Distributør: KI-spiller"]);
+    expect(seatMarks(takenOver)).toEqual(["Fabrikk: KI tok over etter ventetiden"]);
     expect(costText(game({ game_number: 1, status: "running", chain_cost: "1058.4900" }))).toBe(`1${GROUP}058${KRONER}`);
     expect(costText(game({ game_number: 1, status: "not_started" }))).toBeNull();
   });
@@ -161,6 +173,18 @@ describe("wallGroups (Story 7.2)", () => {
     expect(running!.shortDetail).toBe("Pågår");
     expect(running!.rowName).toBe("Spill 7, pågår");
     expect(finished!.rowName).toBe(`Spill 4, ferdig, kjedekost 980${KRONER}`);
+  });
+
+  it("names a Seat taken over and its reason in the row's note, not in the short one (Story 8.3)", () => {
+    const takenOver = game({
+      game_number: 9,
+      status: "running",
+      seats: [{ role: "wholesaler", holder: "ai", name: null, mark: "takeover_inactivity" }],
+    });
+    const [row] = wallGroups(groupsOf([takenOver]), new Map(), "factory", now).map((g) => g.rows[0]!);
+    expect(row!.detail).toBe("Pågår; Grossist: KI tok over etter ventetiden");
+    expect(row!.shortDetail).toBe("Pågår");
+    expect(row!.rowName).toBe("Spill 9, pågår; Grossist: KI tok over etter ventetiden");
   });
 
   it("takes the chosen Role's Netto lager as the api sent it, and marks a game still loading", () => {
@@ -273,7 +297,7 @@ describe("Veggfiltre on the rows received (Story 7.4, AD-10)", () => {
   });
 
   it("counts every Status choice over the received games", () => {
-    expect(statusCounts(games)).toEqual({ all: 4, waiting: 1, running: 1, not_started: 0, finished: 2, with_ai: 2 });
+    expect(statusCounts(games)).toEqual({ all: 4, waiting: 1, paused: 0, running: 1, not_started: 0, finished: 2, with_ai: 2 });
   });
 
   it("takes the chosen cells: Ordre up to the first Uke without one, Kost per uke as a number", () => {

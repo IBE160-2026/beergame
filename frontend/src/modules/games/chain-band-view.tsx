@@ -20,10 +20,13 @@ export function ChainBandView({
   state,
   seatRoles,
   typed,
+  byAi = false,
 }: {
   state: BandState;
   /** A valid typed Order not yet confirmed (Story 6.11): a new box last on the pipe. */
   typed?: number;
+  /** The own Seat is taken over (Story 8.4): `typed` is the KI-spiller's Order, «KI-ordre 9». */
+  byAi?: boolean;
   /** The game's Seats' Roles, Fabrikk first (UX-DR73), for the neighbour at each end. */
   seatRoles: readonly components["schemas"]["Role"][];
 }) {
@@ -58,7 +61,7 @@ export function ChainBandView({
             slots={slots}
             overdue={state.overdue}
             typed={typed}
-            labels={bandLabels(state, ends, typed)}
+            labels={bandLabels(state, ends, typed, byAi)}
             title={nb.games.play.band.svg}
           />
         ) : null}

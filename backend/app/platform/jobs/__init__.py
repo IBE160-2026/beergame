@@ -19,6 +19,7 @@ from collections.abc import Iterable, Sequence
 
 import procrastinate
 import structlog
+from sqlalchemy import text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -35,6 +36,7 @@ __all__ = [
     "conninfo",
     "defer",
     "defer_many",
+    "live_locks",
     "load_tasks",
     "run_until_idle",
 ]
@@ -128,6 +130,22 @@ async def defer_many(
     )
     log.debug("jobs_deferred", task=task, queue=queue, count=len(deferred))
     return len(deferred)
+
+
+async def live_locks(session: AsyncSession, locks: Iterable[str]) -> set[str]:
+    """Of `locks`, the queueing locks of a job that waits (`todo`) or runs (`doing`) now: a job
+    for that key is alive, so it must not be deferred again (Story 8.14)."""
+    wanted = sorted(set(locks))
+    if not wanted:
+        return set()
+    result = await session.execute(
+        text(
+            "SELECT DISTINCT queueing_lock FROM procrastinate_jobs "
+            "WHERE queueing_lock = ANY(:locks) AND status IN ('todo', 'doing')"
+        ),
+        {"locks": wanted},
+    )
+    return {str(lock) for lock in result.scalars()}
 
 
 def _connector(database_url: str | None, size: int) -> procrastinate.PsycopgConnector:

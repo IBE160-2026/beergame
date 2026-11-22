@@ -169,6 +169,8 @@ def test_a_class_game_charges_its_class_session():
     scope = service.scope_of("class", runtime, SESSION)
     assert scope == budget.BudgetScope.class_session(SESSION)
     assert scope.effort_level == "standard"
+    # The frozen config goes with it, so the gateway can resolve the call (Epic 8 close-out).
+    assert str(scope.model_config_id) == runtime.model_config_id
     assert service.scope_of("class", None, SESSION) is None
     assert (
         service.scope_of(

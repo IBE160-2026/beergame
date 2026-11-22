@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-17-2026 12:28
-last_updated: 11-21-2026 19:04
+last_updated: 11-22-2026 12:13
 project: beergame
 project_key: NOKEY
 tracking_system: file-system
@@ -143,7 +143,7 @@ development_status:
   6-22-see-the-capacity-in-the-briefing-and-on-a-capped-seat-cut-li: done
   epic-6-retrospective: optional
 
-  epic-7: in-progress
+  epic-7: done
   7-1-see-the-status-of-every-class-game-on-the-oversikt: done
   7-2-read-all-class-games-week-by-week-on-the-matrisevegg: done
   7-3-switch-the-wall-to-vis-som-tabell: done
@@ -157,24 +157,24 @@ development_status:
   7-11-act-on-the-longest-waiting-game-from-the-varselbånd: done
   epic-7-retrospective: optional
 
-  epic-8: backlog
-  8-1-record-when-each-week-opened-and-when-each-seat-ordered: backlog
-  8-2-an-ai-player-takes-over-after-the-inactivity-limit: backlog
-  8-3-see-on-the-oversikt-which-class-game-is-closest-to-takeover: backlog
-  8-4-take-the-seat-back-with-ta-tilbake-setet: backlog
-  8-5-put-an-ai-player-in-one-seat-from-spillstyring: backlog
-  8-6-pause-the-class-game-with-ta-pause: backlog
-  8-7-pause-a-class-game-with-an-agreed-time-as-lecturer: backlog
-  8-8-put-an-ai-player-in-an-absent-seat-as-a-student: backlog
-  8-9-give-one-student-more-time-with-tilrettelegging: backlog
-  8-10-start-one-class-game-or-all-of-them-as-lecturer: backlog
-  8-11-mark-a-class-game-as-i-rommet-during-a-lab-hour: backlog
-  8-12-fill-every-waited-for-seat-in-one-action: backlog
-  8-13-get-an-email-when-the-game-waits-for-your-order: backlog
-  8-14-finish-every-unfinished-class-game-at-the-play-deadline: backlog
+  epic-8: in-progress
+  8-1-record-when-each-week-opened-and-when-each-seat-ordered: done
+  8-2-an-ai-player-takes-over-after-the-inactivity-limit: done
+  8-3-see-on-the-oversikt-which-class-game-is-closest-to-takeover: done
+  8-4-take-the-seat-back-with-ta-tilbake-setet: done
+  8-5-put-an-ai-player-in-one-seat-from-spillstyring: done
+  8-6-pause-the-class-game-with-ta-pause: done
+  8-7-pause-a-class-game-with-an-agreed-time-as-lecturer: done
+  8-8-put-an-ai-player-in-an-absent-seat-as-a-student: done
+  8-9-give-one-student-more-time-with-tilrettelegging: done
+  8-10-start-one-class-game-or-all-of-them-as-lecturer: done
+  8-11-mark-a-class-game-as-i-rommet-during-a-lab-hour: done
+  8-12-fill-every-waited-for-seat-in-one-action: done
+  8-13-get-an-email-when-the-game-waits-for-your-order: done
+  8-14-finish-every-unfinished-class-game-at-the-play-deadline: done
   epic-8-retrospective: optional
 
-  epic-9: in-progress
+  epic-9: done
   9-1-compute-the-facts-of-a-finished-game: done
   9-2-open-the-debrief-when-the-class-game-has-ended: done
   9-3-write-the-explanation-before-the-reveal: done
@@ -185,27 +185,27 @@ development_status:
   9-8-see-the-chain-s-bill-and-finish-the-debrief: done
   9-9-pass-the-debrief-quiz: done
   9-10-exclude-a-quiz-question-and-see-quiz-attempts: done
-  9-11-go-through-the-debrief-together-as-a-group: in-progress
-  9-12-continue-alone-when-the-group-is-not-there: backlog
-  9-13-show-the-group-debrief-on-a-shared-screen: backlog
-  9-14-read-ai-narration-that-only-connects-computed-facts: backlog
-  9-15-ask-bounded-follow-up-questions-about-my-game: backlog
+  9-11-go-through-the-debrief-together-as-a-group: done
+  9-12-continue-alone-when-the-group-is-not-there: done
+  9-13-show-the-group-debrief-on-a-shared-screen: done
+  9-14-read-ai-narration-that-only-connects-computed-facts: review
+  9-15-ask-bounded-follow-up-questions-about-my-game: review
   epic-9-retrospective: optional
 
-  epic-10: backlog
-  10-1-get-a-default-replay-scenario-that-differs-per-student: backlog
-  10-2-set-the-replay-scenario-freely: backlog
-  10-3-start-the-replay-after-passing-the-debrief-quiz: backlog
-  10-4-play-the-replay-with-the-projection-line: backlog
-  10-5-finish-the-replay-and-unlock-the-next-step: backlog
-  10-6-close-unfinished-replays-at-the-test-deadline: backlog
-  10-7-read-the-replay-walkthrough: backlog
-  10-8-rate-how-believable-the-ai-players-were: backlog
-  10-9-let-information-visibility-differ-in-the-replay-cut-list-beh: backlog
+  epic-10: done
+  10-1-get-a-default-replay-scenario-that-differs-per-student: done
+  10-2-set-the-replay-scenario-freely: done
+  10-3-start-the-replay-after-passing-the-debrief-quiz: done
+  10-4-play-the-replay-with-the-projection-line: done
+  10-5-finish-the-replay-and-unlock-the-next-step: done
+  10-6-close-unfinished-replays-at-the-test-deadline: done
+  10-7-read-the-replay-walkthrough: review
+  10-8-rate-how-believable-the-ai-players-were: done
+  10-9-let-information-visibility-differ-in-the-replay-cut-list-beh: done
   epic-10-retrospective: optional
 
-  epic-11: backlog
-  11-1-review-the-question-set-and-item-weights: backlog
+  epic-11: in-progress
+  11-1-review-the-question-set-and-item-weights: in-progress
   11-2-edit-the-scoring-guide-for-a-class-session: backlog
   11-3-open-the-individual-test-with-the-own-work-statement: backlog
   11-4-answer-multiple-choice-items-with-autosave: backlog
@@ -221,8 +221,8 @@ development_status:
   11-14-answer-drawn-interactive-items-in-a-graph-after-the-rehearsa: backlog
   epic-11-retrospective: optional
 
-  epic-12: backlog
-  12-1-switch-the-ai-assessment-off-for-a-class-session: backlog
+  epic-12: in-progress
+  12-1-switch-the-ai-assessment-off-for-a-class-session: done
   12-2-get-an-ai-assessment-with-scores-and-a-weighted-total: backlog
   12-3-read-written-feedback-that-quotes-my-answer-and-matches-my-g: backlog
   12-4-be-told-when-the-ai-assessment-is-ready: backlog

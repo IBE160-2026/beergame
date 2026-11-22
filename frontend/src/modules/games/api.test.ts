@@ -7,7 +7,7 @@ import { type ClassOverview, readOverview } from "./api";
 const OVERVIEW = {
   items: [],
   next_cursor: null,
-  counts: { waiting: 0, running: 1, not_started: 0, finished: 0 },
+  counts: { waiting: 0, running: 1, not_started: 0, finished: 0, paused: 0 },
   server_now: "2026-11-21T13:02:15Z",
   before_start: false,
   start_at: "2026-11-20T08:00:00Z",
@@ -16,6 +16,9 @@ const OVERVIEW = {
   cost: null,
   funnel: [{ stage: "registered", count: 0 }],
   alert: null,
+  can_pause: false,
+  startable: 0,
+  fillable: 0,
   class_id: "c1",
   class_name: "klasse",
   session_number: 1,

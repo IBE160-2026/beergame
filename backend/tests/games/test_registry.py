@@ -4,6 +4,7 @@ topics the events registry lists for it."""
 import ast
 import inspect
 import uuid
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -42,10 +43,10 @@ async def _run_assign_seat() -> str:
     return game_id
 
 
-async def _started_simulation() -> str:
+async def _started_simulation(settings: GameSettings = FREE) -> str:
     """A Student holds every Seat, so the Game waits in Week 1; with no Student ids, its start
     tells no Student (`user:`) and only the commands' own topics remain."""
-    game_id = await commands.create("simulation", FREE, seed=1)
+    game_id = await commands.create("simulation", settings, seed=1)
     seat_student(TEST_DATABASE_URL, game_id, *(role.value for role in FREE.roles), anonymous=True)
     await commands.start(game_id)
     return game_id
@@ -85,8 +86,13 @@ async def _run_place_order() -> str:
 
 
 async def _run_finish() -> str:
-    """`finish` runs inside the `place_order` that completes the last Week."""
-    game_id = await _started_simulation()
+    """`finish` runs inside the `place_order` that completes the last Week (of two: a longer
+    game only made the test slower)."""
+    game_id = await _started_simulation(
+        FREE.model_copy(
+            update={"weeks": 2, "demand": FREE.demand.model_copy(update={"change_week": 2})}
+        )
+    )
     await play_to_end(game_id)
     return game_id
 
@@ -219,6 +225,187 @@ async def _run_accept_time() -> str:
     return game_id
 
 
+async def _run_takeover() -> str:
+    """The absent Student's Seat of a started Class game is taken over at its due time (Story
+    8.2): its Class session and both Students hear of it (each also through a notice)."""
+    from tests.games.test_takeover import class_game, due_of
+
+    game_id, students = await class_game()
+    await commands.place_order(game_id, "retailer", 1, 4, "student", actor=students["retailer"])
+    with_settle = commands._settle
+    commands._settle = _no_settle  # only the command's own events: no advance after it
+    try:
+        due = due_of(game_id, "factory")
+        assert due is not None
+        await commands.takeover(game_id, "factory", actor="system", now=due)
+    finally:
+        commands._settle = with_settle
+    return game_id
+
+
+async def _run_request_reclaim() -> str:
+    """The Student whose Seat was taken over asks for it back (Story 8.4): its Class session and
+    that Student hear of it."""
+    from tests.games.test_reclaim import taken_over
+
+    game_id, students = await taken_over()
+    await commands.request_reclaim(game_id, "factory", actor=students["factory"])
+    return game_id
+
+
+async def _run_pause() -> str:
+    """A Student pauses a started Class game (Story 8.6): its Class session and both Students
+    hear of it."""
+    from tests.games.test_takeover import class_game
+
+    game_id, students = await class_game()
+    await commands.pause(game_id, actor=students["retailer"])
+    return game_id
+
+
+LECTURER = uuid.UUID("01900000-0000-7000-8000-00000000a807")
+
+
+async def _run_set_agreed_time() -> str:
+    """A Lecturer gives a Student's Pause an agreed time (Story 8.7): its Class session and both
+    Students hear of it."""
+    from tests.games.test_staff_pause import db_now
+    from tests.games.test_takeover import class_game
+
+    game_id, students = await class_game()
+    await commands.pause(game_id, actor=students["retailer"])
+    await commands.set_agreed_time(game_id, db_now() + timedelta(hours=1), actor=LECTURER)
+    return game_id
+
+
+async def _run_resume() -> str:
+    """A Lecturer ends a Pause (Story 8.7): its Class session and both Students hear of it."""
+    from tests.games.test_takeover import class_game
+
+    game_id, _ = await class_game()
+    await commands.pause(game_id, actor=LECTURER, staff=True)
+    await commands.resume(game_id, actor=LECTURER)
+    return game_id
+
+
+async def _run_reach_agreed_time() -> str:
+    """The sweep crosses a Lecturer's agreed time (Story 8.7): its Class session and both
+    Students hear of it."""
+    from tests.games.test_staff_pause import db_now
+    from tests.games.test_takeover import class_game
+
+    game_id, _ = await class_game()
+    agreed = db_now() + timedelta(hours=1)
+    await commands.pause(game_id, actor=LECTURER, staff=True, resume_at=agreed)
+    await commands.reach_agreed_time(game_id, now=agreed)
+    return game_id
+
+
+async def _run_announce_insert_time() -> str:
+    """The sweep crosses an absent Seat's insert time (Story 8.8): its Class session and both
+    Students hear of it."""
+    from tests.games.test_takeover import class_game, due_of
+
+    game_id, students = await class_game()
+    await commands.place_order(game_id, "retailer", 1, 4, "student", actor=students["retailer"])
+    await commands.pause(game_id, actor=students["retailer"])
+    [(seat_id,)] = query(
+        TEST_DATABASE_URL,
+        "SELECT id FROM seats WHERE game_id = %s AND role = 'factory'",
+        (game_id,),
+    )
+    due = due_of(game_id, "factory")
+    assert due is not None
+    assert await commands.announce_insert_time(game_id, str(seat_id), now=due)
+    return game_id
+
+
+async def _run_queue_turn_reminder() -> str:
+    """The sweep crosses an absent Seat's reminder time (Story 8.13): only the reminded Student
+    hears of it, through their notice."""
+    from tests.games.test_takeover import class_game
+    from tests.games.test_turn_reminder import reminder_of, seat_id
+
+    game_id, students = await class_game()
+    await commands.place_order(game_id, "retailer", 1, 4, "student", actor=students["retailer"])
+    due = reminder_of(game_id, "factory")
+    assert due is not None
+    assert await commands.queue_turn_reminder(game_id, seat_id(game_id, "factory"), now=due)
+    return game_id
+
+
+async def _run_recompute_turn_times() -> str:
+    """A Student's Tilrettelegging moves the open Week's due time (Story 8.9): its Class session
+    and both Students hear of it."""
+    from app.modules.sessions import service as sessions_service
+    from tests.games.test_takeover import class_game
+
+    game_id, students = await class_game()
+    await commands.place_order(game_id, "retailer", 1, 4, "student", actor=students["retailer"])
+    factory = students["factory"]
+    original = sessions_service.time_factors
+
+    async def doubled(session, class_session_id, user_ids):
+        return {user: 2.0 for user in user_ids if user == factory}
+
+    sessions_service.time_factors = doubled
+    try:
+        assert await commands.recompute_turn_times(game_id)
+    finally:
+        sessions_service.time_factors = original
+    return game_id
+
+
+async def _run_mark_in_room() -> str:
+    """A Lecturer marks a started Class game «I rommet» (Story 8.11): its Class session and both
+    Students hear of it."""
+    from tests.games.test_in_room import mark
+    from tests.games.test_takeover import class_game
+
+    game_id, _ = await class_game()
+    assert await mark(game_id, 10)
+    return game_id
+
+
+async def _run_end_in_room() -> str:
+    """A Lecturer ends the mark (Story 8.11): its Class session and both Students hear of it."""
+    from tests.games.test_in_room import mark
+    from tests.games.test_takeover import class_game
+
+    game_id, _ = await class_game()
+    assert await mark(game_id, 10)
+    assert await commands.end_in_room(game_id, actor=LECTURER)
+    return game_id
+
+
+async def _run_playout() -> str:
+    """The Play deadline playout of a started Class game (Story 8.14): its Class session and both
+    Students hear of it; the Weeks it then plays emit the same topics."""
+    from tests.games.test_playout import class_game
+
+    game_id, _ = await class_game()
+    deadline = datetime(2026, 12, 1, tzinfo=UTC)
+    assert await commands.playout(game_id, now=deadline, latest=deadline)
+    return game_id
+
+
+async def _run_ensure_playout_order() -> str:
+    """A Seat of a Game playing out gets its Order again (Story 8.14): only a job row, no event.
+    The Game is put in `playing_out` directly, its Student Seats still held, so nothing is placed
+    and the Week does not advance."""
+    from tests.games.test_takeover import class_game
+    from tests.games.test_turn_reminder import seat_id
+
+    game_id, _ = await class_game()
+    execute(
+        TEST_DATABASE_URL,
+        "UPDATE games SET lifecycle = 'playing_out', played_out_at = now() WHERE id = %s",
+        (game_id,),
+    )
+    assert await commands.ensure_playout_order(game_id, seat_id(game_id, "factory"))
+    return game_id
+
+
 RUNNERS = {
     "create": _run_create,
     "assign_seat": _run_assign_seat,
@@ -232,9 +419,29 @@ RUNNERS = {
     "view_week": _run_view_week,
     "propose_time": _run_propose_time,
     "accept_time": _run_accept_time,
+    "takeover": _run_takeover,
+    "request_reclaim": _run_request_reclaim,
+    "pause": _run_pause,
+    "set_agreed_time": _run_set_agreed_time,
+    "resume": _run_resume,
+    "reach_agreed_time": _run_reach_agreed_time,
+    "announce_insert_time": _run_announce_insert_time,
+    "queue_turn_reminder": _run_queue_turn_reminder,
+    "recompute_turn_times": _run_recompute_turn_times,
+    "mark_in_room": _run_mark_in_room,
+    "end_in_room": _run_end_in_room,
+    "playout": _run_playout,
+    "ensure_playout_order": _run_ensure_playout_order,
     "close": _run_close,
 }
 """How to run each command once; a command added without a runner fails the test below."""
+
+TAKEOVER_SETUP = 17
+"""create 2, two Student Seats 2 each, snapshot 4, start 4, the first Order 3."""
+
+RECLAIM_SETUP = -3
+"""Counted from the end: `request_reclaim` emits exactly `game`, `session` and the Student's
+`user`; its setup's Takeover also settles a Week, whose events vary with the order source."""
 
 CLASS_SETUP_EVENTS = {
     "move_seat": 4,
@@ -247,6 +454,23 @@ CLASS_SETUP_EVENTS = {
     # session, the proposer, the other Student's notice).
     "propose_time": 6,
     "accept_time": 10,
+    "takeover": TAKEOVER_SETUP,
+    "request_reclaim": RECLAIM_SETUP,
+    # Counted from the end: `pause` emits `game`, `session` and both Students' `user`.
+    "pause": -4,
+    # Counted from the end: each emits `game`, `session` and both Students' `user`.
+    "set_agreed_time": -4,
+    "resume": -4,
+    "reach_agreed_time": -4,
+    "announce_insert_time": -4,
+    # Counted from the end: the reminded Student's `user` alone.
+    "queue_turn_reminder": -1,
+    "recompute_turn_times": -4,
+    "mark_in_room": -4,
+    "end_in_room": -4,
+    # create 2, two Student Seats 2 each, snapshot 4, start 4: the playout and its Weeks after it.
+    "playout": 14,
+    "ensure_playout_order": 14,
     "close": 7,
 }
 """Runners on a Class game, and how many events their setup emits before the command's own."""
@@ -269,6 +493,19 @@ def test_every_command_is_exported_and_registered():
             "view_week",
             "propose_time",
             "accept_time",
+            "takeover",
+            "request_reclaim",
+            "pause",
+            "set_agreed_time",
+            "resume",
+            "reach_agreed_time",
+            "announce_insert_time",
+            "queue_turn_reminder",
+            "recompute_turn_times",
+            "mark_in_room",
+            "end_in_room",
+            "playout",
+            "ensure_playout_order",
             "close",
         }
         == set(RUNNERS)
@@ -280,23 +517,24 @@ def test_every_command_is_exported_and_registered():
     assert games_entries == found
 
 
-@pytest.mark.long
-async def test_each_command_emits_exactly_its_registered_topics(games_db):
-    for name, runner in RUNNERS.items():
-        with listening(games_db) as events:
-            game_id = await runner()
-            received = events.drain()
-        if name in CLASS_SETUP_EVENTS:
-            # A Class game (its Class session hears of each command): only this command's events.
-            received = received[CLASS_SETUP_EVENTS[name] :]
-            assert {item["topic"] for item in received} == COMMAND_TOPICS[f"games.{name}"]
-            assert {item["id"] for item in received if item["topic"] == "game"} == {game_id}
-            continue
-        if name != "create":
-            received = received[1:]  # the first event is the setup's create
+@pytest.mark.parametrize("name", list(RUNNERS))
+async def test_each_command_emits_exactly_its_registered_topics(games_db, name):
+    """One test per command, so the workers share them (one loop over all of them took 8 s)."""
+    with listening(games_db) as events:
+        game_id = await RUNNERS[name]()
+        received = events.drain()
+    if name in CLASS_SETUP_EVENTS:
+        # A Class game (its Class session hears of each command): only this command's events.
+        received = received[CLASS_SETUP_EVENTS[name] :]
         assert {item["topic"] for item in received} == COMMAND_TOPICS[f"games.{name}"]
-        assert all(item["id"] == game_id for item in received)
-        assert "session" not in {item["topic"] for item in received}  # simulation Games
+        if "game" in COMMAND_TOPICS[f"games.{name}"]:
+            assert {item["id"] for item in received if item["topic"] == "game"} == {game_id}
+        return
+    if name != "create":
+        received = received[1:]  # the first event is the setup's create
+    assert {item["topic"] for item in received} == COMMAND_TOPICS[f"games.{name}"]
+    assert all(item["id"] == game_id for item in received)
+    assert "session" not in {item["topic"] for item in received}  # simulation Games
 
 
 async def test_each_command_locks_bumps_and_notifies_in_one_transaction(games_db):

@@ -1,0 +1,8 @@
+{# Story 8.2 (FR-17, FR-14): the one place the mail builds the requirement warning of a Takeover,
+   shown to the Student whose Seat it was when the Class session is obligatory. It must never hold
+   a number or say how many Uker the game has or has left: the CI copy check fails on a digit or
+   «uke» here. The play screen and Hjem hold the same warning in `nb.ts`
+   (`homes.student.takeover.requirementWarning`). Draft copy. #}
+{% macro warning() -%}
+Klassespillet er obligatorisk. At en KI-spiller bestiller for deg, kan påvirke om du oppfyller kravet.
+{%- endmacro %}

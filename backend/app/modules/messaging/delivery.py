@@ -155,6 +155,26 @@ async def _time_proposed_context(
     return await sessions.time_proposal_mail_context(session, user_id, ref, now)
 
 
+TAKEOVER_KIND = "takeover_notice"
+"""`games.commands.TAKEOVER_NOTICE` (Story 8.2), named here for the same reason."""
+
+
+async def _takeover_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    return await sessions.takeover_mail_context(session, user_id, ref, now)
+
+
+TURN_REMINDER_KIND = "turn_reminder"
+"""`games.commands.TURN_REMINDER_NOTICE` (Story 8.13), named here for the same reason."""
+
+
+async def _turn_reminder_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    return await sessions.turn_reminder_mail_context(session, user_id, ref, now)
+
+
 DEBRIEF_RELEASED_KIND = "debrief_released"
 """`debrief.commands.RELEASED_NOTICE` (Story 9.2), named here for the same reason."""
 
@@ -217,6 +237,9 @@ KINDS: Mapping[str, Delivery] = MappingProxyType(
             DIGEST, DEADLINE_REMINDER_KIND, context=_deadline_reminder_context
         ),
         TIME_PROPOSED_KIND: Delivery(DIGEST, TIME_PROPOSED_KIND, context=_time_proposed_context),
+        # Digest: the game has waited for the Student's Order (Story 8.13, FR-27), gathered with
+        # the day's other notices and never sent between 22:00 and 07:00.
+        TURN_REMINDER_KIND: Delivery(DIGEST, TURN_REMINDER_KIND, context=_turn_reminder_context),
         DEBRIEF_RELEASED_KIND: Delivery(
             DIGEST, DEBRIEF_RELEASED_KIND, context=_debrief_released_context
         ),
@@ -230,6 +253,9 @@ KINDS: Mapping[str, Delivery] = MappingProxyType(
         ),
         # Immediate: the Start date has passed and the Class games wait for the lock.
         LOCK_REFUSED_KIND: Delivery(IMMEDIATE, LOCK_REFUSED_KIND, context=_lock_refused_context),
+        # Immediate: an AI player took a Student's Seat over (Story 8.2, FR-36, AD-9), sent at once
+        # at any hour, also between 22:00 and 07:00.
+        TAKEOVER_KIND: Delivery(IMMEDIATE, TAKEOVER_KIND, context=_takeover_context),
         # Immediate: a Message a staff member sent (Story 7.9, AD-9).
         MESSAGE_KIND: Delivery(IMMEDIATE, MESSAGE_KIND, context=_message_context),
         identity.PASSWORD_RESET: Delivery(
@@ -252,8 +278,9 @@ notice (Story 5.7, digest), the allocation notice (Story 5.9, digest), the Stude
 (Story 5.11, immediate), the deadline reminder (Story 5.14, digest), the proposed time to play
 (Story 6.19, digest), the release of held Debriefs (Story 9.2, digest), a changed Debrief
 quiz (Story 9.10, digest), the opened Group debrief (Story 9.11, immediate) and its 48-hour
-fallback to a Personal debrief (Story 9.12, digest), and a staff member's Message (Story 7.9,
-immediate)."""
+fallback to a Personal debrief (Story 9.12, digest), a staff member's Message (Story 7.9,
+immediate), the Takeover notice (Story 8.2, immediate) and the turn reminder (Story 8.13,
+digest)."""
 
 TEST_KINDS: Mapping[str, Delivery] = MappingProxyType(
     {

@@ -49,6 +49,9 @@ type Props = {
   /** Right-aligned on the label's line, in every state: the Lenke «Alle rader og kostnad» on phone
    * (Story 6.16, DESIGN.md → Ordrefelt). */
   aside?: ReactNode;
+  /** An in-place form with its own primary is open on the screen (the Pausevalg, Story 8.6): «Bekreft
+   * ordre» steps back to secondary, so the screen keeps one primary button (UX-DR8). */
+  stepBack?: boolean;
 };
 
 /**
@@ -130,6 +133,7 @@ function Editable({
   retry = false,
   closed = false,
   aside,
+  stepBack = false,
 }: Props) {
   const id = useId();
   const connection = useConnection();
@@ -279,7 +283,7 @@ function Editable({
           before the guard that ignores the press). While sending it keeps focus, busy. */}
       <Button
         ref={button}
-        variant="primary"
+        variant={stepBack ? "secondary" : "primary"}
         unavailable={valid === null || locked}
         aria-busy={sending ? true : undefined}
         onClickCapture={press}

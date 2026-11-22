@@ -85,12 +85,16 @@ export function bandEnds(role: Role, seatRoles: readonly Role[], numbers: readon
 
 /** Every label of the band, from the api's numbers as they came (AD-10). For the Detaljist,
  * «Ordre inn» is the customers' number of this Uke only (FR-14). A typed Order (Story 6.11) reads
- * «Din ordre 24» and «På vei 16 + 24»: the two numbers side by side, never summed. */
-export function bandLabels(state: BandState, ends: BandEnds, typed?: number): BandLabels {
+ * «Din ordre 24» and «På vei 16 + 24»: the two numbers side by side, never summed. With `byAi`
+ * (the own Seat taken over, Story 8.4) the placed Order is the KI-spiller's: «KI-ordre 9». */
+export function bandLabels(state: BandState, ends: BandEnds, typed?: number, byAi = false): BandLabels {
   const supplyLine = labelled(terms.supplyLine, state.supply_line);
+  // Story 8.4: the Order of the KI-spiller that took the Seat over is «KI-ordre 9», never «Din».
+  const order = byAi ? copy.aiOrder : copy.order;
   return {
     ...ends,
-    order: typed === undefined ? copy.order : labelled(copy.order, typed),
+    order: typed === undefined ? order : labelled(order, typed),
+    ...(byAi ? { orderByAi: true } : {}),
     incoming: labelled(terms.incomingOrder, state.incoming_order),
     delivery: labelled(terms.incomingDelivery, state.incoming_delivery),
     shipped: labelled(terms.unitsShipped, state.shipped),

@@ -1,4 +1,6 @@
-import type { ReactNode } from "react";
+"use client";
+
+import { type ReactNode, useEffect, useRef } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -21,6 +23,9 @@ export type SeatStatusRow = {
   detail?: ReactNode;
   /** Epic 8: an action under the row («Sett inn KI-spiller for Jonas»). Nothing in Epic 6. */
   action?: ReactNode;
+  /** Story 8.8: the row's text takes focus (`tabindex="-1"`) once this turns true, after an action
+   * on it changed it («Fabrikk  KI-spiller  bestiller for Jonas»). */
+  focus?: boolean;
 };
 
 /**
@@ -72,7 +77,7 @@ export function SeatStatus({
           <li key={row.key} data-state={row.state ?? undefined} className="border-b border-hairline py-2">
             {/* From 1280 px the rows share columns (dot, Role, holder, status), so the status keeps
                 to the name's line and the rows line up; narrower, each row wraps on its own. */}
-            <div className="flex flex-wrap items-baseline gap-x-3 text-body-phone lg:text-body xl:grid xl:grid-cols-[auto_minmax(6rem,auto)_minmax(0,1fr)_auto]">
+            <RowText focus={row.focus ?? false}>
               {row.state ? <Dot filled={row.state === "ordered"} /> : null}
               <span className="min-w-[6rem] font-semibold text-ink xl:col-start-2">{row.role}</span>
               <span className={cn("min-w-0 break-words xl:col-start-3", row.named ? "text-ink" : "text-ink-secondary")}>
@@ -81,7 +86,7 @@ export function SeatStatus({
               {row.status ? (
                 <span className="ml-auto text-right text-ink-secondary xl:col-start-4 xl:whitespace-nowrap">{row.status}</span>
               ) : null}
-            </div>
+            </RowText>
             {row.detail}
             {row.action}
           </li>
@@ -92,6 +97,24 @@ export function SeatStatus({
         {announcement ?? ""}
       </p>
     </section>
+  );
+}
+
+/** A row's own line; focusable (`tabindex="-1"`) and focused once `focus` turns true (Story 8.8). */
+function RowText({ focus, children }: { focus: boolean; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (focus) ref.current?.focus();
+  }, [focus]);
+  return (
+    <div
+      ref={ref}
+      tabIndex={focus ? -1 : undefined}
+      data-row-focus={focus ? "" : undefined}
+      className="flex flex-wrap items-baseline gap-x-3 text-body-phone focus:outline-none lg:text-body xl:grid xl:grid-cols-[auto_minmax(6rem,auto)_minmax(0,1fr)_auto]"
+    >
+      {children}
+    </div>
   );
 }
 

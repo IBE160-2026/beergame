@@ -66,6 +66,8 @@ async def test_every_command_leaves_the_row_equal_to_a_recomputation(games_db):
         "role": "retailer",
         "occupant_kind": "student",
         "user_id": str(A),
+        "reason": "initial",
+        "actor_user_id": None,
     }
 
     await commands.move_seat(first, "factory", second, "wholesaler")
@@ -140,6 +142,92 @@ async def test_finish_leaves_the_row_equal_to_a_recomputation(games_db):
     assert row["chain_cost"] == sum(Decimal(s["total_cost"]) for s in finished["seats"])
 
 
+async def test_a_takeover_leaves_the_row_equal_to_a_recomputation(games_db, mail_db):
+    """Story 8.2: `takeover` joins the recomputation test; in a Week with a third Student still
+    waited for, the Seat taken over leaves `waiting_for`."""
+    from tests.games.test_takeover import class_game as started
+    from tests.games.test_takeover import due_of
+
+    game_id, students = await started(("retailer", "wholesaler", "factory"))
+    await commands.place_order(game_id, "retailer", 1, 4, "student", actor=students["retailer"])
+    row = await check(game_id)
+    assert {w["role"] for w in row["waiting_for"]} == {"wholesaler", "factory"}
+    due = due_of(game_id, "factory")
+    assert due is not None
+    # Story 8.3: each waited-for Seat carries its own due time, the row the nearest.
+    dues = {w["role"]: datetime.fromisoformat(w["takeover_due_at"]) for w in row["waiting_for"]}
+    assert dues["factory"] == due
+    assert row["takeover_due_at"] == min(
+        datetime.fromisoformat(w["takeover_due_at"]) for w in row["waiting_for"]
+    )
+    await commands.takeover(game_id, "factory", actor="system", now=due)
+    row = await check(game_id)  # takeover: still waiting for the wholesaler
+    assert (row["status"], [w["role"] for w in row["waiting_for"]]) == ("waiting", ["wholesaler"])
+    # The Seat's reason, from which the Oversikt's mark is read (Story 8.3, AD-15).
+    assert [o["reason"] for o in row["occupants"] if o["role"] == "factory"] == [
+        "takeover_inactivity"
+    ]
+
+
+async def test_a_reclaim_leaves_the_row_equal_to_a_recomputation(games_db, mail_db):
+    """Story 8.4: `request_reclaim` joins the recomputation test, and the Week opening that hands
+    the Seat back rewrites the row with the Student in it."""
+    from tests.games.test_reclaim import taken_over
+
+    game_id, students = await taken_over()
+    await commands.request_reclaim(game_id, "factory", actor=students["factory"])
+    row = await check(game_id)  # request_reclaim: nothing changes hands yet
+    assert [o["occupant_kind"] for o in row["occupants"] if o["role"] == "factory"] == [
+        "rule_based"
+    ]
+    await commands.place_order(game_id, "retailer", 2, 4, "student", actor=students["retailer"])
+    row = await check(game_id)
+    [factory] = [o for o in row["occupants"] if o["role"] == "factory"]
+    assert (factory["occupant_kind"], factory["reason"]) == ("student", "reclaim")
+
+
+async def test_in_room_leaves_the_row_equal_to_a_recomputation(games_db, mail_db):
+    """Story 8.11: `mark_in_room` and `end_in_room` join the recomputation test; the row carries
+    the wall's «I rommet» mark while it holds."""
+    from tests.games.test_in_room import mark
+    from tests.games.test_staff_pause import LECTURER
+    from tests.games.test_takeover import class_game as started
+
+    game_id, _ = await started()
+    assert await mark(game_id, 10)
+    assert (await check(game_id))["in_room_until"] is not None
+    assert await commands.end_in_room(game_id, actor=LECTURER)
+    assert (await check(game_id))["in_room_until"] is None
+
+
+async def test_a_playout_leaves_the_row_equal_to_a_recomputation(games_db, mail_db, monkeypatch):
+    """Story 8.14: `playout` joins the recomputation test: the paused, in-room game's row loses
+    its Pause and mark in the playout's own transaction, and reads finished once it has run."""
+    from tests.games.test_in_room import mark
+    from tests.games.test_playout import class_game as started
+    from tests.games.test_staff_pause import LECTURER
+
+    game_id, _ = await started()
+    assert await mark(game_id, 10)
+    await commands.pause(game_id, actor=LECTURER, staff=True)
+    assert (await check(game_id))["status"] == "paused"
+
+    async def settle_later(game_id: str) -> None:
+        return None
+
+    monkeypatch.setattr(commands, "_settle", settle_later)
+    deadline = datetime.fromisoformat("2026-12-01T12:00:00+00:00")
+    assert await commands.playout(game_id, now=deadline, latest=deadline)
+    row = await check(game_id)  # the playout's own transaction
+    assert (row["status"], row["in_room_until"], row["waiting_for"]) == ("running", None, [])
+    assert {o["reason"] for o in row["occupants"] if o["role"] in ("retailer", "factory")} == {
+        "playout"
+    }
+    monkeypatch.undo()
+    assert await commands.advance(game_id)
+    assert (await check(game_id))["status"] == "finished"
+
+
 async def test_a_command_that_changes_nothing_writes_no_row(games_db):
     game_id = await class_game(1)
     await commands.assign_seat(game_id, "retailer", "student", user_id=A)
@@ -166,6 +254,21 @@ def _comparable(row: dict) -> dict:
     """A row with its wait times as datetimes: Postgres and Python write them differently."""
     waiting = [{**w, "since": datetime.fromisoformat(w["since"])} for w in row["waiting_for"]]
     return {**row, "waiting_for": waiting}
+
+
+def _before_8_3(row: dict) -> dict:
+    """A row without the keys Stories 8.3 and 8.5 added: each wait's due time, each Seat's reason
+    and who triggered it, which revision 0051 predates; the readers take a missing key as None."""
+    return {
+        **row,
+        "waiting_for": [
+            {k: v for k, v in w.items() if k != "takeover_due_at"} for w in row["waiting_for"]
+        ],
+        "occupants": [
+            {k: v for k, v in o.items() if k not in ("reason", "actor_user_id")}
+            for o in row["occupants"]
+        ],
+    }
 
 
 async def test_the_backfill_gives_the_rows_recompute_gives(games_db):
@@ -199,10 +302,18 @@ async def test_the_backfill_gives_the_rows_recompute_gives(games_db):
     execute(games_db, "DELETE FROM game_summaries")
     ids = ", ".join(f"'{game_id}'" for game_id in games)
     execute(games_db, _backfill_sql().format(where=f"WHERE g.id IN ({ids})"))
+    # The Class game's absent Student is due for Takeover (Story 8.1); the others have no clock.
+    assert before[waiting]["takeover_due_at"] is not None
+    assert {before[g]["takeover_due_at"] for g in games if g != waiting} == {None}
     statuses = {}
     for game_id in games:
         stored, fresh = await stored_and_fresh(game_id)
-        assert _comparable(stored) == _comparable(fresh) == _comparable(before[game_id]), game_id
+        assert _comparable(fresh) == _comparable(before[game_id]), game_id
+        # Revision 0051 predates the due times; 0053 added the column empty, as no turn had one.
+        assert _comparable(stored) == {
+            **_comparable(_before_8_3(fresh)),
+            "takeover_due_at": None,
+        }, game_id
         statuses[game_id] = stored["status"]
     assert statuses == {
         finished: "finished",
@@ -217,11 +328,19 @@ def test_game_status_reads_the_lifecycle_and_the_students_turns():
     game = {"lifecycle": "running", "purpose": "class", "settings": GameSettings().model_dump()}
     guided_week = GameSettings().guided_weeks
 
-    def turn(kind: str, ordered: bool, viewed: bool = False, week: int = guided_week + 1) -> dict:
+    def turn(
+        kind: str,
+        ordered: bool,
+        viewed: bool = False,
+        week: int = guided_week + 1,
+        wait: bool = False,
+    ) -> dict:
         return {
             "occupant_kind": kind,
             "ordered_at": datetime(2026, 1, 1) if ordered else None,
             "viewed_at": datetime(2026, 1, 1) if viewed else None,
+            # Story 8.12: the first Student's Order starts the wait of every Seat not ordered.
+            "wait_started_at": datetime(2026, 1, 1) if wait else None,
             "week": week,
         }
 
@@ -230,7 +349,9 @@ def test_game_status_reads_the_lifecycle_and_the_students_turns():
     assert status({**game, "lifecycle": "finished"}, []) is GameStatus.FINISHED
     assert status(game, []) is GameStatus.RUNNING
     # One Student ordered and another has not: waiting.
-    assert status(game, [turn("student", True), turn("student", False)]) is GameStatus.WAITING
+    assert status(game, [turn("student", True), turn("student", False, wait=True)]) is (
+        GameStatus.WAITING
+    )
     # Nobody ordered yet, or every Student has: running.
     assert status(game, [turn("student", False), turn("student", False)]) is GameStatus.RUNNING
     assert status(game, [turn("student", True), turn("llm", False)]) is GameStatus.RUNNING
@@ -239,12 +360,14 @@ def test_game_status_reads_the_lifecycle_and_the_students_turns():
     # In a Guided Week viewing counts as ordering (FR-24): the Guided Order alone is not enough.
     guided = [
         turn("student", True, viewed=True, week=1),
-        turn("student", True, viewed=False, week=1),
+        turn("student", True, viewed=False, week=1, wait=True),
     ]
     assert status(game, guided) is GameStatus.WAITING
-    assert status(game, [{**t, "viewed_at": None} for t in guided]) is GameStatus.RUNNING
+    # Nobody has viewed: no wait has started.
+    unviewed = [{**t, "viewed_at": None, "wait_started_at": None} for t in guided]
+    assert status(game, unviewed) is GameStatus.RUNNING
     # Epic 8's playout still runs.
     playing_out = {**game, "lifecycle": "playing_out"}
-    assert status(playing_out, [turn("student", True), turn("student", False)]) is (
+    assert status(playing_out, [turn("student", True), turn("student", False, wait=True)]) is (
         GameStatus.WAITING
     )

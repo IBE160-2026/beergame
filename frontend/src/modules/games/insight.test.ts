@@ -7,6 +7,7 @@ import { nb } from "@/copy/nb";
 import type { GameInsight, InsightWeek, SeatMark } from "./api";
 import {
   chartWeeks,
+  clockText,
   CUSTOMERS,
   hasWeeks,
   holderText,
@@ -15,6 +16,7 @@ import {
   orderRoles,
   orderTableRows,
   roleTables,
+  seatMarkText,
   seatsUpstreamFirst,
   statusText,
   stockRoles,
@@ -37,6 +39,8 @@ const week = (n: number, extra: Partial<InsightWeek> = {}): InsightWeek => ({
   order: 5,
   cost: "6.0000",
   marks: [],
+  opened_at: null,
+  ordered_at: null,
   ...extra,
 });
 
@@ -51,11 +55,17 @@ const insight = (weeks: InsightWeek[][]): GameInsight => ({
   status: "running",
   version: 7,
   weeks_total: 36,
+  can_pause: false,
+  can_adjust: false,
+  can_start: false,
+  can_mark_in_room: false,
+  waited_for: [],
+  left_out: [],
   demand: [],
   seats: [
-    { role: "retailer", holder: "student", name: "Ida Berg", links: [] },
-    { role: "wholesaler", holder: "ai", name: null, links: [] },
-    { role: "distributor", holder: "free", name: null, links: [] },
+    { role: "retailer", holder: "student", name: "Ida Berg", links: [], extra_time: false },
+    { role: "wholesaler", holder: "ai", name: null, links: [], extra_time: false },
+    { role: "distributor", holder: "free", name: null, links: [], extra_time: false },
     {
       role: "factory",
       holder: "student",
@@ -64,6 +74,7 @@ const insight = (weeks: InsightWeek[][]): GameInsight => ({
         { kind: "explanation", href: "/f" },
         { kind: "later_kind", href: "/g" },
       ],
+      extra_time: false,
     },
   ],
   roles: CHAIN.map((role, i) => ({ role, weeks: weeks[i] ?? [], first_large_order_week: null })),
@@ -74,6 +85,12 @@ describe("Spillinnsikt's words (Story 7.7)", () => {
     const seats = seatsUpstreamFirst(insight([]));
     expect(seats.map((s) => s.role)).toEqual(["factory", "distributor", "wholesaler", "retailer"]);
     expect(seats.map(holderText)).toEqual([copy.unknownStudent, copy.freeSeat, copy.aiPlayer, "Ida Berg"]);
+  });
+
+  it("says why an AI player holds a Seat now, in text, and nothing for others (Story 8.3)", () => {
+    expect(seatMarkText({ holder: "ai", mark: "takeover_inactivity" })).toBe(copy.marks.takeover_inactivity);
+    expect(seatMarkText({ holder: "ai", mark: null })).toBeNull();
+    expect(seatMarkText({ holder: "student", mark: "takeover_inactivity" })).toBeNull();
   });
 
   it("gives a Student Seat its links or the line that none exists yet, and others nothing", () => {
@@ -111,8 +128,29 @@ describe("Spillinnsikt's words (Story 7.7)", () => {
       backlog: "0",
       order: "",
       cost: "6,50",
+      opened: "",
+      ordered: "",
+      took: "",
       marks: "",
     });
+  });
+
+  it("shows when the Week opened and the Order came in Oslo time, and the time between (Story 8.1)", () => {
+    // 12:58 UTC is 13:58 in Oslo in November; 2 h 10 min later the Order came.
+    const row = weekRow(week(5, { opened_at: "2026-11-18T12:58:00Z", ordered_at: "2026-11-18T15:08:30Z" }));
+    expect([row.opened, row.ordered, row.took]).toEqual([
+      copy.at("18. nov.", "13:58"),
+      copy.at("18. nov.", "16:08"),
+      nb.homes.student.duration.hours(2),
+    ]);
+    // Across midnight in Oslo, and in summer time (UTC+2).
+    expect(clockText("2026-06-30T22:30:00Z")).toBe(copy.at("1. jul.", "00:30"));
+    // An Order within the minute, and one not placed yet.
+    expect(weekRow(week(6, { opened_at: "2026-11-18T12:58:00Z", ordered_at: "2026-11-18T12:58:01Z" })).took).toBe(
+      nb.homes.student.duration.underMinute,
+    );
+    const open = weekRow(week(7, { opened_at: "2026-11-18T12:58:00Z", ordered_at: null, order: null }));
+    expect([open.ordered, open.took]).toEqual(["", ""]);
   });
 
   it("keeps the Roles in chain order and knows a game with no Week", () => {

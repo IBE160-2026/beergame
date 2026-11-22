@@ -14,11 +14,20 @@ const copy = nb.wall.filters;
 
 const ROLES: readonly WallFilter["role"][] = ["retailer", "wholesaler", "distributor", "factory"];
 const CELLS: readonly WallFilter["cells"][] = ["net", "order", "cost"];
-const STATUSES: readonly StatusFilter[] = ["all", "waiting", "running", "not_started", "finished", "with_ai"];
+const STATUSES: readonly StatusFilter[] = [
+  "all",
+  "waiting",
+  "paused",
+  "running",
+  "not_started",
+  "finished",
+  "with_ai",
+];
 
 const STATUS_WORD: Record<StatusFilter, string> = {
   all: copy.all,
   waiting: nb.wall.status.waiting,
+  paused: nb.wall.status.paused,
   running: nb.wall.status.running,
   not_started: nb.wall.status.notStarted,
   finished: nb.wall.status.finished,

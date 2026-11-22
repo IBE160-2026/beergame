@@ -3,9 +3,18 @@ import { describe, expect, it } from "vitest";
 
 import { classesKey, enrolledClassesKey } from "@/modules/classes/api";
 import { debriefsKey, sessionQuizKey, staffSummaryKey } from "@/modules/debrief/api";
-import { classOverviewKey, gameInsightKey, myGameKey, playKey, startingTaskKey } from "@/modules/games/api";
+import {
+  classOverviewKey,
+  gameInsightKey,
+  myGameKey,
+  playKey,
+  startGamesKey,
+  startingTaskKey,
+  waitedForSeatsKey,
+} from "@/modules/games/api";
 import { meKey } from "@/modules/identity/api";
 import { messageFormKey, myMessagesKey, sentMessagesKey } from "@/modules/messaging/api";
+import { studentPageKey } from "@/modules/reports/api";
 import { walkthroughKey } from "@/modules/replay/api";
 import {
   allocationKey,
@@ -50,6 +59,12 @@ const ALL = [
   sentMessagesKey("s1"),
   sentMessagesKey("s2"),
   messageFormKey("s1", {}),
+  studentPageKey("s1", "u1"),
+  studentPageKey("s2", "u1"),
+  startGamesKey("s1"),
+  startGamesKey("s2"),
+  waitedForSeatsKey("s1"),
+  waitedForSeatsKey("s2"),
 ] as const;
 
 describe("topicKeys", () => {
@@ -82,6 +97,12 @@ describe("topicKeys", () => {
       classSessionsKey("c1"),
       classOverviewKey("s1"),
       sentMessagesKey("s1"),
+      // The Studentsides of the Class session (Story 8.9).
+      studentPageKey("s1", "u1"),
+      // Its «Start spill» page (Story 8.10).
+      startGamesKey("s1"),
+      // Its «Sett inn KI-spillere» page (Story 8.12).
+      waitedForSeatsKey("s1"),
     ]);
   });
 

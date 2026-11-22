@@ -138,6 +138,32 @@ describe("copy check", () => {
     }
   });
 
+  // Story 8.2 (FR-17, FR-14): the Takeover requirement warning never says how many Uker, in
+  // nb.ts's `requirementWarning` and in the mail's `_takeover_warning.j2` alike.
+  it("fails a Takeover warning with a number or a count of Uker, in nb.ts and the mail", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "copy-check-"));
+    const copy = path.join(root, "frontend", "src", "copy");
+    const tpl = path.join(root, "backend", "app", "platform", "email", "templates", "kinds");
+    fs.mkdirSync(copy, { recursive: true });
+    fs.mkdirSync(tpl, { recursive: true });
+    fs.writeFileSync(
+      path.join(copy, "nb.ts"),
+      `export const nb = { homes: { takeover: { requirementWarning: "Det gjelder 8 av ukene.", other: "Uke 3" } } };`,
+    );
+    fs.writeFileSync(path.join(tpl, "_takeover_warning.j2"), "{# Story 8.2 says uke here, in a comment #}\nDu har tre uker igjen.\n");
+    fs.writeFileSync(path.join(tpl, "other.txt.j2"), "Uke 3 har startet.\n");
+    try {
+      const found = checkRepo(root).map((f) => [path.basename(f.file), f.line, f.rule]);
+      expect(found).toEqual([
+        ["nb.ts", 1, "takeover-warning-weeks"],
+        ["_takeover_warning.j2", 2, "takeover-warning-weeks"],
+      ]);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+    expect(checkText("Klassespillet er obligatorisk. Det kan påvirke kravet.", { warning: true })).toEqual([]);
+  });
+
   // Story 6.2 (FR-84, AD-19): the briefing, in nb.ts's `games` section, is shown before the
   // Debrief; only the product name «ØL-spillet» is allowed.
   it("holds the briefing to the pre-Debrief rules", () => {

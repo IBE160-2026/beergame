@@ -46,12 +46,13 @@ class EndReason(StrEnum):
 
 
 class GameStatus(StrEnum):
-    """A Game's status as staff see it (FR-39), from `games.rules.game_status` only (AD-2); Epic 8
-    adds `paused`."""
+    """A Game's status as staff see it (FR-39), from `games.rules.game_status` only (AD-2);
+    `paused` from Story 8.6 (FR-89)."""
 
     NOT_STARTED = "not_started"
     RUNNING = "running"
     WAITING = "waiting"
+    PAUSED = "paused"
     FINISHED = "finished"
 
 
@@ -428,6 +429,9 @@ class PendingTurn(BaseModel):
     """Stored on the turn when the Week opened; never recomputed."""
     ordered: bool
     """The Seat already has an Order for `week`."""
+    playout: bool = False
+    """The Game is playing out at the Play deadline (Story 8.14): an LLM Order goes to
+    `llm-batch` with no deadline."""
     ai_deadline_at: datetime | None = None
     """When the LLM player's Order is due (`games.rules.turn_times`); None: no deadline."""
     read_at: datetime | None = None
@@ -448,6 +452,8 @@ class OrderPlaced(BaseModel):
     """The Week open after the command: `week`, or the next one if it advanced; None once the
     Game has finished."""
     lifecycle: Lifecycle
+    pause_ended: bool = False
+    """Whether this Student's Order ended the Game's Pause (Story 8.6, FR-89)."""
 
 
 class DecisionLogRow(BaseModel):
@@ -608,6 +614,64 @@ class TableSeat(BaseModel):
     when the Game is not running."""
     mark: SeatMark | None = None
     """The Seat's mark (`games.service.seat_mark`), e.g. a Play guard switch; None for most."""
+    taken_over: bool = False
+    """An AI player holds the Seat after a Takeover of its Student (Story 8.2, FR-37): the mark
+    is one of the Takeover marks. «KI-spiller  bestiller for Jonas»."""
+    ordering_for: str | None = None
+    """For a Seat `taken_over`: the name, read now, of the Student whose Seat it was; None when
+    that Student is no longer in the Class, and for every other Seat."""
+    guard_switched: bool = False
+    """An AI player that is Rule-based because the Play guard switched the Seat once, also when
+    that switch came before a later Takeover or Reclaim (Story 8.2, FR-79)."""
+    reclaim_queued: bool = False
+    """The viewer's own Seat, taken over, with their «Ta tilbake setet» queued: it is theirs
+    again when the next Week opens (Story 8.4, FR-37). False on every other Seat."""
+    insert_at: datetime | None = None
+    """Story 8.8 (FR-89, UX-DR27): the stored insert time of another Student's Seat that has not
+    ordered, while it lies ahead and the game is paused or the time is agreed: «Etter on. 10:00
+    kan dere sette inn en KI-spiller.»; None otherwise, and always for a viewer who holds no
+    other Seat. Never why one Seat's time is later."""
+    insert_agreed: bool = False
+    """Story 8.8: `insert_at` is the Lecturer's agreed time, not the Seat's own limit («Avtalt tid
+    to. 19:00. Etter det kan dere sette inn en KI-spiller.»)."""
+    can_insert: bool = False
+    """Story 8.8: the viewer may press «Sett inn KI-spiller for …» on this Seat now:
+    `rules.can_take_over` with the `peer` actor, for a viewer who holds another Seat."""
+    inserted_by: str | None = None
+    """Story 8.8: for a Seat a Student of the game put an AI player in (`takeover_peer`), that
+    Student's name, read now; None for every other Seat."""
+
+
+class TablePause(BaseModel):
+    """The game's Pause line as a Student sees it (Story 8.6, FR-89, UX-DR62): `paused` while a
+    Pause is in force, named by who set it; `ended` from the Order that ended it until the next
+    Week opens, named by who ordered. Never a Week count (FR-14)."""
+
+    model_config = _FROZEN
+
+    state: Literal["paused", "ended"]
+    name: str | None
+    """The Student's name, read now; None for someone no longer in the Class."""
+    mine: bool
+    """Whether the viewer set (or ended) it: «satt av deg», «Du har bestilt»."""
+    staff: bool = False
+    """Story 8.7: a staff member, not a Student of the Game, set (or ended) it: «satt av
+    faglæreren», «Faglæreren har avsluttet den». The name is then never shown to Students."""
+    resume_at: datetime | None = None
+    """Story 8.7: the Lecturer's agreed time while paused («Pause til to. 19:00, satt av
+    faglæreren.»); None without one, and always on `ended`."""
+
+
+class TableInRoom(BaseModel):
+    """«I rommet» as a Student of the game sees it (Story 8.11, FR-36, UX-DR62): until when (the
+    Lab hour's end) and after how many whole minutes without an Order an AI player takes the
+    viewer's own Seat: the in-room limit times the viewer's own Tilrettelegging factor, rounded
+    down, so it never says more time than the Student has. Never another Student's minutes."""
+
+    model_config = _FROZEN
+
+    until: datetime
+    minutes: int
 
 
 class TableStatus(BaseModel):
@@ -620,6 +684,13 @@ class TableStatus(BaseModel):
     due_times: tuple[datetime, ...] = ()
     """The stored AI deadlines of the Seats that have not ordered in the open Week, earliest
     first: when an AI player's Order is due (the only due times before Epic 8)."""
+    can_pause: bool = False
+    """Whether the viewer may press «Ta pause» (Story 8.6, FR-89): a Game whose policy has Pause,
+    running and not paused, and a Seat the viewer holds now as a Student."""
+    pause: TablePause | None = None
+    """The Pause line (Story 8.6); None when there is none to show."""
+    in_room: TableInRoom | None = None
+    """The «I rommet» line (Story 8.11); None while the game is not marked or not running."""
 
 
 BELIEVABILITY_SCALE = (1, 5)

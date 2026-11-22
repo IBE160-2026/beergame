@@ -277,6 +277,171 @@ export function acceptTime(gameId: string, proposalId: string) {
   );
 }
 
+/** «Ta tilbake setet» (Story 8.4, FR-37): asks for the own Seat `role` back from the next Uke and
+ * answers the game as it now stands; a repeat answers the same. 409 `seat_not_yours`,
+ * `game_finished` or `game_not_running`. */
+export function reclaimSeat(gameId: string, role: components["schemas"]["Role"]) {
+  return request(() =>
+    api.POST("/api/me/games/{game_id}/seats/{role}/reclaim", {
+      params: { path: { game_id: gameId, role } },
+    }),
+  );
+}
+
+/** «Sett inn KI-spiller for Jonas» (Story 8.8, FR-89): a Student of the game puts an AI player in
+ * another Student's Seat `role` once its insert time has passed; nothing else is sent. Answers the
+ * game as it now stands; 409 `takeover_exists` carries `acted_by` (kind, never a staff id). */
+export function insertAiPlayer(gameId: string, role: components["schemas"]["Role"]) {
+  return request(() =>
+    api.POST("/api/me/games/{game_id}/seats/{role}/takeover", {
+      params: { path: { game_id: gameId, role } },
+    }),
+  );
+}
+
+/** «Ta pause uten avtalt tid» (Story 8.6, FR-89): a Student of the game pauses it; no time is sent.
+ * Answers the game as it now stands; 409 `already_paused` when someone paused first. */
+export function pauseGame(gameId: string) {
+  return request(() => api.POST("/api/me/games/{game_id}/pause", { params: { path: { game_id: gameId } } }));
+}
+
+/** The pause line the api sent (Story 8.6). */
+export type GamePause = NonNullable<MyGame["pause"]>;
+
+/** «Sett inn KI-spiller for …» (Story 8.5, FR-37): a Lecturer or Assistant lecturer puts an AI
+ * player in the Seat `role`; answers Spillinnsikt as it now stands. 409 `takeover_exists` carries
+ * `acted_by` and `acted_at`, by id only. */
+export function takeOverSeat(gameId: string, role: components["schemas"]["Role"]) {
+  return request(() =>
+    api.POST("/api/games/{game_id}/seats/{role}/takeover", {
+      params: { path: { game_id: gameId, role } },
+    }),
+  );
+}
+
+/** «Pause spillet» (Story 8.7, FR-89): a Lecturer of the game's Class pauses it, with the agreed
+ * time `resumeAt` (ISO) or without one (null). Answers Spillinnsikt as it now stands; 422
+ * `time_out_of_range`, 409 `already_paused` with `acted_by` and `acted_at`. */
+export function pauseGameAsLecturer(gameId: string, resumeAt: string | null) {
+  return request(() =>
+    api.POST("/api/games/{game_id}/pause", {
+      params: { path: { game_id: gameId } },
+      body: { resume_at: resumeAt },
+    }),
+  );
+}
+
+/** «Endre avtalt tid» (Story 8.7): sets, changes or (null) clears the agreed time. */
+export function setPauseAgreedTime(gameId: string, resumeAt: string | null) {
+  return request(() =>
+    api.PUT("/api/games/{game_id}/pause/agreed-time", {
+      params: { path: { game_id: gameId } },
+      body: { resume_at: resumeAt },
+    }),
+  );
+}
+
+/** «Avslutt pausen» (Story 8.7): ends the Pause in force, whoever set it. */
+export function endPause(gameId: string) {
+  return request(() => api.DELETE("/api/games/{game_id}/pause", { params: { path: { game_id: gameId } } }));
+}
+
+/** The Pause in force on Spillinnsikt (Story 8.7). */
+export type InsightPause = NonNullable<GameInsight["pause"]>;
+
+/** «Marker som i rommet» (Story 8.11, FR-36): a Lecturer of the game's Class marks it as played
+ * in the room with the in-room limit `minutes`, until the Lab hour on now ends. Answers Spillinnsikt
+ * as it now stands; 422 `minutes_out_of_range`, 409 `not_in_lab_hour`, `already_in_room`. */
+export function markInRoom(gameId: string, minutes: number) {
+  return request(() =>
+    api.POST("/api/games/{game_id}/in-room", {
+      params: { path: { game_id: gameId } },
+      body: { minutes },
+    }),
+  );
+}
+
+/** «Ikke i rommet lenger» (Story 8.11): ends the mark; 409 `not_in_room`. */
+export function endInRoom(gameId: string) {
+  return request(() => api.DELETE("/api/games/{game_id}/in-room", { params: { path: { game_id: gameId } } }));
+}
+
+/** The «I rommet» mark on Spillinnsikt (Story 8.11). */
+export type InsightInRoom = NonNullable<GameInsight["in_room"]>;
+/** The «I rommet» line a Student reads on Spill (Story 8.11). */
+export type GameInRoom = NonNullable<PlayEnvelope["table_status"]["in_room"]>;
+
+/** «Start spillet» in Spillstyring (Story 8.10, FR-22): a Lecturer of the game's Class starts it.
+ * Answers Spillinnsikt as it now stands; 409 `game_already_started` with `acted_by` and
+ * `acted_at` when someone started it first, 409 `game_not_ready` before the lock. */
+export function startGameAsLecturer(gameId: string) {
+  return request(() => api.POST("/api/games/{game_id}/start", { params: { path: { game_id: gameId } } }));
+}
+
+/** The «Start spill» page (Story 8.10): the Class session's games that may start now. */
+export type StartGames = components["schemas"]["StartGamesOut"];
+export type StartedGames = components["schemas"]["StartedGamesOut"];
+export const startGamesKey = (sessionId: string) => ["games", "start-games", sessionId] as const;
+
+/** `/api/class-sessions/{id}/start-games`: anyone but a Lecturer of the Class answers 403
+ * `forbidden`. Read again on the session's `session:<id>` event (`topics.ts`). */
+export function useStartGames(sessionId: string) {
+  return useQuery({
+    queryKey: startGamesKey(sessionId),
+    queryFn: () =>
+      request(() =>
+        api.GET("/api/class-sessions/{session_id}/start-games", {
+          params: { path: { session_id: sessionId } },
+          cache: "no-store",
+        }),
+      ),
+    retry: false,
+  });
+}
+
+/** «Start 12 spill» (Story 8.10): starts the listed games; answers the real counts. */
+export function startGames(sessionId: string, gameIds: string[]) {
+  return request(() =>
+    api.POST("/api/class-sessions/{session_id}/start-games", {
+      params: { path: { session_id: sessionId } },
+      body: { game_ids: gameIds },
+    }),
+  );
+}
+
+/** The «Sett inn KI-spillere» page (Story 8.12): the Seats the Class session's games wait for. */
+export type WaitedForSeats = components["schemas"]["WaitedForSeatsOut"];
+export type FilledSeats = components["schemas"]["FilledSeatsOut"];
+export const waitedForSeatsKey = (sessionId: string) => ["games", "waited-for-seats", sessionId] as const;
+
+/** `/api/class-sessions/{id}/waited-for-seats`: anyone but a Lecturer of the Class answers 403
+ * `forbidden`. Read again on the session's `session:<id>` event (`topics.ts`). */
+export function useWaitedForSeats(sessionId: string) {
+  return useQuery({
+    queryKey: waitedForSeatsKey(sessionId),
+    queryFn: () =>
+      request(() =>
+        api.GET("/api/class-sessions/{session_id}/waited-for-seats", {
+          params: { path: { session_id: sessionId } },
+          cache: "no-store",
+        }),
+      ),
+    retry: false,
+  });
+}
+
+/** «Sett inn 9 KI-spillere» and the per-game «Sett inn KI-spiller i alle seter som blir ventet på
+ * (2)» (Story 8.12): puts an AI player in each listed Seat still waited for; answers the real
+ * counts. */
+export function fillWaitedForSeats(sessionId: string, seatIds: string[]) {
+  return request(() =>
+    api.POST("/api/class-sessions/{session_id}/waited-for-seats", {
+      params: { path: { session_id: sessionId } },
+      body: { seat_ids: seatIds },
+    }),
+  );
+}
+
 /** «Spillet er ferdig» (Story 6.18): the finished game's cost per Role, the chain's and the
  * chain's per Uke. The api answers 409 `game_not_finished` before the end. */
 export type GameResult = components["schemas"]["GameResult"];

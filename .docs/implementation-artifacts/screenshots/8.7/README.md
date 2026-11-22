@@ -1,0 +1,15 @@
+# Visual check Story 8.7 (a658811). Each name exists as -390.png, -1280.png and -200.png (200 % text at 1280).
+- spillinnsikt-spillstyring: Spillstyring block with secondary «Pause spillet», title in label style. Matches.
+- spillinnsikt-pauseform-tom: form open, focus in Dato, empty fields, primary reads generic «Ta pause». Matches, copy judgement (spec: «Ta pause til …»/«uten avtalt tid»).
+- spillinnsikt-pauseform-feil: time after Spillfrist, error under Klokkeslett in red. Matches error pattern; error sits under the time field only, primary still enabled (judgement).
+- spillinnsikt-pauseform-medtid: valid time, primary «Ta pause til ti. 22:09». Matches.
+- spillinnsikt-pauseform-utenavtaltid: «Uten avtalt tid» checked, fields disabled and greyed, primary «Ta pause uten avtalt tid». Matches.
+- spillinnsikt-pauset-avtalt: «Pause siden sø. 00:11, satt av deg. Avtalt tid ti. 22:09.», «Endre avtalt tid», «Avslutt pausen», result «Pause til ti. 22:09 er satt.». Matches.
+- spillinnsikt-endre-avtalt-tid: same form prefilled, focus in Dato. Matches.
+- spillinnsikt-pause-avsluttet: «Pause spillet» back, «Pausen er avsluttet.». Matches.
+- spill-student-pauset, hjem-student-pauset: «Pause til ti. 22:09, satt av faglæreren.» above Setestatus; «Ta pause» hidden. Matches.
+- spill-student-avsluttet, hjem-student-avsluttet: «Pausen er over. Faglæreren har avsluttet den.»; «Ta pause» back. Matches.
+- spill-student-pauset-utentid: NOT valid, the Student page had not updated live when shot (identical to -pauset). Ignore.
+- oversikt-varselband: band with «Send Melding» primary, «Sett inn KI-spiller …», «Pause spillet». Matches.
+- oversikt-varselband-pauseform: form under band, «Send Melding» secondary, form primary the only one. Matches.
+- oversikt-pauset-uten-tid: band gone, «Spillet har pause uten avtalt tid.», wall group «Pause 1», count «herav 1 pauset». Matches; Status filter has no «Pause n» entry (Alle, Pågår 1, Med KI-spiller 1).

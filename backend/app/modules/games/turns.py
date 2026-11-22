@@ -52,12 +52,16 @@ def _uuid(value: str) -> uuid.UUID | None:
 
 
 async def pending_turn(game: OpenGame, seat_id: str) -> PendingTurn | None:
-    """The Seat's turn in the open Week, or None when the Game is not running or the Seat has
-    no turn or occupant in it."""
+    """The Seat's turn in the open Week, or None when the Game is not running (or playing out,
+    Story 8.14) or the Seat has no turn or occupant in it."""
     session = game.session
     row = await repo.get_game(session, game.game_id)
     seat_uuid = _uuid(seat_id)
-    if row is None or row["lifecycle"] != Lifecycle.RUNNING or seat_uuid is None:
+    if (
+        row is None
+        or row["lifecycle"] not in (Lifecycle.RUNNING, Lifecycle.PLAYING_OUT)
+        or seat_uuid is None
+    ):
         return None
     seat = await repo.seat(session, game.game_id, seat_uuid)
     opened, orders = await play_of(game)
@@ -80,6 +84,7 @@ async def pending_turn(game: OpenGame, seat_id: str) -> PendingTurn | None:
         policy_id=occupancy["policy_id"],
         rule_based_reference_order=turn["rule_based_reference_order"],
         ordered=turn["ordered_at"] is not None,
+        playout=row["lifecycle"] == Lifecycle.PLAYING_OUT,
         ai_deadline_at=turn["ai_deadline_at"],
         seat_state=build_seat_state(settings, opened, orders, seat["role"]),
     )

@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.engine import GameSettings
 from app.modules.games import repo, rules
 from app.modules.games.policy import policy
-from app.modules.games.schemas import GameStatus, Lifecycle, OccupantKind
+from app.modules.games.schemas import GameStatus, Lifecycle
 
 __all__ = ["recompute", "refresh"]
 
@@ -26,7 +26,10 @@ async def recompute(
 ) -> dict[str, Any]:
     """The `game_summaries` values of `game` (a `games` row) from the game tables as they stand
     in `session`: who holds each Seat, the status, whom the Game waits for and since when, the
-    Week and the chain Total cost. `version` is the Game's version, the row's own by default."""
+    Week and the chain Total cost, and the nearest stored Takeover due time of the Seats it waits
+    for (Story 8.1); each waited-for Seat its own due time and each Seat its occupancy reason
+    (Story 8.3); the Pause in force (Story 8.6), when the Game waits for no one. `version` is the
+    Game's version, the row's own by default."""
     game_id = game["id"]
     seats = await repo.seats_with_occupant(session, game_id)
     newest = await repo.newest_week(session, game_id)
@@ -37,6 +40,7 @@ async def recompute(
     status = rules.game_status(game, turns)
     waiting_for: list[dict[str, Any]] = []
     since: list[datetime] = []
+    due: list[datetime] = []
     if status is GameStatus.WAITING:
         guided = rules.guided_week(
             policy(str(game["purpose"])),
@@ -46,19 +50,18 @@ async def recompute(
         by_seat = {turn["seat_id"]: turn for turn in turns}
         for seat in seats:  # chain order
             turn = by_seat.get(seat["id"])
-            if (
-                turn is None
-                or turn["occupant_kind"] != OccupantKind.STUDENT
-                or turn["wait_started_at"] is None
-                or rules.has_ordered(turn, guided=guided)
-            ):
+            if turn is None or not rules.waited_for(turn, guided=guided):
                 continue
             since.append(turn["wait_started_at"])
+            if turn["takeover_due_at"] is not None:
+                due.append(turn["takeover_due_at"])
             waiting_for.append(
                 {
                     "role": seat["role"],
                     "user_id": _text(turn["user_id"]),
                     "since": turn["wait_started_at"].isoformat(),
+                    # The Seat's own due time (Story 8.3): Seats of one game may differ.
+                    "takeover_due_at": _iso(turn["takeover_due_at"]),
                 }
             )
     return {
@@ -69,18 +72,36 @@ async def recompute(
         "status": status.value,
         "week": newest["week"] if started else None,
         "wait_started_at": min(since) if since else None,
+        "takeover_due_at": min(due) if due else None,
         "waiting_for": waiting_for,
         "occupants": [
             {
                 "role": seat["role"],
                 "occupant_kind": seat["occupant_kind"],
                 "user_id": _text(seat["user_id"]),
+                # The latest occupancy row's reason (Story 8.3): the AD-15 mark is read from it.
+                "reason": _text(seat["reason"]),
+                # Who triggered that row (Story 8.5): the Oversikt names them, read at read time.
+                "actor_user_id": _text(seat["actor_user_id"]),
             }
             for seat in seats
         ],
         "chain_cost": newest["chain_cost"] if started else None,
         "version": game["version"] if version is None else version,
+        # The Pause in force (Story 8.6): the Oversikt shows since when and by whom. Only while the
+        # status is `paused`: a Game that finished under a Pause (its Students' Seats all AI-held)
+        # carries none.
+        "paused_at": game.get("paused_at") if status is GameStatus.PAUSED else None,
+        "paused_by": game.get("paused_by") if status is GameStatus.PAUSED else None,
+        # «I rommet» in force (Story 8.11): the wall's row label carries it while the Game runs.
+        "in_room_until": game.get("in_room_until") if started and _runs(status) else None,
+        # Its agreed time (Story 8.7): «Pause i Uke 29, fortsetter to. 19:00».
+        "resume_at": game.get("resume_at") if status is GameStatus.PAUSED else None,
     }
+
+
+def _runs(status: GameStatus) -> bool:
+    return status in (GameStatus.RUNNING, GameStatus.WAITING, GameStatus.PAUSED)
 
 
 async def refresh(session: AsyncSession, game: Mapping[str, Any], version: int) -> None:
@@ -91,3 +112,7 @@ async def refresh(session: AsyncSession, game: Mapping[str, Any], version: int) 
 
 def _text(value: uuid.UUID | str | None) -> str | None:
     return None if value is None else str(value)
+
+
+def _iso(value: datetime | None) -> str | None:
+    return None if value is None else value.isoformat()

@@ -102,6 +102,8 @@ test("with no default model, «LLM-spillere» is unavailable with the reason bes
   await lecturer.goto(`/klasseokter/${id}`);
   const aiMode = group(lecturer, c.aiMode);
   const llm = aiMode.getByRole("radio", { name: c.llm });
+  // The page reads the session first; under a full run's load that can take more than 5 s.
+  await expect(llm).toBeVisible({ timeout: 15_000 });
   await expect(llm).toHaveAttribute("aria-disabled", "true");
   await expect(llm).toHaveAccessibleDescription(c.llmUnavailable);
   await expect(aiMode.getByRole("radio", { name: c.ruleBased })).toBeChecked();

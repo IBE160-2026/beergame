@@ -105,6 +105,10 @@ WALKTHROUGH_TABLES = {"replay_narrations", "replay_walkthroughs"}
 """The tables of revision 0118 (Story 10.7)."""
 RATING_TABLES = {"believability_ratings", "replay_another_round"}
 """The tables of revision 0119 (Story 10.8)."""
+RECLAIM_TABLES = {"seat_reclaims"}
+"""The table of revision 0055 (Story 8.4)."""
+ADJUSTMENT_TABLES = {"student_adjustments"}
+"""The table of revision 0059 (Story 8.9)."""
 HEAD_TABLES = (
     PRE_SESSION_TABLES
     | SESSION_TABLES
@@ -128,8 +132,10 @@ HEAD_TABLES = (
     | REPLAY_TABLES
     | WALKTHROUGH_TABLES
     | RATING_TABLES
+    | RECLAIM_TABLES
+    | ADJUSTMENT_TABLES
 )
-HEAD = "0119"  # 0119 stores the answers after the game (Story 10.8)
+HEAD = "0064"  # 0064 adds the agreed Pause time to the Oversikt summaries (Story 8.7)
 
 
 def reset_schema(url: str) -> None:
@@ -262,6 +268,19 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     sent = constraints(url, "messages")
     assert "UNIQUE (key)" in sent["messages_key_key"]
     assert "'class_session'" in sent["ck_messages_recipient_kind"]
+
+    # 0064 (Story 8.7, Epic 8 close-out): the agreed Pause time on the summaries.
+    assert "resume_at" in columns(url, "game_summaries")
+    command.downgrade(cfg, "0063")
+    assert "resume_at" not in columns(url, "game_summaries")
+    # 0055 (Story 8.4): at most one queued Reclaim per Seat.
+    assert definition(url, "seat_reclaims_pkey") == "PRIMARY KEY (seat_id)"
+    command.downgrade(cfg, "0054")
+    assert RECLAIM_TABLES.isdisjoint(tables(url))
+    # Epic 8's revisions follow Epics 9 and 10 (0053's down_revision is 0119 since the merges of
+    # main).
+    command.downgrade(cfg, "0119")
+    assert "takeover_due_at" not in columns(url, "seat_turns")
 
     # 0101 (Story 9.1): version 1 of the Detected patterns; a facts set is never changed.
     [(patterns,)] = rows(url, "SELECT body FROM content_records WHERE kind = 'detected_patterns'")

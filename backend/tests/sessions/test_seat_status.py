@@ -57,6 +57,15 @@ async def test_the_first_students_order_starts_the_wait_for_the_seats_that_have_
         "ordered": True,
         "wait_started_at": None,
         "mark": None,
+        "taken_over": False,
+        "ordering_for": None,
+        "guard_switched": False,
+        "reclaim_queued": False,
+        # Story 8.8: an AI player's Seat has no insert time and no control.
+        "insert_at": None,
+        "insert_agreed": False,
+        "can_insert": False,
+        "inserted_by": None,
     }
     assert all(t[2] is None for t in turns(game_id, week).values())
 
@@ -129,6 +138,9 @@ async def test_a_seat_the_play_guard_switched_is_marked(klass):
     shown = seats((await play(next(iter(by_role.values())), game_id)).json())
     assert (shown[ai]["holder"], shown[ai]["mark"]) == ("ai", "guard_switch")
     assert {shown[r]["mark"] for r in by_role} == {None}
+    # Story 8.2: the switch is told from the Seat's history, so it outlasts a later Takeover.
+    assert shown[ai]["guard_switched"] is True
+    assert {shown[r]["guard_switched"] for r in by_role} == {False}
 
 
 def test_the_one_mapping_marks_a_guard_switch_of_a_rule_based_player():
@@ -170,9 +182,18 @@ async def test_next_change_at_is_the_nearest_ai_deadline_still_to_come(klass):
     )
     body = (await play(by_role[second], game_id)).json()
     assert datetime.fromisoformat(body["next_change_at"]) == ahead
-    # Once that Seat has ordered, the later one is next; once it has too, nothing is due ahead.
+    # Once that Seat has ordered, the later one is next; once it has too, only the Takeover due
+    # time the first Order gave the last Student's Seat is ahead (Story 8.1).
     assert (await order(by_role[first], game_id, week, {"order": 4})).status_code == 204
     later = (await play(by_role[second], game_id)).json()["next_change_at"]
     assert datetime.fromisoformat(later) > ahead
     assert (await order(by_role[third], game_id, week, {"order": 4})).status_code == 204
-    assert (await play(by_role[second], game_id)).json()["next_change_at"] is None
+    [(due,)] = query(
+        TEST_DATABASE_URL,
+        "SELECT t.takeover_due_at FROM seat_turns t JOIN seats s ON s.id = t.seat_id "
+        "WHERE t.game_id = %s AND t.week = %s AND s.role = %s",
+        (game_id, week, second),
+    )
+    assert due is not None
+    last = (await play(by_role[second], game_id)).json()["next_change_at"]
+    assert datetime.fromisoformat(last) == due

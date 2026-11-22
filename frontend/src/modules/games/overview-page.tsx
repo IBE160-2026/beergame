@@ -2,7 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import { Button } from "@/components/button";
 import { Link } from "@/components/link";
@@ -24,6 +24,8 @@ import {
   HOME_PATH,
   messagePath,
   sentMessagesPath,
+  fillSeatsPath,
+  startGamesPath,
 } from "@/modules/identity/homes";
 import { PageShell } from "@/modules/identity/page-shell";
 import { osloDateText } from "@/modules/sessions/dates";
@@ -42,8 +44,10 @@ import {
   messageLink,
   type OverviewGroup,
   seatTexts,
-  waitLines,
+  statusLines,
 } from "./overview";
+import { filledParam, fillLinkText } from "./fill-seats";
+import { startedParam, startedText, startLinkText } from "./start-games";
 
 const copy = nb.overview;
 const live = copy.live;
@@ -87,6 +91,8 @@ function OverviewView({ sessionId, user, updatedAt }: { sessionId: string; user:
   const [held, setHeld] = useState<OverviewAnswer | null>(null);
   const latest = found.data;
   useReadAt(sessionId, latest);
+  const startedCount = useStartedCount(sessionId);
+  const filledCount = useFilledCount(sessionId);
   if (found.error instanceof ApiRequestError && found.error.code === "forbidden") {
     return <AccessDenied user={user} updatedAt={updatedAt} />;
   }
@@ -126,6 +132,8 @@ function OverviewView({ sessionId, user, updatedAt }: { sessionId: string; user:
       header={data ? <OverviewHeader data={data} sessionId={sessionId} /> : undefined}
       liveLines={liveLines}
     >
+      {data && startedCount !== null ? <StartedLine count={startedCount} /> : null}
+      {data && filledCount !== null ? <FilledLine count={filledCount} /> : null}
       {shown && latest ? (
         <OverviewBody
           sessionId={sessionId}
@@ -185,6 +193,8 @@ function useReadAt(sessionId: string, answer: OverviewAnswer | undefined) {
 }
 
 function OverviewHeader({ data, sessionId }: { data: ClassOverview; sessionId: string }) {
+  const startLink = startLinkText(data.startable);
+  const fillLink = fillLinkText(data.fillable);
   return (
     <header className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
       <h1 className="text-title-phone text-ink lg:text-title-page">{copy.title}</h1>
@@ -200,7 +210,79 @@ function OverviewHeader({ data, sessionId }: { data: ClassOverview; sessionId: s
       <Link href={sentMessagesPath(sessionId)} data-sent-messages-link="" standalone>
         {nb.messages.sentList.link}
       </Link>
+      {/* Every Class game not started, for a Lecturer (Story 8.10); not shown with a count of 0. */}
+      {startLink ? (
+        <Link href={startGamesPath(sessionId)} data-start-games-link="" standalone>
+          {startLink}
+        </Link>
+      ) : null}
+      {/* Every waited-for Seat, for a Lecturer (Story 8.12); not shown with a count of 0. */}
+      {fillLink ? (
+        <Link href={fillSeatsPath(sessionId)} data-fill-seats-link="" standalone>
+          {fillLink}
+        </Link>
+      ) : null}
     </header>
+  );
+}
+
+/**
+ * «12 spill er startet.» after «Start 12 spill» (Story 8.10): the count in `?startet=`, read once
+ * when the Oversikt opens; then the address drops it, so a reload does not say it again. The line
+ * takes focus (`tabindex="-1"`, `role="status"`) once the page shows.
+ */
+function useStartedCount(sessionId: string): number | null {
+  const params = useSearchParams();
+  const [found] = useState<number | null>(() => startedParam(params));
+  useEffect(() => {
+    if (found !== null) window.history.replaceState(null, "", classOverviewPath(sessionId));
+  }, [found, sessionId]);
+  return found;
+}
+
+function StartedLine({ count }: { count: number }) {
+  const ref = useRef<HTMLParagraphElement>(null);
+  useEffect(() => ref.current?.focus(), []);
+  return (
+    <p
+      ref={ref}
+      tabIndex={-1}
+      role="status"
+      data-games-started=""
+      className="mt-6 border-y border-ink-muted py-2 text-body-phone text-ink tabular-nums lining-nums focus:outline-none lg:text-body"
+    >
+      {startedText(count)}
+    </p>
+  );
+}
+
+/**
+ * «9 KI-spillere er satt inn.» after «Sett inn 9 KI-spillere» (Story 8.12): the count in
+ * `?satt-inn=`, read once when the Oversikt opens and then dropped from the address, as
+ * `useStartedCount`. The line takes focus once the page shows.
+ */
+function useFilledCount(sessionId: string): number | null {
+  const params = useSearchParams();
+  const [found] = useState<number | null>(() => filledParam(params));
+  useEffect(() => {
+    if (found !== null) window.history.replaceState(null, "", classOverviewPath(sessionId));
+  }, [found, sessionId]);
+  return found;
+}
+
+function FilledLine({ count }: { count: number }) {
+  const ref = useRef<HTMLParagraphElement>(null);
+  useEffect(() => ref.current?.focus(), []);
+  return (
+    <p
+      ref={ref}
+      tabIndex={-1}
+      role="status"
+      data-seats-filled=""
+      className="mt-6 border-y border-ink-muted py-2 text-body-phone text-ink tabular-nums lining-nums focus:outline-none lg:text-body"
+    >
+      {nb.overview.fill.done(count)}
+    </p>
   );
 }
 
@@ -252,7 +334,14 @@ function OverviewBody({
   }
   return (
     <div className="mt-6">
-      <OverviewBand alert={data.alert} sessionId={sessionId} now={now} />
+      <OverviewBand
+        alert={data.alert}
+        sessionId={sessionId}
+        now={now}
+        items={data.items}
+        canPause={data.can_pause}
+        playDeadline={data.play_deadline}
+      />
       <div className="mt-6 flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
         <div className="min-w-0">
           <p className="text-body-phone font-semibold text-ink tabular-nums lining-nums lg:text-body" data-headline="">
@@ -404,7 +493,7 @@ function Group({
   const id = useId();
   return (
     <section aria-labelledby={id} className="mt-6 max-w-5xl">
-      <h3 id={id} className="border-b border-axis pb-2 text-label text-ink tabular-nums lining-nums">
+      <h3 id={id} className="border-b border-axis px-2 pb-2 text-label text-ink tabular-nums lining-nums">
         {group.title} {group.games.length}
       </h3>
       <ul>
@@ -419,16 +508,17 @@ function Group({
 function GameRow({ game, now, sessionId, tint }: { game: OverviewGame; now: number; sessionId: string; tint: boolean }) {
   const name = copy.game(game.game_number ?? null);
   const cost = costText(game);
-  const waits = waitLines(game, now);
+  const waits = statusLines(game, now);
   const message = messageLink(sessionId, game);
   return (
     <li
       data-game={game.game_id}
       data-tint={tint ? "" : undefined}
       className={cn(
-        "grid grid-cols-1 gap-y-1 border-b border-hairline py-3 @2xl:grid-cols-[7rem_5rem_minmax(0,1fr)_10rem] @2xl:gap-x-6",
-        // The tint reaches past the row's edges so its columns stay in line with the others.
-        tint && "-mx-2 bg-restordre-fill px-2",
+        "grid grid-cols-1 gap-y-1 border-b border-hairline px-2 py-3 @2xl:grid-cols-[7rem_5rem_minmax(0,1fr)_10rem] @2xl:gap-x-6",
+        // Every row (and the group heading) is inset by the tint's padding, so the tint stays inside
+        // the page's margin and the columns stay in line (Epic 8 close-out, from the 8.3 visual check).
+        tint && "bg-restordre-fill",
       )}
     >
       <p className="flex flex-wrap items-baseline gap-x-4 text-label text-ink">
