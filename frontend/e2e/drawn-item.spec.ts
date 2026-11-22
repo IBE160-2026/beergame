@@ -82,6 +82,24 @@ const centreX = async (locator: Locator) => {
   const box = (await locator.boundingBox())!;
   return box.x + box.width / 2;
 };
+/** Scroll a column to the middle of its region and of the screen: «if needed» counts a column
+ * under the sticky row-label column as in view, and a click there misses the graph. */
+const centreInView = (locator: Locator) =>
+  locator.evaluate((element) => element.scrollIntoView({ block: "nearest", inline: "center", behavior: "instant" }));
+/** The locator's centre once a scroll into view has stopped moving it (a slow CI runner may still
+ * be scrolling when the next pointer action measures). */
+const settledX = async (locator: Locator) => {
+  let last = Number.NaN;
+  await expect
+    .poll(async () => {
+      const now = await centreX(locator);
+      const still = Math.abs(now - last) < 0.5;
+      last = now;
+      return still;
+    })
+    .toBe(true);
+  return last;
+};
 const centreY = async (locator: Locator) => {
   const box = (await locator.boundingBox())!;
   return box.y + box.height / 2;
@@ -182,17 +200,19 @@ for (const vp of VIEWPORTS) {
       expect(await centreY(fourth)).toBeLessThan(await centreY(graph.locator("[data-mark=point][data-week='2']")));
 
       // Pointer: a tap in Uke 5's column at Uke 2's height places 20 there.
-      await sliders.nth(4).scrollIntoViewIfNeeded();
+      await centreInView(columnOf(5));
+      const x5 = await settledX(columnOf(5));
       const level20 = await centreY(graph.locator("[data-mark=point][data-week='2']"));
-      await page.mouse.click(await centreX(columnOf(5)), level20);
+      await page.mouse.click(x5, level20);
       await expect(cells.nth(4)).toHaveValue("20");
       await expect.poll(() => saves.at(-1)?.value).toEqual([23, 20, 19, 30, 20, null]);
       await expect(sliders.nth(4)).toBeFocused();
       // A drag in Uke 6's column: pressed at 20, moved down to the bottom, it ends at 0.
-      await sliders.nth(5).scrollIntoViewIfNeeded();
-      const x6 = await centreX(columnOf(6));
+      await centreInView(columnOf(6));
+      const x6 = await settledX(columnOf(6));
       const bottom = (await graph.boundingBox())!;
-      await page.mouse.move(x6, level20);
+      // Measured again: the scroll may have moved the graph up or down the page.
+      await page.mouse.move(x6, await centreY(graph.locator("[data-mark=point][data-week='2']")));
       await page.mouse.down();
       await expect(cells.nth(5)).toHaveValue("20");
       await page.mouse.move(x6, bottom.y + bottom.height - 2, { steps: 4 });
