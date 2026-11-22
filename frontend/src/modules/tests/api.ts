@@ -6,6 +6,33 @@ import { api } from "@/lib/api/client";
 import { request } from "@/lib/api/mutation";
 import type { components } from "@/lib/api/schema";
 
+/** The Student's Individual test (Story 11.3): `statement`, `open` with the items, or `closed`. */
+export type MyTest = components["schemas"]["MyTestOut"];
+export type MyTestItem = components["schemas"]["IndividualItemOut"];
+
+/** Every query of the Student's own test: the `user` topic invalidates it. */
+export const myTestsKey = ["tests", "mine"] as const;
+export const myTestKey = (classSessionId: string) => [...myTestsKey, classSessionId] as const;
+
+/** The Student's test in the Class session. 403 `replay_required` before the Replay is completed,
+ * `forbidden` for a session that is not theirs. */
+export function useMyTest(classSessionId: string) {
+  return useQuery({
+    queryKey: myTestKey(classSessionId),
+    queryFn: () =>
+      request(() => api.GET("/api/me/class-sessions/{session_id}/test", { params: { path: { session_id: classSessionId } } })),
+    retry: false,
+  });
+}
+
+/** Accept the own-work statement: the open test, made now or the one the Student has. 409
+ * `test_deadline_passed`, 403 `replay_required`. */
+export function openMyTest(classSessionId: string): Promise<MyTest> {
+  return request(() =>
+    api.POST("/api/me/class-sessions/{session_id}/test", { params: { path: { session_id: classSessionId } } }),
+  );
+}
+
 /** The Klasseøkt's «Spørsmål og vekter» block (Story 11.1). */
 export type QuestionSet = components["schemas"]["QuestionSetOut"];
 export type QuestionItem = components["schemas"]["QuestionItemOut"];

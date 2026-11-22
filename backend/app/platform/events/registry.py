@@ -160,6 +160,10 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # A Class session's Scoring guide edited, «Lagre sensorveiledning» (Story 11.2, FR-81):
         # its staff read the block again.
         "tests.save_scoring_guide": frozenset({"session"}),
+        # A Student accepted the own-work statement and opened their Individual test (Story 11.3,
+        # FR-51): their other devices read the test again (`user`); the Debrief follow-up closed in
+        # the same transaction emits `user` as well. Opening the one they have emits nothing.
+        "tests.open_attempt": frozenset({"user"}),
         # A Student's Replay made and started (Story 10.3, FR-48): its Game is created, seated and
         # started through `games.commands` (`game`), and the Student's Hjem reads it again
         # (`user`). No Lecturer overview lists a Replay, so no `session`.

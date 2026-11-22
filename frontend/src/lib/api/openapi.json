@@ -3573,6 +3573,41 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "IndividualItemOut": {
+        "description": "One item of the Student's frozen Individual test (Story 11.3), in order: its number from 1,\nits type and its text. No weight and no answer key are sent to the Student.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "choice",
+              "table",
+              "number",
+              "long"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "type",
+          "title"
+        ],
+        "title": "IndividualItemOut",
+        "type": "object"
+      },
       "InfoVisibility": {
         "additionalProperties": false,
         "description": "Information visibility (cut list, FR-83): which neighbour each Seat sees, with its current\ninventory and backlog. Both views off by default; the Factory has no upstream neighbour and\nthe Retailer no downstream one, so their view on that side shows nothing.",
@@ -4821,6 +4856,59 @@
           "summary"
         ],
         "title": "MySummaryOut",
+        "type": "object"
+      },
+      "MyTestOut": {
+        "description": "The Student's Individual test (Story 11.3, FR-51): `statement` until they accept the\nown-work statement (no item is served), `open` once they have (the items of their attempt in\norder; the statement is not asked again), `closed` when their Test deadline passed with no\nattempt. `test_deadline` is the Student's effective Test deadline (none set: null);\n`opened_at` when they accepted the statement.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/IndividualItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "opened_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opened At"
+          },
+          "state": {
+            "enum": [
+              "statement",
+              "open",
+              "closed"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "test_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test Deadline"
+          }
+        },
+        "required": [
+          "state",
+          "test_deadline",
+          "opened_at",
+          "items"
+        ],
+        "title": "MyTestOut",
         "type": "object"
       },
       "NeighbourNumber": {
@@ -17654,6 +17742,150 @@
         "summary": "Take Seat",
         "tags": [
           "sessions"
+        ]
+      }
+    },
+    "/api/me/class-sessions/{session_id}/test": {
+      "get": {
+        "description": "The Student's Individual test (Story 11.3, FR-51): `statement` until they accept the\nown-work statement, with no item; `open` with their items in order once they have; `closed`\nwhen their Test deadline passed with no attempt. 403 `replay_required` before the Replay is\ncompleted, `forbidden` for any session that is not theirs.",
+        "operationId": "getMyTest",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyTestOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get My Test",
+        "tags": [
+          "tests"
+        ]
+      },
+      "post": {
+        "description": "Accept the own-work statement and open the Individual test (Story 11.3, FR-51): 201 with\nthe attempt this request made, 200 with the one the Student has (also when two opens run at\nonce). 403 `replay_required` before the Replay is completed, 409 `test_deadline_passed` after\nthe Student's Test deadline with no attempt, 403 `forbidden` for any session that is not\ntheirs.",
+        "operationId": "openMyTest",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyTestOut"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyTestOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open My Test",
+        "tags": [
+          "tests"
         ]
       }
     },

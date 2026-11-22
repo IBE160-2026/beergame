@@ -1170,6 +1170,10 @@ async def save_session(
             allocation_method=method if switching else None,
             replay=replay,
         )
+        if "test_deadline" in changed:
+            # Story 11.3: open Individual test attempts keep their stored deadline in step.
+            for mover in _test_deadline_movers:
+                await mover(s, session_id, changed["test_deadline"])
         if switching_assessment:
             assert ai_assessment is not None
             # The Class session's row lock, held since the read, keeps `lock_test` out meanwhile.
@@ -1681,6 +1685,44 @@ async def replay_session_of(
     if await enrolled_locked_row(s, user, class_session_id) is None:
         return None
     return await repo.session_row(s, class_session_id, share=True)
+
+
+@dataclass(frozen=True)
+class IndividualTestSession:
+    """A Class session as the Student's Individual test reads it (Story 11.3): its row, share-
+    locked in the caller's transaction, and the pins its lock stored."""
+
+    row: Mapping[str, Any]
+    pins: Any
+
+
+async def individual_test_session_of(
+    s: AsyncSession, user: authz.Principal, class_session_id: uuid.UUID
+) -> IndividualTestSession | None:
+    """The Class session for the Student's Individual test (Story 11.3), read in `s` and share-
+    locked, so its Test deadline and pins hold while an attempt is opened; under
+    `enrolled_locked_row`'s checks (None for every other case alike, FR-5). The caller reads the
+    deadline only through `effective_test_deadline`."""
+    if await enrolled_locked_row(s, user, class_session_id) is None:
+        return None
+    row = await repo.session_row(s, class_session_id, share=True)
+    if row is None:
+        return None
+    return IndividualTestSession(row=row, pins=await repo.session_pins(s, class_session_id))
+
+
+TestDeadlineMover = Callable[[AsyncSession, uuid.UUID, datetime | None], Awaitable[None]]
+"""`(session, class_session_id, new_test_deadline)`: run in the transaction of a save that
+changes the Class session's Test deadline, under its row lock."""
+
+_test_deadline_movers: list[TestDeadlineMover] = []
+
+
+def register_test_deadline_mover(mover: TestDeadlineMover) -> None:
+    """Add a mover a Test-deadline change runs (Story 11.3: `tests` moves the stored deadline of
+    open attempts), for a module `sessions` may not import. The same one again changes nothing."""
+    if mover not in _test_deadline_movers:
+        _test_deadline_movers.append(mover)
 
 
 async def debrief_session_of(

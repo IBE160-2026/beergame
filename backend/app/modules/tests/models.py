@@ -1,4 +1,5 @@
-"""The tables owned by `modules/tests` (Story 6.3, FR-85; Story 11.1, FR-52; Story 11.2, FR-81)."""
+"""The tables owned by `modules/tests` (Story 6.3, FR-85; Story 11.1, FR-52; Story 11.2, FR-81;
+Story 11.3, FR-51)."""
 
 from enum import StrEnum
 
@@ -113,3 +114,70 @@ a Lecturer's save made for it (or one a copy carried over, FR-66), the default i
 (`base_id`: a question whose text differs from it is «Endret»), and when the Test-deadline lock
 pinned it. No row reads as the latest default. A trigger (migration 0122) refuses any change of a
 pinned row."""
+
+
+class AttemptStatus(StrEnum):
+    """An Individual test attempt's status (Story 11.3, AD-9): `open` until the Student submits
+    (`submitted`, Story 11.10) or the Test deadline or the sitting's end submits it
+    (`auto_submitted`, Stories 11.11 and 11.12)."""
+
+    OPEN = "open"
+    SUBMITTED = "submitted"
+    AUTO_SUBMITTED = "auto_submitted"
+
+
+test_attempts = Table(
+    "test_attempts",
+    metadata,
+    Column("id", Uuid, primary_key=True),
+    Column("user_id", Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+    Column(
+        "class_session_id",
+        Uuid,
+        ForeignKey("class_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    ),
+    Column("question_set_version", Integer, nullable=False),
+    Column("selection", JSONB, nullable=False),
+    Column("items", JSONB, nullable=False),
+    Column("statement_accepted_at", DateTime(timezone=True), nullable=False),
+    Column("effective_deadline", DateTime(timezone=True), nullable=True),
+    Column("status", Text, nullable=False, server_default=AttemptStatus.OPEN.value),
+    Column("submitted_at", DateTime(timezone=True), nullable=True),
+    Column("sitting_ends_at", DateTime(timezone=True), nullable=True),
+    CheckConstraint("question_set_version >= 1", name="ck_test_attempts_version"),
+    CheckConstraint(
+        "status IN (" + ", ".join(f"'{s.value}'" for s in AttemptStatus) + ")",
+        name="ck_test_attempts_status",
+    ),
+    CheckConstraint(
+        "(status = 'open') = (submitted_at IS NULL)", name="ck_test_attempts_submitted"
+    ),
+    UniqueConstraint("user_id", "class_session_id", name="uq_test_attempts_user_session"),
+)
+"""A Student's Individual test in a Class session (Story 11.3, FR-51, AD-9, AD-23), made once when
+they accept the own-work statement (`statement_accepted_at`): the question set version and
+selection it was opened on, the frozen ordered item list (`[{id, type, weight}]`), the Student's
+effective Test deadline and its status. Written only by `tests.commands`."""
+
+
+test_answers = Table(
+    "test_answers",
+    metadata,
+    Column("id", Uuid, primary_key=True),
+    Column(
+        "attempt_id",
+        Uuid,
+        ForeignKey("test_attempts.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("item_id", Text, nullable=False),
+    Column("value", JSONB, nullable=False),
+    Column("revision", Integer, nullable=False),
+    Column("saved_at", DateTime(timezone=True), nullable=False),
+    CheckConstraint("revision >= 1", name="ck_test_answers_revision"),
+    UniqueConstraint("attempt_id", "item_id", name="uq_test_answers_item"),
+)
+"""One saved answer per attempt and item with its revision, the highest kept (Story 11.4 on).
+Written only by `tests.commands`; holds text a Student wrote (personal data)."""

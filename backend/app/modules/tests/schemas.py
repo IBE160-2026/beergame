@@ -1,6 +1,9 @@
-"""The Starting task as the Student reads and answers it (Story 6.3, FR-85, UX-DR63)."""
+"""The Starting task as the Student reads and answers it (Story 6.3, FR-85, UX-DR63), the Lecturer's
+question set and Scoring guide blocks (Stories 11.1, 11.2) and the Student's Individual test
+(Story 11.3)."""
 
 import uuid
+from datetime import datetime
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -191,3 +194,26 @@ class ScoringGuideIn(BaseModel):
         ],
         Field(min_length=1, max_length=40),
     ]
+
+
+class IndividualItemOut(BaseModel):
+    """One item of the Student's frozen Individual test (Story 11.3), in order: its number from 1,
+    its type and its text. No weight and no answer key are sent to the Student."""
+
+    id: str
+    number: int
+    type: Literal["choice", "table", "number", "long"]
+    title: str
+
+
+class MyTestOut(BaseModel):
+    """The Student's Individual test (Story 11.3, FR-51): `statement` until they accept the
+    own-work statement (no item is served), `open` once they have (the items of their attempt in
+    order; the statement is not asked again), `closed` when their Test deadline passed with no
+    attempt. `test_deadline` is the Student's effective Test deadline (none set: null);
+    `opened_at` when they accepted the statement."""
+
+    state: Literal["statement", "open", "closed"]
+    test_deadline: datetime | None
+    opened_at: datetime | None
+    items: list[IndividualItemOut]

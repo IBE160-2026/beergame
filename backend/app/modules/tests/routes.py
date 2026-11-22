@@ -9,7 +9,11 @@ that does not exist.
 
 The Scoring guide, «Sensorveiledning» (Story 11.2, FR-81): `GET
 /api/class-sessions/{id}/scoring-guide` for the Class's owners and Assistant lecturers and `PUT …`
-(«Lagre sensorveiledning») for its owners, likewise."""
+(«Lagre sensorveiledning») for its owners, likewise.
+
+The Student's Individual test (Story 11.3, FR-51): `GET /api/me/class-sessions/{id}/test` and
+`POST …` (accepting the own-work statement). Any session that is not the Student's own locked
+Class session answers 403 `forbidden`, whether or not an attempt exists (FR-5)."""
 
 import uuid
 from typing import Annotated
@@ -18,10 +22,11 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse, Response
 
 from app.modules.sessions import service as sessions
-from app.modules.tests import guide, selection, service
+from app.modules.tests import attempt, commands, guide, selection, service
 from app.modules.tests.schemas import (
     AnswerIn,
     FinalIn,
+    MyTestOut,
     QuestionSetIn,
     QuestionSetOut,
     ScoringGuideIn,
@@ -213,3 +218,57 @@ async def set_session_scoring_guide(
     if found is None:
         raise authz.Forbidden
     return JSONResponse(found.model_dump(mode="json"))
+
+
+_TEST = "/me/class-sessions/{session_id}/test"
+
+
+@router.get(
+    _TEST,
+    response_model=MyTestOut,
+    responses=documented(401, 403),
+    operation_id="getMyTest",
+)
+async def get_my_test(
+    session_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("tests.take_own"))],
+) -> Response:
+    """The Student's Individual test (Story 11.3, FR-51): `statement` until they accept the
+    own-work statement, with no item; `open` with their items in order once they have; `closed`
+    when their Test deadline passed with no attempt. 403 `replay_required` before the Replay is
+    completed, `forbidden` for any session that is not theirs."""
+    try:
+        found = await attempt.read(user, _id(session_id), auth.utcnow())
+    except commands.ReplayRequired:
+        return error_response(403, "replay_required", "Complete the Replay first.")
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.post(
+    _TEST,
+    status_code=201,
+    response_model=MyTestOut,
+    responses={**documented(401, 403, 409), 200: {"model": MyTestOut}},
+    operation_id="openMyTest",
+)
+async def open_my_test(
+    session_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("tests.take_own"))],
+) -> Response:
+    """Accept the own-work statement and open the Individual test (Story 11.3, FR-51): 201 with
+    the attempt this request made, 200 with the one the Student has (also when two opens run at
+    once). 403 `replay_required` before the Replay is completed, 409 `test_deadline_passed` after
+    the Student's Test deadline with no attempt, 403 `forbidden` for any session that is not
+    theirs."""
+    try:
+        found = await attempt.open_(user, _id(session_id), auth.utcnow())
+    except commands.ReplayRequired:
+        return error_response(403, "replay_required", "Complete the Replay first.")
+    except commands.DeadlinePassed:
+        return error_response(409, "test_deadline_passed", "Your Test deadline has passed.")
+    if found is None:
+        raise authz.Forbidden
+    opened, created = found
+    return JSONResponse(opened.model_dump(mode="json"), status_code=201 if created else 200)

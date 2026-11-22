@@ -1,7 +1,7 @@
 import type { StegeneItem } from "@/components/stegene";
 import { nb } from "@/copy/nb";
 import { formatNumber } from "@/lib/number-format";
-import { DEBRIEF_PATH } from "@/modules/identity/homes";
+import { DEBRIEF_PATH, TEST_PATH } from "@/modules/identity/homes";
 import type { EnrolledSession } from "@/modules/sessions/api";
 import { osloDayAndTime } from "@/modules/sessions/dates";
 import { roleName } from "@/modules/sessions/sessions";
@@ -42,7 +42,8 @@ export function holderText(seat: TableSeat): string {
  * with no Replay started (Story 10.3), or that a started one was closed there unfinished (Story
  * 10.6), and while the Replay runs «Fortsett Replay, Uke 9.» (Story
  * 10.4, UX-DR64), from the api's `replay` (AD-10); the way there is the Replay block's button just
- * above, so the step itself is no second Lenke. */
+ * above, so the step itself is no second Lenke. The current Individual test step leads to the test
+ * (Story 11.3). */
 export function stepItems(
   steps: EnrolledSession["steps"],
   sessionId?: string,
@@ -79,6 +80,8 @@ export function stepItems(
 function stepHref(step: EnrolledSession["steps"][number]["step"], sessionId: string): string | undefined {
   if (step === "debrief") return DEBRIEF_PATH(sessionId);
   if (step === "quiz") return `${DEBRIEF_PATH(sessionId)}#debrief-quiz`;
+  // Story 11.3: the current test step leads to the own-work statement, or the open test.
+  if (step === "test") return TEST_PATH(sessionId);
   return undefined;
 }
 

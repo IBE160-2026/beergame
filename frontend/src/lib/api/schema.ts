@@ -2244,6 +2244,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/class-sessions/{session_id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Test
+         * @description The Student's Individual test (Story 11.3, FR-51): `statement` until they accept the
+         *     own-work statement, with no item; `open` with their items in order once they have; `closed`
+         *     when their Test deadline passed with no attempt. 403 `replay_required` before the Replay is
+         *     completed, `forbidden` for any session that is not theirs.
+         */
+        get: operations["getMyTest"];
+        put?: never;
+        /**
+         * Open My Test
+         * @description Accept the own-work statement and open the Individual test (Story 11.3, FR-51): 201 with
+         *     the attempt this request made, 200 with the one the Student has (also when two opens run at
+         *     once). 403 `replay_required` before the Replay is completed, 409 `test_deadline_passed` after
+         *     the Student's Test deadline with no attempt, 403 `forbidden` for any session that is not
+         *     theirs.
+         */
+        post: operations["openMyTest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me/games/{game_id}": {
         parameters: {
             query?: never;
@@ -4148,6 +4179,24 @@ export interface components {
             detail?: components["schemas"]["ValidationError"][];
         };
         /**
+         * IndividualItemOut
+         * @description One item of the Student's frozen Individual test (Story 11.3), in order: its number from 1,
+         *     its type and its text. No weight and no answer key are sent to the Student.
+         */
+        IndividualItemOut: {
+            /** Id */
+            id: string;
+            /** Number */
+            number: number;
+            /** Title */
+            title: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "choice" | "table" | "number" | "long";
+        };
+        /**
          * InfoVisibility
          * @description Information visibility (cut list, FR-83): which neighbour each Seat sees, with its current
          *     inventory and backlog. Both views off by default; the Factory has no upstream neighbour and
@@ -4697,6 +4746,27 @@ export interface components {
          */
         MySummaryOut: {
             summary: components["schemas"]["SummaryOut"] | null;
+        };
+        /**
+         * MyTestOut
+         * @description The Student's Individual test (Story 11.3, FR-51): `statement` until they accept the
+         *     own-work statement (no item is served), `open` once they have (the items of their attempt in
+         *     order; the statement is not asked again), `closed` when their Test deadline passed with no
+         *     attempt. `test_deadline` is the Student's effective Test deadline (none set: null);
+         *     `opened_at` when they accepted the statement.
+         */
+        MyTestOut: {
+            /** Items */
+            items: components["schemas"]["IndividualItemOut"][];
+            /** Opened At */
+            opened_at: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "statement" | "open" | "closed";
+            /** Test Deadline */
+            test_deadline: string | null;
         };
         /**
          * NeighbourNumber
@@ -12769,6 +12839,122 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getMyTest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyTestOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    openMyTest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyTestOut"];
+                };
+            };
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyTestOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

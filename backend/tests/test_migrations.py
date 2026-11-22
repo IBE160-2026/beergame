@@ -111,6 +111,8 @@ QUESTION_SET_TABLES = {"test_selections"}
 """The tables of revision 0121 (Story 11.1)."""
 SCORING_GUIDE_TABLES = {"test_scoring_guides"}
 """The tables of revision 0122 (Story 11.2)."""
+ATTEMPT_TABLES = {"test_attempts", "test_answers"}
+"""The tables of revision 0123 (Story 11.3)."""
 HEAD_TABLES = (
     PRE_SESSION_TABLES
     | SESSION_TABLES
@@ -137,8 +139,9 @@ HEAD_TABLES = (
     | ASSESSMENT_SWITCH_TABLES
     | QUESTION_SET_TABLES
     | SCORING_GUIDE_TABLES
+    | ATTEMPT_TABLES
 )
-HEAD = "0122"  # 0122 holds the Scoring guide and each Class session's guide in force (11.2)
+HEAD = "0123"  # 0123 holds the Individual test attempts and their answers (11.3)
 
 
 def reset_schema(url: str) -> None:
@@ -326,6 +329,15 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     # 0111 (Story 9.12): presence, the Students who go on alone and the 48-hour fallback.
     assert "last_seen_at" in columns(url, "debrief_members")
     assert {"fallback_due_at", "fallback_at"} <= columns(url, "debrief_sessions")
+
+    # 0123 (Story 11.3): the Individual test's attempts, one per Student and Class session, and
+    # their answers.
+    assert {"question_set_version", "selection", "items", "effective_deadline", "status"} <= (
+        columns(url, "test_attempts")
+    )
+    assert {"attempt_id", "item_id", "value", "revision"} <= columns(url, "test_answers")
+    command.downgrade(cfg, "0122")
+    assert ATTEMPT_TABLES.isdisjoint(tables(url))
 
     # 0122 (Story 11.2): the Scoring guide kind with its draft version 1, the Class session an
     # edited version was made for, and each Class session's guide in force, frozen once pinned.

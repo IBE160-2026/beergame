@@ -51,3 +51,37 @@ latest default. A trigger refuses any change of a pinned row.
   version into a copy by its id, never its pin (FR-66).
 - Whether the version is checked is asked of `content.service.is_checked` only; the block shows
   «Ikke kontrollert med en Kontrolltest.» while it is False.
+
+## The Individual test: opening it with the own-work statement (Story 11.3)
+
+`test_attempts`: one per Student and Class session, made when the Student accepts the own-work
+statement (`statement_accepted_at`): the question set version and selection it opened on (the
+Start-date lock's pin; the selection in force for a session locked before the pin existed), the
+frozen ordered item list (`[{id, type, weight}]`, the Core items left in, in the set's order;
+Adapted items join in Story 11.7), `effective_deadline` (`sessions.effective_test_deadline` at
+opening) and the status `open` / `submitted` / `auto_submitted`. `test_answers`: one row per
+attempt and item with its revision (written from Story 11.4). Both hold personal data (a User's
+attempt, text a Student wrote).
+
+**The write path (`commands.py`).** `tests.commands` is the only writer of an attempt and its
+answers, with the commands `open_attempt` (11.3), `save_answer` (11.4), `submit` (11.10),
+`close_attempt` (11.11), `extend_deadline` (11.13) and `end_sitting` (11.12). Every command that
+acts on an existing attempt takes `SELECT … FOR UPDATE` on the attempt row and runs in one
+transaction; `save_answer` and `submit` on an attempt that is not `open` fail with
+`attempt_submitted`, and on an open attempt after its `effective_deadline` with
+`test_deadline_passed`. Where no attempt row exists yet the lock is named: `open_attempt` relies on
+the unique key on User and Class session and returns the existing attempt on a conflict;
+`extend_deadline` locks the Student's extension row in `modules/sessions`, and the attempt row too
+when there is one. A change of the Class session's Test deadline moves `effective_deadline` of its
+open attempts in the save's transaction (`move_deadline`, `sessions.register_test_deadline_mover`);
+Story 11.13 must leave Students with their own extension out.
+
+- Routes: `GET /api/me/class-sessions/{id}/test` (`statement`, `open` with the items, `closed`
+  when the Test deadline passed with no attempt) and `POST …` (accept the statement: 201 made, 200
+  the one the Student has). 403 `replay_required` before `progress.has_step(…, replay)`; 409
+  `test_deadline_passed`; 403 `forbidden` for every session that is not the Student's own locked
+  one, whether or not an attempt exists (FR-5). No item is served before the statement; no weight
+  or answer key is ever sent to the Student.
+- `open_attempt` runs under the Class session row's share lock and closes the Student's Debrief
+  follow-up questions in the same transaction (`debrief.service.close_follow_up`, FR-45); it emits
+  `user:<id>`. No answer text is logged.

@@ -2769,6 +2769,36 @@ export const nb = {
 
   /** The AI assessment (Epic 12). */
   tests: {
+    /** Story 11.3 (FR-51, UX-DR65, EXPERIENCE.md → Individuell test): the Student's test page.
+     * The locked line and «Testfristen er passert. Testen er ikke levert.» are the spine's; the
+     * own-work statement, its button and the item lines are [ASSUMPTION] draft copy for the
+     * founder's review. */
+    individual: {
+      title: "Individuell test",
+      statementHeading: "Eget arbeid",
+      statement:
+        "Svarene i testen skal være ditt eget arbeid. Du svarer selv og lar ingen andre svare for deg.",
+      howItWorks: "Du kan lukke testen og fortsette senere. Svarene lagres underveis, og du leverer én gang.",
+      /** «Testfrist to. 18. des. kl. 23:59.» */
+      deadline: (date: string) => `Testfrist ${date}.`,
+      /** The one primary button, named by its effect (UX-DR9). */
+      accept: "Bekreft og åpne testen",
+      failed: "Testen ble ikke åpnet. Prøv igjen.",
+      errors: {
+        test_deadline_passed: "Testfristen er passert. Testen er ikke levert.",
+        replay_required: "Individuell test, åpnes når du har fullført Replay.",
+      },
+      closed: "Testfristen er passert. Testen er ikke levert.",
+      itemsHeading: "Oppgavene",
+      /** «Oppgave 3». */
+      item: (n: number) => `Oppgave ${n}`,
+      types: {
+        choice: "Flervalg",
+        table: "Fyll inn kolonnen",
+        number: "Tallsvar",
+        long: "Langsvar",
+      },
+    },
     /** Story 11.1 (FR-52, FR-53, UX-DR49): the Klasseøkt's block «Spørsmål og vekter». The title,
      * «Ta ut», «Vekt», the sum line and the quantity warning are the spine's; the rest is
      * [ASSUMPTION] draft copy for the founder's review. */
