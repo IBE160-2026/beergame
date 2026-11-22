@@ -2936,3 +2936,23 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Neste b
 
 ### Åpne punkter
 - Issue #185: beslutninger (bare faglærer, avvisninger, 4 spill om gangen).
+
+## Story 10.4: Spill Replay med projeksjonslinja (spor 2)
+
+### Oppgave
+Bygge Story 10.4 på `epic-10` i spor 2, med inngangen «Fortsett Replay, Uke N» på Hjem fra den visuelle kontrollen av 10.3.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Neste byggeagent startet med en gang, og den visuelle kontrollen gikk samtidig med eget compose-prosjekt.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-10-4-play-the-replay-with-the-projection-line.md`.
+- Commit: a67de9f.
+- Replay spilles på spillskjermen fra Epic 6, med stiplet projeksjonslinje til nå + horisont, hul prikk og en forklarende setning; regnestykket er testet mot motorens fasitverdier. «Fortsett Replay, Uke 9» på Hjem og i Stegene.
+- Tester: backend 3141 på 116,6 s, Vitest 1022, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 193 uten ustabile tester.
+- Gjennomgang: 37 funn, 4 lave rettet, 1 middels utsatt til 10.5 (sluttskjermen for Replay viser «Gå til Debrief»). En ekte e2e-test for projeksjonen er også sendt til 10.5.
+- Visuell kontroll (Sonnet, bare rapport, eget compose-prosjekt): skjermbilder i `screenshots/10.4/`. Én klar feil: projeksjonslinja og prikken går gjennom etiketten «Restordre 20» i grafen. Sendt til 10.5 mens den bygges, sammen med at formelen brytes ved 390 px.
+- Status: done.
+
+### Åpne punkter
+- Issue #186: beslutninger (horisonten, setningen uten bestilling, linja forbi nå + 4).
