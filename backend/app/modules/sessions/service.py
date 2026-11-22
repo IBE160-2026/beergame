@@ -104,6 +104,7 @@ from app.engine.settings import (
     DEMAND_RANGES,
     RANGES,
     ROLES,
+    InfoVisibility,
     Range,
     Role,
     demand_series,
@@ -855,7 +856,9 @@ async def get_session(user: authz.Principal, session_id: uuid.UUID) -> ClassSess
         replay_template=in_force,
         replay_default=default_replay_template(settings),
         replay_warnings=(
-            replay_warnings(in_force, settings) if row["replay_scenario"] == "own" else []
+            replay_warnings(in_force, settings, info_visibility_enabled=info_visibility_enabled())
+            if row["replay_scenario"] == "own"
+            else []
         ),
         inactivity_limit_hours=row["inactivity_limit_hours"],
         obligatory=row["obligatory"],
@@ -3234,10 +3237,13 @@ async def replay_template_pin(session: AsyncSession, class_session: Mapping[str,
     return default_replay_template(settings).model_dump(mode="json")
 
 
-REPLAY_EDITABLE = frozenset({*RANGED_FIELDS, "demand", "holding_cost", "backorder_cost"})
+REPLAY_EDITABLE = frozenset(
+    {*RANGED_FIELDS, "demand", "holding_cost", "backorder_cost", "info_visibility"}
+)
 """The template fields a Lecturer sets in an own Replay scenario (Story 10.2): every Game setting
-the Klasseøkt edits, the seed aside (each Replay draws its own). The chain, capacity and
-Information visibility are the Class session's."""
+the Klasseøkt edits, the seed aside (each Replay draws its own). The chain and capacity are the
+Class session's. Information visibility is the Replay's own (Story 10.9), switched on only while
+`FEATURE_INFO_VISIBILITY` is on."""
 
 
 def class_game_template(settings: GameSettings) -> ReplayTemplate:
@@ -3297,7 +3303,9 @@ def _changes_level(pattern: object) -> bool:
     return False
 
 
-def replay_warnings(template: ReplayTemplate, settings: GameSettings) -> list[SettingWarning]:
+def replay_warnings(
+    template: ReplayTemplate, settings: GameSettings, *, info_visibility_enabled: bool = False
+) -> list[SettingWarning]:
     """The changes of an own Replay scenario that probably make the Replay easier than the Class
     game with `settings` (Story 10.2, FR-49, UX-DR48), one warning per change. A ranged value
     counts by its easier end: a delay by its lowest, Guided Weeks and starting inventory by their
@@ -3305,7 +3313,10 @@ def replay_warnings(template: ReplayTemplate, settings: GameSettings) -> list[Se
     than the Class game's (`replay_delay_shorter`, per delay); any Guided Weeks, which the
     default never has (`replay_guided_weeks`); a lower peak demand level (`replay_demand_lower`);
     less variation each Week (`replay_demand_less_variable`); no change of level where the Class
-    game had one (`replay_demand_no_change`). They never block a save."""
+    game had one (`replay_demand_no_change`); and, only while `FEATURE_INFO_VISIBILITY` is on
+    (`info_visibility_enabled`, Story 10.9), each neighbour's view the Replay shows and the Class
+    games do not (`replay_neighbour_visible`, `values` `{"view": "upstream"|"downstream"}`). They
+    never block a save."""
     found: list[SettingWarning] = []
 
     def warn(code: str, field: str, replay: int, class_game: int) -> None:
@@ -3331,24 +3342,57 @@ def replay_warnings(template: ReplayTemplate, settings: GameSettings) -> list[Se
         warn("replay_demand_less_variable", "demand", demand.spread, _spread(pattern))
     if _changes_level(pattern) and not _changes_level(demand):
         warn("replay_demand_no_change", "demand", _peak(demand), _peak(pattern))
+    if info_visibility_enabled:
+        replay_views, class_views = template.info_visibility, settings.info_visibility
+        for side in VIEWS:
+            if getattr(replay_views, side) and not getattr(class_views, side):
+                found.append(
+                    SettingWarning(
+                        code="replay_neighbour_visible",
+                        field="info_visibility",
+                        values={"view": side},
+                    )
+                )
     return found
 
 
 def judge_replay_template(
-    settings: GameSettings, draft: Mapping[str, Any]
+    settings: GameSettings,
+    draft: Mapping[str, Any],
+    *,
+    kept_views: InfoVisibility | None = None,
 ) -> tuple[ReplayTemplate | None, dict[str, SettingProblem], list[SettingWarning]]:
     """An own Replay scenario `draft` judged for a Class session with `settings` (Story 10.2,
     FR-12, FR-49): the template (None when it does not parse or the engine refuses it), the
     errors keyed as the Game settings' with their range, and the warnings of `replay_warnings`
     on settings without an error. The draft is laid over the Class game's exact settings
-    (`class_game_template`); a key outside `REPLAY_EDITABLE` is `not_editable`. The chain, the
-    capacity and Information visibility are always the Class session's, which `judge_settings`
-    judged under their flags, so the flags do not apply here."""
+    (`class_game_template`); a key outside `REPLAY_EDITABLE` is `not_editable`. The chain and
+    the capacity are always the Class session's, which `judge_settings` judged under its flag.
+
+    Information visibility (Story 10.9, FR-83) is the Replay's own: the draft's, else
+    `kept_views` (a stored own template's), else the Class session's. While
+    `FEATURE_INFO_VISIBILITY` is off a draft that switches on a view that is off there is
+    `info_visibility` `feature_disabled` (as `judge_settings`); switching a view off, or sending
+    it back as it was, is always allowed."""
     base = class_game_template(settings).model_dump(mode="json")
+    if kept_views is not None:
+        base["info_visibility"] = kept_views.model_dump(mode="json")
     problems: dict[str, SettingProblem] = {
         key: _problem("not_editable", key) for key in draft if key not in REPLAY_EDITABLE
     }
-    data = {**base, **{key: value for key, value in draft.items() if key in REPLAY_EDITABLE}}
+    views_flag = info_visibility_enabled()
+    if not views_flag and _shows_a_new_neighbour(
+        draft.get("info_visibility"), base["info_visibility"]
+    ):
+        problems["info_visibility"] = _problem("feature_disabled", "info_visibility")
+    data = {
+        **base,
+        **{
+            key: value
+            for key, value in draft.items()
+            if key in REPLAY_EDITABLE and key not in problems
+        },
+    }
     # Fields that do not parse are judged no further; the others are judged with them at the
     # Class game's values, so one mistyped field hides no error elsewhere (as `judge_settings`).
     unreadable: set[str] = set()
@@ -3378,7 +3422,7 @@ def judge_replay_template(
     template = judged
     risky = [
         w
-        for w in replay_warnings(template, settings)
+        for w in replay_warnings(template, settings, info_visibility_enabled=views_flag)
         if not any(key == w.field or key.startswith(f"{w.field}.") for key in problems)
     ]
     return (None if problems else template), problems, risky
@@ -3394,7 +3438,8 @@ def _replay_to_store(
 ) -> tuple[str, dict[str, Any] | None] | None:
     """The Replay scenario choice and own template to store (Story 10.2), or None when they do
     not change. `own` with no draft keeps the stored own template's fields, judged again for
-    `settings` so its chain, capacity and Information visibility follow the Game settings. Raises
+    `settings` so its chain and capacity follow the Game settings; its Information visibility is
+    its own and kept (Story 10.9). Raises
     `SessionLocked` for a change once locked and `InvalidReplayScenario` for a template the
     engine refuses; an unchanged scenario is never refused, so a locked session saves as it
     stands."""
@@ -3415,7 +3460,8 @@ def _replay_to_store(
             )
         own = stored_template.model_dump(mode="json")
         draft = {key: value for key, value in own.items() if key in REPLAY_EDITABLE}
-    judged, problems, _ = judge_replay_template(settings, draft)
+    kept = stored_template.info_visibility if stored_template is not None else None
+    judged, problems, _ = judge_replay_template(settings, draft, kept_views=kept)
     if judged is None:
         if locked:
             raise SessionLocked({"replay_scenario": "locked"})
@@ -3442,7 +3488,9 @@ async def check_replay_scenario(
     if is_locked(row, now=now):
         raise SessionLocked({"replay_scenario": "locked"})
     settings = GameSettings.model_validate(row["game_settings"])
-    _, problems, risky = judge_replay_template(settings, draft)
+    stored = row["replay_template"]
+    kept = ReplayTemplate.model_validate(stored).info_visibility if stored is not None else None
+    _, problems, risky = judge_replay_template(settings, draft, kept_views=kept)
     return SettingsCheckOut(errors=problems, warnings=risky)
 
 
@@ -3450,13 +3498,16 @@ def _copied_replay(
     source: Mapping[str, Any], settings: GameSettings, source_id: uuid.UUID
 ) -> tuple[str, dict[str, Any] | None]:
     """The source's Replay scenario for a copy (Stories 5.18 and 10.2, FR-66): the default as it
-    is; an own template judged again for the copy's Game settings, whose chain, capacity and
-    Information visibility it takes. A template the engine now refuses is not copied: the copy
-    gets the default, and the refusal is logged."""
+    is; an own template judged again for the copy's Game settings, whose chain and capacity it
+    takes. Its Information visibility is copied while `FEATURE_INFO_VISIBILITY` is on and left
+    out (both views off) while it is off, as `_copied_settings` (Story 10.9). A template the
+    engine now refuses is not copied: the copy gets the default, and the refusal is logged."""
     if source["replay_scenario"] != "own":
         return "default", None
     own = ReplayTemplate.model_validate(source["replay_template"]).model_dump(mode="json")
     editable = {key: value for key, value in own.items() if key in REPLAY_EDITABLE}
+    if not info_visibility_enabled():
+        editable["info_visibility"] = InfoVisibility().model_dump(mode="json")
     template, problems, _ = judge_replay_template(settings, editable)
     if template is None:
         log.info(

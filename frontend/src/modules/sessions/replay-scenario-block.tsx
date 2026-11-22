@@ -20,7 +20,7 @@ import {
   scenarioRows,
 } from "./replay-scenario";
 import { EDITABLE, problemsOf, problemText, type SettingProblem } from "./settings";
-import { DemandFields } from "./settings-form";
+import { DemandFields, InfoVisibilityFields } from "./settings-form";
 
 const copy = nb.sessions.replay;
 
@@ -152,7 +152,11 @@ export function ReplayScenarioBlock({
       {choice === "own" && editable ? (
         <OwnScenarioForm state={state} />
       ) : choice === "own" ? (
-        <OwnScenarioRows template={item.replay_template} warnings={replayWarningsByField(item.replay_warnings)} />
+        <OwnScenarioRows
+          template={item.replay_template}
+          warnings={replayWarningsByField(item.replay_warnings)}
+          infoVisibilityEnabled={item.info_visibility_enabled}
+        />
       ) : (
         <DefaultRows template={editable && item.replay_scenario === "own" ? item.replay_default : item.replay_template} />
       )}
@@ -179,11 +183,19 @@ function DefaultRows({ template }: { template: ReplayTemplate }) {
   );
 }
 
-function OwnScenarioRows({ template, warnings }: { template: ReplayTemplate; warnings: Record<string, string[]> }) {
+function OwnScenarioRows({
+  template,
+  warnings,
+  infoVisibilityEnabled,
+}: {
+  template: ReplayTemplate;
+  warnings: Record<string, string[]>;
+  infoVisibilityEnabled: boolean;
+}) {
   return (
     <>
       <dl className="mt-4 max-w-2xl">
-        {ownRows(template).map((row) => (
+        {ownRows(template, infoVisibilityEnabled).map((row) => (
           <div
             key={row.key}
             className="flex flex-wrap items-baseline justify-between gap-x-4 border-b border-hairline py-2"
@@ -211,7 +223,11 @@ const FIELD_KEYS: readonly string[] = [...EDITABLE.map((field) => field.name), "
 function OwnScenarioForm({ state }: { state: ReplayScenarioState }) {
   const { draft, problems, warnings, setDraft, check } = state;
   const others = Object.entries(problems).filter(
-    ([name]) => !FIELD_KEYS.includes(name) && !name.startsWith("demand.") && name !== "demand_seed",
+    ([name]) =>
+      !FIELD_KEYS.includes(name) &&
+      !name.startsWith("demand.") &&
+      name !== "demand_seed" &&
+      !(name === "info_visibility" && draft.infoVisibility),
   );
   const error = (name: string) => (problems[name] ? problemText(problems[name]) : undefined);
   return (
@@ -274,6 +290,17 @@ function OwnScenarioForm({ state }: { state: ReplayScenarioState }) {
           ),
         }}
       />
+      {draft.infoVisibility ? (
+        <InfoVisibilityFields
+          views={draft.infoVisibility}
+          problem={problems.info_visibility}
+          onChange={(infoVisibility) => setDraft({ ...draft, infoVisibility })}
+          onLeave={() => check()}
+          idPrefix="replay-info-visibility"
+          help={copy.infoVisibilityHelp}
+          notes={warnings.info_visibility}
+        />
+      ) : null}
       {others.map(([name, problem]) => (
         <p key={name} className="mt-2 text-body-phone text-restordre">
           {problemText(problem)}

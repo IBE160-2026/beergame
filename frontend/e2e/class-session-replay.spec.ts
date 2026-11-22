@@ -145,6 +145,69 @@ test("read only, an own scenario stands as a list with its warnings and no contr
   await lecturer.unrouteAll({ behavior: "ignoreErrors" });
 });
 
+/* Story 10.9 (cut list, `FEATURE_INFO_VISIBILITY`, FR-83): the Replay's own Information visibility.
+ * The local stack has the flag on; the flag-off 422, the kept view and the play side are pinned by
+ * `backend/tests/sessions/test_replay_info_visibility.py` and `backend/tests/replay/test_info_visibility.py`. */
+const iv = s.edit.infoVisibility;
+const replaySwitch = (page: Page, label: string) =>
+  block(page).getByRole("switch", { name: new RegExp(`${iv.legend} ${label}`) });
+
+test("the Replay's own views open on the Class session's, warn when more, and are saved", async ({ page, browser }) => {
+  const lecturer = await freshLecturer(page, browser);
+  const id = await newSession(lecturer);
+  await lecturer.goto(`/klasseokter/${id}`);
+  await chooseOwn(lecturer);
+  const up = replaySwitch(lecturer, iv.upstream);
+  await expect(up).toHaveAttribute("aria-checked", "false");
+  await expect(replaySwitch(lecturer, iv.downstream)).toHaveAttribute("aria-checked", "false");
+  await expect(block(lecturer).getByText(copy.infoVisibilityHelp)).toBeVisible();
+
+  // Switched on: judged at once, a warning that names the view; it does not block.
+  const checked = lecturer.waitForResponse(`**/api/class-sessions/${id}/replay-scenario-check`);
+  await up.click();
+  await checked;
+  const more = `${copy.warnings.upstreamVisible} ${copy.warnings.easier}`;
+  await expect(block(lecturer).getByText(more)).toBeVisible();
+
+  await lecturer.getByRole("button", { name: s.save }).click();
+  await expect(lecturer.getByText(s.saved)).toBeVisible();
+  const stored = await (await lecturer.request.get(`/api/class-sessions/${id}`)).json();
+  expect(stored.replay_template.info_visibility).toEqual({ upstream: true, downstream: false });
+  expect(stored.game_settings.info_visibility).toEqual({ upstream: false, downstream: false });
+  await lecturer.reload();
+  await expect(replaySwitch(lecturer, iv.upstream)).toHaveAttribute("aria-checked", "true");
+  await expect(block(lecturer).getByText(more)).toBeVisible();
+});
+
+for (const vp of [
+  { name: "320 px", width: 320, height: 640, phone: true },
+  { name: "1440 px", width: 1440, height: 900, phone: false },
+]) {
+  test.describe(`the Replay's views with the flag off, ${vp.name}`, () => {
+    test.use({ viewport: { width: vp.width, height: vp.height } });
+
+    test("show nothing, send nothing and pass axe", async ({ page, browser }) => {
+      const lecturer = await freshLecturer(page, browser);
+      const id = await newSession(lecturer);
+      // The server's answer with `FEATURE_INFO_VISIBILITY` off; its 422 is pinned by the api tests.
+      await lecturer.route(`**/api/class-sessions/${id}`, async (route) => {
+        if (route.request().method() !== "GET") return route.fallback();
+        const response = await route.fetch();
+        await route.fulfill({ response, json: { ...(await response.json()), info_visibility_enabled: false } });
+      });
+      await lecturer.goto(`/klasseokter/${id}`);
+      const checked = lecturer.waitForRequest((request) => request.url().endsWith("/replay-scenario-check"));
+      await chooseOwn(lecturer);
+      expect((await checked).postDataJSON().replay_template).not.toHaveProperty("info_visibility");
+      await expect(block(lecturer).getByRole("switch")).toHaveCount(0);
+      await expect(block(lecturer).getByText(copy.infoVisibilityHelp)).toHaveCount(0);
+      await expect(block(lecturer).getByText(iv.legend, { exact: true })).toHaveCount(0);
+      await expectAccessible(lecturer, vp.phone);
+      await lecturer.unrouteAll({ behavior: "ignoreErrors" });
+    });
+  });
+}
+
 for (const vp of VIEWPORTS) {
   test.describe(`the own Replay scenario form, ${vp.name}`, () => {
     test.use({ viewport: { width: vp.width, height: vp.height } });

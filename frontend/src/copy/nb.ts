@@ -1205,8 +1205,18 @@ export const nb = {
         lessVariable: (replay: string, classGame: string) =>
           `Advarsel: Spredningen (${replay}) er mindre enn i Klassespillet (${classGame}).`,
         noChange: "Advarsel: Etterspørselen skifter ikke nivå, slik den gjorde i Klassespillet.",
+        // Story 10.9 (FR-83): a neighbour's view the Class games do not show.
+        upstreamVisible:
+          "Advarsel: Replay viser lager og restordre hos leddet oppstrøms, som Klassespillene ikke viser.",
+        downstreamVisible:
+          "Advarsel: Replay viser lager og restordre hos leddet nedstrøms, som Klassespillene ikke viser.",
         other: "Advarsel: Endringen kan gjøre Replay lettere.",
       },
+      /** Story 10.9 (cut list, FEATURE_INFO_VISIBILITY, FR-83, UX-DR12): the Replay's own
+       * Information visibility, shown only while the flag is on. [ASSUMPTION] draft copy. */
+      infoVisibilityHelp:
+        "Gjelder bare Replay, for alle studentene i Klasseøkta, også KI-spillerne. Starter som i Spillinnstillingene, og kan settes annerledes enn i Klassespillene. " +
+        "Fabrikken har ingen nabo oppstrøms, og Detaljisten ingen nedstrøms.",
     },
     save: "Lagre Klasseøkt",
     saving: "Lagrer …",

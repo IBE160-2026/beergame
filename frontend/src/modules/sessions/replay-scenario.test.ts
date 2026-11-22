@@ -169,3 +169,35 @@ describe("an own Replay scenario (Story 10.2)", () => {
     expect(replayWarningText({ code: "x", field: "y", values: {} })).toBe(`${copy.warnings.other} ${copy.warnings.easier}`);
   });
 });
+
+describe("the Replay's own Information visibility (Story 10.9)", () => {
+  const up = { upstream: true, downstream: false };
+
+  it("is left out of the form, the body and the list while the flag is off", () => {
+    const own: ReplayTemplate = { ...CLASSIC, info_visibility: up };
+    expect(replayDraftOfSettings(SETTINGS).infoVisibility).toBeUndefined();
+    expect(replayDraftOfTemplate(own).infoVisibility).toBeUndefined();
+    expect(replayTemplateBody(replayDraftOfTemplate(own))).not.toHaveProperty("info_visibility");
+    expect(ownRows(own).map((row) => row.key)).not.toContain("info_visibility");
+  });
+
+  it("opens on the Class session's views or the stored own ones and sends them with the flag on", () => {
+    expect(replayDraftOfSettings(SETTINGS, true).infoVisibility).toEqual({ upstream: false, downstream: false });
+    const draft = replayDraftOfTemplate({ ...CLASSIC, info_visibility: up }, true);
+    expect(draft.infoVisibility).toEqual(up);
+    expect(replayTemplateBody({ ...draft, infoVisibility: { upstream: true, downstream: true } }).info_visibility).toEqual({
+      upstream: true,
+      downstream: true,
+    });
+    const rows = ownRows({ ...CLASSIC, info_visibility: up }, true);
+    expect(rows.at(-1)).toEqual({ key: "info_visibility", label: nb.sessions.settings.infoVisibility, value: "Leddet oppstrøms" });
+  });
+
+  it("words the warning by the view the Class games do not show", () => {
+    const warn = (view: string) =>
+      replayWarningText({ code: "replay_neighbour_visible", field: "info_visibility", values: { view } });
+    expect(warn("upstream")).toBe(`${copy.warnings.upstreamVisible} ${copy.warnings.easier}`);
+    expect(warn("downstream")).toBe(`${copy.warnings.downstreamVisible} ${copy.warnings.easier}`);
+    expect(warn("sideways")).toBe(`${copy.warnings.other} ${copy.warnings.easier}`);
+  });
+});

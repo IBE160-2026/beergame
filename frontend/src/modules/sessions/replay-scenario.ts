@@ -3,7 +3,7 @@ import type { components } from "@/lib/api/schema";
 import { formatNumber, parseNumber } from "@/lib/number-format";
 
 import type { GameSettings } from "./api";
-import { costText } from "./sessions";
+import { costText, infoVisibilityText } from "./sessions";
 import {
   demandBody,
   draftOf,
@@ -94,14 +94,16 @@ function highText(value: Ranged): string {
 }
 
 /** The own scenario's form, opened on the Class session's Game settings (FR-49: «starting from the
- * Class session's»): every value as the Class game has it. */
-export function replayDraftOfSettings(settings: GameSettings): ReplayDraft {
-  return { ...draftOf(settings), weeksTo: "", changeWeekTo: "" };
+ * Class session's»): every value as the Class game has it; Information visibility only while
+ * `FEATURE_INFO_VISIBILITY` is on (Story 10.9). */
+export function replayDraftOfSettings(settings: GameSettings, infoVisibilityEnabled = false): ReplayDraft {
+  return { ...draftOf(settings, false, infoVisibilityEnabled), weeksTo: "", changeWeekTo: "" };
 }
 
 /** The own scenario's form, opened on a stored own template: a range shows as its two ends; a step
- * with a spread is «Trinn med tilfeldig variasjon», as the Game settings word it. */
-export function replayDraftOfTemplate(template: ReplayTemplate): ReplayDraft {
+ * with a spread is «Trinn med tilfeldig variasjon», as the Game settings word it. The Replay's own
+ * Information visibility only while its flag is on (Story 10.9). */
+export function replayDraftOfTemplate(template: ReplayTemplate, infoVisibilityEnabled = false): ReplayDraft {
   const d = template.demand;
   const fields = Object.fromEntries(
     EDITABLE.map((field) => {
@@ -123,6 +125,14 @@ export function replayDraftOfTemplate(template: ReplayTemplate): ReplayDraft {
     },
     weeksTo: highText(template.weeks),
     changeWeekTo: d.kind === "step" ? highText(d.change_week) : "",
+    ...(infoVisibilityEnabled
+      ? {
+          infoVisibility: {
+            upstream: template.info_visibility.upstream,
+            downstream: template.info_visibility.downstream,
+          },
+        }
+      : {}),
   };
 }
 
@@ -131,10 +141,11 @@ export function replayDraftOf(item: {
   replay_scenario: string;
   replay_template: ReplayTemplate;
   game_settings: GameSettings;
+  info_visibility_enabled: boolean;
 }): ReplayDraft {
   return item.replay_scenario === "own"
-    ? replayDraftOfTemplate(item.replay_template)
-    : replayDraftOfSettings(item.game_settings);
+    ? replayDraftOfTemplate(item.replay_template, item.info_visibility_enabled)
+    : replayDraftOfSettings(item.game_settings, item.info_visibility_enabled);
 }
 
 /** One value, or a range when a different «høyst» value is typed. Anything that is not a whole
@@ -169,22 +180,25 @@ function replayDemandBody(draft: ReplayDraft): Record<string, unknown> {
 }
 
 /** The body's `replay_template`: the template's editable fields, numbers as the Game settings send
- * them, Weeks and the change Week as one value or a range. The chain, capacity and Information
- * visibility are the Class session's; the api adds them. */
+ * them, Weeks and the change Week as one value or a range, and the Replay's own Information
+ * visibility while its field is shown (Story 10.9). The chain and capacity are the Class
+ * session's, and a visibility left out keeps the stored one; the api adds them. */
 export function replayTemplateBody(draft: ReplayDraft): Record<string, unknown> {
   const settings = settingsBody(draft);
   const body: Record<string, unknown> = {};
   for (const field of EDITABLE) body[field.name] = settings[field.name];
   body.weeks = rangeBody(draft.weeks, draft.weeksTo);
   body.demand = replayDemandBody(draft);
+  if (draft.infoVisibility) body.info_visibility = { ...draft.infoVisibility };
   return body;
 }
 
 export type OwnRow = ScenarioRow & { key: string };
 
-/** An own scenario as a list: every setting, ranges as «30 til 40». Keys are the api's, so a
- * warning stands under its row. */
-export function ownRows(template: ReplayTemplate): OwnRow[] {
+/** An own scenario as a list: every setting, ranges as «30 til 40», and «Synlige naboer» while
+ * `FEATURE_INFO_VISIBILITY` is on (Story 10.9). Keys are the api's, so a warning stands under its
+ * row. */
+export function ownRows(template: ReplayTemplate, infoVisibilityEnabled = false): OwnRow[] {
   const s = nb.sessions.settings;
   const whole = (value: Ranged) =>
     isRange(value) && value.minimum !== value.maximum ? copy.range(value.minimum, value.maximum) : String(low(value));
@@ -205,6 +219,9 @@ export function ownRows(template: ReplayTemplate): OwnRow[] {
     { key: "demand", label: copy.demand, value: demand },
   ];
   if (d.kind === "step") rows.push({ key: "demand.change_week", label: copy.changeWeek, value: week(d.change_week) });
+  if (infoVisibilityEnabled) {
+    rows.push({ key: "info_visibility", label: s.infoVisibility, value: infoVisibilityText(template) });
+  }
   return rows;
 }
 
@@ -246,6 +263,9 @@ function warningLine(warning: SettingWarning): string {
       return w.lessVariable(replay, classGame);
     case "replay_demand_no_change":
       return w.noChange;
+    case "replay_neighbour_visible":
+      if (warning.values.view === "upstream") return w.upstreamVisible;
+      return warning.values.view === "downstream" ? w.downstreamVisible : w.other;
     default:
       return w.other;
   }

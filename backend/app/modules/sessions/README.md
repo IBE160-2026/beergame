@@ -127,6 +127,13 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
   `SessionRuntime.pins["replay_template"]` (`replay_template_pin`, the template as JSON); once
   locked the Klasseøkt reads that pin, and it is the only template a Replay reads. Not copied by
   «Lag fra tidligere» yet (Story 10.2).
+- Replay Information visibility (Story 10.9, cut list, FR-83): an own template's
+  `info_visibility` is its own, editable in `replay_template` while `FEATURE_INFO_VISIBILITY` is
+  on and kept as stored otherwise (a new view while off is `info_visibility` `feature_disabled`
+  in `invalid_replay_scenario`). A new view against the Class games warns
+  `replay_neighbour_visible` (`{"view": side}`), only while the flag is on. A copy takes it only
+  while the flag is on. The Replay's snapshot carries it; `seat_state`, the LLM prompt and the
+  Decision log read it as for any Game, behind the same flag at read (AD-17).
 
 ## AI mode, Effort level and Debrief mode (Story 5.5)
 

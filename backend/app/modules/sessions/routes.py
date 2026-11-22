@@ -418,9 +418,12 @@ async def save_class_session(
     `own` with `replay_template`, the own scenario's editable fields (`starting_inventory`,
     `starting_backlog`, `supply_line`, the three delays, `weeks`, `guided_weeks`, `max_order` as
     whole numbers or `{minimum, maximum}`; `holding_cost`, `backorder_cost`; `demand` as `step`
-    with a ranged `change_week`, `random` or `fixed`, each with a `spread`), laid over the Class
-    game's exact settings. A template the engine refuses answers 422 `invalid_replay_scenario`
-    with `fields` as `invalid_settings`; `own` with no template sent or stored names
+    with a ranged `change_week`, `random` or `fixed`, each with a `spread`; `info_visibility`
+    as in the Game settings, the Replay's own, Story 10.9), laid over the Class game's exact
+    settings (Information visibility: over a stored own template's). A template the engine
+    refuses answers 422 `invalid_replay_scenario` with `fields` as `invalid_settings`; while
+    `FEATURE_INFO_VISIBILITY` is off a view switched on there names `info_visibility`
+    `feature_disabled`; `own` with no template sent or stored names
     `replay_template` `required`. Once locked, a changed scenario answers 409 `session_locked`
     (`{"replay_scenario": "locked"}`)."""
     try:

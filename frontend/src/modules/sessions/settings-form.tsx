@@ -430,22 +430,30 @@ const iv = copy.edit.infoVisibility;
 /** Information visibility (Story 5.16, cut list, FR-83, UX-DR12): under the heading «Synlige naboer»
  * two Bryter, off by default, for the view of the Seat directly upstream and of the Seat directly
  * downstream, each naming the numbers it shows; then the help line with the scope. Rendered only
- * while `FEATURE_INFO_VISIBILITY` is on. A switch is judged by the api at once, as leaving a field. */
-function InfoVisibilityFields({
+ * while `FEATURE_INFO_VISIBILITY` is on. A switch is judged by the api at once, as leaving a field.
+ * The Replay scenario (Story 10.9) reuses it under its own ids and help line, with its warnings. */
+export function InfoVisibilityFields({
   views,
   problem,
   onChange,
   onLeave,
+  idPrefix = "setting-info-visibility",
+  help = iv.help,
+  notes,
 }: {
   views: InfoVisibilityDraft;
   problem: SettingProblem | undefined;
   onChange: (views: InfoVisibilityDraft) => void;
   onLeave: () => void;
+  idPrefix?: string;
+  help?: string;
+  notes?: readonly string[];
 }) {
   const titleId = useId();
   const upId = useId();
   const downId = useId();
   const helpId = useId();
+  const notesId = useId();
   // Judged after the render that holds the new draft, so the check sends it.
   const pending = useRef(false);
   useEffect(() => {
@@ -473,10 +481,10 @@ function InfoVisibilityFields({
               {label}
             </p>
             <Switch
-              id={`setting-info-visibility-${side}`}
+              id={`${idPrefix}-${side}`}
               checked={views[side]}
               labelledBy={`${titleId} ${id}`}
-              describedBy={helpId}
+              describedBy={notes?.length ? `${helpId} ${notesId}` : helpId}
               onChange={(checked) => choose({ ...views, [side]: checked })}
             >
               {views[side] ? on : iv.off}
@@ -485,8 +493,17 @@ function InfoVisibilityFields({
         ))}
       </div>
       <p id={helpId} className="mt-3 text-body-phone text-ink-secondary">
-        {iv.help}
+        {help}
       </p>
+      {notes?.length ? (
+        <div id={notesId}>
+          {notes.map((text) => (
+            <p key={text} className="mt-2 text-body-phone text-ink">
+              {text}
+            </p>
+          ))}
+        </div>
+      ) : null}
       {problem ? (
         <p className="mt-2 text-body-phone text-restordre">
           {problem.code === "feature_disabled" ? iv.disabled : problemText(problem)}
