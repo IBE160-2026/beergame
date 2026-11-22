@@ -3801,3 +3801,22 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
 
 ### Åpne punkter
 - Issue #233: beslutninger og ny tabell med persondata som slettingen i Story 15.2 må dekke.
+
+## Story 12.8: Inviter teststudenter som samtykker før de deltar (spor 3)
+
+### Oppgave
+Bygge Story 12.8 på `epic-12` i spor 3.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Første byggeagent uten navn, så rapporten kom som internt varsel.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-12-8-invite-test-students-who-consent-before-they-take-part.md`.
+- Commit: 2eaa20e. Migrasjon 0207.
+- Brukere fra en Kontrolltests klasseliste merkes som teststudenter og må samtykke på Hjem før de kan få sete. Klasselistene holder teststudenter og vanlige studenter adskilt begge veier.
+- Tester: backend 3837, Vitest 1191, tsc, `lint:colours`, `check:copy`, bygg, Playwright 101 med axe.
+- Gjennomgang: 32 funn, 6 rettet; oppfølgende gjennomgang anbefalt.
+- Status: done.
+
+### Åpne punkter
+- Issue #234: samtykketeksten mangler lagringstid, rettigheter og tilbaketrekking og må avgjøres av grunnleggeren før ekte bruk.
