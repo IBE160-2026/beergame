@@ -1148,6 +1148,28 @@ async def student_orders_by_role(session: AsyncSession, game_id: uuid.UUID) -> d
     return {role: count for role, count in result}
 
 
+async def seat_log(session: AsyncSession, game_id: uuid.UUID, role: str) -> list[RowMapping]:
+    """The Decision log rows of the Game's Seat of `role`, by Week: `week`, `decided_by` and the
+    occupancy `reason` (Story 13.1)."""
+    result = await session.execute(
+        select(seat_weeks.c.week, seat_weeks.c.decided_by, seat_weeks.c.reason)
+        .select_from(seat_weeks.join(seats, seats.c.id == seat_weeks.c.seat_id))
+        .where(seat_weeks.c.game_id == game_id, seats.c.role == role)
+        .order_by(seat_weeks.c.week)
+    )
+    return list(result.mappings())
+
+
+async def session_games(session: AsyncSession, class_session_id: uuid.UUID) -> list[RowMapping]:
+    """Every Game of the Class session with its purpose, number and `end_reason` (Story 13.1)."""
+    result = await session.execute(
+        select(games.c.id, games.c.purpose, games.c.game_number, games.c.end_reason)
+        .where(games.c.class_session_id == class_session_id)
+        .order_by(games.c.id)
+    )
+    return list(result.mappings())
+
+
 async def orders_by_decided_by(session: AsyncSession, game_id: uuid.UUID) -> dict[str, int]:
     """The number of Decision log rows of the Game per `decided_by`."""
     result = await session.execute(

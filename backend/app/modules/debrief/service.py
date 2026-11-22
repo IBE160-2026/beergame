@@ -168,6 +168,7 @@ __all__ = [
     "due_narrations",
     "narrate_due",
     "finish_mine",
+    "explanation_length",
     "judge_explanation",
     "mine",
     "open_mine",
@@ -528,6 +529,20 @@ async def _stored(user_id: uuid.UUID, class_session_id: uuid.UUID) -> Explanatio
     if row is None:
         return None
     return ExplanationOut(text=row["text"], length=row["length"], saved_at=row["saved_at"])
+
+
+async def explanation_length(user_id: uuid.UUID, class_session_id: uuid.UUID) -> int | None:
+    """The length in characters of the Student's saved Explanation in the Class session, without
+    leading and trailing white space; None before it is sent (Story 13.1: Completion's minimum,
+    FR-17). Never the text."""
+    async with get_sessionmaker()() as s:
+        text = await s.scalar(
+            select(debrief_explanations.c.text).where(
+                debrief_explanations.c.user_id == user_id,
+                debrief_explanations.c.class_session_id == class_session_id,
+            )
+        )
+    return None if text is None else len(text.strip())
 
 
 async def own_explanation(user: authz.Principal, debrief_id: uuid.UUID) -> MyExplanationOut | None:

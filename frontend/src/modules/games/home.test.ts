@@ -149,6 +149,31 @@ describe("Stegene's items (Story 6.1, AD-10)", () => {
     expect(copy.groupOpen).not.toMatch(/!/);
   });
 
+  it("says why a done step does not count for the requirement, and nothing else changes (Story 13.1)", () => {
+    const base = { held: false, quiz_changed: false, group_open: false, closed: false };
+    const items = stepItems([
+      { step: "class_game", state: "done", ...base, counts: false },
+      { step: "debrief", state: "done", ...base, counts: false },
+      { step: "quiz", state: "done", ...base, counts: false },
+      { step: "replay", state: "done", ...base, counts: true },
+      { step: "test", state: "done", ...base, counts: false },
+      { step: "report", state: "locked", ...base, counts: null },
+    ]);
+    const copy = nb.homes.student;
+    expect(items.map((item) => item.note)).toEqual([
+      copy.notCounted.class_game,
+      copy.notCounted.debrief,
+      copy.done, // a passed quiz always counts: no rule of its own
+      copy.done,
+      copy.notCounted.test,
+      copy.locked.report,
+    ]);
+    expect(items.map((item) => item.state)).toEqual(["done", "done", "done", "done", "done", "locked"]);
+    // No number of Uker and no share in the Student's words (FR-14).
+    for (const note of Object.values(copy.notCounted)) expect(note).not.toMatch(/\d|uke|%/iu);
+    for (const line of Object.values(copy.requirement)) expect(line).not.toMatch(/\d|uke|%/iu);
+  });
+
   it("has a lock line for every step and no exclamation mark", () => {
     for (const line of Object.values(copy.locked)) expect(line).toMatch(/^[^!]+, åpnes [^!]+\.$/);
   });

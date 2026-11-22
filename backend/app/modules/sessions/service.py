@@ -92,6 +92,7 @@ from sqlalchemy import Select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai import budget, config
+from app.analysis.completion import CompletionStatus
 from app.engine import (
     RULES_VERSION,
     GameSettings,
@@ -612,6 +613,29 @@ def required_share(class_session: ClassSessionLike) -> int:
     FR-17): the one source Story 8.9 and Epic 13 read. It is stored whether or not the session is
     obligatory; whether a requirement applies is the obligatory mark's to say."""
     return _value(class_session, "required_share_percent")
+
+
+@dataclass(frozen=True)
+class CompletionTerms:
+    """What a Class session says about its requirement (Story 13.1, FR-17): its Class, whether it
+    is obligatory and its required share of Weeks (`required_share`)."""
+
+    class_id: uuid.UUID
+    obligatory: bool
+    required_share: int
+
+
+async def completion_terms(
+    session: AsyncSession, class_session_id: uuid.UUID
+) -> CompletionTerms | None:
+    """The `CompletionTerms` of the Class session, read in the caller's transaction; None for no
+    such session. For `reports.service.completion_status`."""
+    row = await repo.session_row(session, class_session_id)
+    if row is None:
+        return None
+    return CompletionTerms(
+        class_id=row["class_id"], obligatory=row["obligatory"], required_share=required_share(row)
+    )
 
 
 @dataclass(frozen=True)
@@ -1488,6 +1512,13 @@ async def enrolled_sessions(user: authz.Principal) -> EnrolledSessionListOut:
             if cards.get(row["id"]) is not None
             and progress.Step.QUIZ_PASSED in done.get(row["id"], set())
         }
+    # Story 13.1 (FR-17): in an Obligatory class session where the Student has a game, which steps
+    # count and whether the requirement is met, from the one assembler.
+    completions = {
+        row["id"]: await _completion_of(user.id, row["id"])
+        for row in locked
+        if row["obligatory"] and cards.get(row["id"]) is not None
+    }
     upcoming: dict[uuid.UUID, list[EnrolledLabHourOut]] = {}
     for lab in labs:
         upcoming.setdefault(lab["class_session_id"], []).append(
@@ -1514,15 +1545,19 @@ async def enrolled_sessions(user: authz.Principal) -> EnrolledSessionListOut:
                 and not is_locked(row, now=now),
                 drawn_seat=_drawn_seat(drafts.get(row["id"]), user.id),
                 game=cards.get(row["id"]),
-                steps=stegene(
-                    cards.get(row["id"]) is not None,
-                    done.get(row["id"], set()),
-                    held=_held(cards.get(row["id"])),
-                    quiz_changed=changed.get(row["id"], False),
-                    group_open=grouped.get(row["id"], False),
-                    replay_closed=_replay_closed(replays.get(row["id"]), user, row, now),
-                    test_closed=test_deadline_passed(user, row, now),
+                steps=_with_counts(
+                    stegene(
+                        cards.get(row["id"]) is not None,
+                        done.get(row["id"], set()),
+                        held=_held(cards.get(row["id"])),
+                        quiz_changed=changed.get(row["id"], False),
+                        group_open=grouped.get(row["id"], False),
+                        replay_closed=_replay_closed(replays.get(row["id"]), user, row, now),
+                        test_closed=test_deadline_passed(user, row, now),
+                    ),
+                    completions.get(row["id"]),
                 ),
+                requirement_met=_requirement_met(completions.get(row["id"])),
                 adjustment=own_adjustment(adjustments.get(row["id"])),
                 replay=replays.get(row["id"]),
             )
@@ -1587,6 +1622,72 @@ def stegene(
             state = "locked"
         steps.append(StepOut(step=name, state=state))
     return steps
+
+
+STEGENE_COMPLETION: dict[str, str] = {
+    "class_game": "class_game",
+    "debrief": "debrief",
+    "quiz": "quiz_passed",
+    "replay": "replay",
+    "test": "test_submitted",
+}
+"""Stegene's steps that are steps of the requirement (FR-17), by Completion's step name; the
+«Rapport» step is not one."""
+
+
+def _with_counts(steps: list[StepOut], status: CompletionStatus | None) -> list[StepOut]:
+    """Story 13.1: each step of the requirement says whether it counts, from the Completion
+    status; without one (not obligatory, no game yet) `counts` stays None."""
+    if status is None:
+        return steps
+    return [
+        step.model_copy(update={"counts": status.step(STEGENE_COMPLETION[step.step]).done})
+        if step.step in STEGENE_COMPLETION
+        else step
+        for step in steps
+    ]
+
+
+def _requirement_met(status: CompletionStatus | None) -> bool | None:
+    return None if status is None else status.requirement_met
+
+
+# Story 13.1: a Student's Completion status and the Oversikt's funnel come from `reports`, which
+# imports `sessions`; it registers its assembler and its funnel here (AD-16, AD-25).
+
+CompletionProvider = Callable[[uuid.UUID, uuid.UUID], Awaitable[CompletionStatus | None]]
+"""`(user_id, class_session_id)` → the Student's Completion status, None outside the reporting
+scope (`reports.service.completion_status`)."""
+FunnelProvider = Callable[[AsyncSession, uuid.UUID], Awaitable[progress.Funnel]]
+"""`(session, class_session_id)` → the Trakt over the reporting Students
+(`reports.service.funnel`)."""
+
+_completion: list[CompletionProvider] = []
+_funnel: list[FunnelProvider] = []
+
+
+def register_completion(provider: CompletionProvider, funnel: FunnelProvider) -> None:
+    """`reports.service` registers its assembler and its funnel at import. The same ones again
+    change nothing; others are refused, so every reader judges Completion alike."""
+    if (_completion and _completion[0] is not provider) or (_funnel and _funnel[0] is not funnel):
+        raise ValueError("a Completion provider is registered already")
+    _completion[:] = [provider]
+    _funnel[:] = [funnel]
+
+
+async def _completion_of(
+    user_id: uuid.UUID, class_session_id: uuid.UUID
+) -> CompletionStatus | None:
+    if not _completion:
+        raise RuntimeError("no Completion provider: import app.modules.reports.service")
+    return await _completion[0](user_id, class_session_id)
+
+
+async def funnel_of(session: AsyncSession, class_session_id: uuid.UUID) -> progress.Funnel:
+    """The Oversikt's Trakt (Story 7.6) through `reports.service.funnel` (Story 13.1)."""
+    if not _funnel:
+        raise RuntimeError("no funnel provider: import app.modules.reports.service")
+    return await _funnel[0](session, class_session_id)
 
 
 # Story 9.2: where the Student's Debrief stands, as `debrief.rules.state` judges it. `debrief`

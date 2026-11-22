@@ -123,10 +123,14 @@ __all__ = [
     "PendingTurn",
     "Purpose",
     "PurposeNotSupportedError",
+    "SeatLog",
     "SeatMark",
     "SeatOverview",
     "SeatState",
+    "SessionGame",
     "SessionRuntime",
+    "seat_log",
+    "session_games",
     "SimulationBatch",
     "StudentGame",
     "TestGameRef",
@@ -524,6 +528,57 @@ async def student_game(
         role=best["role"],
         pre_play_gate=policy(best["purpose"]).pre_play_gate,
     )
+
+
+@dataclass(frozen=True)
+class SeatLog:
+    """A Seat's play as Completion reads it (Story 13.1, FR-17, AD-15): the snapshot's number of
+    Weeks and Guided Weeks, and per Decision log row its Week, `decided_by` and the occupancy
+    `reason`. Never a quantity or a time."""
+
+    weeks: int
+    guided_weeks: int
+    rows: tuple[tuple[int, str, str], ...]
+
+
+async def seat_log(session: AsyncSession, game_id: uuid.UUID, role: str) -> SeatLog | None:
+    """The `SeatLog` of the Game's Seat of `role`, read in the caller's transaction; None before
+    the Game has its snapshot or for an unknown Game."""
+    game = await repo.get_game(session, game_id)
+    if game is None or game["settings"] is None:
+        return None
+    settings = GameSettings.model_validate(game["settings"])
+    rows = await repo.seat_log(session, game_id, role)
+    return SeatLog(
+        weeks=settings.weeks,
+        guided_weeks=settings.guided_weeks,
+        rows=tuple((row["week"], row["decided_by"], row["reason"]) for row in rows),
+    )
+
+
+@dataclass(frozen=True)
+class SessionGame:
+    """A Game of a Class session (Story 13.1): its purpose, number (None but for Class games) and,
+    for a Game closed without its last Week, why (`end_reason`, Story 10.6)."""
+
+    game_id: uuid.UUID
+    purpose: Purpose
+    number: int | None
+    end_reason: EndReason | None
+
+
+async def session_games(session: AsyncSession, class_session_id: uuid.UUID) -> list[SessionGame]:
+    """Every Game of the Class session, of any purpose, in the caller's transaction. For
+    `reports.scope`, which decides which of them a report counts."""
+    return [
+        SessionGame(
+            game_id=row["id"],
+            purpose=Purpose(row["purpose"]),
+            number=row["game_number"],
+            end_reason=EndReason(row["end_reason"]) if row["end_reason"] else None,
+        )
+        for row in await repo.session_games(session, class_session_id)
+    ]
 
 
 @dataclass(frozen=True)

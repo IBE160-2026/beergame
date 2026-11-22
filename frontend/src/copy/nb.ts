@@ -559,6 +559,20 @@ export const nb = {
        * not handed in: never opened, or opened and waiting for the sweep (about a minute), after
        * which it turns done. [ASSUMPTION] The Replay's words. */
       testClosed: "ikke gjort, Testfristen er ute",
+      /** Story 13.1 (FR-17, UX-DR29): in an Obligatorisk Klasseøkt, a done step that does not
+       * count for the requirement says why, never with a number of Uker or a share (FR-14). Only
+       * these three steps have a rule beyond being done. [ASSUMPTION] draft copy. */
+      notCounted: {
+        class_game: "ferdig, men du bestilte selv for sjelden",
+        debrief: "ferdig, men Forklaringen er for kort",
+        test: "levert, men en del mangler svar",
+      } as Partial<Record<string, string>>,
+      /** Story 13.1 (FR-17): one line under Stegene in an Obligatorisk Klasseøkt, from the
+       * Completion status. Neutral, so it stays true after the Testfrist. [ASSUMPTION] */
+      requirement: {
+        met: "Kravet er oppfylt.",
+        notMet: "Kravet er ikke oppfylt.",
+      },
       /** Story 10.4 (UX-DR64, EXPERIENCE.md → Replay in progress): the current Replay step while
        * the Replay runs; its link leads to the play screen. The spine's line. */
       replayResume: (week: number) => `Fortsett Replay, Uke ${week}.`,

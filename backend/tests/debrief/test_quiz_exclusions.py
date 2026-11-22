@@ -170,6 +170,7 @@ async def test_exclusions_change_the_next_attempt_and_staff_see_attempts(klass, 
         "quiz_changed": True,
         "group_open": False,
         "closed": False,
+        "counts": None,
     }
     # The same set again changes nothing and tells nobody again.
     assert (await exclude(session_id, [ids[0]])).status_code == 200

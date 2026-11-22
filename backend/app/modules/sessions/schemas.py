@@ -791,6 +791,10 @@ class StepOut(BaseModel):
     Replay was closed at the Testfrist unfinished (the Replay's `end_reason` says so). Story
     11.11: also the current Individual test step after the Student's Test deadline: not handed
     in, so not done; a saved attempt turns done when the sweep hands it in."""
+    counts: bool | None = None
+    """Story 13.1 (FR-17): in an Obligatory class session where the Student has a game, whether
+    this step counts as done for the requirement (after the share of Weeks, the minimums and any
+    correction); None otherwise and for «Rapport». A `done` step can still not count."""
 
 
 class ReplayGameOut(BaseModel):
@@ -865,6 +869,10 @@ class EnrolledSessionOut(BaseModel):
     """Story 8.9: the Student's own Tilrettelegging, None without one (FR-17)."""
     replay: StudentReplayOut | None = None
     """Story 10.3: the Replay, once the Student has passed the Debrief quiz; None before."""
+    requirement_met: bool | None = None
+    """Story 13.1 (FR-17): in an Obligatory class session where the Student has a game, whether
+    their Completion status meets the requirement (`reports.service.completion_status`); None
+    otherwise. Never a share or a number of Weeks (FR-14)."""
 
 
 class EnrolledSessionListOut(BaseModel):

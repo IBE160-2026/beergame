@@ -192,6 +192,13 @@ function SessionBlock({
       {/* Story 10.3: the Replay, once the Debrief quiz is passed. */}
       {session.replay ? <ReplayBlock replay={session.replay} sessionId={session.id} primary={replayPrimary} /> : null}
       <Stegene title={copy.steps} titleId={`steps-${session.id}`} items={stepItems(session.steps, session.id, session.replay)} />
+      {/* Story 13.1 (FR-17): in an Obligatorisk Klasseøkt, whether the requirement is met, from
+          the api's Completion status; never a share or a number of Uker. */}
+      {session.requirement_met != null ? (
+        <p className="mt-3 text-body-phone text-ink lg:text-body" data-requirement={session.requirement_met ? "met" : "not-met"}>
+          {session.requirement_met ? copy.requirement.met : copy.requirement.notMet}
+        </p>
+      ) : null}
       {/* The Student's own Tilrettelegging (Story 8.9): only they read it. */}
       {ownLines(session.adjustment).length > 0 ? (
         <div className="mt-3 flex flex-col gap-1 text-body-phone text-ink-secondary lg:text-body" data-own-adjustment="">

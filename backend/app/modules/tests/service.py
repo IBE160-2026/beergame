@@ -48,7 +48,16 @@ from app.modules.tests.schemas import (
 from app.platform import authz
 from app.platform.db import get_sessionmaker
 
-__all__ = ["PARTS", "ItemsOpen", "UnknownItem", "answer", "finish", "parts_with_content", "read"]
+__all__ = [
+    "PARTS",
+    "ItemsOpen",
+    "UnknownItem",
+    "answer",
+    "attempt_status",
+    "finish",
+    "parts_with_content",
+    "read",
+]
 
 Stored = Mapping[str, Mapping[str, Any]]
 
@@ -256,6 +265,19 @@ async def parts_with_content(
         if part is not None:
             parts[part] = parts.get(part, False) or item["id"] in answered
     return parts
+
+
+async def attempt_status(user_id: uuid.UUID, class_session_id: uuid.UUID) -> str | None:
+    """The status of the Student's Individual test attempt (`open`, `submitted` or
+    `auto_submitted`), None without one (Story 13.1: Completion checks the parts of an
+    auto-submitted attempt only, FR-17)."""
+    async with get_sessionmaker()() as s:
+        return await s.scalar(
+            select(test_attempts.c.status).where(
+                test_attempts.c.user_id == user_id,
+                test_attempts.c.class_session_id == class_session_id,
+            )
+        )
 
 
 # «Lagre Klasseøkt» stores the timed sitting here (Story 11.12), and «Lag kopi» copies it (FR-66).

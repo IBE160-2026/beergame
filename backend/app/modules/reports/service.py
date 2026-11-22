@@ -1,0 +1,115 @@
+"""The one Completion assembler and the funnel caller (Story 13.1, FR-17, AD-16, AD-25).
+
+Every reader of a Student's Completion status (Hjem now; the Studentside, the Completion export
+and the Student report later) calls `completion_status`, which gathers the inputs through the
+`progress`, `sessions`, `games`, `debrief` and `tests` services and calls the pure
+`analysis.completion`. The Oversikt's Trakt comes through `funnel`, which passes the reporting
+Students to `progress.funnel`. Both read through `reports.scope`. `sessions` reaches them through
+the providers registered at the end of this module, since `reports` imports `sessions`.
+"""
+
+import uuid
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.analysis.completion import (
+    CompletionSettings,
+    CompletionStatus,
+    DecisionLogSummary,
+    LoggedWeek,
+    StepInputs,
+    completion,
+)
+from app.modules.debrief import service as debrief
+from app.modules.games import service as games
+from app.modules.games.service import Purpose
+from app.modules.progress import service as progress
+from app.modules.reports import scope
+from app.modules.sessions import service as sessions
+from app.modules.tests import service as tests
+from app.platform.config import get_settings
+from app.platform.db import get_sessionmaker
+
+__all__ = ["completion_status", "funnel"]
+
+
+@asynccontextmanager
+async def _reading(within: AsyncSession | None) -> AsyncIterator[AsyncSession]:
+    if within is not None:
+        yield within
+        return
+    async with get_sessionmaker()() as session:
+        yield session
+
+
+def _required_parts() -> tuple[str, ...]:
+    raw = get_settings().completion_test_required_parts
+    return tuple(part.strip() for part in raw.split(",") if part.strip())
+
+
+async def completion_status(
+    user_id: uuid.UUID, class_session_id: uuid.UUID
+) -> CompletionStatus | None:
+    """The Student's Completion status in the Class session (FR-17); None for an unknown Class
+    session or a User reports do not count there (`reports.scope.reporting_students`). The
+    corrections of Story 13.3 are not there yet, so none are passed."""
+    async with _reading(None) as s:
+        terms = await sessions.completion_terms(s, class_session_id)
+        if terms is None or user_id not in await scope.reporting_students(s, class_session_id):
+            return None
+        events = await progress.step_events(s, user_id, class_session_id)
+        adjustment = await sessions.get_adjustment(s, class_session_id, user_id)
+        log = None
+        game = await games.student_game(s, user_id, class_session_id)
+        if game is not None:
+            counted = await scope.reporting_games(s, class_session_id, [Purpose.CLASS])
+            if any(each.game_id == game.game_id for each in counted):
+                seat = await games.seat_log(s, game.game_id, game.role)
+                if seat is not None:
+                    log = DecisionLogSummary(
+                        weeks=seat.weeks,
+                        guided_weeks=seat.guided_weeks,
+                        rows=tuple(LoggedWeek(*row) for row in seat.rows),
+                    )
+    test_status = await tests.attempt_status(user_id, class_session_id)
+    config = get_settings()
+    return completion(
+        StepInputs(
+            events={step.value: at for step, at in events.items()},
+            explanation_length=await debrief.explanation_length(user_id, class_session_id),
+            test_status=test_status,
+            test_parts=(
+                await tests.parts_with_content(user_id, class_session_id)
+                if test_status == "auto_submitted"
+                else None
+            ),
+        ),
+        log,
+        (),
+        CompletionSettings(
+            obligatory=terms.obligatory,
+            required_share=terms.required_share,
+            adjusted_share=None if adjustment is None else adjustment.share_percent,
+            explanation_min_length=config.completion_explanation_min_length,
+            test_required_parts=_required_parts(),
+        ),
+    )
+
+
+async def funnel(
+    class_session_id: uuid.UUID, *, session: AsyncSession | None = None
+) -> progress.Funnel:
+    """The Trakt of the Class session (Story 7.6) over `scope.reporting_students`: it counts step
+    events, never the requirement; how many Students met it is `completion_status`'s to say."""
+    async with _reading(session) as s:
+        students = await scope.reporting_students(s, class_session_id)
+        return await progress.funnel(s, class_session_id, students)
+
+
+async def _funnel_in(session: AsyncSession, class_session_id: uuid.UUID) -> progress.Funnel:
+    return await funnel(class_session_id, session=session)
+
+
+sessions.register_completion(completion_status, _funnel_in)

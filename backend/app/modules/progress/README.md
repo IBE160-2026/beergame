@@ -10,6 +10,8 @@ One table, `progress_steps`: one row per User, Class session and step from the c
   emits nothing and returns False.
 - Gates are read only through `service.has_step(...)`, or `service.steps_of(session, user_id,
   class_session_ids)` for many sessions at once.
+- Completion (Story 13.1) reads `service.step_events(session, user_id, class_session_id)`: each
+  step done with when it was done. Only `reports.service.completion_status` judges whether it counts.
 - The Trakt reads `service.funnel(session, class_session_id, student_ids)` (Story 7.6): the number
   of Students the caller gives (it passes the registered Students; `progress` never looks them up)
   and how many of them have each of `FUNNEL_STEPS` recorded. Step events only, no AI score or text.

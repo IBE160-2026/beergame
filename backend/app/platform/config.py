@@ -122,6 +122,12 @@ class Settings(BaseSettings):
     # The required share of Weeks a new Class session starts with (Story 5.7, FR-17), a whole
     # percent. PLACEHOLDER from FR-17's assumption; Completion itself is Epic 13's.
     completion_default_share_percent: int = Field(80, ge=1, le=100)
+    # Completion's minimums (Story 13.1, FR-17). PLACEHOLDERS [ASSUMPTION: these minimums], not
+    # final numbers: the fewest characters an Explanation needs for the Debrief step to count, and
+    # the parts (`tests.service.PARTS` values, comma-separated) an auto-submitted Individual test
+    # must have content in, among those its attempt holds, for the test step to count.
+    completion_explanation_min_length: int = Field(50, ge=1)
+    completion_test_required_parts: str = "choice,interactive,long,adapted"
     # One timed sitting for the Individual test (Story 11.12, FR-51). PLACEHOLDERS: the whole
     # minutes a Lecturer may set as the time limit, before any Student's time factor.
     test_sitting_min_minutes: int = Field(15, ge=1)

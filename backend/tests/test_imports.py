@@ -217,6 +217,22 @@ def test_messaging_reaches_other_modules_only_through_their_service():
             assert name.split(".")[3] == "service", f"{path.name}:{line} imports {name}"
 
 
+def test_reports_reaches_other_modules_only_through_their_service_and_nothing_imports_it():
+    """Story 13.1 (AD-16, AD-25): the Completion assembler gathers its inputs through each
+    module's `service.py`; `sessions` reaches it through the provider it registers, so only the
+    app factory imports `reports`."""
+    found = imports(APP / "modules" / "reports")
+    assert found
+    for path, line, name in found:
+        if name.startswith("app.modules.") and not name.startswith("app.modules.reports"):
+            assert name.split(".")[3] == "service", f"{path.name}:{line} imports {name}"
+    for path, line, name in imports(APP):
+        if name.startswith("app.modules.reports") and (APP / "modules" / "reports") not in (
+            path.parents
+        ):
+            assert path == APP / "main.py", f"{path.name}:{line} imports {name}"
+
+
 def test_the_check_sees_imports_inside_functions():
     names = {name for _, _, name in imports(APP / "modules" / "games")}
     assert "app.modules.players.service" in names

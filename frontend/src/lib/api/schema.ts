@@ -4324,6 +4324,8 @@ export interface components {
             /** Play Deadline */
             play_deadline: string | null;
             replay?: components["schemas"]["StudentReplayOut"] | null;
+            /** Requirement Met */
+            requirement_met?: boolean | null;
             /**
              * Seat Choice Open
              * @default false
@@ -7396,6 +7398,8 @@ export interface components {
              * @default false
              */
             closed: boolean;
+            /** Counts */
+            counts?: boolean | null;
             /**
              * Group Open
              * @default false

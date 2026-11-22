@@ -50,7 +50,7 @@ export function stepItems(
   replay?: EnrolledSession["replay"],
 ): StegeneItem[] {
   const running = replay?.game?.status === "running" && replay.game.week != null ? replay.game : null;
-  return (steps ?? []).map(({ step, state, held, quiz_changed, group_open, closed }) => ({
+  return (steps ?? []).map(({ step, state, held, quiz_changed, group_open, closed, counts }) => ({
     key: step,
     name: copy.stepNames[step],
     state,
@@ -72,7 +72,8 @@ export function stepItems(
                   ? copy.replayResume(running.week!)
                   : copy.current
         : state === "done"
-          ? copy.done
+          ? // Story 13.1: a done step that does not count for the requirement says why.
+            (counts === false ? copy.notCounted[step] : undefined) ?? copy.done
           : held && step === "debrief"
             ? copy.held.debrief
             : copy.locked[step],

@@ -26,6 +26,7 @@ __all__ = [
     "funnel",
     "has_step",
     "record_step",
+    "step_events",
     "steps_of",
     "steps_since",
     "users_with_step",
@@ -129,6 +130,20 @@ async def steps_of(
     for session_id, step in result.all():
         found.setdefault(session_id, set()).add(Step(step))
     return found
+
+
+async def step_events(
+    session: AsyncSession, user_id: uuid.UUID, class_session_id: uuid.UUID
+) -> dict[Step, datetime]:
+    """The steps the User has done in the Class session with when each was done, in the caller's
+    session (Story 13.1: the step events Completion reads)."""
+    result = await session.execute(
+        select(progress_steps.c.step, progress_steps.c.at).where(
+            progress_steps.c.user_id == user_id,
+            progress_steps.c.class_session_id == class_session_id,
+        )
+    )
+    return {Step(step): at for step, at in result.all()}
 
 
 FUNNEL_STEPS: tuple[Step, ...] = (

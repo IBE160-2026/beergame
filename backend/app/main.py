@@ -21,6 +21,7 @@ from app.modules.messaging import routes as messaging_routes
 from app.modules.messaging import webhooks as messaging_webhooks
 from app.modules.replay import dev as replay_dev
 from app.modules.replay import routes as replay_routes
+from app.modules.reports import service as reports_service  # noqa: F401  registers Completion (Story 13.1)
 from app.modules.sessions import dev as sessions_dev
 from app.modules.sessions import routes as sessions_routes
 from app.modules.tests import routes as tests_routes

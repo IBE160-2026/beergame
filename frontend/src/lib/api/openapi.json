@@ -2978,6 +2978,17 @@
               }
             ]
           },
+          "requirement_met": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requirement Met"
+          },
           "seat_choice_open": {
             "default": false,
             "title": "Seat Choice Open",
@@ -9947,6 +9958,17 @@
             "default": false,
             "title": "Closed",
             "type": "boolean"
+          },
+          "counts": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counts"
           },
           "group_open": {
             "default": false,
