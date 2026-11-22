@@ -324,8 +324,11 @@ function Running({
       </p>
       {/* Hidden, not gone, while Alle rader is open (`useAllRows`). */}
       <div hidden={allRows.open !== null}>
-        <div className="mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-12 xl:grid-cols-[minmax(0,1fr)_24rem]">
-          <div className="min-w-0">
+        {/* Two columns while the Kjedebånd side gets at least 30rem beside the fixed right column;
+            with larger text they stack, so neither side is squeezed until it clips (Epic 8
+            close-out, from the 8.6 visual check at 200 % text). */}
+        <div className="mt-6 lg:flex lg:flex-wrap lg:items-start lg:gap-12">
+          <div className="min-w-0 lg:flex-[1_1_30rem]">
             {/* Reading and focus order: Topplinje, Kjedebånd, Graf over tabell, the rest (FR-73). */}
             <ChainBandView
               state={state}
@@ -345,7 +348,7 @@ function Running({
               capped={isCapped(game.role, game.rules)}
             />
           </div>
-          <div>
+          <div className="lg:w-[18rem] lg:shrink-0 xl:w-[24rem]">
             {/* The Uke-overgang over the Ordrefelt, which is usable at once (Story 6.15). */}
             {summary ? (
               <WeekSummaryView
