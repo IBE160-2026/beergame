@@ -38,8 +38,17 @@ from app.modules.content import service as content
 from app.modules.content.schemas import QuestionSet
 from app.modules.games import service as games
 from app.modules.replay import service as replay
+from app.platform.db import get_sessionmaker
 
-__all__ = ["ADAPTED", "PASSING_REASONS", "Built", "build", "build_with_sets", "pattern_names"]
+__all__ = [
+    "ADAPTED",
+    "PASSING_REASONS",
+    "Built",
+    "build",
+    "build_with_sets",
+    "pattern_names",
+    "warm",
+]
 
 log = structlog.get_logger(__name__)
 
@@ -66,6 +75,21 @@ async def _facts(game_id: uuid.UUID, role: str) -> games.StoredFactSet | None:
         return await games.fact_set(str(game_id), role)
     except games.ViewError:
         return None
+
+
+async def warm(user_id: uuid.UUID, class_session_id: uuid.UUID) -> None:
+    """Build and store the Student's facts sets (own Game and Replay) before the opening
+    transaction, so `build` inside it only reads them (Epic 11 close-out): a first build replays
+    the Game and must not hold the Class session row's lock or a second connection that long. A
+    set that cannot be built is left to `build`, which gives the replacement items. The sets are
+    usually stored already by then (the Debrief and the Replay read them)."""
+    async with get_sessionmaker()() as s:
+        own, replay_game = await _sources(s, user_id, class_session_id)
+    if own is None:
+        return
+    await _facts(own.game_id, own.role)
+    if replay_game is not None:
+        await _facts(replay_game, own.role)
 
 
 def _replacements(question_set: QuestionSet, total: int, reason: str) -> list[dict[str, Any]]:

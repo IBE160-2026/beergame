@@ -24,7 +24,7 @@ from tests.classes.test_roster_upload import NOW, clock, klass
 from tests.classes.test_staff import call
 from tests.classes.test_student_registration import emitted
 from tests.individual_test.test_answer import first, opened, put
-from tests.individual_test.test_open import code, path, replayed
+from tests.individual_test.test_open import code, no_playout, path, replayed
 from tests.individual_test.test_submit import scores, submit_path
 from tests.messaging.helpers import rows
 from tests.sessions.test_dates import TEST, at
@@ -32,7 +32,9 @@ from tests.sessions.test_lock import _empty
 from tests.sessions.test_student_choice import email
 from tests.sessions.test_student_home import home
 
-__all__ = ["_empty", "clock", "emitted", "klass"]
+__all__ = ["_empty", "clock", "emitted", "klass", "no_playout"]
+
+pytestmark = pytest.mark.usefixtures("no_playout")
 
 MINUTE = timedelta(minutes=1)
 

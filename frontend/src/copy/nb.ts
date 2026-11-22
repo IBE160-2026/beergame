@@ -2971,6 +2971,10 @@ export const nb = {
        * above the field on a phone. */
       long: {
         largerScreen: "Langsvar er lettere å skrive på en større skjerm, som en PC. Du kan likevel skrive og lagre her.",
+        /** [ASSUMPTION] draft copy: the count shown once the text nears the longest answer. */
+        count: (used: string, max: string) => `${used} av ${max} tegn`,
+        /** [ASSUMPTION] draft copy: pasted text went past the longest answer and was cut. */
+        cut: (max: string) => `Svaret kan være på høyst ${max} tegn. Det som gikk over, ble ikke tatt med.`,
       },
       /** Review and submit (Story 11.10, FR-51, UX-DR65, UX-DR59). «Lever testen», the unanswered
        * line, the warning, «Levert …» and the failure line are the spine's; the rest is

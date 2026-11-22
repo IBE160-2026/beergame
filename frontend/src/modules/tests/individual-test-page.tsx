@@ -364,18 +364,25 @@ function Submit({ test, classSessionId, waiting, onSubmitted }: { test: MyTest; 
       {missing.length > 0 ? (
         <p data-unanswered className={`${LINE} mt-3 text-ink`}>
           {copy.submit.unanswered(missing.length)}{" "}
-          {missing.map((number, index) => (
-            <span key={number}>
-              {listSeparator(index, missing.length)}
-              <a
-                href={`#${itemAnchor(number)}`}
-                aria-label={copy.submit.itemLink(number)}
-                className="inline-flex min-h-11 min-w-11 items-center justify-center font-semibold text-ink underline underline-offset-4 hover:no-underline"
-              >
-                {number}
-              </a>
-            </span>
-          ))}
+          {missing.map((number, index) => {
+            // A comma after the number sits inside its 44 px target, so it stays next to the
+            // number instead of across the target's padding («1, 2» not «1 , 2»).
+            const comma = index + 1 < missing.length && listSeparator(index + 1, missing.length) === copy.submit.listComma;
+            const before = listSeparator(index, missing.length);
+            return (
+              <span key={number}>
+                {before === copy.submit.listComma ? copy.submit.listComma.slice(1) : before}
+                <a
+                  href={`#${itemAnchor(number)}`}
+                  aria-label={copy.submit.itemLink(number)}
+                  className="inline-flex min-h-11 min-w-11 items-center justify-center font-semibold text-ink"
+                >
+                  <span className="underline underline-offset-4 hover:no-underline">{number}</span>
+                  {comma ? <span className="font-normal">,</span> : null}
+                </a>
+              </span>
+            );
+          })}
           {copy.submit.listEnd}
         </p>
       ) : (

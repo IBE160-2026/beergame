@@ -15,10 +15,20 @@ export type TextAreaFieldProps = Omit<TextareaHTMLAttributes<HTMLTextAreaElement
   ref?: Ref<HTMLTextAreaElement>;
 };
 
-export function TextAreaField({ id, label, error, hint, className, rows = 3, ...props }: TextAreaFieldProps) {
+export function TextAreaField({
+  id,
+  label,
+  error,
+  hint,
+  className,
+  rows = 3,
+  "aria-describedby": more,
+  ...props
+}: TextAreaFieldProps) {
   const errorId = `${id}-error`;
   const hintId = `${id}-hint`;
-  const describedBy = [hint ? hintId : "", error ? errorId : ""].filter(Boolean).join(" ") || undefined;
+  // The hint and reason are read with the field, then any text the caller names.
+  const describedBy = [hint ? hintId : "", error ? errorId : "", more ?? ""].filter(Boolean).join(" ") || undefined;
   return (
     <div className={cn("flex min-w-0 flex-col gap-field-gap", className)}>
       <label id={`${id}-label`} htmlFor={id} className="text-label text-ink">

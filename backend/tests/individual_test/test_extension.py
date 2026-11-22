@@ -25,7 +25,7 @@ from tests.classes.test_invitation_counts import execute
 from tests.classes.test_roster_upload import NOW, clock, klass
 from tests.classes.test_staff import ASSISTANT, EMAIL, call, put_staff
 from tests.classes.test_student_registration import emitted
-from tests.individual_test.test_open import code, locked_session, path, replayed
+from tests.individual_test.test_open import code, locked_session, no_playout, path, replayed
 from tests.individual_test.test_submit import submit_path
 from tests.individual_test.test_timed_sitting import attempt, open_test, timed
 from tests.messaging.helpers import rows
@@ -34,7 +34,9 @@ from tests.sessions.test_lock import _empty
 from tests.sessions.test_student_choice import email
 from tests.sessions.test_student_home import home
 
-__all__ = ["_empty", "clock", "emitted", "klass"]
+__all__ = ["_empty", "clock", "emitted", "klass", "no_playout"]
+
+pytestmark = pytest.mark.usefixtures("no_playout")
 
 MINUTE = timedelta(minutes=1)
 HOUR = timedelta(hours=1)
@@ -46,17 +48,6 @@ OWN_DEBRIEF = DEBRIEF + 3 * DAY
 @pytest.fixture(autouse=True)
 def _empty_ai(ai_db):
     """No model config: the sessions are Rule-based."""
-
-
-@pytest.fixture(autouse=True)
-def _no_playout(monkeypatch):
-    """The sweeps after the Play deadline would play the Class games out (Story 8.14), seconds of
-    work per test that no deadline here depends on."""
-    monkeypatch.setattr(
-        sweep,
-        "DUE_ACTIONS",
-        tuple(action for action in sweep.DUE_ACTIONS if action.name != "sessions.playout"),
-    )
 
 
 def deadline_path(session_id: str, user_id) -> str:

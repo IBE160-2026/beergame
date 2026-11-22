@@ -10,6 +10,8 @@ the effective Test deadline, the Debrief follow-up closed in the same transactio
 import asyncio
 import uuid
 
+import pytest
+
 from app.modules.debrief import follow_up
 from app.modules.identity.schemas import AccountRole
 from app.modules.ops import sweep
@@ -36,6 +38,18 @@ BEFORE = ("class_game", "debrief", "quiz_passed", "replay")
 REPLACEMENTS = ("erstatning-tabell", "erstatning-langsvar")
 """The question set's replacement items: a Student whose Class game was never played gets them
 in place of the Adapted items (Story 11.7)."""
+
+
+@pytest.fixture
+def no_playout(monkeypatch):
+    """The sweeps after the Play deadline would play the Class games out (Story 8.14, tested in
+    `tests/games/test_playout.py`), seconds of work per test that no Test deadline depends on. A
+    module takes it with `pytestmark = pytest.mark.usefixtures("no_playout")`."""
+    monkeypatch.setattr(
+        sweep,
+        "DUE_ACTIONS",
+        tuple(action for action in sweep.DUE_ACTIONS if action.name != "sessions.playout"),
+    )
 
 
 def core(items: list[dict]) -> list[dict]:

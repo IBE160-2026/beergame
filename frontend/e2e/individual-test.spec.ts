@@ -1,6 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
+import { formatNumber } from "../src/lib/number-format";
 import { loginByApi } from "./support/auth";
 import { expectAccessible, test } from "./support/classes";
 import { liveClassGame } from "./support/live-game";
@@ -290,6 +291,8 @@ for (const vp of VIEWPORTS) {
       } else {
         await expect(advice).toBeHidden();
       }
+      // The advice is read with the field on a phone, and only there.
+      await expect(field).toHaveAccessibleDescription(vp.phone ? copy.long.largerScreen : "");
       await expect(status).toHaveText("");
 
       // Typing: kept on this device at once, one save for the whole word once typing pauses.
@@ -320,6 +323,21 @@ for (const vp of VIEWPORTS) {
       failing = false;
       await page.evaluate(() => window.dispatchEvent(new Event("online")));
       await expect(status).toHaveText(copy.saved("21:14"));
+
+      // Near the longest answer a count shows; a paste past it says what was left out, not silently.
+      const count = item.locator("[data-long-count]");
+      await expect(count).toHaveText("");
+      await field.fill("x".repeat(19_990));
+      await expect(count).toHaveText(copy.long.count(formatNumber(19_990), formatNumber(20_000)));
+      await expect(field).toHaveAccessibleDescription(new RegExp(copy.long.count(formatNumber(19_990), formatNumber(20_000))));
+      await field.evaluate((element: HTMLTextAreaElement) => {
+        element.setSelectionRange(element.value.length, element.value.length);
+        const data = new DataTransfer();
+        data.setData("text/plain", "y".repeat(20));
+        element.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
+      });
+      await expect(item.locator("[data-long-cut]")).toHaveText(copy.long.cut(formatNumber(20_000)));
+      await expectAccessible(page, vp.phone);
     });
 
     test("an Adapted item: its own-game question labels a long answer, saved after the pause; axe passes", async ({ page }) => {
@@ -352,7 +370,8 @@ for (const vp of VIEWPORTS) {
       const label = `KI-generert, kan ta feil: «${AI_TEXT}»`;
       const field = marked.getByRole("textbox", { name: label, exact: true });
       await expect(field).toBeVisible();
-      await expect(field).toHaveAccessibleDescription(nb.debrief.aiNote);
+      // The AI note first; on a phone the advice to use a larger screen after it.
+      await expect(field).toHaveAccessibleDescription(vp.phone ? `${nb.debrief.aiNote} ${copy.long.largerScreen}` : nb.debrief.aiNote);
       await expect(marked.locator("[data-ai-generated=true]")).toHaveCount(1);
       // The code-rendered Adapted item carries neither the prefix nor the mark.
       const plain = page.locator("[data-test-item=tilpasset-eget-spill]");

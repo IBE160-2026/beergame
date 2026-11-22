@@ -132,7 +132,9 @@ export function DrawnItem({ classSessionId, userId, item, table }: { classSessio
   };
 
   return (
-    <div className="mt-3" data-drawn-item="">
+    // On a laptop the graph and table reach past the items' text column, up to 64rem, so a test's
+    // Uker fit without a sideways scroll while the screen has room (Epic 11 close-out).
+    <div className="mt-3 lg:w-[min(64rem,calc(100vw-10rem))]" data-drawn-item="">
       <p className={`${LINE} max-w-md`}>{table.prompt}</p>
       {table.hint ? <p className="mt-1 max-w-md text-body-phone text-ink-secondary">{table.hint}</p> : null}
       <p className="mt-1 max-w-md text-body-phone text-ink-secondary">{drawn.howTo}</p>
