@@ -532,6 +532,9 @@ class StudentGameOut(BaseModel):
     role: Role
     test_game: bool = False
     """Story 6.20: a Lecturer's test Game, reached from and leading back to the Klasseøkt."""
+    replay: bool = False
+    """Story 10.4: the Student's Replay, with no number, its own rules (`rules`) and no Debrief,
+    reached from Hjem's Replay block and Stegene."""
     class_session_id: uuid.UUID
     seats: list[TableSeatOut]
     briefing_first: bool
@@ -592,6 +595,10 @@ class PlayOut(BaseModel):
     """The nearest time at which the envelope changes by time alone (Story 6.14): the earliest
     stored AI deadline of a Seat that has not ordered, while it lies after `server_now`; None
     while nothing is due. The web app reads the envelope again then."""
+    projection: bool = False
+    """Story 10.4 (UX-DR19): whether Graf over tabell draws the projection of Netto lager, from
+    `games.policy`: on only for the Replay. The value itself is display arithmetic in the web app
+    from `seat_state` (AD-10)."""
 
 
 StegeneStep = Literal["class_game", "debrief", "quiz", "replay", "test", "report"]

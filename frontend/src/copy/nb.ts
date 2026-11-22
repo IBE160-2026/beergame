@@ -37,6 +37,11 @@ const START_DATE_LINE = "Du får Rolle og spill på startdatoen.";
  * (UX-DR70); never «Demodata». [ASSUMPTION] draft copy, not in the spine. */
 const TEST_GAME = "Testspill";
 
+/** «fire uker», «to uker»: a number of Uker in words, as the projection's sentence says it (Story
+ * 10.4); the delays make it 2 to 6, a larger one stays a figure. */
+const WEEK_WORDS = ["null uker", "én uke", "to uker", "tre uker", "fire uker", "fem uker", "seks uker"];
+const weeksInWords = (weeks: number) => WEEK_WORDS[weeks] ?? `${weeks} uker`;
+
 /** «Spill 17», or «Testspill» for a test Game, which has no number (Story 6.20). */
 const gameName = (number: number | null) => (number === null ? TEST_GAME : `Spill ${number}`);
 
@@ -436,6 +441,9 @@ export const nb = {
       /** Story 10.3: the current Replay step after the Student's Testfrist with no Replay
        * started; it is not done. [ASSUMPTION] */
       replayClosed: "ikke gjort, Testfristen er ute",
+      /** Story 10.4 (UX-DR64, EXPERIENCE.md → Replay in progress): the current Replay step while
+       * the Replay runs; its link leads to the play screen. The spine's line. */
+      replayResume: (week: number) => `Fortsett Replay, Uke ${week}.`,
       /** Story 10.3 (FR-48): the Replay on Hjem once the Debrief quiz is passed. «Replay» is the
        * spine's; the rest is [ASSUMPTION] draft copy for the founder's review. */
       replay: {
@@ -445,6 +453,9 @@ export const nb = {
         /** The consequence, above «Start Replay», before it is pressed. */
         consequence: "Du spiller én runde alene, i samme Rolle, mot tre KI-spillere. Etterspørselen er en annen enn i Klassespillet.",
         start: "Start Replay",
+        /** Story 10.4: the way to the running Replay, at its open Uke; the spine's line as a
+         * button label, without the full stop. */
+        resume: (week: number) => `Fortsett Replay, Uke ${week}`,
         failed: "Replay ble ikke startet. Prøv igjen.",
         errors: {
           quiz_required: "Bestå Debrief-quizen først.",
@@ -1714,6 +1725,8 @@ export const nb = {
     play: {
       week: (week: number) => `Uke ${week}`,
       roleGame: (role: string, number: number | null) => `${role}, ${gameName(number)}`,
+      /** Story 10.4: «Grossist, Replay» under the Uke in the Replay's Topplinje. [ASSUMPTION] */
+      roleReplay: (role: string) => `${role}, Replay`,
       /** Story 6.20: a test Game leads back to where it was started. [ASSUMPTION] */
       toClassSession: "Tilbake til Klasseøkta",
       /** «Spillet er ferdig» (Story 6.18, FR-28, UX-DR30, EXPERIENCE.md → Spillet er ferdig): the
@@ -1898,6 +1911,14 @@ export const nb = {
         netMiniAxisSvg: "Akse for Netto lager, i enheter.",
         costSvg: "Graf over Kost per uke, lagerkostnad nederst og restordrekostnad øverst. Tallene står i raden Kost, kr.",
         costAxisSvg: "Akse for Kost per uke, i kroner.",
+        /** Story 10.4 (UX-DR19, EXPERIENCE.md → Hidden information): the projection's sentence,
+         * the dashed line's text alternative, under the table in the Replay only. The form with an
+         * Order is the spine's; the one with nothing typed is [ASSUMPTION] draft copy. Numbers come
+         * formatted («−5»); `weeks` is the delay horizon. */
+        projection: (weeks: number, position: string, order: string | null, horizon: string, incoming: string, value: string) =>
+          order === null
+            ? `Den stiplede linja viser netto lager om ${weeksInWords(weeks)}: ${position} − ${horizon} × ${incoming} = ${value} hvis du ikke bestiller og ordre inn holder seg. Ikke garantert.`
+            : `Den stiplede linja viser netto lager om ${weeksInWords(weeks)}: ${position} + ${order} − ${horizon} × ${incoming} = ${value} hvis ordre inn holder seg. Ikke garantert.`,
       },
       /** Kjedebånd (Story 6.9, DESIGN.md → Kjedebånd, UX-DR14, UX-DR73). The labels («Ordre inn
        * 8», «Din ordre», «Levering 4», «Sendt 4», «Lager 12», «Restordre 13», «På vei 16») and the

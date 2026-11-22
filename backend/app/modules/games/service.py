@@ -275,6 +275,11 @@ class StudentGame:
     test_game: bool = False
     """Whether a Lecturer of the Class session plays it as a test (`games.policy`
     `played_by_staff`, Story 6.20): reached from the Klasseøkt, never from Hjem."""
+    replay: bool = False
+    """Whether it is the Student's own round outside the Class games: a Game of the Class session
+    without a number that no Lecturer plays, the Replay (Story 10.4). Never `student_game`."""
+    projection: bool = False
+    """Whether the play screen draws the projection (`games.policy`, Story 10.4, UX-DR19)."""
 
 
 async def student_game(
@@ -444,9 +449,9 @@ async def own_game(
     if game is None or game["class_session_id"] is None:
         return None
     rules = policy(game["purpose"])
-    if rules.played_by_staff:
-        # A Lecturer's test Game (Story 6.20): theirs while they hold its Seat; no Class game of
-        # the session is ever one (`student_game` leaves it out).
+    if rules.played_by_staff or not rules.game_number:
+        # A Lecturer's test Game (Story 6.20) or a Student's Replay (Story 10.4): theirs while they
+        # hold its Seat; no Class game of the session is ever one (`student_game` leaves it out).
         role = await repo.held_role(session, game_id, user_id)
         if role is None:
             return None
@@ -456,7 +461,9 @@ async def own_game(
             number=game["game_number"],
             role=role,
             pre_play_gate=rules.pre_play_gate,
-            test_game=True,
+            test_game=rules.played_by_staff,
+            replay=not rules.played_by_staff,
+            projection=rules.projection,
         )
     found = await student_game(session, user_id, game["class_session_id"])
     if found is None or found.game_id != game_id:

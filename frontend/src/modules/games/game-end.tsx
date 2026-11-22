@@ -12,9 +12,9 @@ import { nb } from "@/copy/nb";
 import { KRONER } from "@/lib/number-format";
 import { classSessionPath, DEBRIEF_PATH, HOME_PATH } from "@/modules/identity/homes";
 import { classSessionKey } from "@/modules/sessions/api";
-import { roleName } from "@/modules/sessions/sessions";
 
 import type { GameResult, MyGame } from "./api";
+import { roleGameText } from "./home";
 import { gameEnd } from "./result";
 
 const copy = nb.games.play;
@@ -31,7 +31,7 @@ export function GameEndHeading({ game }: { game: MyGame }) {
   return (
     <div className="min-w-0">
       <h1 className="text-title-phone text-ink lg:text-title-page">{copy.end.title}</h1>
-      <p className={`${LINE} mt-1 text-ink-secondary`}>{copy.roleGame(roleName(game.role), game.number)}</p>
+      <p className={`${LINE} mt-1 text-ink-secondary`}>{roleGameText(game)}</p>
     </div>
   );
 }

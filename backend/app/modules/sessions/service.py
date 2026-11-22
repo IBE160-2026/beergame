@@ -1765,6 +1765,7 @@ async def _game_out(
         number=found.number,
         role=found.role,
         test_game=found.test_game,
+        replay=found.replay,
         class_session_id=found.class_session_id,
         seats=_seats_out(table),
         # Story 6.2: the briefing comes first until the Starting task is done (AD-16), where
@@ -1777,8 +1778,8 @@ async def _game_out(
         seat_state=state,
         turn=turn,
         time_proposal=await _time_proposal_out(s, user_id, found.game_id, row["class_id"]),
-        # Story 9.2: a Lecturer's test Game has no Debrief (Story 6.20).
-        debrief=None if found.test_game else await _debrief_of(s, user_id, row),
+        # Story 9.2: a Lecturer's test Game has no Debrief (Story 6.20), nor has a Replay (10.4).
+        debrief=None if found.test_game or found.replay else await _debrief_of(s, user_id, row),
     )
 
 
@@ -1855,6 +1856,15 @@ async def _own_locked_game(
     row = rows.get(found.class_session_id)
     if row is None or row["class_id"] not in listed or not is_locked(row):
         return None
+    if found.replay:
+        # The Replay (Story 10.4) runs on its own drawn settings: its rules are the Game's own,
+        # never the Class game's (`game_rules`). The read opens a session of its own, so `s`'s
+        # connection goes back first (`db.reading`).
+        await s.commit()
+        game = await games_service.get_game(str(found.game_id))
+        if game is None or game.settings is None:
+            return None
+        return found, {**row, "snapshot_settings": game.settings.model_dump(mode="json")}
     return found, row
 
 
@@ -1923,6 +1933,8 @@ async def student_play_of(user: authz.Principal, game_id: str) -> PlayOut | None
         # Read again when an AI player's Order falls due (AD-8, AD-20); one already past is the
         # rescue loop's to place, and its event says so.
         next_change_at=next((due for due in table.due_times if due > now), None),
+        # Story 10.4 (UX-DR19): the policy says whether the screen draws the projection.
+        projection=found.projection,
     )
 
 
@@ -2083,7 +2095,7 @@ async def propose_own_time(
     async with get_sessionmaker()() as s:
         own = await _own_locked_game(s, user, game_id)
     # A test Game has no group to agree a time with (Story 6.20).
-    if own is None or own[0].test_game:
+    if own is None or own[0].test_game or own[0].replay:
         return None
     found, row = own
     try:
@@ -2116,7 +2128,7 @@ async def accept_own_time(
     alike). An acceptance already stored counts as done. Returns the game as it now stands."""
     async with get_sessionmaker()() as s:
         own = await _own_locked_game(s, user, game_id)
-    if own is None or own[0].test_game:
+    if own is None or own[0].test_game or own[0].replay:
         return None
     found, _ = own
     try:
@@ -2184,7 +2196,7 @@ async def own_game_session(user: authz.Principal, game_id: str) -> OwnGameSessio
     async with get_sessionmaker()() as s:
         own = await _own_locked_game(s, user, game_id)
         # A test Game has no Starting task, and no step is ever recorded for it (Story 6.20).
-        if own is None or own[0].test_game:
+        if own is None or own[0].test_game or own[0].replay:
             return None
         session_id = own[1]["id"]
         pins = await repo.session_pins(s, session_id)

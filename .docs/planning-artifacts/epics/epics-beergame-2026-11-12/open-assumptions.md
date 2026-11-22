@@ -122,6 +122,9 @@ The final validation found gaps that the fix round closed. Story numbers below a
 **Replay, test and assessment**
 - The default Replay scenario for random demand keeps the mean with a spread of 2 or more; for a fixed series each Week's value becomes the level with spread 2 (10.1).
 - «Start Replay» stands on Hjem under the Class game once the quiz is passed, and is the primary button when no game action is; the started Replay shows its Setene there until Story 10.4 adds the way to play it. A Student with no Seat in the Class session (so no game of their own) gets no Replay (10.3).
+- «Start Replay» opens the Replay's play screen at once. While it runs, Hjem's Replay block has «Fortsett Replay, Uke 9» (the primary button when no game action is) and Stegene's Replay step reads «Fortsett Replay, Uke 9.»; the block's button is the way there, the step is no second link (10.4).
+- The projection's delay horizon is the Order's lead time (order delay plus shipping or production delay). With nothing typed, the projection counts the Order as 0 and its sentence says so. A horizon past nå + 4 (delays of 3) keeps the axis at nå + 4: the line is drawn to the last column with no dot, and the sentence still gives the value at nå + horizon (10.4).
+- The Replay's briefing and play screen state the Replay's own delays and rates, not the Class game's. The Replay has no time proposal, no Starting task and no Debrief link of its own (10.4).
 - An own Replay scenario warns when, against the Class game, a delay is shorter, the peak demand level lower, the spread smaller, a change of level gone, any Guided Weeks are set, or the starting inventory is higher; a range counts by its easier end. Only Weeks and the change Week take a range in the form; the chain, capacity and Information visibility follow the Game settings (10.2).
 - No diagram item type in v1. The Lecturer can edit the total weight of the Adapted items (11.1).
 - A Lecturer edits the descriptive text of the Scoring guide only; criterion codes, count and weights are fixed (11.2).
@@ -191,7 +194,8 @@ The stories add draft copy to `nb.ts` for these, because the UX spines have no s
 - the statement of the time limit on the own-work statement, and the setting on the Klasseøkt (11.12);
 - the Klasseøkt's «Replay-scenario» block: «Standard», the demand, step Week and length in words, and the line that they differ per Student and stay hidden (10.1);
 - the own Replay scenario: «Eget scenario», the help line under the Valgknapper, «Antall uker, minst/høyst» and «Endres fra uke, tidligst/senest», and the warning lines that a change probably makes the Replay easier (10.2);
-- the Replay on Hjem: the consequence line over «Start Replay», «Replay · Du er Grossist» once started, the refusal lines, and the Replay step's «ikke gjort, Testfristen er ute» when the Testfrist passed with no Replay started (10.3).
+- the Replay on Hjem: the consequence line over «Start Replay», «Replay · Du er Grossist» once started, the refusal lines, and the Replay step's «ikke gjort, Testfristen er ute» when the Testfrist passed with no Replay started (10.3);
+- the Replay on the play screen: «Grossist, Replay» under the Uke, the button «Fortsett Replay, Uke 9» (the spine's line without its full stop), and the projection sentence with nothing typed, «… 3 − 4 × 8 = −29 hvis du ikke bestiller og ordre inn holder seg. Ikke garantert.» (10.4).
 
 ### Choices made while fixing, for the founder to confirm
 

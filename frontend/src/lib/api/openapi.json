@@ -5163,6 +5163,11 @@
             ],
             "title": "Next Change At"
           },
+          "projection": {
+            "default": false,
+            "title": "Projection",
+            "type": "boolean"
+          },
           "seat_state": {
             "$ref": "#/components/schemas/SeatState"
           },
@@ -8273,6 +8278,11 @@
               }
             ],
             "title": "Number"
+          },
+          "replay": {
+            "default": false,
+            "title": "Replay",
+            "type": "boolean"
           },
           "role": {
             "$ref": "#/components/schemas/Role"

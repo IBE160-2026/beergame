@@ -182,7 +182,7 @@ function SessionBlock({
       )}
       {/* Story 10.3: the Replay, once the Debrief quiz is passed. */}
       {session.replay ? <ReplayBlock replay={session.replay} sessionId={session.id} primary={replayPrimary} /> : null}
-      <Stegene title={copy.steps} titleId={`steps-${session.id}`} items={stepItems(session.steps, session.id)} />
+      <Stegene title={copy.steps} titleId={`steps-${session.id}`} items={stepItems(session.steps, session.id, session.replay)} />
       {deadline || labs.length > 0 ? (
         <dl className="mt-6 flex flex-col gap-2 border-t border-hairline pt-4 text-body-phone lg:text-body">
           {deadline ? (

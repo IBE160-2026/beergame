@@ -146,7 +146,11 @@ for (const vp of VIEWPORTS) {
       await expectAccessible(page, vp.phone);
 
       await start.click();
+      // Story 10.4: the started Replay opens on the play screen; Hjem then leads back to it.
+      await expect(page).toHaveURL(new RegExp(`/spill/${REPLAY_ID}$`));
+      await page.goto("/hjem");
       const title = main.getByRole("region", { name: "Replay · Du er Grossist" });
+      await expect(title.getByRole("link", { name: copy.replay.resume(1) })).toBeVisible();
       await expect(title).toBeVisible();
       expect(started).toBe(1);
       await expect(main.getByRole("button", { name: copy.replay.start })).toHaveCount(0);
@@ -154,7 +158,7 @@ for (const vp of VIEWPORTS) {
       await expect(seats).toHaveCount(4);
       await expect(seats.filter({ hasText: copy.aiPlayer })).toHaveCount(3);
       await expect(seats.filter({ hasText: "Demo Student (deg)" })).toHaveCount(1);
-      await expect(steps.nth(3)).toHaveText(/^Replay\s*pågår$/);
+      await expect(steps.nth(3)).toContainText(copy.replayResume(1));
       await expectAccessible(page, vp.phone);
     });
 

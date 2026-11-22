@@ -4690,6 +4690,11 @@ export interface components {
         PlayOut: {
             /** Next Change At */
             next_change_at: string | null;
+            /**
+             * Projection
+             * @default false
+             */
+            projection: boolean;
             seat_state: components["schemas"]["SeatState"];
             /**
              * Server Now
@@ -6065,6 +6070,11 @@ export interface components {
             id: string;
             /** Number */
             number: number | null;
+            /**
+             * Replay
+             * @default false
+             */
+            replay: boolean;
             role: components["schemas"]["Role"];
             rules: components["schemas"]["GameRulesOut"];
             seat_state: components["schemas"]["SeatState"] | null;

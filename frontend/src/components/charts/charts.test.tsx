@@ -95,7 +95,19 @@ describe("NetGraph", () => {
 
   it("draws no projection in the Klassespill, and one only when asked (Epic 10)", () => {
     expect(net()).not.toContain("projection");
-    expect(net({ projection: [{ x: 52, value: -20 }, { x: 94, value: -5 }] })).toContain('data-mark="projection"');
+    const projection = [
+      { week: 11, x: 52, value: -20 },
+      { week: 15, x: 136, value: -5 },
+    ];
+    const drawn = net({ projection });
+    expect(drawn).toContain('data-mark="projection" data-weeks="11 15" data-x="52 136"');
+    // Dashed, ending in a hollow dot (UX-DR19): never by colour alone.
+    expect(drawn).toContain('stroke-dasharray="5 4"');
+    expect(drawn).toMatch(/<circle data-projection-end="" cx="136"[^>]*fill="#FFFFFF"/i);
+    // Clipped at the axis edge (a horizon past nå + 4, Story 10.4): the line, but no dot.
+    const clipped = net({ projection, projectionClipped: true });
+    expect(clipped).toContain('data-mark="projection"');
+    expect(clipped).not.toContain("data-projection-end");
   });
 
   it("at mini scale (Spillkort, Story 6.17) draws the Netto lager line, its dot and «Nå» only", () => {

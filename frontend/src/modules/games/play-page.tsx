@@ -11,13 +11,12 @@ import { clearDraft, clearDrafts, loadDraft, saveDraft } from "@/lib/drafts";
 import { formatNumber } from "@/lib/number-format";
 import { usePageState } from "@/lib/page-state";
 import { cn } from "@/lib/utils";
-import { orderPreview } from "@/lib/preview";
+import { orderPreview, orderProjection } from "@/lib/preview";
 import type { SessionUser } from "@/modules/identity/api";
 import { AccessDenied, GuardedPage } from "@/modules/identity/home-page";
 import { classSessionPath, HOME_LINK, HOME_PATH, rulesPath } from "@/modules/identity/homes";
 import { PageLink, PageShell } from "@/modules/identity/page-shell";
 import { classSessionKey } from "@/modules/sessions/api";
-import { roleName } from "@/modules/sessions/sessions";
 
 import { AllRowsView } from "./all-rows-view";
 import {
@@ -39,7 +38,7 @@ import { GameAction } from "./game-action";
 import { GameEnd, GameEndHeading } from "./game-end";
 import { OrderField } from "./order-field";
 import { lastOrder, parseOrder } from "./order-input";
-import { gameTitle } from "./home";
+import { gameTitle, roleGameText } from "./home";
 import { useServerNow, waitedFor } from "./seat-status";
 import { GameSeatStatus } from "./seat-status-view";
 import { TimeProposalBlock } from "./time-proposal-view";
@@ -226,7 +225,7 @@ function Topplinje({
         <h1 id={WEEK_HEADING} tabIndex={-1} className="text-title-phone text-ink outline-none lg:text-title-page">
           {copy.week(state.week)}
         </h1>
-        <p className={`${LINE} mt-1 text-ink-secondary`}>{copy.roleGame(roleName(game.role), game.number)}</p>
+        <p className={`${LINE} mt-1 text-ink-secondary`}>{roleGameText(game)}</p>
       </div>
       <button
         type="button"
@@ -298,12 +297,15 @@ function Running({
   const summary = weekSummary(state, turn);
   const dropped = useDroppedDraft(state, text, editable, send.outcome);
   const nowOrder = turn.guided ? (turn.order ?? undefined) : undefined;
+  // Story 10.4 (UX-DR19, AD-10): where the policy turns it on (the Replay), the projection with the
+  // Order on screen: the placed one, a Veiledet uke's fixed one, or the valid typed one.
+  const projection = envelope.projection ? orderProjection(state, preview?.order ?? nowOrder ?? null) : undefined;
   return (
     <>
       {allRows.open ? (
         <AllRowsView
           state={state}
-          subtitle={copy.roleGame(roleName(game.role), game.number)}
+          subtitle={roleGameText(game)}
           nowOrder={nowOrder}
           typed={preview ?? undefined}
           at={allRows.open}
@@ -331,6 +333,7 @@ function Running({
               skipMove={skip}
               onMoving={setMoving}
               capped={isCapped(game.role, game.rules)}
+              projection={projection}
             />
           </div>
           <div>
@@ -632,8 +635,9 @@ function useRefetchAt(gameId: string, envelope: PlayEnvelope) {
   }, [queryClient, gameId, due, from]);
 }
 
-/** The play screen's way out: «Regler før første ordre» and «Til Hjem» for a Class game; for a
- * Lecturer's test Game, which has neither a briefing nor Hjem, «Tilbake til Klasseøkta» (6.20). */
+/** The play screen's way out: «Regler før første ordre» and «Til Hjem» for a Class game, «Til
+ * Hjem» alone for the Replay (10.4); for a Lecturer's test Game, which has neither a briefing nor
+ * Hjem, «Tilbake til Klasseøkta» (6.20). */
 function BackLinks({ game }: { game: MyGame }) {
   const queryClient = useQueryClient();
   if (game.test_game) {
@@ -652,7 +656,8 @@ function BackLinks({ game }: { game: MyGame }) {
   }
   return (
     <>
-      <PageLink href={rulesPath(game.id)}>{nb.games.briefing.title}</PageLink>
+      {/* The Replay (Story 10.4) has no briefing of its own: the Class game's is about playing together. */}
+      {game.replay ? null : <PageLink href={rulesPath(game.id)}>{nb.games.briefing.title}</PageLink>}
       <PageLink href={HOME_PATH.home}>{HOME_LINK.home}</PageLink>
     </>
   );

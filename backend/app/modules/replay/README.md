@@ -15,3 +15,8 @@ game, against three AI players, under the Class session's Replay scenario.
   Hjem (`/api/me/class-sessions`) shows the Replay without `sessions` importing this module.
 - `games.policy` row `replay`: no Takeover, Pause or playout, not on the overview, snapshot at
   creation, no `class_game` step or pre-play gate, `projection` on (Story 10.4 draws it).
+- **Story 10.4:** the Replay is played on the Class game's routes (`/api/me/games/{id}`, `/play`,
+  `/weeks/{w}/order`), not here: `games.service.own_game` gives a Game without a number that no
+  Lecturer plays to the Student while they hold its Seat (`replay`, `projection` from the policy),
+  `sessions` states its own settings as its rules and no Debrief, refuses a time proposal and the
+  Starting task, and puts `projection` in `PlayOut`. Orders only through `place_order`.

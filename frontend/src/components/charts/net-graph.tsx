@@ -29,7 +29,10 @@ export type NetGraphProps = {
    * The projection from nå (Replay only, Epic 10): a dashed line ending in a hollow dot. The
    * Klassespill never passes it, so nothing of it is drawn (UX-DR19).
    */
-  projection?: readonly { x: number; value: number }[];
+  projection?: readonly { week: number; x: number; value: number }[];
+  /** The projection runs past the drawn columns (a horizon beyond nå + 4, Story 10.4): its last
+   * point is where the axis ends, so it gets no dot. */
+  projectionClipped?: boolean;
   /**
    * Hjem's Spillkort (Story 6.17, DESIGN.md → Spillkort): Netto lager at mini scale, as drawn in
    * `04-student-hjem.png`: the line, its fills, the dot at nå and «Nå» only. No Posisjon and no
@@ -66,7 +69,8 @@ const LABEL_HALF = 0.85;
  * README). The marks carry `data-mark`/`data-week` for the alignment checks.
  */
 export function NetGraph(props: NetGraphProps) {
-  const { width, height, fontSize, points, nowX, title, netLabel, positionLabel, nowLabel, projection, mini = false } = props;
+  const { width, height, fontSize, points, nowX, title, netLabel, positionLabel, nowLabel, projection, projectionClipped = false, mini = false } =
+    props;
   const clip = useId().replace(/:/g, "");
   const { y, ticks } = netScale(props);
   const zero = y(0);
@@ -165,7 +169,7 @@ export function NetGraph(props: NetGraphProps) {
           fill={colour("ink-secondary")}
         />
       ))}
-      {projection && projection.length > 0 ? <Projection points={projection} y={y} /> : null}
+      {projection && projection.length > 0 ? <Projection points={projection} y={y} clipped={projectionClipped} /> : null}
       {now ? (
         <>
           <circle
@@ -195,15 +199,35 @@ export function NetGraph(props: NetGraphProps) {
   );
 }
 
-function Projection({ points, y }: { points: readonly { x: number; value: number }[]; y: (v: number) => number }) {
+/** The projection (UX-DR19): a 2 px dashed `projection` line and a hollow dot at its end, told
+ * apart from Netto lager (solid, filled) and Posisjon (solid, squares) by dash and marker. */
+function Projection({
+  points,
+  y,
+  clipped,
+}: {
+  points: readonly { week: number; x: number; value: number }[];
+  y: (v: number) => number;
+  clipped: boolean;
+}) {
   const d = line<{ x: number; value: number }>()
     .x((p) => p.x)
     .y((p) => y(p.value))(points);
   const end = points[points.length - 1]!;
   return (
-    <g data-mark="projection">
+    <g data-mark="projection" data-weeks={points.map((p) => p.week).join(" ")} data-x={points.map((p) => round(p.x)).join(" ")}>
       <path d={d ?? undefined} fill="none" stroke={colour("projection")} strokeWidth={2} strokeDasharray="5 4" />
-      <circle cx={end.x} cy={y(end.value)} r={3.5} fill={colour("paper")} stroke={colour("projection")} strokeWidth={1.5} />
+      {clipped ? null : (
+        <circle
+          data-projection-end=""
+          cx={end.x}
+          cy={y(end.value)}
+          r={3.5}
+          fill={colour("paper")}
+          stroke={colour("projection")}
+          strokeWidth={1.5}
+        />
+      )}
     </g>
   );
 }

@@ -12,6 +12,7 @@ import {
   labHourText,
   netSentence,
   nextAction,
+  roleGameText,
   stepItems,
   toWeekText,
 } from "./home";
@@ -38,6 +39,7 @@ describe("Hjem's game card (Story 6.1)", () => {
       number: 17,
       role: "wholesaler",
       test_game: false,
+      replay: false,
       class_session_id: "s",
       seats: [],
       briefing_first: true,
@@ -60,6 +62,10 @@ describe("Hjem's game card (Story 6.1)", () => {
     // Story 6.20: a Lecturer's test Game has no number and reads «Testspill» in plain text.
     expect(gameTitle({ ...game, number: null, test_game: true })).toBe("Testspill · Du er Grossist");
     expect(nb.games.play.roleGame("Grossist", null)).toBe("Grossist, Testspill");
+    // Story 10.4: the Replay has no number either and reads «Replay».
+    expect(gameTitle({ ...game, number: null, replay: true })).toBe("Replay · Du er Grossist");
+    expect(roleGameText({ ...game, number: null, replay: true })).toBe("Grossist, Replay");
+    expect(roleGameText(game)).toBe("Grossist, Spill 17");
   });
 
   it("says who holds each Seat in words, «KI-spiller» for every AI player", () => {
