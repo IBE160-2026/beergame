@@ -413,7 +413,7 @@ function Running({
             {/* Story 8.6: the pause line above Setestatus, for every Student of the game. */}
             <PauseLine gameId={game.id} pause={envelope.table_status.pause} className="mb-4" />
             {/* Through the whole Uke, before and after the own Order, right under the Ordrefelt. */}
-            <GameSeatStatus seats={seats} now={now} titleId={`seats-${game.id}`} className="max-w-md" />
+            <GameSeatStatus gameId={game.id} seats={seats} now={now} titleId={`seats-${game.id}`} className="max-w-md" />
             {/* Story 8.6: «Ta pause» under Setestatus, and the Pausevalg in place. */}
             <PauseControl
               gameId={game.id}
@@ -722,7 +722,7 @@ function NotRunningSeats({ game }: { game: MyGame }) {
   const now = useServerNow(game.server_now);
   return (
     <>
-      <GameSeatStatus seats={game.seats} now={now} titleId={`seats-${game.id}`} className="mt-8 max-w-md" />
+      <GameSeatStatus gameId={game.id} seats={game.seats} now={now} titleId={`seats-${game.id}`} className="mt-8 max-w-md" />
       <TimeProposalBlock game={game} now={now} className="mt-4 max-w-md" />
     </>
   );

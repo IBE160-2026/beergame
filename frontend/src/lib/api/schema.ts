@@ -1807,6 +1807,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/games/{game_id}/seats/{role}/takeover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Insert Ai Player
+         * @description «Sett inn KI-spiller for Jonas» (Story 8.8, FR-89, FR-37, AD-2, AD-12): a Student who holds
+         *     another Seat of the Class game puts an AI player in the Seat `role` once its insert time has
+         *     passed, paused or not; no dialog and no body, so no Student sets or shortens a time. Answers
+         *     the game as it now stands. 409 `takeover_exists` with `fields.acted_by` (`kind`, `user_id`;
+         *     no staff id) and `fields.acted_at`, `insert_not_allowed_yet`, `seat_not_yours`,
+         *     `order_exists`, `seat_not_student_held`, `game_not_running` or `takeover_not_allowed`; any
+         *     other game answers 403 `forbidden` (FR-5).
+         */
+        post: operations["insertAiPlayer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me/games/{game_id}/start": {
         parameters: {
             query?: never;
@@ -4819,6 +4845,11 @@ export interface components {
          */
         TableSeatOut: {
             /**
+             * Can Insert
+             * @default false
+             */
+            can_insert: boolean;
+            /**
              * Guard Switched
              * @default false
              */
@@ -4828,6 +4859,15 @@ export interface components {
              * @enum {string}
              */
             holder: "student" | "ai" | "free";
+            /**
+             * Insert Agreed
+             * @default false
+             */
+            insert_agreed: boolean;
+            /** Insert At */
+            insert_at?: string | null;
+            /** Inserted By */
+            inserted_by?: string | null;
             mark: components["schemas"]["SeatMark"] | null;
             /** Mine */
             mine: boolean;
@@ -9753,6 +9793,65 @@ export interface operations {
         };
     };
     reclaimMySeat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+                role: components["schemas"]["Role"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentGameOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    insertAiPlayer: {
         parameters: {
             query?: never;
             header?: never;

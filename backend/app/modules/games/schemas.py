@@ -612,6 +612,20 @@ class TableSeat(BaseModel):
     reclaim_queued: bool = False
     """The viewer's own Seat, taken over, with their «Ta tilbake setet» queued: it is theirs
     again when the next Week opens (Story 8.4, FR-37). False on every other Seat."""
+    insert_at: datetime | None = None
+    """Story 8.8 (FR-89, UX-DR27): the stored insert time of another Student's Seat that has not
+    ordered, while it lies ahead and the game is paused or the time is agreed: «Etter on. 10:00
+    kan dere sette inn en KI-spiller.»; None otherwise, and always for a viewer who holds no
+    other Seat. Never why one Seat's time is later."""
+    insert_agreed: bool = False
+    """Story 8.8: `insert_at` is the Lecturer's agreed time, not the Seat's own limit («Avtalt tid
+    to. 19:00. Etter det kan dere sette inn en KI-spiller.»)."""
+    can_insert: bool = False
+    """Story 8.8: the viewer may press «Sett inn KI-spiller for …» on this Seat now:
+    `rules.can_take_over` with the `peer` actor, for a viewer who holds another Seat."""
+    inserted_by: str | None = None
+    """Story 8.8: for a Seat a Student of the game put an AI player in (`takeover_peer`), that
+    Student's name, read now; None for every other Seat."""
 
 
 class TablePause(BaseModel):

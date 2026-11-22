@@ -286,7 +286,9 @@ async def test_the_sweep_marks_the_agreed_time_once_and_takes_no_seat(games_db, 
     assert done["games.reach_agreed_time"] == 1
     assert {e["topic"] for e in received} >= COMMAND_TOPICS["games.reach_agreed_time"]
     _, resume_at, reached, _, after = pause_row(game_id)
-    assert (resume_at, reached, after) == (agreed, agreed, version + 1)
+    # The agreed time is also both waiting Seats' insert time: the sweep announces each once
+    # (Story 8.8), so the version rises three times in all.
+    assert (resume_at, reached, after) == (agreed, agreed, version + 3)
     assert (await check(game_id))["status"] == "paused"  # the Pause goes on
     # Idempotent, and past the due time no Takeover runs while paused.
     assert (await sweep.run(due + SECOND))["games.reach_agreed_time"] == 0

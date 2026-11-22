@@ -163,6 +163,19 @@ async def _reach_agreed_time(item: object, now: datetime) -> bool:
     return await games_commands.reach_agreed_time(item, now=now)
 
 
+async def _due_insert_times(now: datetime) -> Sequence[tuple[str, str]]:
+    return await games.due_insert_times(now)
+
+
+async def _announce_insert_time(item: object, now: datetime) -> bool:
+    """Story 8.8 (FR-89, AD-8, AD-9): one Seat's insert time has passed. The command marks the
+    turn once and, while the Seat still waits, emits the Game's events, so «Sett inn KI-spiller
+    for …» shows on every open view without a reload. It never takes the Seat."""
+    assert isinstance(item, tuple)
+    game_id, seat_id = item
+    return await games_commands.announce_insert_time(game_id, seat_id, now=now)
+
+
 DUE_ACTIONS: tuple[DueAction, ...] = (
     # The first due action (Story 3.5): claim due notices into mails and defer their `mail` jobs.
     DueAction("messaging.mail", messaging.due_items, messaging.claim),  # type: ignore[arg-type]
@@ -200,6 +213,9 @@ DUE_ACTIONS: tuple[DueAction, ...] = (
     DueAction("games.takeover", _due_takeovers, _take_over),
     # Story 8.7: announce once that a Lecturer's agreed Pause time has passed (FR-89).
     DueAction("games.reach_agreed_time", _due_agreed_times, _reach_agreed_time),
+    # Story 8.8: announce once that a Seat's insert time has passed (FR-89); after the Takeover,
+    # so a Seat taken over this minute is not announced as waiting.
+    DueAction("games.announce_insert_time", _due_insert_times, _announce_insert_time),
     DueAction("games.verify_finished", _unchecked_finished_games, _verify_finished),
     # Story 5.14: remind every Student of a Play, Debrief or Test deadline 24 hours ahead, once
     # per deadline time (FR-18). The reminders join the next minute's digest claim.

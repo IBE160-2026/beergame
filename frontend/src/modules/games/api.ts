@@ -288,6 +288,17 @@ export function reclaimSeat(gameId: string, role: components["schemas"]["Role"])
   );
 }
 
+/** «Sett inn KI-spiller for Jonas» (Story 8.8, FR-89): a Student of the game puts an AI player in
+ * another Student's Seat `role` once its insert time has passed; nothing else is sent. Answers the
+ * game as it now stands; 409 `takeover_exists` carries `acted_by` (kind, never a staff id). */
+export function insertAiPlayer(gameId: string, role: components["schemas"]["Role"]) {
+  return request(() =>
+    api.POST("/api/me/games/{game_id}/seats/{role}/takeover", {
+      params: { path: { game_id: gameId, role } },
+    }),
+  );
+}
+
 /** «Ta pause uten avtalt tid» (Story 8.6, FR-89): a Student of the game pauses it; no time is sent.
  * Answers the game as it now stands; 409 `already_paused` when someone paused first. */
 export function pauseGame(gameId: string) {

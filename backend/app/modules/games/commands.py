@@ -84,6 +84,7 @@ __all__ = [
     "CommandError",
     "accept_time",
     "advance",
+    "announce_insert_time",
     "assign_seat",
     "create",
     "default_runtime",
@@ -1738,12 +1739,17 @@ async def takeover(
     """Hand the Student-held `seat` (a Role or a Seat id) to an AI player (Stories 8.2 and 8.5,
     FR-36, FR-37, AD-2, AD-5). `actor` `system` is the sweep's automatic Takeover after the
     Inactivity limit; `staff` is a Lecturer or Assistant lecturer, `actor_user_id`, pressing
-    «Sett inn KI-spiller» in Spillstyring. `now` is the clock a `system` Takeover judges the due
-    time on (the sweep's), the database clock when none is given.
+    «Sett inn KI-spiller» in Spillstyring; `peer` is a Student of the game, `actor_user_id`, who
+    holds another Seat of it and presses «Sett inn KI-spiller for Jonas» once the Seat's insert
+    time has passed (Story 8.8, FR-89): reason `takeover_peer` with the Student as actor and an
+    audit row, refused `seat_not_yours` without another Seat and `insert_not_allowed_yet` before
+    the insert time. `now` is the clock a `system` Takeover judges the due time on (the sweep's),
+    the database clock when none is given.
 
     One transaction under the Game row lock: `rules.can_take_over` decides (refusals below), one
-    occupancy row is appended with reason `takeover_inactivity` and no `actor_user_id`, or
-    `takeover_staff` with the staff member (and an audit row, FR-3, AD-15). A Seat that has not
+    occupancy row is appended with reason `takeover_inactivity` and no `actor_user_id`,
+    `takeover_staff` with the staff member, or `takeover_peer` with the Student (each person's
+    with an audit row, FR-3, AD-15). A Seat that has not
     ordered (`has_ordered`) is taken from the open Week and `players.ensure_order` gives it its
     Order in the same transaction; a Seat that has ordered (only a `staff` Takeover may) is taken
     from the next Week and its Order stands. The new occupant is `llm` when the Game froze a
@@ -1763,15 +1769,23 @@ async def takeover(
     `staff`, `student` or `system`, and `user_id`) and `fields.acted_at`: who acted first, by id
     only (Story 8.5). Returns the occupancy row id."""
     game_uuid = _game_uuid(game_id)
-    staff = _actor(actor_user_id) if actor == "staff" else None
-    if actor == "staff" and staff is None:
-        raise ValueError("a staff Takeover names its staff member")
+    person = _actor(actor_user_id) if actor in ("staff", "peer") else None
+    if actor in ("staff", "peer") and person is None:
+        raise ValueError("a staff or peer Takeover names the person who pressed")
     async with get_sessionmaker().begin() as session:
         game = await repo.lock_game(session, game_uuid)
         if game is None:
             raise CommandError("game_not_found", f"no Game {game_id!r}", 404)
         seat_rows = await repo.seats_with_occupant(session, game_uuid)
         row = _seat_row(seat_rows, seat)
+        # Story 8.8: a Student puts an AI player in only from another Seat of the same Game that
+        # they hold now.
+        peer_seated = actor == "peer" and any(
+            other["id"] != row["id"]
+            and other["occupant_kind"] == OccupantKind.STUDENT
+            and other["user_id"] == person
+            for other in seat_rows
+        )
         week = await repo.open_week(session, game_uuid) if game["settings"] is not None else None
         turn = None
         guided = False
@@ -1782,7 +1796,9 @@ async def takeover(
                 _policy(game["purpose"]), GameSettings.model_validate(game["settings"]), week
             )
         at = now if now is not None else await repo.clock_now(session)
-        refused = rules.can_take_over(game, turn, actor, at, guided=guided, seat=row)
+        refused = rules.can_take_over(
+            game, turn, actor, at, guided=guided, seat=row, peer_seated=peer_seated
+        )
         if refused == "takeover_exists":
             raise CommandError(
                 refused, "an AI player has taken the Seat over already", 409, _acted(row)
@@ -1798,11 +1814,10 @@ async def takeover(
         from_week = week + 1 if ordered else week
         occupant = await _takeover_occupant(session, game, row["id"])
         occupancy_id = uuid.uuid7()
-        reason = (
-            OccupancyReason.TAKEOVER_STAFF
-            if staff is not None
-            else OccupancyReason.TAKEOVER_INACTIVITY
-        )
+        reason = {
+            "staff": OccupancyReason.TAKEOVER_STAFF,
+            "peer": OccupancyReason.TAKEOVER_PEER,
+        }.get(actor, OccupancyReason.TAKEOVER_INACTIVITY)
         await repo.append_occupancy(
             session,
             {
@@ -1812,17 +1827,17 @@ async def takeover(
                 "occupant_kind": occupant.value,
                 "policy_id": None,
                 "reason": reason.value,
-                "actor_user_id": staff,
+                "actor_user_id": person,
             },
         )
         if not ordered:
             if occupant is OccupantKind.LLM and not guided:
                 await _takeover_deadline(session, game, turn)
             await _ensure_order(OpenGame(session=session, game_id=game_uuid), row["id"])
-        if staff is not None:
+        if person is not None:
             await audit.record(
                 session,
-                staff,
+                person,
                 SEAT_TAKEN_OVER,
                 # `user_id`: whose Seat it was, named on the audit page by its labeler.
                 {
@@ -2115,6 +2130,52 @@ async def reach_agreed_time(game_id: str, *, now: datetime) -> bool:
         for student in sorted(seated, key=str):
             await events.emit(session, "user", str(student))
     log.info("agreed_time_reached", game_id=game_id)
+    return True
+
+
+async def announce_insert_time(game_id: str, seat_id: str, *, now: datetime) -> bool:
+    """The sweep crossed a Seat's insert time in the open Week (Story 8.8, FR-89, AD-8, AD-9): the
+    other Students may now put an AI player in, so «Sett inn KI-spiller for …» must show without
+    a reload. The turn is marked once (`insert_announced_at`); while the Game runs and a Student
+    still holds the Seat without having ordered, the version rises with `game:<id>`,
+    `session:<id>` and `user:<id>` for every seated Student. `now` is the sweep's clock. One
+    transaction under the Game row lock; idempotent: False, writing nothing, when the turn is no
+    longer in the open Week, has no insert time, has not reached it at `now` or was marked
+    already; False with only the mark written when the Seat no longer waits. Refuses
+    `game_not_found` (404)."""
+    game_uuid = _game_uuid(game_id)
+    seat_uuid = uuid.UUID(str(seat_id))
+    async with get_sessionmaker().begin() as session:
+        game = await repo.lock_game(session, game_uuid)
+        if game is None:
+            raise CommandError("game_not_found", f"no Game {game_id!r}", 404)
+        week = await repo.open_week(session, game_uuid) if game["settings"] is not None else None
+        if week is None:
+            return False
+        turns = await repo.week_turns_with_occupant(session, game_uuid, week)
+        turn = next((t for t in turns if t["seat_id"] == seat_uuid), None)
+        if (
+            turn is None
+            or turn["insert_allowed_at"] is None
+            or turn["insert_allowed_at"] > now
+            or turn["insert_announced_at"] is not None
+        ):
+            return False
+        await repo.mark_insert_announced(session, turn["id"], now)
+        guided = rules.guided_week(
+            _policy(game["purpose"]), GameSettings.model_validate(game["settings"]), week
+        )
+        if (
+            game["lifecycle"] != Lifecycle.RUNNING
+            or turn["occupant_kind"] != OccupantKind.STUDENT
+            or rules.has_ordered(turn, guided=guided)
+        ):
+            return False
+        await _commit_change(session, game_uuid)
+        seated = seated_students(await repo.seats_with_occupant(session, game_uuid))
+        for student in sorted(seated, key=str):
+            await events.emit(session, "user", str(student))
+    log.info("insert_time_reached", game_id=game_id, seat_id=str(seat_uuid))
     return True
 
 

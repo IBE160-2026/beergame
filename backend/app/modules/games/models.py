@@ -238,6 +238,9 @@ seat_turns = Table(
     # them.
     Column("takeover_due_at", DateTime(timezone=True), nullable=True),
     Column("insert_allowed_at", DateTime(timezone=True), nullable=True),
+    # Story 8.8 (AD-9): when the sweep announced that the insert time had passed, so it does so
+    # once; cleared when a Lecturer's Pause command moves the insert time.
+    Column("insert_announced_at", DateTime(timezone=True), nullable=True),
     CheckConstraint("week >= 1", name="ck_seat_turns_week"),
     CheckConstraint("rule_based_reference_order >= 0", name="ck_seat_turns_reference_order"),
     CheckConstraint("near_optimal_reference_order >= 0", name="ck_seat_turns_near_optimal_order"),

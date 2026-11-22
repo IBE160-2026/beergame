@@ -462,10 +462,43 @@ async def due_agreed_times(session: AsyncSession, now: Any) -> list[uuid.UUID]:
 
 async def set_insert_allowed(session: AsyncSession, turn_id: uuid.UUID, at: Any) -> None:
     """Story 8.7: the turn's insert time, recomputed by a Lecturer's Pause command through
-    `rules.turn_times`; its Takeover due time is never moved."""
+    `rules.turn_times`; its Takeover due time is never moved. The sweep has not announced the new
+    time yet (Story 8.8)."""
     await session.execute(
-        update(seat_turns).where(seat_turns.c.id == turn_id).values(insert_allowed_at=at)
+        update(seat_turns)
+        .where(seat_turns.c.id == turn_id)
+        .values(insert_allowed_at=at, insert_announced_at=None)
     )
+
+
+async def mark_insert_announced(session: AsyncSession, turn_id: uuid.UUID, at: Any) -> None:
+    """Story 8.8: the sweep saw the turn's insert time pass at `at`."""
+    await session.execute(
+        update(seat_turns).where(seat_turns.c.id == turn_id).values(insert_announced_at=at)
+    )
+
+
+async def due_insert_times(session: AsyncSession, now: Any) -> list[tuple[uuid.UUID, uuid.UUID]]:
+    """Story 8.8 (AD-9): (Game id, Seat id) of each turn in the open Week of a running Game whose
+    insert time lies at or before `now` and that the sweep has not announced yet, the earliest
+    first. Whether the Seat still waits is the command's to judge under the lock."""
+    opened = (
+        select(func.max(game_weeks.c.week))
+        .where(game_weeks.c.game_id == seat_turns.c.game_id, game_weeks.c.finished.is_(False))
+        .scalar_subquery()
+    )
+    result = await session.execute(
+        select(seat_turns.c.game_id, seat_turns.c.seat_id)
+        .join(games, games.c.id == seat_turns.c.game_id)
+        .where(
+            games.c.lifecycle == "running",
+            seat_turns.c.insert_allowed_at <= now,
+            seat_turns.c.insert_announced_at.is_(None),
+            seat_turns.c.week == opened,
+        )
+        .order_by(seat_turns.c.insert_allowed_at, seat_turns.c.id)
+    )
+    return [(row.game_id, row.seat_id) for row in result]
 
 
 async def insert_week(

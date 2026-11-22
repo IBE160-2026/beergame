@@ -407,6 +407,19 @@ class TableSeatOut(BaseModel):
     reclaim_queued: bool = False
     """Story 8.4 (FR-37): the reader's own Seat, taken over, with «Ta tilbake setet» pressed: the
     Seat is theirs again when the next Uke opens. False on every other Seat."""
+    insert_at: AwareDatetime | None = None
+    """Story 8.8 (FR-89, UX-DR27): another Student's Seat that has not ordered, while the game is
+    paused or the time is agreed: its own insert time ahead, «Etter on. 10:00 kan dere sette inn
+    en KI-spiller.»; None otherwise. Never why one Seat's time is later."""
+    insert_agreed: bool = False
+    """Story 8.8: `insert_at` is the Lecturer's agreed time: «Avtalt tid to. 19:00. Etter det kan
+    dere sette inn en KI-spiller.»"""
+    can_insert: bool = False
+    """Story 8.8: the reader may press «Sett inn KI-spiller for …» on this Seat now (the api's
+    `rules.can_take_over`, AD-10); the web app only shows it."""
+    inserted_by: str | None = None
+    """Story 8.8: for a Seat a Student of the game put an AI player in, that Student's name now
+    («Sara har allerede satt inn en KI-spiller.»); None otherwise."""
 
 
 class RoleCapacityOut(BaseModel):

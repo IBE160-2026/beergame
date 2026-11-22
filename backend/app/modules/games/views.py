@@ -30,6 +30,7 @@ from app.modules.games.schemas import (
     DecisionLogRow,
     GameResult,
     Lifecycle,
+    OccupancyReason,
     OccupancyRow,
     OccupantKind,
     RoleCost,
@@ -320,13 +321,26 @@ async def table_status(
     }
     # Story 8.7: a Pause a staff member set or ended names no one to the Students.
     staff_pause = pause_by is not None and pause_by[1] not in students
+    # Story 8.8: who pressed for each Seat a Student of the game put an AI player in.
+    peers = {
+        row["id"]: row["actor_user_id"]
+        for row in rows
+        if row["reason"] == OccupancyReason.TAKEOVER_PEER and row["actor_user_id"] is not None
+    }
     named = (
         {u for u in held.values() if u is not None}
         | {h["last_student"] for h in histories.values() if h["last_student"] is not None}
         | ({pause_by[1]} if pause_by is not None and not staff_pause else set())
+        | set(peers.values())
     )
     found = await names(sorted(named))
     queued = await repo.queued_reclaims(session, game_id)
+    now = await repo.clock_now(session) if turns else None
+    own_seats = {
+        row["id"]
+        for row in rows
+        if row["occupant_kind"] == OccupantKind.STUDENT and row["user_id"] == viewer_id
+    }
     seats = []
     for row in reversed(rows):  # chain order serves the customer first; Fabrikk leads here
         kind = row["occupant_kind"]
@@ -346,6 +360,7 @@ async def table_status(
         )
         # Taken over since its Student's last row, also after a later guard or cost-limit switch.
         taken_over = holder == "ai" and (mark in TAKEOVER_MARKS or history["taken_over"])
+        insert = _insert_state(game, row, turn, guided, now, own_seats)
         seats.append(
             TableSeat(
                 role=row["role"],
@@ -360,6 +375,12 @@ async def table_status(
                 guard_switched=kind == OccupantKind.RULE_BASED and history["guard_switched"],
                 # Story 8.4: only the Student who asked sees their queued Reclaim.
                 reclaim_queued=mine and taken_over and queued.get(row["id"]) == viewer_id,
+                insert_at=insert[0],
+                insert_agreed=insert[1],
+                can_insert=insert[2],
+                inserted_by=found.get(peers[row["id"]])
+                if taken_over and row["id"] in peers
+                else None,
             )
         )
     due = sorted(
@@ -390,6 +411,44 @@ async def table_status(
             resume_at=game["resume_at"] if pause_by[0] == "paused" and game is not None else None,
         ),
     )
+
+
+def _insert_state(
+    game: RowMapping | None,
+    row: RowMapping,
+    turn: RowMapping | None,
+    guided: bool,
+    now: datetime | None,
+    own_seats: set[uuid.UUID],
+) -> tuple[datetime | None, bool, bool]:
+    """Story 8.8 (FR-89, UX-DR27, AD-10, AD-20): what the viewer sees of the right to put an AI
+    player in another Student's Seat: the stored insert time while it lies ahead and the game is
+    paused or the time is agreed (the insert time is not the Takeover due time), whether that is
+    the agreed time, and whether the viewer may press now (`rules.can_take_over`, `peer`). Only
+    for a viewer who holds another Seat; stored times only, judged on the database clock `now`."""
+    if (
+        game is None
+        or turn is None
+        or now is None
+        or row["id"] in own_seats
+        or not own_seats
+        or turn["occupant_kind"] != OccupantKind.STUDENT
+    ):
+        return None, False, False
+    can = (
+        rules.can_take_over(game, turn, "peer", now, guided=guided, seat=row, peer_seated=True)
+        is None
+    )
+    allowed = turn["insert_allowed_at"]
+    agreed = allowed is not None and allowed != turn["takeover_due_at"]
+    ahead = (
+        allowed is not None
+        and allowed > now
+        and not rules.has_ordered(turn, guided=guided)
+        and row["occupant_kind"] == OccupantKind.STUDENT
+        and (rules.is_paused(game) or agreed)
+    )
+    return (allowed if ahead else None), (agreed and ahead), can
 
 
 def _pause_by(

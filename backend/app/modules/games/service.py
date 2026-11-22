@@ -214,6 +214,18 @@ async def due_agreed_times(now: datetime) -> list[str]:
         return [str(game_id) for game_id in await repo.due_agreed_times(session, now)]
 
 
+async def due_insert_times(now: datetime) -> list[tuple[str, str]]:
+    """The sweep's finder for insert times passed (Story 8.8, AD-9): (Game id, Seat id) of each
+    open-Week turn of a running Game whose insert time lies at or before `now` and that is not
+    marked yet, earliest first. `games.commands.announce_insert_time` checks again under the
+    Game row lock."""
+    async with get_sessionmaker()() as session:
+        return [
+            (str(game_id), str(seat_id))
+            for game_id, seat_id in await repo.due_insert_times(session, now)
+        ]
+
+
 async def announce(game_id: str) -> None:
     """Story 8.3 (AD-8): a due Takeover the sweep found but `takeover` refused changes nothing,
     yet the due time has passed; emit `game:<id>` at its current version and, for a Game the

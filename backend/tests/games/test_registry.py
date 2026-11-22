@@ -274,6 +274,25 @@ async def _run_reach_agreed_time() -> str:
     return game_id
 
 
+async def _run_announce_insert_time() -> str:
+    """The sweep crosses an absent Seat's insert time (Story 8.8): its Class session and both
+    Students hear of it."""
+    from tests.games.test_takeover import class_game, due_of
+
+    game_id, students = await class_game()
+    await commands.place_order(game_id, "retailer", 1, 4, "student", actor=students["retailer"])
+    await commands.pause(game_id, actor=students["retailer"])
+    [(seat_id,)] = query(
+        TEST_DATABASE_URL,
+        "SELECT id FROM seats WHERE game_id = %s AND role = 'factory'",
+        (game_id,),
+    )
+    due = due_of(game_id, "factory")
+    assert due is not None
+    assert await commands.announce_insert_time(game_id, str(seat_id), now=due)
+    return game_id
+
+
 RUNNERS = {
     "create": _run_create,
     "assign_seat": _run_assign_seat,
@@ -293,6 +312,7 @@ RUNNERS = {
     "set_agreed_time": _run_set_agreed_time,
     "resume": _run_resume,
     "reach_agreed_time": _run_reach_agreed_time,
+    "announce_insert_time": _run_announce_insert_time,
 }
 """How to run each command once; a command added without a runner fails the test below."""
 
@@ -322,6 +342,7 @@ CLASS_SETUP_EVENTS = {
     "set_agreed_time": -4,
     "resume": -4,
     "reach_agreed_time": -4,
+    "announce_insert_time": -4,
 }
 """Runners on a Class game, and how many events their setup emits before the command's own."""
 
@@ -349,6 +370,7 @@ def test_every_command_is_exported_and_registered():
             "set_agreed_time",
             "resume",
             "reach_agreed_time",
+            "announce_insert_time",
         }
         == set(RUNNERS)
     )

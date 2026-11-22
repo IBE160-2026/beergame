@@ -39,10 +39,10 @@ def is_paused(game: Mapping[str, object]) -> bool:
     return game.get("paused_at") is not None
 
 
-TakeoverActor = Literal["system", "staff"]
+TakeoverActor = Literal["system", "staff", "peer"]
 """Who asks for a Takeover: `system`, the sweep's automatic Takeover after the Inactivity limit
-(Story 8.2); `staff`, a Lecturer or Assistant lecturer from Spillstyring (Story 8.5). Peer
-Takeovers (8.8) extend this one check."""
+(Story 8.2); `staff`, a Lecturer or Assistant lecturer from Spillstyring (Story 8.5); `peer`,
+another Student of the game once the Seat's insert time has passed (Story 8.8)."""
 
 TAKEOVER_REASONS = frozenset({"takeover_inactivity", "takeover_staff", "takeover_peer"})
 """The occupancy reasons of a Takeover: a Seat whose latest row has one is taken over already."""
@@ -56,6 +56,7 @@ def can_take_over(
     *,
     guided: bool,
     seat: Mapping[str, object] | None = None,
+    peer_seated: bool = False,
 ) -> str | None:
     """The one eligibility check of a Takeover (FR-36, FR-37, AD-2, AD-13): None when `actor` may
     hand the Seat of `turn` to an AI player at `now`, else the stable refusal code.
@@ -72,8 +73,12 @@ def can_take_over(
     its stored `takeover_due_at` must be set, which happens only once another Student has ordered
     (Story 8.1), and lie at or before `now`. The `staff` actor needs no due time and may act on a
     Seat that has ordered: its AI player then takes the next Week (the command decides when).
-    Pure: no I/O, no clock."""
-    if actor not in ("system", "staff"):
+
+    The `peer` actor (Story 8.8, FR-89) is a Student who must hold another Seat of the same Game
+    (`peer_seated`, else `seat_not_yours`); a Pause is no condition. The Seat must not have
+    ordered, and its stored `insert_allowed_at` must be set and lie at or before `now`, else
+    `insert_not_allowed_yet`. Pure: no I/O, no clock."""
+    if actor not in ("system", "staff", "peer"):
         raise ValueError(f"unknown Takeover actor {actor!r}")
     if game["lifecycle"] != Lifecycle.RUNNING:
         return "game_not_running"
@@ -81,6 +86,8 @@ def can_take_over(
         return "takeover_not_allowed"
     if actor == "system" and is_paused(game):
         return "game_paused"
+    if actor == "peer" and not peer_seated:
+        return "seat_not_yours"
     if seat is not None and seat["occupant_kind"] != OccupantKind.STUDENT:
         return "takeover_exists" if seat["reason"] in TAKEOVER_REASONS else "seat_not_student_held"
     if turn is None or turn["occupant_kind"] != OccupantKind.STUDENT:
@@ -89,6 +96,11 @@ def can_take_over(
         return None
     if has_ordered(turn, guided=guided):
         return "order_exists"
+    if actor == "peer":
+        allowed = turn["insert_allowed_at"]
+        if not isinstance(allowed, datetime) or allowed > now:
+            return "insert_not_allowed_yet"
+        return None
     due = turn["takeover_due_at"]
     if not isinstance(due, datetime) or due > now:
         return "takeover_not_due"

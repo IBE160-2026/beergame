@@ -1033,6 +1033,35 @@ async def reclaim_my_seat(
 
 
 @router.post(
+    "/me/games/{game_id}/seats/{role}/takeover",
+    response_model=StudentGameOut,
+    responses=documented(401, 403, 409),
+    operation_id="insertAiPlayer",
+)
+async def insert_ai_player(
+    game_id: str,
+    role: Role,
+    user: Annotated[authz.Principal, Depends(authz.require("games.play_own"))],
+) -> Response:
+    """«Sett inn KI-spiller for Jonas» (Story 8.8, FR-89, FR-37, AD-2, AD-12): a Student who holds
+    another Seat of the Class game puts an AI player in the Seat `role` once its insert time has
+    passed, paused or not; no dialog and no body, so no Student sets or shortens a time. Answers
+    the game as it now stands. 409 `takeover_exists` with `fields.acted_by` (`kind`, `user_id`;
+    no staff id) and `fields.acted_at`, `insert_not_allowed_yet`, `seat_not_yours`,
+    `order_exists`, `seat_not_student_held`, `game_not_running` or `takeover_not_allowed`; any
+    other game answers 403 `forbidden` (FR-5)."""
+    try:
+        found = await service.insert_ai_player(user, game_id, role)
+    except service.InsertRefused as refused:
+        return error_response(
+            refused.status, refused.code, "No AI player was put in.", refused.fields
+        )
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.post(
     "/me/games/{game_id}/pause",
     response_model=StudentGameOut,
     responses=documented(401, 403, 409),

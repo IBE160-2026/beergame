@@ -6422,6 +6422,11 @@
       "TableSeatOut": {
         "description": "A Seat of the Student's Class game (Story 6.1, FR-22, FR-34): its Role and who holds it,\na Student by name, any AI player as «KI-spiller» (`ai`, never which kind), or free.",
         "properties": {
+          "can_insert": {
+            "default": false,
+            "title": "Can Insert",
+            "type": "boolean"
+          },
           "guard_switched": {
             "default": false,
             "title": "Guard Switched",
@@ -6435,6 +6440,34 @@
             ],
             "title": "Holder",
             "type": "string"
+          },
+          "insert_agreed": {
+            "default": false,
+            "title": "Insert Agreed",
+            "type": "boolean"
+          },
+          "insert_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Insert At"
+          },
+          "inserted_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inserted By"
           },
           "mark": {
             "anyOf": [
@@ -13295,6 +13328,87 @@
           }
         },
         "summary": "Reclaim My Seat",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/me/games/{game_id}/seats/{role}/takeover": {
+      "post": {
+        "description": "«Sett inn KI-spiller for Jonas» (Story 8.8, FR-89, FR-37, AD-2, AD-12): a Student who holds\nanother Seat of the Class game puts an AI player in the Seat `role` once its insert time has\npassed, paused or not; no dialog and no body, so no Student sets or shortens a time. Answers\nthe game as it now stands. 409 `takeover_exists` with `fields.acted_by` (`kind`, `user_id`;\nno staff id) and `fields.acted_at`, `insert_not_allowed_yet`, `seat_not_yours`,\n`order_exists`, `seat_not_student_held`, `game_not_running` or `takeover_not_allowed`; any\nother game answers 403 `forbidden` (FR-5).",
+        "operationId": "insertAiPlayer",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "role",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Role"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentGameOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Insert Ai Player",
         "tags": [
           "sessions"
         ]

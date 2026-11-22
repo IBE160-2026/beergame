@@ -416,6 +416,29 @@ export const nb = {
         } as Record<string, string>,
         reclaimFailed: "Setet ble ikke tatt tilbake. Prøv igjen.",
       },
+      /** «Sett inn KI-spiller» on another Student's Setestatus row (Story 8.8, FR-89, UX-DR27,
+       * EXPERIENCE.md → Sett inn KI-spiller and State Patterns → Student game). The two lines before
+       * the insert time are the spine's; the button, its consequence and «Sara har allerede satt
+       * inn en KI-spiller.» are Spillstyring's (`nb.spillstyring`). The staff line, the refusals and
+       * the failure are [ASSUMPTION] draft copy. Never why one Seat's time is later. */
+      insert: {
+        /** With the Lecturer's agreed time: «Avtalt tid to. 19:00. Etter det kan dere sette inn en
+         * KI-spiller.» */
+        agreed: (when: string) => `Avtalt tid ${when}. Etter det kan dere sette inn en KI-spiller.`,
+        /** The Seat's own insert time: «Etter on. 10:00 kan dere sette inn en KI-spiller.» */
+        after: (when: string) => `Etter ${when} kan dere sette inn en KI-spiller.`,
+        /** [ASSUMPTION] a Lecturer or Assistant lecturer put the AI player in first. */
+        takenByStaff: "Faglæreren har allerede satt inn en KI-spiller.",
+        refusals: {
+          insert_not_allowed_yet: "Det er ikke tid for å sette inn en KI-spiller ennå.",
+          seat_not_yours: "Du kan bare sette inn en KI-spiller fra ditt eget sete i spillet.",
+          order_exists: "Studenten har bestilt nå.",
+          seat_not_student_held: "Ingen student har dette setet nå.",
+          game_not_running: "Spillet er ikke i gang.",
+          takeover_not_allowed: "KI-spiller kan ikke settes inn i dette spillet.",
+        } as Record<string, string>,
+        failed: "KI-spilleren ble ikke satt inn. Prøv igjen.",
+      },
       /** Pausevalg and the pause lines (Story 8.6, FR-89, UX-DR26, UX-DR62, EXPERIENCE.md →
        * Pausevalg and State Patterns → Student game): «Ta pause», the two consequence lines, «Ta
        * pause uten avtalt tid», «Avbryt», «Pause, satt av Sara.» and «Pausen er over. Sara har

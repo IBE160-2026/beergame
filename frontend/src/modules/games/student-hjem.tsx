@@ -245,7 +245,7 @@ function GameBlock({
       {/* Story 8.6: the pause line above Setestatus, as on the play screen. */}
       {finished ? null : <PauseLine gameId={game.id} pause={game.pause} className="mt-4" />}
       {/* Story 6.14: the Setestatus, as on the play screen. */}
-      <GameSeatStatus seats={seats} now={now} titleId={seatsId} level={4} className="mt-4" />
+      <GameSeatStatus gameId={game.id} seats={seats} now={now} titleId={seatsId} level={4} className="mt-4" />
       {/* Story 8.6: «Ta pause» under Setestatus, and the Pausevalg in place. */}
       <PauseControl
         gameId={game.id}

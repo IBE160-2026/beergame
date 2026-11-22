@@ -87,7 +87,7 @@ HEAD_TABLES = (
     | MESSAGE_TABLES
     | RECLAIM_TABLES
 )
-HEAD = "0057"  # 0057 adds when the agreed Pause time was reached (Story 8.7)
+HEAD = "0058"  # 0058 adds when the sweep announced a passed insert time (Story 8.8)
 
 
 def reset_schema(url: str) -> None:

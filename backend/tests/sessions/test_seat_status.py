@@ -61,6 +61,11 @@ async def test_the_first_students_order_starts_the_wait_for_the_seats_that_have_
         "ordering_for": None,
         "guard_switched": False,
         "reclaim_queued": False,
+        # Story 8.8: an AI player's Seat has no insert time and no control.
+        "insert_at": None,
+        "insert_agreed": False,
+        "can_insert": False,
+        "inserted_by": None,
     }
     assert all(t[2] is None for t in turns(game_id, week).values())
 

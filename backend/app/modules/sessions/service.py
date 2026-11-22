@@ -1404,6 +1404,10 @@ def _seats_out(table: games_service.TableStatus) -> list[TableSeatOut]:
             ordering_for=seat.ordering_for,
             guard_switched=seat.guard_switched,
             reclaim_queued=seat.reclaim_queued,
+            insert_at=seat.insert_at,
+            insert_agreed=seat.insert_agreed,
+            can_insert=seat.can_insert,
+            inserted_by=seat.inserted_by,
         )
         for seat in table.seats
     ]
@@ -1623,6 +1627,40 @@ async def reclaim_own_seat(user: authz.Principal, game_id: str, role: str) -> St
         if refused.status == 404:
             return None
         raise ReclaimRefused(refused.code, refused.status) from None
+    return await student_game_of(user, game_id)
+
+
+class InsertRefused(Exception):
+    """A «Sett inn KI-spiller for …» the api refuses (Story 8.8), with the command's code, status
+    and fields: 409 `takeover_exists` (with `acted_by` and `acted_at`), `insert_not_allowed_yet`,
+    `seat_not_yours`, `order_exists`, `seat_not_student_held`, `game_not_running` or
+    `takeover_not_allowed`."""
+
+    def __init__(self, code: str, status: int, fields: dict[str, Any]) -> None:
+        super().__init__(code)
+        self.code = code
+        self.status = status
+        self.fields = fields
+
+
+async def insert_ai_player(user: authz.Principal, game_id: str, role: str) -> StudentGameOut | None:
+    """«Sett inn KI-spiller for Jonas» (Story 8.8, FR-89, FR-37, AD-2, AD-12, AD-20): the Student
+    puts an AI player in the Seat `role` of their own Class game, under `student_game_of`'s checks
+    (None for every other game alike, FR-5). Only `games.commands.takeover` decides, with the
+    Student as `peer` actor: they must hold another Seat of the game and the Seat's insert time
+    must have passed (`rules.can_take_over`). Nothing a Student sends sets or moves a time. A
+    refusal's `fields` never carry a staff member's id. Returns the game as it now stands."""
+    async with get_sessionmaker()() as s:
+        own = await _own_locked_game(s, user, game_id)
+    if own is None:
+        return None
+    found, _ = own
+    try:
+        await games_commands.takeover(str(found.game_id), role, actor="peer", actor_user_id=user.id)
+    except games_commands.CommandError as refused:
+        if refused.status == 404:
+            return None
+        raise InsertRefused(refused.code, refused.status, _student_fields(refused.fields)) from None
     return await student_game_of(user, game_id)
 
 

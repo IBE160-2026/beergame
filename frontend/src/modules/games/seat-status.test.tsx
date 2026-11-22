@@ -27,6 +27,8 @@ const seat = (over: Partial<StatusSeat>): StatusSeat => ({
   ordering_for: null,
   guard_switched: false,
   reclaim_queued: false,
+  can_insert: false,
+  insert_agreed: false,
   ...over,
 });
 
