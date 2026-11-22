@@ -3381,3 +3381,22 @@ Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Den visue
 
 ### Åpne punkter
 - Issue #210: beslutninger og sømmen mot Story 15.6.
+
+## Story 11.7: Tilpassede oppgaver fra eget spill og Replay (spor 2)
+
+### Oppgave
+Bygge Story 11.7 på `epic-11` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den blinde gjennomgangen kom ikke tilbake til byggeagenten; den fikk beskjed om å lese funnene fra fila.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-11-7-get-adapted-items-from-my-own-game-and-replay.md`.
+- Commit: 44f1712. Migrasjon 0125.
+- Når testen åpnes, bygges og fryses studentens tilpassede oppgaver fra eget spill og Replay. Med færre enn 10 egne ordrer, eller uten fakta, får studenten erstatningsoppgaver med samme vekt.
+- Tester: backend 3308, Vitest 1070, tsc, `lint:colours`, `check:copy`, bygg, Playwright 114 med axe. Gulltesten tar rundt 8 s.
+- Gjennomgang: 32 funn, 9 lave rettet.
+- Status: done.
+
+### Åpne punkter
+- Issue #211: beslutninger og punkter til avslutningen (feilveier ved bygging, vekt 0, treg test).
