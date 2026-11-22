@@ -3514,3 +3514,22 @@ Byggeagent med `bmad-build-auto`, to gjennomgangsagenter og én agent som foresl
 
 ### Åpne punkter
 - Issue #217: foreslåtte driftsverdier (alle «to confirm») og beslutninger.
+
+## Story 11.11: Lagrede svar leveres automatisk ved Testfristen (spor 2)
+
+### Oppgave
+Bygge Story 11.11 på `epic-11` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den visuelle kontrollen gjøres i avslutningen av Epic 11.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-11-11-have-saved-answers-submitted-automatically-at-the-test-deadline.md`.
+- Commit: 42bb8ae. Migrasjon 0128.
+- Sweepen lukker hvert forsøk etter fristen: åpne forsøk leveres automatisk med poeng, med fristen som leveringstid. Hjem viser «ikke gjort, Testfristen er ute» til testen er levert.
+- Tester: backend 3368, Vitest 1075, tsc, `lint:colours`, `check:copy`, bygg, Playwright 132.
+- Gjennomgang: 30 funn, 4 lave rettet.
+- Status: done.
+
+### Åpne punkter
+- Issue #218: beslutninger (blant annet hva Story 11.13 må holde utenfor når fristen flyttes).
