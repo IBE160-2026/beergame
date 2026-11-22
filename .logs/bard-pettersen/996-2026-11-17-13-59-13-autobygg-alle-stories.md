@@ -2915,3 +2915,24 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Neste b
 
 ### Åpne punkter
 - Issue #184: beslutninger og rekkefølgen på migrasjoner etter merge.
+
+## Story 8.10: Start ett klassespill eller alle som faglærer (spor 1)
+
+### Oppgave
+Bygge Story 8.10 på `epic-8` i spor 1.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Neste byggeagent startet med en gang, og den visuelle kontrollen gikk samtidig med eget compose-prosjekt.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-8-10-start-one-class-game-or-all-of-them-as-lecturer.md`.
+- Commit: 49a7bbe. Migrasjon 0060.
+- Faglæreren kan starte ett spill fra Spillstyring («Start spillet») eller alle fra siden «Start spill» via Oversikt; hvem som startet og når, lagres og revideres.
+- Tester: backend 3041 (to feil forårsaket av endringen, rettet), Vitest 885, typecheck, lint, `check:copy`, bygg, Playwright 162 av 163 (`game-card` feilet én gang og passerte ved ny kjøring). Testen med 100 spill tar 8–9 s.
+- Gjennomgang: 36 funn, 1 middels (spill uten student kunne startes) og 8 lave rettet.
+- En tidlig kjøring som normaliserte linjeslutt, skadet skjermbilder og `sprint-status.yaml` i arbeidstreet; satt tilbake med en gang, ingenting skadet er committet. Byggeagentene får nå beskjed om aldri å gjøre slike kjøringer over hele repoet.
+- Visuell kontroll (Sonnet, bare rapport, eget compose-prosjekt): 21 skjermbilder i `screenshots/8.10/`, ingen klare feil.
+- Status: done.
+
+### Åpne punkter
+- Issue #185: beslutninger (bare faglærer, avvisninger, 4 spill om gangen).
