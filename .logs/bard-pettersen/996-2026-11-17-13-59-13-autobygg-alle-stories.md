@@ -3725,3 +3725,22 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den vis
 
 ### Åpne punkter
 - Issue #229: beslutninger, det utsatte funnet og sømmer mot Epic 12 og 15.
+
+## Story 12.5: Flagg tilbakemelding, og les vurderinger som ansatt (spor 3)
+
+### Oppgave
+Bygge Story 12.5 på `epic-12` i spor 3.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den blinde gjennomgangen kom ikke tilbake til byggeagenten og ble behandlet i en egen commit etterpå.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-12-5-flag-feedback-and-read-assessments-as-staff.md`.
+- Commits: 231c436 og e819dc0. Migrasjon 0205.
+- Studenten kan markere tilbakemelding som feil; lærere og assistenter ser vurderingen og flaggene på Studentsiden og en liste på Klasseøkta.
+- Rettet etter den blinde gjennomgangen: kontroll og lagring av flagg i én transaksjon, ingen åpen tilgang som standard, ukjent status og ukjent handling gir ikke lenger serverfeil.
+- Tester: backend 3761, Vitest 1184, tsc, `lint:colours`, `check:copy`, bygg, Playwright 71; etter rettingene 88 berørte backend-tester og 33 Playwright-tester.
+- Status: done.
+
+### Åpne punkter
+- Issue #230: beslutninger og norsk sortering (å før æ og ø), som rettes samlet.
