@@ -312,13 +312,15 @@ def validate_template(
 ) -> tuple[SettingsError, ...]:
     """Every rule a draw of `template` could break, with the field and its allowed range (FR-12).
 
-    An inverted range is `range_inverted`. Otherwise each range's bounds are checked against
-    `RANGES`, and then `engine.validate` judges four corner draws (all minima; all maxima; the
-    fewest Weeks with the latest change Week and the most Guided Weeks; the fewest Weeks with
-    the earliest change Week and the most Guided Weeks), which reach every cross-field rule of
-    `validate`. At most one error per field, the first found."""
+    An inverted range is `range_inverted`, and is then read in order so the other fields are
+    still judged (one inverted range hides no error elsewhere). Each range's bounds are checked
+    against `RANGES`, and then `engine.validate` judges four corner draws (all minima; all
+    maxima; the fewest Weeks with the latest change Week and the most Guided Weeks; the fewest
+    Weeks with the earliest change Week and the most Guided Weeks), which reach every
+    cross-field rule of `validate`. At most one error per field, the first found."""
     ranged = _ranged(template)
     errors: dict[str, SettingsError] = {}
+    bounds: dict[str, tuple[int, int]] = {}
     for field, value in ranged.items():
         low, high = _bounds(value)
         if low > high:
@@ -329,9 +331,8 @@ def validate_template(
                 minimum=low,
                 maximum=high,
             )
-    if errors:
-        return tuple(errors.values())
-    bounds = {field: _bounds(value) for field, value in ranged.items()}
+            low, high = high, low
+        bounds[field] = (low, high)
     lows = {field: low for field, (low, _) in bounds.items()}
     highs = {field: high for field, (_, high) in bounds.items()}
     corners = [lows, highs]
@@ -343,17 +344,20 @@ def validate_template(
         corners.append(corner)
     for corner in corners:
         # Bounds that `GameSettings` itself refuses (a delay or Week count of 0, a change Week
-        # of 0) are reported with their range here, before a draw is built.
+        # of 0) and Week counts past the range are reported with their range here, before a
+        # draw is built. Those fields are then judged no further: the draw takes them at the
+        # nearest allowed value, so one field out of range hides no error elsewhere.
         found = _bound_errors(corner)
-        if not found:
-            settings = _resolve(template, corner, 0, noise=False)
-            found = list(
-                validate(
-                    settings,
-                    capacity_enabled=capacity_enabled,
-                    info_visibility_enabled=info_visibility_enabled,
-                )
+        settings = _resolve(template, _clamped(corner), 0, noise=False)
+        found += [
+            error
+            for error in validate(
+                settings,
+                capacity_enabled=capacity_enabled,
+                info_visibility_enabled=info_visibility_enabled,
             )
+            if not any(error.field == bound.field for bound in found)
+        ]
         for error in found:
             errors.setdefault(error.field, error)
     if isinstance(template.demand, ReplayFixed):
@@ -399,10 +403,12 @@ def _fixed_noise_errors(demand: ReplayFixed, guided_weeks: int) -> list[Settings
 
 
 def _bound_errors(values: dict[str, int]) -> list[SettingsError]:
+    """Bounds judged before a draw is built: below 1 `GameSettings` refuses, and above the range a
+    fixed series would be built Week by Week (a typo of 2 000 000 000 Weeks must not)."""
     found = []
     for field in ("order_delay", "shipping_delay", "production_delay", "weeks"):
         allowed = RANGES[field]
-        if values[field] < 1:
+        if not 1 <= values[field] <= allowed.maximum:
             found.append(
                 SettingsError(
                     code="out_of_range",
@@ -428,6 +434,16 @@ def _bound_errors(values: dict[str, int]) -> list[SettingsError]:
             )
         )
     return found
+
+
+def _clamped(values: dict[str, int]) -> dict[str, int]:
+    """`values` with every bound `_bound_errors` judges moved to its nearest allowed value."""
+    clamped = dict(values)
+    for field in ("order_delay", "shipping_delay", "production_delay", "weeks"):
+        clamped[field] = min(max(clamped[field], 1), RANGES[field].maximum)
+    if CHANGE_WEEK in clamped:
+        clamped[CHANGE_WEEK] = max(clamped[CHANGE_WEEK], 1)
+    return clamped
 
 
 def _within(value: int, ranged: Ranged) -> bool:

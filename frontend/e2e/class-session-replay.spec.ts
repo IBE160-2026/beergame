@@ -121,6 +121,26 @@ test("an own scenario opens on the Game settings, warns, refuses inline and is s
   expect([stored.replay_scenario, stored.replay_template.weeks]).toEqual(["own", { minimum: 30, maximum: 40 }]);
 });
 
+test("several wrong fields each show their own reason, a reversed range under its second field", async ({ page, browser }) => {
+  const lecturer = await freshLecturer(page, browser);
+  const id = await newSession(lecturer);
+  await lecturer.goto(`/klasseokter/${id}`);
+  await chooseOwn(lecturer);
+  await field(lecturer, "replay-weeks").fill("40");
+  await field(lecturer, "replay-weeks-to").fill("30");
+  await field(lecturer, "replay-order_delay").fill("9");
+  await field(lecturer, "replay-demand-change_week").fill("99");
+  await field(lecturer, "replay-demand-change_week").blur();
+
+  const reversed = s.edit.errors.rangeInverted("40");
+  await expect(block(lecturer).getByText(s.edit.errors.outOfRange("1", "3"))).toBeVisible();
+  await expect(block(lecturer).getByText(reversed)).toBeVisible();
+  await expect(block(lecturer).getByText(/Etterspørselen må endres i en uke fra/)).toBeVisible();
+  // The reversed range stands under «høyst», tied to that field, and nowhere says «fra 40 til 30».
+  await expect(field(lecturer, "replay-weeks-to")).toHaveAccessibleDescription(new RegExp(reversed));
+  await expect(block(lecturer).getByText(s.edit.errors.outOfRange("40", "30"))).toHaveCount(0);
+});
+
 test("read only, an own scenario stands as a list with its warnings and no controls", async ({ page, browser }) => {
   const lecturer = await freshLecturer(page, browser);
   const id = await newSession(lecturer);

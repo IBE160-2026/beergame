@@ -220,6 +220,27 @@ def test_an_inverted_range_is_refused_and_cannot_be_resolved():
         replay_settings(template, 1)
 
 
+def test_a_huge_week_count_is_refused_before_a_fixed_series_is_built():
+    fixed = {"kind": "fixed", "values": [4, 8], "spread": 0}
+    template = _with(weeks={"minimum": 30, "maximum": 2_000_000_000}, demand=fixed)
+    errors = {error.field: error for error in validate_template(template)}
+    assert (errors["weeks"].code, errors["weeks"].maximum) == ("out_of_range", 100)
+
+
+def test_an_inverted_range_hides_no_error_in_the_other_fields():
+    template = _with(
+        weeks={"minimum": 40, "maximum": 30},
+        order_delay=9,
+        demand=_step(change_week=99),
+    )
+    found = {error.field: error.code for error in validate_template(template)}
+    assert found == {
+        "weeks": "range_inverted",
+        "order_delay": "out_of_range",
+        "demand.change_week": "demand_change_week_outside_game",
+    }
+
+
 @pytest.mark.parametrize(
     ("changes", "code", "field", "allowed"),
     [

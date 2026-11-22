@@ -124,8 +124,8 @@ export function ReplayScenarioBlock({
   const helpId = useId();
   const choice = editable ? state.choice : item.replay_scenario;
   return (
-    <section aria-labelledby={titleId} className="mt-12 max-w-3xl border-t border-hairline pt-6" data-replay-scenario="">
-      <h2 id={titleId} className="text-label text-ink">
+    <section aria-labelledby={titleId} className="mt-12 border-t border-hairline pt-8" data-replay-scenario="">
+      <h2 id={titleId} className="text-headline text-ink">
         {copy.title}
       </h2>
       {editable ? (
@@ -167,7 +167,7 @@ export function ReplayScenarioBlock({
 function DefaultRows({ template }: { template: ReplayTemplate }) {
   return (
     <>
-      <dl className="mt-4 max-w-2xl">
+      <dl className="mt-4 max-w-2xl lg:grid lg:max-w-none lg:grid-cols-2 lg:gap-x-16">
         {scenarioRows(template).map((row) => (
           <div
             key={row.label}
@@ -194,7 +194,7 @@ function OwnScenarioRows({
 }) {
   return (
     <>
-      <dl className="mt-4 max-w-2xl">
+      <dl className="mt-4 max-w-2xl lg:grid lg:max-w-none lg:grid-cols-2 lg:gap-x-16">
         {ownRows(template, infoVisibilityEnabled).map((row) => (
           <div
             key={row.key}
@@ -216,6 +216,7 @@ function OwnScenarioRows({
 }
 
 const FIELD_KEYS: readonly string[] = [...EDITABLE.map((field) => field.name), "demand"];
+const CHANGE_WEEK = "demand.change_week";
 
 /** The own scenario's fields: the Game settings' Tekstfelt under Replay ids, «Antall uker» as
  * «minst» and «høyst», then the Demand pattern without the seed and the change Week as «tidligst»
@@ -229,10 +230,16 @@ function OwnScenarioForm({ state }: { state: ReplayScenarioState }) {
       name !== "demand_seed" &&
       !(name === "info_visibility" && draft.infoVisibility),
   );
-  const error = (name: string) => (problems[name] ? problemText(problems[name]) : undefined);
+  // A range typed the wrong way round stands under its second field («høyst», «senest»), where
+  // the number to change was typed; every other error stands under the first.
+  const inverted = (name: string) => problems[name]?.code === "range_inverted";
+  const error = (name: string) =>
+    problems[name] && !inverted(name) ? problemText(problems[name]) : undefined;
+  const invertedError = (name: string) => (inverted(name) ? problemText(problems[name]) : undefined);
+  const { [CHANGE_WEEK]: _changeWeek, ...demandProblems } = problems;
   return (
     <div className="mt-4">
-      <p className="text-body-phone text-ink-secondary">{copy.ownLead}</p>
+      <p className="max-w-2xl text-body-phone text-ink-secondary">{copy.ownLead}</p>
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         {EDITABLE.map((field) => (
           <Fragment key={field.name}>
@@ -258,6 +265,7 @@ function OwnScenarioForm({ state }: { state: ReplayScenarioState }) {
                 autoComplete="off"
                 value={draft.weeksTo}
                 hint={copy.toHint}
+                error={invertedError("weeks")}
                 onChange={(event) => setDraft({ ...draft, weeksTo: event.target.value })}
                 onBlur={() => check()}
               />
@@ -267,7 +275,7 @@ function OwnScenarioForm({ state }: { state: ReplayScenarioState }) {
       </div>
       <DemandFields
         demand={draft.demand}
-        problems={problems}
+        problems={inverted(CHANGE_WEEK) ? demandProblems : problems}
         onChange={(demand) => setDraft({ ...draft, demand })}
         onLeave={() => check()}
         idPrefix="replay"
@@ -284,6 +292,7 @@ function OwnScenarioForm({ state }: { state: ReplayScenarioState }) {
               autoComplete="off"
               value={draft.changeWeekTo}
               hint={copy.toHint}
+              error={invertedError(CHANGE_WEEK)}
               onChange={(event) => setDraft({ ...draft, changeWeekTo: event.target.value })}
               onBlur={() => check()}
             />

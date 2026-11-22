@@ -919,6 +919,8 @@ export const nb = {
       refused: "Spillinnstillingene ble ikke lagret. Se feltene.",
       errors: {
         outOfRange: (min: string, max: string) => `Må være fra ${min} til ${max}.`,
+        // Story 10.2: an own Replay scenario's range typed the wrong way round, under its second field.
+        rangeInverted: (low: string) => `Må være ${low} eller mer, ikke lavere enn det første tallet.`,
         wholeNumber: (min: string, max: string) => `Skriv et helt tall fra ${min} til ${max}.`,
         amount: (min: string, max: string) => `Skriv et beløp fra ${min} til ${max}, med komma.`,
         decimals: (places: number, min: string, max: string) =>
@@ -2726,6 +2728,8 @@ export const nb = {
       yes: "Ja",
       no: "Nei",
       send: "Send svar",
+      /** The button's accessible name: its visible words first, then its question (WCAG 2.5.3). */
+      sendName: "Send svar om en runde til",
       saved: (yes: boolean) => (yes ? "Takk. Du svarte ja." : "Takk. Du svarte nei."),
       failed: "Svaret ble ikke sendt. Prøv igjen.",
     },
@@ -2750,6 +2754,8 @@ export const nb = {
     high: "5: svært troverdige",
     note: "Frivillig. Faglærerne ser aldri svaret ditt med navnet ditt.",
     send: "Send svar",
+    /** The button's accessible name: its visible words first, then its question (WCAG 2.5.3). */
+    sendName: "Send svar om troverdighet",
     saved: (rating: number) => `Takk. Du svarte ${rating} av 5.`,
     failed: "Svaret ble ikke sendt. Prøv igjen.",
   },
