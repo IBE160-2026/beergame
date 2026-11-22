@@ -157,6 +157,9 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # A Class session's question set selection saved, «Lagre vekter» (Story 11.1, FR-52): its
         # staff read the block again.
         "tests.save_question_set": frozenset({"session"}),
+        # A Class session's Scoring guide edited, «Lagre sensorveiledning» (Story 11.2, FR-81):
+        # its staff read the block again.
+        "tests.save_scoring_guide": frozenset({"session"}),
         # A Student's Replay made and started (Story 10.3, FR-48): its Game is created, seated and
         # started through `games.commands` (`game`), and the Student's Hjem reads it again
         # (`user`). No Lecturer overview lists a Replay, so no `session`.

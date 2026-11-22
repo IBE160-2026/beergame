@@ -5,7 +5,11 @@ does not exist (FR-5).
 The question set selection, «Spørsmål og vekter» (Story 11.1, FR-52):
 `GET /api/class-sessions/{id}/question-set` for the Class's owners and Assistant lecturers and
 `PUT …` («Lagre vekter») for its owners; 403 `forbidden` for every other caller and for a session
-that does not exist."""
+that does not exist.
+
+The Scoring guide, «Sensorveiledning» (Story 11.2, FR-81): `GET
+/api/class-sessions/{id}/scoring-guide` for the Class's owners and Assistant lecturers and `PUT …`
+(«Lagre sensorveiledning») for its owners, likewise."""
 
 import uuid
 from typing import Annotated
@@ -14,12 +18,14 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse, Response
 
 from app.modules.sessions import service as sessions
-from app.modules.tests import selection, service
+from app.modules.tests import guide, selection, service
 from app.modules.tests.schemas import (
     AnswerIn,
     FinalIn,
     QuestionSetIn,
     QuestionSetOut,
+    ScoringGuideIn,
+    ScoringGuideOut,
     StartingTaskOut,
 )
 from app.platform import auth, authz
@@ -151,6 +157,59 @@ async def set_session_question_set(
         )
     except sessions.SessionLocked as refused:
         return error_response(409, refused.code, "The Class session has started.", refused.fields)
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+_GUIDE = "/class-sessions/{session_id}/scoring-guide"
+
+
+@router.get(
+    _GUIDE,
+    response_model=ScoringGuideOut,
+    responses=documented(401, 403),
+    operation_id="getSessionScoringGuide",
+)
+async def get_session_scoring_guide(
+    session_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("class_sessions.read"))],
+) -> Response:
+    """The Klasseøkt's «Sensorveiledning» block (Story 11.2, FR-81): the Scoring guide in force,
+    each question's guide text marked «Standard» or «Endret», its coded criteria (read-only), the
+    one five-step scale, whether a Control test has checked the version, and whether it can still
+    change (before the original Test deadline). Once pinned, the version pinned."""
+    found = await guide.read_block(user, _id(session_id), auth.utcnow())
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.put(
+    _GUIDE,
+    response_model=ScoringGuideOut,
+    responses=documented(401, 403, 409, 422),
+    operation_id="setSessionScoringGuide",
+)
+async def set_session_scoring_guide(
+    session_id: str,
+    body: ScoringGuideIn,
+    user: Annotated[authz.Principal, Depends(authz.require("scoring_guide.change"))],
+) -> Response:
+    """«Lagre sensorveiledning» (Story 11.2, FR-81, AD-23): the changed guide texts, stored as a
+    new Scoring guide version made for the Class session and recorded in the audit log; the
+    earlier version is unchanged. 422 `validation_error` for a question the guide does not have
+    or a text the record refuses (`fields` by question id); 409 `scoring_guide_locked` from the
+    original Test deadline, `class_archived` for an archived Class; 403 `forbidden` for an
+    Assistant lecturer and every other caller."""
+    try:
+        found = await guide.save(user, _id(session_id), body, auth.utcnow())
+    except guide.UnknownQuestions as refused:
+        return error_response(
+            422, "validation_error", "The guide texts do not fit the Scoring guide.", refused.fields
+        )
+    except sessions.ScoringGuideLocked as refused:
+        return error_response(409, refused.code, "The Test deadline has passed.", refused.fields)
     if found is None:
         raise authz.Forbidden
     return JSONResponse(found.model_dump(mode="json"))

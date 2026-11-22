@@ -2813,6 +2813,49 @@ export const nb = {
       failed: "Vektene ble ikke lagret. Prøv igjen.",
       loadFailed: "Spørsmål og vekter kunne ikke hentes.",
     },
+    /** Story 11.2 (FR-81, UX-DR49): the Klasseøkt's block «Sensorveiledning». The title, «Standard»,
+     * «Endret» and «Ikke kontrollert med en Kontrolltest.» are the spine's; the rest is [ASSUMPTION]
+     * draft copy for the founder's review. */
+    scoringGuide: {
+      heading: "Sensorveiledning",
+      help: "Sensorveiledningen sier hva KI-vurderingen ser etter i hvert langsvar og hver tilpassede oppgave. Du kan endre teksten for denne Klasseøkten. Kriteriene og skalaen er faste.",
+      /** A draft guide (issue #16). */
+      draft: "Sensorveiledningen er et utkast og ikke godkjent. Den byttes ut før kurset tar den i bruk.",
+      /** Every version no Control test has checked, the default included (AD-27). */
+      unchecked: "Ikke kontrollert med en Kontrolltest.",
+      /** A newer default was published after this Klasseøkt's guide was edited. */
+      outdated: "Standardveiledningen er oppdatert etter at dere endret denne. Endringene deres gjelder fortsatt.",
+      /** The one five-step scale, shared by every question. */
+      scaleHeading: "Skala for alle spørsmål",
+      kinds: {
+        long: "Langsvar",
+        adapted: "Tilpasset oppgave",
+      } as Record<string, string>,
+      standard: "Standard",
+      changed: "Endret",
+      /** The Tekstfelt's label, above it. */
+      guideLabel: "Veiledning",
+      guideHint: "Hva oppgaven spør etter, og hvordan sterke og svake svar ser ut.",
+      /** The read-only criteria under the Tekstfelt. */
+      criteriaCaption: "Kriterier",
+      code: "Kode",
+      criterion: "Kriterium",
+      weight: "Vekt",
+      weightText: (n: number) => `${n} %`,
+      emptyGuide: "Skriv en veiledning.",
+      tooLong: (max: number) => `Skriv høyst ${max} tegn.`,
+      save: "Lagre sensorveiledning",
+      saving: "Lagrer …",
+      saved: "Sensorveiledningen er lagret.",
+      /** Read-only reasons. */
+      assistant: "Bare Faglærerne i Klassen kan endre sensorveiledningen.",
+      closed: "Testfristen er passert. Sensorveiledningen er låst.",
+      /** Refusals beside «Lagre sensorveiledning». */
+      archived: "Klassen er arkivert, så sensorveiledningen kan ikke endres.",
+      invalid: "En veiledning er tom eller for lang. Ingenting ble lagret.",
+      failed: "Sensorveiledningen ble ikke lagret. Prøv igjen.",
+      loadFailed: "Sensorveiledningen kunne ikke hentes.",
+    },
   },
 
   assessment: {

@@ -19,6 +19,7 @@ import { useClass } from "@/modules/classes/api";
 import { AiAssessmentBlock } from "@/modules/assessment/switch-block";
 import { QuizExclusionsBlock } from "@/modules/debrief/quiz-exclusions";
 import { QuestionSetBlock } from "@/modules/tests/question-set-block";
+import { ScoringGuideBlock } from "@/modules/tests/scoring-guide-block";
 import { classOverviewPath, classPath, classSessionPath, HOME_PATH } from "@/modules/identity/homes";
 import { PageLink, PageShell } from "@/modules/identity/page-shell";
 import { LINK_BUTTON } from "@/modules/classes/roster-entry-forms";
@@ -457,6 +458,8 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
       <QuizExclusionsBlock classSessionId={item.id} />
       {/* Story 11.1: its own save, the selection belongs to the Individual test; locks at the Start date. */}
       <QuestionSetBlock classSessionId={item.id} />
+      {/* Story 11.2: its own save, the Scoring guide belongs to the Individual test; locks at the Test deadline. */}
+      <ScoringGuideBlock classSessionId={item.id} />
       <TestGameBlock item={item} />
     </>
   );

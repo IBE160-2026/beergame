@@ -58,3 +58,15 @@ schema (`schemas.py`). Kinds: `starting_task` (Story 6.3), `detected_patterns` (
   every `<kind>.json` of `files/` (or the folder) that differs from its kind's newest version;
   a second run publishes nothing. A refused file prints a stable code (`unknown_kind`,
   `unknown_item_type`, `starting_task_items_missing`, `invalid_record`) and the command exits 1.
+- Version 1 of the Scoring guide (Story 11.2) is stored by migration 0122 and shipped as
+  `files/scoring_guide.json` (a test keeps them equal): one fixed five-step scale (0 to 4) and,
+  per long-answer question (its id the item's `scoring_rule`) and Adapted item template, a title,
+  the descriptive guide text and 5 to 8 coded criteria whose weights sum to 100, marked
+  `status: "draft"` until issue #16. Its shape is `schemas.ScoringGuide`; a question with fewer
+  than 5 or more than 8 criteria is refused with `criteria_count`. A Lecturer's edit is a new
+  version made for one Class session (`publish_in(..., class_session_id=…)`,
+  `content_records.class_session_id`): it takes the kind's next number but is never the latest
+  default, and the load never compares a file with it. Which version a Class session uses, and
+  its pin at the Test deadline, belong to `modules/tests` (`guide.py`).
+- `is_checked(scoring_guide_version_id, model_config_id)` is the one answer to whether a Control
+  test has checked a Scoring guide version (AD-27); it is False until Epic 12 adds the record.

@@ -90,3 +90,58 @@ export function judgeDraft(set: QuestionSet, draft: QuestionSetDraft) {
       : null;
   return { sum, invalid, quantityOut, body };
 }
+
+/** The Klasseøkt's «Sensorveiledning» block (Story 11.2). */
+export type ScoringGuide = components["schemas"]["ScoringGuideOut"];
+export type GuideQuestion = components["schemas"]["GuideQuestionOut"];
+export type ScoringGuideBody = components["schemas"]["ScoringGuideIn"];
+
+/** The longest guide text of one question the api takes. */
+export const GUIDE_TEXT_MAX = 4000;
+
+/** Under `["class-sessions", id]`, so a `session:<id>` event reads it again. */
+export const scoringGuideKey = (classSessionId: string) => ["class-sessions", classSessionId, "scoring-guide"] as const;
+
+export function useScoringGuide(classSessionId: string) {
+  return useQuery({
+    queryKey: scoringGuideKey(classSessionId),
+    queryFn: () =>
+      request(() =>
+        api.GET("/api/class-sessions/{session_id}/scoring-guide", { params: { path: { session_id: classSessionId } } }),
+      ),
+    retry: false,
+  });
+}
+
+/** «Lagre sensorveiledning»: the changed texts only. 409 `scoring_guide_locked`, `class_archived`; 422 `validation_error`. */
+export function saveScoringGuide(classSessionId: string, body: ScoringGuideBody): Promise<ScoringGuide> {
+  return request(() =>
+    api.PUT("/api/class-sessions/{session_id}/scoring-guide", {
+      params: { path: { session_id: classSessionId } },
+      body,
+    }),
+  );
+}
+
+/** What is wrong with a guide text as typed, for the reason under its Tekstfelt; null when the api takes it. */
+export function guideTextProblem(text: string): "empty" | "tooLong" | null {
+  if (text.trim() === "") return "empty";
+  if (text.length > GUIDE_TEXT_MAX) return "tooLong";
+  return null;
+}
+
+/**
+ * The body «Lagre sensorveiledning» sends: only the texts the Lecturer touched that differ from the
+ * guide in force, so a save never writes back another owner's text it merely showed. Null when
+ * nothing differs or a touched text is one the api refuses.
+ */
+export function guideBody(guide: ScoringGuide, draft: Readonly<Record<string, string>>): ScoringGuideBody | null {
+  const guides: Record<string, string> = {};
+  for (const question of guide.questions) {
+    const text = draft[question.id];
+    if (text === undefined || text === question.guide) continue;
+    if (guideTextProblem(text) !== null) return null;
+    guides[question.id] = text;
+  }
+  return Object.keys(guides).length > 0 ? { guides } : null;
+}

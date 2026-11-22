@@ -109,6 +109,8 @@ ASSESSMENT_SWITCH_TABLES = {"assessment_switches"}
 """The tables of revision 0120 (Story 12.1)."""
 QUESTION_SET_TABLES = {"test_selections"}
 """The tables of revision 0121 (Story 11.1)."""
+SCORING_GUIDE_TABLES = {"test_scoring_guides"}
+"""The tables of revision 0122 (Story 11.2)."""
 HEAD_TABLES = (
     PRE_SESSION_TABLES
     | SESSION_TABLES
@@ -134,8 +136,9 @@ HEAD_TABLES = (
     | RATING_TABLES
     | ASSESSMENT_SWITCH_TABLES
     | QUESTION_SET_TABLES
+    | SCORING_GUIDE_TABLES
 )
-HEAD = "0121"  # 0121 holds the question set and each Class session's selection (Story 11.1)
+HEAD = "0122"  # 0122 holds the Scoring guide and each Class session's guide in force (11.2)
 
 
 def reset_schema(url: str) -> None:
@@ -323,6 +326,18 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     # 0111 (Story 9.12): presence, the Students who go on alone and the 48-hour fallback.
     assert "last_seen_at" in columns(url, "debrief_members")
     assert {"fallback_due_at", "fallback_at"} <= columns(url, "debrief_sessions")
+
+    # 0122 (Story 11.2): the Scoring guide kind with its draft version 1, the Class session an
+    # edited version was made for, and each Class session's guide in force, frozen once pinned.
+    assert "scoring_guide" in definition(url, "ck_content_records_kind")
+    assert "class_session_id" in columns(url, "content_records")
+    assert {"scoring_guide_id", "base_id", "pinned_at"} <= columns(url, "test_scoring_guides")
+    assert function_names(url, "test_scoring_guides_pinned")
+    command.downgrade(cfg, "0121")
+    assert SCORING_GUIDE_TABLES.isdisjoint(tables(url))
+    assert "scoring_guide" not in definition(url, "ck_content_records_kind")
+    assert "class_session_id" not in columns(url, "content_records")
+    assert not function_names(url, "test_scoring_guides_pinned")
 
     # 0121 (Story 11.1): the question set kind with its draft version 1, a Class session's
     # selection of it, and why the lock was refused.

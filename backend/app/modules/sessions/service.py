@@ -282,6 +282,14 @@ class AiAssessmentPinned(_FieldsError):
     code = "ai_assessment_pinned"
 
 
+class ScoringGuideLocked(_FieldsError):
+    """The Scoring guide was edited once the original Test deadline has passed or the
+    Test-deadline lock has pinned it (409 `scoring_guide_locked`, `{"scoring_guide": "locked"}`,
+    Story 11.2, FR-18)."""
+
+    code = "scoring_guide_locked"
+
+
 class DeadlinePassed(_FieldsError):
     """A date that has passed was moved (409 `deadline_passed`); `fields` names each one."""
 
@@ -1779,10 +1787,14 @@ class QuestionSetSession:
 
 
 async def question_set_session(
-    user: authz.Principal, class_session_id: uuid.UUID
+    user: authz.Principal,
+    class_session_id: uuid.UUID,
+    change_action: str = "question_set.change",
 ) -> QuestionSetSession | None:
     """The Class session for its staff's «Spørsmål og vekter» block (`class_sessions.read`); None
-    for every other caller and for a session that does not exist alike (FR-5)."""
+    for every other caller and for a session that does not exist alike (FR-5). `may_change` and
+    `can_change` answer `change_action`: the «Sensorveiledning» block (Story 11.2) asks
+    `scoring_guide.change`."""
     async with get_sessionmaker()() as s:
         row = await repo.session_row(s, class_session_id)
         pins = await repo.session_pins(s, class_session_id) if row is not None else None
@@ -1795,8 +1807,8 @@ async def question_set_session(
         id=row["id"],
         row=row,
         pins=pins,
-        may_change=authz.can(user, "question_set.change", found),
-        can_change=authz.can(user, "question_set.change", found) and not found.archived,
+        may_change=authz.can(user, change_action, found),
+        can_change=authz.can(user, change_action, found) and not found.archived,
     )
 
 
@@ -1813,6 +1825,34 @@ async def lock_for_question_set(
     await _writable(s, row["class_id"])
     if is_locked(row, now=now):
         raise SessionLocked({"question_set": "locked"})
+    return row
+
+
+def test_deadline_reached(row: Mapping[str, Any], now: datetime) -> bool:
+    """Whether the Class session's original Test deadline has passed at `now`, or the
+    Test-deadline lock has run (Story 11.2, FR-18): what hangs on that deadline no longer
+    changes, also in the minute before the sweep runs `lock_test`. Never for a session without
+    a Test deadline that has not been test-locked."""
+    if row["test_locked_at"] is not None:
+        return True
+    deadline = row["test_deadline"]
+    return deadline is not None and deadline <= now
+
+
+async def lock_for_scoring_guide(
+    s: AsyncSession, class_session_id: uuid.UUID, *, now: datetime
+) -> Mapping[str, Any]:
+    """In the caller's transaction (Story 11.2): locks the Class session row, refuses an archived
+    Class (`classes.ClassArchived`, 409 `class_archived`) and a session whose original Test
+    deadline has passed (`ScoringGuideLocked`, 409 `scoring_guide_locked`, FR-18), and answers
+    the row. The row lock keeps `lock_test` out meanwhile. The caller has checked
+    `scoring_guide.change` (through `question_set_session`'s `may_change`)."""
+    row = await repo.session_row(s, class_session_id, lock=True)
+    if row is None:
+        raise LookupError(f"no Class session {class_session_id}")
+    await _writable(s, row["class_id"])
+    if test_deadline_reached(row, now):
+        raise ScoringGuideLocked({"scoring_guide": "locked"})
     return row
 
 
@@ -3866,11 +3906,26 @@ async def lock_due(class_session_id: object, now: datetime) -> bool:
         return False
 
 
+TestPinner = Callable[[AsyncSession, Mapping[str, Any], datetime], Awaitable[bool]]
+"""`(session, class_session_row, at)` → whether this call pinned: pins what a module keeps that
+hangs on the original Test deadline, in `lock_test`'s transaction, once and idempotently."""
+
+_test_pinners: list[TestPinner] = []
+
+
+def register_test_pinner(pinner: TestPinner) -> None:
+    """Add a pinner `lock_test` runs (Story 11.2: `tests` pins the Scoring guide in force), for a
+    module `sessions` may not import. Registering the same one again changes nothing."""
+    if pinner not in _test_pinners:
+        _test_pinners.append(pinner)
+
+
 async def lock_test(class_session_id: uuid.UUID, *, now: datetime) -> bool:
     """The Test-deadline lock (Story 12.1; Epic 11's `lock_test`, AD-9, FR-18): under the Class
     session's row lock, in one transaction, it pins what hangs on the original Test deadline,
-    once and idempotently: the «KI-vurdering» switch (`assessment.pin_switch`). Epic 11 adds the
-    Scoring guide pin here, and runs `tests.close_attempt` only after it. It sets
+    once and idempotently: the «KI-vurdering» switch (`assessment.pin_switch`) and, through each
+    pinner of `register_test_pinner`, the Scoring guide in force (Story 11.2). Epic 11 runs
+    `tests.close_attempt` only after it. It sets
     `test_locked_at` and emits `session:<id>`; a second call changes and emits nothing. It does
     not judge the deadline: the sweep's finder does, and the local dev route calls it at once.
     True when this call locked it."""
@@ -3884,6 +3939,8 @@ async def lock_test(class_session_id: uuid.UUID, *, now: datetime) -> bool:
         deadline = row["test_deadline"]
         at = now if deadline is None else min(now, deadline)
         pinned = await assessment.pin_switch(s, class_session_id, at=at)
+        for pinner in _test_pinners:
+            await pinner(s, row, at)
         await repo.set_test_locked(s, class_session_id, now)
         await events.emit(s, "session", str(class_session_id))
     log.info("class_session_test_locked", class_session_id=str(class_session_id), pinned=pinned)
@@ -5013,8 +5070,9 @@ async def copy_from(
     `InvalidSettings`, `ClassArchived`; None when the User may not manage the target Class or may
     not read the source. It copies the settings of Epic 5, the Replay scenario
     (`_copied_replay`, Story 10.2), the «KI-vurdering» switch (Story 12.1) and, through each
-    copier of `register_copier`, the question set selection (Story 11.1); the later stories that
-    own more session settings (FR-66) add theirs here."""
+    copier of `register_copier`, the question set selection (Story 11.1) and an edited Scoring
+    guide (Story 11.2); the later stories that own more session settings (FR-66) add theirs
+    here."""
     if not rerun_enabled():
         raise FeatureDisabled(dict(RERUN_DISABLED))
     if await _class_for(user, target_class_id, "class_sessions.manage") is None:

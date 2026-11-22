@@ -21,7 +21,7 @@ export function TextAreaField({ id, label, error, hint, className, rows = 3, ...
   const describedBy = [hint ? hintId : "", error ? errorId : ""].filter(Boolean).join(" ") || undefined;
   return (
     <div className={cn("flex min-w-0 flex-col gap-field-gap", className)}>
-      <label htmlFor={id} className="text-label text-ink">
+      <label id={`${id}-label`} htmlFor={id} className="text-label text-ink">
         {label}
       </label>
       <textarea

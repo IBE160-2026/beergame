@@ -3485,6 +3485,81 @@
         "title": "GroupOut",
         "type": "object"
       },
+      "GuideCriterionOut": {
+        "description": "One coded criterion, read-only in v1: its code, its wording and its weight in %.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "weight": {
+            "title": "Weight",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "code",
+          "text",
+          "weight"
+        ],
+        "title": "GuideCriterionOut",
+        "type": "object"
+      },
+      "GuideQuestionOut": {
+        "description": "One question of the Scoring guide as the Lecturer reads it: a long-answer question or an\nAdapted item template, its title, its guide text in force, the default text it derives from,\nwhether the two differ («Endret», else «Standard») and its criteria.",
+        "properties": {
+          "changed": {
+            "title": "Changed",
+            "type": "boolean"
+          },
+          "criteria": {
+            "items": {
+              "$ref": "#/components/schemas/GuideCriterionOut"
+            },
+            "title": "Criteria",
+            "type": "array"
+          },
+          "guide": {
+            "title": "Guide",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "long",
+              "adapted"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "standard_guide": {
+            "title": "Standard Guide",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "title",
+          "guide",
+          "standard_guide",
+          "changed",
+          "criteria"
+        ],
+        "title": "GuideQuestionOut",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -7209,6 +7284,120 @@
           "preview"
         ],
         "title": "RosterUploadOut",
+        "type": "object"
+      },
+      "ScaleStepOut": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "step": {
+            "title": "Step",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "step",
+          "label"
+        ],
+        "title": "ScaleStepOut",
+        "type": "object"
+      },
+      "ScoringGuideIn": {
+        "additionalProperties": false,
+        "description": "«Lagre sensorveiledning»: the guide text of each question the Lecturer changed, by question\nid. The criteria, the scale and the titles never change.",
+        "properties": {
+          "guides": {
+            "additionalProperties": {
+              "maxLength": 4000,
+              "type": "string"
+            },
+            "maxProperties": 40,
+            "minProperties": 1,
+            "propertyNames": {
+              "maxLength": 40,
+              "minLength": 1
+            },
+            "title": "Guides",
+            "type": "object"
+          }
+        },
+        "required": [
+          "guides"
+        ],
+        "title": "ScoringGuideIn",
+        "type": "object"
+      },
+      "ScoringGuideOut": {
+        "description": "The Class session's Scoring guide in force (Story 11.2): its version id and number,\nwhether it is a draft (issue #16), whether it is an edit made for a Class session, whether a\nnewer default was published after the edit (`outdated`: the edit stays in force), whether a\nControl test has checked it (`content.service.is_checked`), whether the Test-deadline lock has\npinned it, whether it can still change (before the original Test deadline), whether the User\nmay change it, the one five-step scale and the questions.",
+        "properties": {
+          "can_change": {
+            "title": "Can Change",
+            "type": "boolean"
+          },
+          "checked": {
+            "title": "Checked",
+            "type": "boolean"
+          },
+          "draft": {
+            "title": "Draft",
+            "type": "boolean"
+          },
+          "edited": {
+            "title": "Edited",
+            "type": "boolean"
+          },
+          "open": {
+            "title": "Open",
+            "type": "boolean"
+          },
+          "outdated": {
+            "title": "Outdated",
+            "type": "boolean"
+          },
+          "pinned": {
+            "title": "Pinned",
+            "type": "boolean"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/GuideQuestionOut"
+            },
+            "title": "Questions",
+            "type": "array"
+          },
+          "scale": {
+            "items": {
+              "$ref": "#/components/schemas/ScaleStepOut"
+            },
+            "title": "Scale",
+            "type": "array"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "version_id": {
+            "format": "uuid",
+            "title": "Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version_id",
+          "version",
+          "draft",
+          "edited",
+          "outdated",
+          "checked",
+          "pinned",
+          "open",
+          "can_change",
+          "scale",
+          "questions"
+        ],
+        "title": "ScoringGuideOut",
         "type": "object"
       },
       "SeatChoiceGameOut": {
@@ -13265,6 +13454,150 @@
         "summary": "Check Replay Scenario",
         "tags": [
           "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/scoring-guide": {
+      "get": {
+        "description": "The Klasseøkt's «Sensorveiledning» block (Story 11.2, FR-81): the Scoring guide in force,\neach question's guide text marked «Standard» or «Endret», its coded criteria (read-only), the\none five-step scale, whether a Control test has checked the version, and whether it can still\nchange (before the original Test deadline). Once pinned, the version pinned.",
+        "operationId": "getSessionScoringGuide",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScoringGuideOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Session Scoring Guide",
+        "tags": [
+          "tests"
+        ]
+      },
+      "put": {
+        "description": "«Lagre sensorveiledning» (Story 11.2, FR-81, AD-23): the changed guide texts, stored as a\nnew Scoring guide version made for the Class session and recorded in the audit log; the\nearlier version is unchanged. 422 `validation_error` for a question the guide does not have\nor a text the record refuses (`fields` by question id); 409 `scoring_guide_locked` from the\noriginal Test deadline, `class_archived` for an archived Class; 403 `forbidden` for an\nAssistant lecturer and every other caller.",
+        "operationId": "setSessionScoringGuide",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScoringGuideIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScoringGuideOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Set Session Scoring Guide",
+        "tags": [
+          "tests"
         ]
       }
     },

@@ -9,6 +9,7 @@ One file, one new version of its kind:
     uv run python -m app.modules.content debrief_quiz path/to/debrief-quiz.json
     uv run python -m app.modules.content narration_templates path/to/narration-templates.json
     uv run python -m app.modules.content question_set path/to/question-set.json
+    uv run python -m app.modules.content scoring_guide path/to/scoring-guide.json
 
 The content load (Story 11.1): every `<kind>.json` in a folder (default: the files shipped in the
 repo, `app/modules/content/files/`), the Starting task first, each published only when its body
@@ -18,9 +19,9 @@ is not stored as a version of its kind yet, so a second run, or an older file, p
 
 Every file is validated like every record; the new versions are printed. A file that is refused
 prints `<file>: <code>: <detail>` with a stable code (`unknown_kind`, `unknown_item_type`,
-`starting_task_items_missing`, `invalid_record`, `no_folder`) and the command exits 1; the other
-files are still loaded. Class sessions locked from then on pin the new versions; sessions locked
-before keep theirs. No code change is needed for new items."""
+`starting_task_items_missing`, `criteria_count`, `invalid_record`, `no_folder`) and the command
+exits 1; the other files are still loaded. Class sessions locked from then on pin the new
+versions; sessions locked before keep theirs. No code change is needed for new items."""
 
 import asyncio
 import json

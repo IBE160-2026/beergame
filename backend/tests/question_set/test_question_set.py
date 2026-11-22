@@ -126,7 +126,10 @@ async def test_version_1_is_the_shipped_draft_file_and_the_migrations_literal():
 
 
 async def test_the_load_of_the_shipped_files_publishes_nothing_and_a_change_once(tmp_path):
-    assert await cli.load(cli.SHIPPED) == (["question_set unchanged (v1)"], [])
+    assert await cli.load(cli.SHIPPED) == (
+        ["question_set unchanged (v1)", "scoring_guide unchanged (v1)"],
+        [],
+    )
     assert await content.latest_version("question_set") == 1
     shutil.copy(cli.SHIPPED / "question_set.json", tmp_path / "question_set.json")
     approved = {**V1, "status": "approved"}
@@ -135,7 +138,10 @@ async def test_the_load_of_the_shipped_files_publishes_nothing_and_a_change_once
     assert await cli.load(tmp_path) == (["question_set unchanged (v2)"], [])
     assert (await content.question_set(None))[1].status == "approved"
     # The older shipped draft never supersedes the newer version.
-    assert await cli.load(cli.SHIPPED) == (["question_set unchanged (v1)"], [])
+    assert await cli.load(cli.SHIPPED) == (
+        ["question_set unchanged (v1)", "scoring_guide unchanged (v1)"],
+        [],
+    )
     assert await content.latest_version("question_set") == 2
 
 

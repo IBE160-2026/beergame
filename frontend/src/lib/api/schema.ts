@@ -983,6 +983,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/class-sessions/{session_id}/scoring-guide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Session Scoring Guide
+         * @description The Klasseøkt's «Sensorveiledning» block (Story 11.2, FR-81): the Scoring guide in force,
+         *     each question's guide text marked «Standard» or «Endret», its coded criteria (read-only), the
+         *     one five-step scale, whether a Control test has checked the version, and whether it can still
+         *     change (before the original Test deadline). Once pinned, the version pinned.
+         */
+        get: operations["getSessionScoringGuide"];
+        /**
+         * Set Session Scoring Guide
+         * @description «Lagre sensorveiledning» (Story 11.2, FR-81, AD-23): the changed guide texts, stored as a
+         *     new Scoring guide version made for the Class session and recorded in the audit log; the
+         *     earlier version is unchanged. 422 `validation_error` for a question the guide does not have
+         *     or a text the record refuses (`fields` by question id); 409 `scoring_guide_locked` from the
+         *     original Test deadline, `class_archived` for an archived Class; 403 `forbidden` for an
+         *     Assistant lecturer and every other caller.
+         */
+        put: operations["setSessionScoringGuide"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/class-sessions/{session_id}/settings-check": {
         parameters: {
             query?: never;
@@ -4073,6 +4105,43 @@ export interface components {
             /** Step Opened At */
             step_opened_at: string | null;
         };
+        /**
+         * GuideCriterionOut
+         * @description One coded criterion, read-only in v1: its code, its wording and its weight in %.
+         */
+        GuideCriterionOut: {
+            /** Code */
+            code: string;
+            /** Text */
+            text: string;
+            /** Weight */
+            weight: number;
+        };
+        /**
+         * GuideQuestionOut
+         * @description One question of the Scoring guide as the Lecturer reads it: a long-answer question or an
+         *     Adapted item template, its title, its guide text in force, the default text it derives from,
+         *     whether the two differ («Endret», else «Standard») and its criteria.
+         */
+        GuideQuestionOut: {
+            /** Changed */
+            changed: boolean;
+            /** Criteria */
+            criteria: components["schemas"]["GuideCriterionOut"][];
+            /** Guide */
+            guide: string;
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "long" | "adapted";
+            /** Standard Guide */
+            standard_guide: string;
+            /** Title */
+            title: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -5720,6 +5789,60 @@ export interface components {
             suggested_count: number;
             /** Valid Count */
             valid_count: number;
+        };
+        /** ScaleStepOut */
+        ScaleStepOut: {
+            /** Label */
+            label: string;
+            /** Step */
+            step: number;
+        };
+        /**
+         * ScoringGuideIn
+         * @description «Lagre sensorveiledning»: the guide text of each question the Lecturer changed, by question
+         *     id. The criteria, the scale and the titles never change.
+         */
+        ScoringGuideIn: {
+            /** Guides */
+            guides: {
+                [key: string]: string;
+            };
+        };
+        /**
+         * ScoringGuideOut
+         * @description The Class session's Scoring guide in force (Story 11.2): its version id and number,
+         *     whether it is a draft (issue #16), whether it is an edit made for a Class session, whether a
+         *     newer default was published after the edit (`outdated`: the edit stays in force), whether a
+         *     Control test has checked it (`content.service.is_checked`), whether the Test-deadline lock has
+         *     pinned it, whether it can still change (before the original Test deadline), whether the User
+         *     may change it, the one five-step scale and the questions.
+         */
+        ScoringGuideOut: {
+            /** Can Change */
+            can_change: boolean;
+            /** Checked */
+            checked: boolean;
+            /** Draft */
+            draft: boolean;
+            /** Edited */
+            edited: boolean;
+            /** Open */
+            open: boolean;
+            /** Outdated */
+            outdated: boolean;
+            /** Pinned */
+            pinned: boolean;
+            /** Questions */
+            questions: components["schemas"]["GuideQuestionOut"][];
+            /** Scale */
+            scale: components["schemas"]["ScaleStepOut"][];
+            /** Version */
+            version: number;
+            /**
+             * Version Id
+             * Format: uuid
+             */
+            version_id: string;
         };
         /** SeatChoiceGameOut */
         SeatChoiceGameOut: {
@@ -9405,6 +9528,117 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getSessionScoringGuide: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScoringGuideOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    setSessionScoringGuide: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScoringGuideIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScoringGuideOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

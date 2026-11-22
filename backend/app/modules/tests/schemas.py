@@ -1,9 +1,11 @@
 """The Starting task as the Student reads and answers it (Story 6.3, FR-85, UX-DR63)."""
 
+import uuid
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.modules.content.schemas import GUIDE_TEXT_MAX
 from app.modules.tests.models import Choice
 
 _IN = ConfigDict(extra="forbid")
@@ -123,3 +125,69 @@ class QuestionSetIn(BaseModel):
     weights: Annotated[dict[str, Weight], Field(max_length=60)]
     excluded: Annotated[list[str], Field(max_length=60)]
     adapted_weight: Weight
+
+
+# The «Sensorveiledning» block (Story 11.2, FR-81, UX-DR49).
+
+
+class GuideCriterionOut(BaseModel):
+    """One coded criterion, read-only in v1: its code, its wording and its weight in %."""
+
+    code: str
+    text: str
+    weight: int
+
+
+class GuideQuestionOut(BaseModel):
+    """One question of the Scoring guide as the Lecturer reads it: a long-answer question or an
+    Adapted item template, its title, its guide text in force, the default text it derives from,
+    whether the two differ («Endret», else «Standard») and its criteria."""
+
+    id: str
+    kind: Literal["long", "adapted"]
+    title: str
+    guide: str
+    standard_guide: str
+    changed: bool
+    criteria: list[GuideCriterionOut]
+
+
+class ScaleStepOut(BaseModel):
+    step: int
+    label: str
+
+
+class ScoringGuideOut(BaseModel):
+    """The Class session's Scoring guide in force (Story 11.2): its version id and number,
+    whether it is a draft (issue #16), whether it is an edit made for a Class session, whether a
+    newer default was published after the edit (`outdated`: the edit stays in force), whether a
+    Control test has checked it (`content.service.is_checked`), whether the Test-deadline lock has
+    pinned it, whether it can still change (before the original Test deadline), whether the User
+    may change it, the one five-step scale and the questions."""
+
+    version_id: uuid.UUID
+    version: int
+    draft: bool
+    edited: bool
+    outdated: bool
+    checked: bool
+    pinned: bool
+    open: bool
+    can_change: bool
+    scale: list[ScaleStepOut]
+    questions: list[GuideQuestionOut]
+
+
+class ScoringGuideIn(BaseModel):
+    """«Lagre sensorveiledning»: the guide text of each question the Lecturer changed, by question
+    id. The criteria, the scale and the titles never change."""
+
+    model_config = _IN
+
+    guides: Annotated[
+        dict[
+            Annotated[str, Field(min_length=1, max_length=40)],
+            Annotated[str, Field(max_length=GUIDE_TEXT_MAX)],
+        ],
+        Field(min_length=1, max_length=40),
+    ]

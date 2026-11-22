@@ -19,8 +19,11 @@ from app.analysis.quiz import DebriefQuiz
 from app.analysis.sentences import MomentTemplates, SentenceTemplates
 
 __all__ = [
+    "CRITERIA_MAX",
+    "CRITERIA_MIN",
     "ColumnRow",
     "DebriefQuiz",
+    "GUIDE_TEXT_MAX",
     "MomentTemplates",
     "NarrationTemplates",
     "REFLECTION_KINDS",
@@ -31,6 +34,8 @@ __all__ = [
     "QuestionSetItem",
     "ReflectionQuestion",
     "ReflectionQuestions",
+    "SCALE_STEPS",
+    "ScoringGuide",
     "SentenceTemplates",
     "StartingTask",
     "StartingTaskItem",
@@ -254,6 +259,91 @@ class QuestionSet(BaseModel):
             raise ValueError("the default weights and the Adapted total weight sum to 100")
         if sum(item.weight for item in self.replacements) != self.adapted_weight:
             raise ValueError("the replacement items carry the Adapted total weight")
+        return self
+
+
+CRITERIA_MIN, CRITERIA_MAX = 5, 8
+"""How many coded criteria each question of the Scoring guide has (FR-81)."""
+
+SCALE_STEPS = 5
+"""The one fixed scale of the Scoring guide, shared by every question: steps 0 to 4 (FR-81)."""
+
+_Code = Annotated[str, Field(pattern=r"^[A-Z][A-Z0-9]{0,9}$")]
+GUIDE_TEXT_MAX = 4000
+"""The longest guide text of one Scoring guide question (Story 11.2)."""
+
+_GuideText = Annotated[str, Field(min_length=1, max_length=GUIDE_TEXT_MAX)]
+
+
+class ScaleStep(BaseModel):
+    """One step of the Scoring guide's five-step scale: its number and what it means."""
+
+    model_config = _FROZEN
+
+    step: Annotated[int, Field(strict=True, ge=0, le=SCALE_STEPS - 1)]
+    label: _Text
+
+
+class GuideCriterion(BaseModel):
+    """One coded criterion of a question (FR-81): its code, what it looks for and its weight in
+    whole percent of the question."""
+
+    model_config = _FROZEN
+
+    code: _Code
+    text: _Text
+    weight: Annotated[int, Field(strict=True, ge=1, le=100)]
+
+
+class GuideQuestion(BaseModel):
+    """The Scoring guide of one long-answer question (`long`, its id the item's `scoring_rule`) or
+    one Adapted item template (`adapted`, Story 11.7): its title, the descriptive guide text a
+    Lecturer may edit (what is asked for, what strong and weak answers look like) and its 5 to 8
+    coded criteria, whose weights sum to 100. The criteria are never edited in v1."""
+
+    model_config = _FROZEN
+
+    id: _Key
+    kind: Literal["long", "adapted"]
+    title: _Text
+    guide: _GuideText
+    criteria: Annotated[
+        tuple[GuideCriterion, ...], Field(min_length=CRITERIA_MIN, max_length=CRITERIA_MAX)
+    ]
+
+    @model_validator(mode="after")
+    def _criteria_coded(self) -> GuideQuestion:
+        codes = [criterion.code for criterion in self.criteria]
+        if len(set(codes)) != len(codes):
+            raise ValueError(f"question {self.id!r} repeats a criterion code")
+        if sum(criterion.weight for criterion in self.criteria) != 100:
+            raise ValueError(f"the criteria of question {self.id!r} weigh 100 together")
+        if not self.guide.strip():
+            raise ValueError(f"question {self.id!r} has no guide text")
+        if "\x00" in self.guide:  # a JSONB value cannot hold it
+            raise ValueError(f"the guide text of question {self.id!r} holds a NUL character")
+        return self
+
+
+class ScoringGuide(BaseModel):
+    """The Scoring guide (Story 11.2, FR-81, AD-23): one fixed five-step scale (0 to 4) shared by
+    every question, and per long-answer question and Adapted item template its guide. `draft`
+    until the founder approves the real text (issue #16). A default is published by the content
+    load; a Lecturer's edit is a new version made for one Class session (`tests.guide`)."""
+
+    model_config = _FROZEN
+
+    status: Literal["draft", "approved"]
+    scale: Annotated[tuple[ScaleStep, ...], Field(min_length=SCALE_STEPS, max_length=SCALE_STEPS)]
+    questions: Annotated[tuple[GuideQuestion, ...], Field(min_length=1, max_length=40)]
+
+    @model_validator(mode="after")
+    def _fixed_scale_and_unique_ids(self) -> ScoringGuide:
+        if [step.step for step in self.scale] != list(range(SCALE_STEPS)):
+            raise ValueError("the scale has the steps 0 to 4 in order")
+        ids = [question.id for question in self.questions]
+        if len(set(ids)) != len(ids):
+            raise ValueError("question ids repeat")
         return self
 
 

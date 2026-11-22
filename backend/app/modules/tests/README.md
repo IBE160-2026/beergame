@@ -29,3 +29,25 @@ taken out, each Core item's weight and the Adapted total weight (`selection.py`)
   production a `draft` version refuses the lock (`sessions.PinRefused`, `question_set_draft`, told
   to the owners like a missing provider key). `copy_selection` (registered with `sessions`) copies
   the selection, or the pin of a locked source, into a copy (FR-66).
+
+## The Scoring guide, «Sensorveiledning» (Story 11.2)
+
+`test_scoring_guides`: one row per Class session that edited its Scoring guide (or was pinned or
+copied): the version in force (`scoring_guide_id`, a `content` record), the default it derives
+from (`base_id`) and when the Test-deadline lock pinned it (`guide.py`). No row reads as the
+latest default. A trigger refuses any change of a pinned row.
+
+- `GET /api/class-sessions/{id}/scoring-guide` (owners and Assistant lecturers) and `PUT …`
+  («Lagre sensorveiledning», owners only, `scoring_guide.change`) with the changed texts only
+  (`{guides: {question_id: text}}`). A save publishes a new version made for the Class session
+  through the content load's validation; the criteria, the scale and the titles never change. A
+  question whose text differs from its base default is «Endret». 409 `scoring_guide_locked` from
+  the original Test deadline (also before the sweep has run), `class_archived` for an archived
+  Class; 422 `validation_error` for an unknown question or a text the record refuses. A save is
+  audited (ids only) and emits `session:<id>`; an unchanged save stores nothing.
+- `sessions.lock_test` runs `pin_guide` (registered with `register_test_pinner`) in its
+  transaction: the version in force is pinned as of the Test deadline, on the latest default when
+  the session never edited it. `copy_guide` (registered with `register_copier`) carries an edited
+  version into a copy by its id, never its pin (FR-66).
+- Whether the version is checked is asked of `content.service.is_checked` only; the block shows
+  «Ikke kontrollert med en Kontrolltest.» while it is False.

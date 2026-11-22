@@ -1,4 +1,4 @@
-"""The tables owned by `modules/tests` (Story 6.3, FR-85; Story 11.1, FR-52)."""
+"""The tables owned by `modules/tests` (Story 6.3, FR-85; Story 11.1, FR-52; Story 11.2, FR-81)."""
 
 from enum import StrEnum
 
@@ -86,3 +86,30 @@ test_selections = Table(
 made on, the items taken out, each Core item's weight and the Adapted total weight, saved with
 «Lagre vekter» before the Start date. No row reads as the latest version's defaults; the lock pins
 the selection in force (`selection.question_set_pin`)."""
+
+
+test_scoring_guides = Table(
+    "test_scoring_guides",
+    metadata,
+    Column(
+        "class_session_id",
+        Uuid,
+        ForeignKey("class_sessions.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column(
+        "scoring_guide_id",
+        Uuid,
+        ForeignKey("content_records.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("base_id", Uuid, ForeignKey("content_records.id", ondelete="CASCADE"), nullable=False),
+    Column("pinned_at", DateTime(timezone=True), nullable=True),
+    Column("updated_by", Uuid, ForeignKey("users.id", ondelete="SET NULL")),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+)
+"""The Scoring guide version in force for a Class session (Story 11.2, FR-81, AD-23): a version
+a Lecturer's save made for it (or one a copy carried over, FR-66), the default it derives from
+(`base_id`: a question whose text differs from it is «Endret»), and when the Test-deadline lock
+pinned it. No row reads as the latest default. A trigger (migration 0122) refuses any change of a
+pinned row."""
