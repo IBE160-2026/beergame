@@ -3687,3 +3687,22 @@ Avslutte Epic 11 (og Story 12.1, som lå på samme gren): visuell kontroll, punk
 
 ### Åpne punkter
 - Issue #225: utsatte punkter (oppdatering fra en annen enhet under skriving, små tekstpunkter fra den visuelle kontrollen, registeret for persondata ved merge med Epic 15).
+
+## Story 12.4: Få beskjed når KI-vurderingen er klar (spor 3)
+
+### Oppgave
+Bygge Story 12.4 på `epic-12` i spor 3.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-12-4-be-told-when-the-ai-assessment-is-ready.md`.
+- Commit: 8fd8647. Migrasjon 0204.
+- Studenten får varsel og en linje på Hjem når vurderingen er klar; Admin får ett varsel per Klasseøkt ved feil. Sweepen henter opp tapte jobber etter 24 timer. Vurderingen kan stoppes og startes igjen per Klasseøkt.
+- Tester: backend 3753, Vitest 1180, tsc, `lint:colours`, `check:copy`, bygg, Playwright med axe. Testen med 400 forsøk tar rundt 30 s (merket `long`).
+- Gjennomgang: 38 funn, 9 rettet; oppfølgende gjennomgang anbefalt.
+- Status: done.
+
+### Åpne punkter
+- Issue #228: beslutninger og den trege testen.
