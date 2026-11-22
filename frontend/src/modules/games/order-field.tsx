@@ -40,6 +40,9 @@ type Props = {
   failure?: string | null;
   /** The last send failed: the button offers to send the same value again. */
   retry?: boolean;
+  /** The game takes no more Orders (a Replay past its Testfrist, Story 10.6): the field is read-only
+   * and the button unavailable, with `failure` saying why. */
+  closed?: boolean;
   /** Whom else the game waits for, in words, once the Order is sent: «Jonas (3 min)» (Story
    * 6.14); null when it waits for no one else. */
   waitingFor?: string | null;
@@ -125,6 +128,7 @@ function Editable({
   checking = false,
   failure = null,
   retry = false,
+  closed = false,
   aside,
 }: Props) {
   const id = useId();
@@ -142,8 +146,10 @@ function Editable({
   const error = orderError(parsed, max) ?? (parsed.kind === "empty" && pressedEmpty ? copy.invalid(limit) : null);
   const valid = parsed.kind === "valid" ? parsed.value : null;
 
+  // Read-only while the Order is on its way, and for good once the game takes no more Orders.
+  const locked = sending || closed;
   const change = (next: string) => {
-    if (sending) return; // The field is read-only while the Order is on its way.
+    if (locked) return;
     onText(next);
     setPressedEmpty(false);
     setAlert(null);
@@ -152,14 +158,14 @@ function Editable({
     if (message) setAlert((was) => ({ text: message, n: (was?.n ?? 0) + 1 }));
   };
   const step = (direction: -1 | 1) => {
-    if (sending) return;
+    if (locked) return;
     const next = stepOrder(parsed, max, direction);
     if (next === null) return;
     change(String(next));
     setStepped(copy.stepped(formatNumber(next)));
   };
   const press = () => {
-    if (sending) return; // Further presses are ignored while the Order is on its way.
+    if (locked) return; // Further presses are ignored while the Order is on its way, or closed.
     if (valid !== null) {
       onConfirm?.(valid);
       return;
@@ -193,8 +199,8 @@ function Editable({
           ? copy.retry(formatNumber(valid))
           : copy.confirmOn(formatNumber(valid));
 
-  const fewer = sending || stepOrder(parsed, max, -1) === null;
-  const more = sending || stepOrder(parsed, max, 1) === null;
+  const fewer = locked || stepOrder(parsed, max, -1) === null;
+  const more = locked || stepOrder(parsed, max, 1) === null;
   const describedBy = [`${id}-help`, error ? `${id}-error` : null].filter(Boolean).join(" ");
   return (
     <div className="mt-8 mb-8 max-w-md lg:mt-0" data-order-field="editable">
@@ -224,7 +230,7 @@ function Editable({
           autoComplete="off"
           placeholder={copy.placeholder}
           value={text}
-          readOnly={sending}
+          readOnly={locked}
           aria-invalid={error ? true : undefined}
           aria-describedby={describedBy}
           onChange={(event) => change(event.target.value)}
@@ -234,7 +240,7 @@ function Editable({
             VALUE,
             "min-w-0 flex-1 px-2 outline-none placeholder:text-body placeholder:text-ink-muted",
             // Read-only while submitting (DESIGN.md → Ordrefelt): `future-tint` fill, value in `ink-muted`.
-            sending ? "bg-future-tint text-ink-muted" : "bg-paper text-ink",
+            locked ? "bg-future-tint text-ink-muted" : "bg-paper text-ink",
           )}
         />
         <Segment label={copy.more} sign="+" unavailable={more} onPress={() => step(1)} side="right" />
@@ -274,7 +280,7 @@ function Editable({
       <Button
         ref={button}
         variant="primary"
-        unavailable={valid === null || sending}
+        unavailable={valid === null || locked}
         aria-busy={sending ? true : undefined}
         onClickCapture={press}
         className="mt-3 w-full"

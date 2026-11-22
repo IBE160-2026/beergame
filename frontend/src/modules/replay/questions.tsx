@@ -91,6 +91,7 @@ function AnotherRound({ gameId }: { gameId: string }) {
       />
       <Button
         className="mt-3"
+        aria-label={copy.sendName}
         unavailable={chosen === null || send.isPending}
         onClick={() => {
           if (chosen === null) return;

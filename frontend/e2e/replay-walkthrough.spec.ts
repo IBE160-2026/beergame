@@ -176,6 +176,9 @@ test("both optional questions are answered, by keyboard and by pointer, each onc
   await page.setViewportSize({ width: 360, height: 740 });
   await open(page, [ready(false)]);
   const questions = page.getByRole("main").getByRole("region", { name: nb.replay.questions.title });
+  // Two «Send svar», each named by its question (Story 10.8 follow-up).
+  await expect(questions.getByRole("button", { name: nb.believability.sendName, exact: true })).toHaveCount(1);
+  await expect(questions.getByRole("button", { name: nb.replay.questions.sendName, exact: true })).toHaveCount(1);
   const scale = questions.getByRole("group", { name: nb.believability.legend });
   await scale.getByRole("radio", { name: "5", exact: true }).focus();
   await page.keyboard.press("Space");
@@ -185,7 +188,7 @@ test("both optional questions are answered, by keyboard and by pointer, each onc
   await expect(questions.locator("[data-believability-saved]")).toHaveText(nb.believability.saved(5));
   const round = questions.getByRole("group", { name: nb.replay.questions.anotherRound });
   await round.getByRole("radio", { name: nb.replay.questions.no }).check();
-  await questions.getByRole("button", { name: nb.replay.questions.send }).click();
+  await questions.getByRole("button", { name: nb.replay.questions.sendName, exact: true }).click();
   await expect(questions.locator("[data-another-round-saved]")).toHaveText(nb.replay.questions.saved(false));
   await expect(questions.getByRole("radio")).toHaveCount(0);
   await expectAccessible(page, true);

@@ -91,6 +91,17 @@ describe("Ordrefelt, typing an Order (Story 6.11)", () => {
 
 });
 
+describe("Ordrefelt, a Replay past its Testfrist (Story 10.6)", () => {
+  it("closed: the reason, a read-only field and an unavailable button, − and + too", () => {
+    const html = render("24", { closed: true, failure: copy.deadlineGone("24") });
+    expect(html).toContain(copy.deadlineGone("24"));
+    expect(html).toMatch(/<input[^>]*readonly/i);
+    expect(html).toMatch(/<button[^>]*aria-disabled="true"[^>]*>Bekreft ordre på 24<\/button>/);
+    expect(html).toMatch(/<button[^>]*aria-label="Én færre"[^>]*aria-disabled="true"/);
+    expect(html).toMatch(/<button[^>]*aria-label="Én flere"[^>]*aria-disabled="true"/);
+  });
+});
+
 describe("Ordrefelt, sending and confirmed (Story 6.12)", () => {
   it("sending: «Sender ordre på 24 …», busy and unavailable, the field read-only, − and + unavailable", () => {
     const html = render("24", { sending: true });

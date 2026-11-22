@@ -87,6 +87,7 @@ export function BelievabilityQuestion({
       </p>
       <Button
         className="mt-3"
+        aria-label={copy.sendName}
         unavailable={chosen === null || sending}
         onClick={() => {
           if (chosen === null) return;

@@ -330,8 +330,12 @@ function Running({
         {summary && movedFrom !== undefined ? summary.spoken : ""}
       </p>
       {/* Hidden, not gone, while Alle rader is open (`useAllRows`). */}
-      <div hidden={allRows.open !== null}>
-        <div className="mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-12 xl:grid-cols-[minmax(0,1fr)_24rem]">
+      {/* Two columns by the content's width in rem (a container query), not the viewport's: at
+          200 % text the right column would take most of the row and clip the chart, so the page
+          reflows to one column there (WCAG 1.4.4, 1.4.10). 52rem and 68rem are just under the content's
+          width at 1024 and 1280 px with default text and a scrollbar. */}
+      <div hidden={allRows.open !== null} className="@container">
+        <div className="mt-6 @min-[52rem]:grid @min-[52rem]:grid-cols-[minmax(0,1fr)_18rem] @min-[52rem]:gap-12 @min-[68rem]:grid-cols-[minmax(0,1fr)_24rem]">
           <div className="min-w-0">
             {/* Reading and focus order: Topplinje, Kjedebånd, Graf over tabell, the rest (FR-73). */}
             <ChainBandView state={state} seatRoles={game.seats.map((seat) => seat.role)} typed={preview?.order} />
@@ -590,21 +594,22 @@ function useSendOrder(gameId: string, week: number, userId: string, field: strin
 
 /** The words the order area shows for a send's outcome in Uke `week`. */
 function outcomeProps(outcome: SendOutcome | null, week: number) {
-  if (!outcome) return { checking: false, failure: null, retry: false };
+  if (!outcome) return { checking: false, failure: null, retry: false, closed: false };
   const value = formatNumber(outcome.value);
   const here = outcome.week === week;
   switch (outcome.kind) {
     case "checking":
-      return { checking: here, failure: null, retry: false };
+      return { checking: here, failure: null, retry: false, closed: false };
     case "failed":
-      return { checking: false, failure: here ? copy.order.failed : null, retry: here };
+      return { checking: false, failure: here ? copy.order.failed : null, retry: here, closed: false };
     case "weekGone":
       // Read in whichever Uke the screen moved on to.
-      return { checking: false, failure: copy.order.weekGone(outcome.week, value), retry: false };
+      return { checking: false, failure: copy.order.weekGone(outcome.week, value), retry: false, closed: false };
     case "seatGone":
-      return { checking: false, failure: here ? copy.order.seatGone(value) : null, retry: false };
+      return { checking: false, failure: here ? copy.order.seatGone(value) : null, retry: false, closed: false };
     case "deadlineGone":
-      return { checking: false, failure: copy.order.deadlineGone(value), retry: false };
+      // The Replay takes no more Orders: the button stays unavailable until the closed Replay shows.
+      return { checking: false, failure: copy.order.deadlineGone(value), retry: false, closed: true };
   }
 }
 

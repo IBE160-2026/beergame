@@ -30,6 +30,12 @@ export type NetOverGameProps = {
    * (Story 10.7: the Class game beside the Replay, `09-alle-sider.png`, «grå: Klassespill»). The
    * axis runs from the first to the last Uke of either run. */
   compare?: readonly NetOverGamePoint[];
+  /** Direct labels at the right end of the lines (DESIGN.md: label lines directly): the main run's
+   * and, with `compare`, the second run's (Story 10.7 follow-up). Room for them is taken from the
+   * plot's right side. */
+  lineLabels?: { main: string; compare?: string };
+  /** The y axis' unit («enheter»), written above the tick labels. */
+  yUnit?: string;
 };
 
 /** The Uker labelled under the axis besides the first and the last (`07-debrief.png`: 1, 12, 24,
@@ -44,16 +50,32 @@ const WEEK_STEP = 12;
  * last Uke), not table columns: there is no week table under it. `aria-hidden`; «Vis som tabell»
  * is its alternative. Hand-made SVG like the rest of the module (see README).
  */
-export function NetOverGame({ width, height, fontSize, points, title, formatTick, weekLabel, marker, scaleWith, compare }: NetOverGameProps) {
+export function NetOverGame({
+  width,
+  height,
+  fontSize,
+  points,
+  title,
+  formatTick,
+  weekLabel,
+  marker,
+  scaleWith,
+  compare,
+  lineLabels,
+  yUnit,
+}: NetOverGameProps) {
   const clip = useId().replace(/:/g, "");
   const others = compare ?? [];
   const domain = netDomain([...points.map((p) => p.net), ...others.map((p) => p.net), ...(scaleWith ?? [])]);
-  const plotTop = Math.round(fontSize * 0.8);
+  const plotTop = Math.round(fontSize * (yUnit ? 2 : 0.8));
   const base = height - Math.round(fontSize * 1.9);
   const ticks = netTicks(domain, base - plotTop, fontSize);
   const tickWidth = Math.max(...ticks.map((t) => formatTick(t).length)) * fontSize * 0.55 + fontSize * 0.6;
   const left = Math.ceil(tickWidth);
-  const right = width - Math.ceil(fontSize * 0.4);
+  const labelTexts = lineLabels ? [lineLabels.main, ...(compare && lineLabels.compare ? [lineLabels.compare] : [])] : [];
+  // A direct label is about 0.55 em a character, with half an em before it.
+  const labelRoom = labelTexts.length ? Math.ceil(Math.max(...labelTexts.map((t) => t.length)) * fontSize * 0.55 + fontSize * 0.5) : 0;
+  const right = width - Math.ceil(fontSize * 0.4) - labelRoom;
   const y = scaleLinear().domain(domain).range([base, plotTop]);
   const weeks = [...points, ...others].map((p) => p.week);
   const first = weeks.length ? Math.min(...weeks) : 1;
@@ -68,6 +90,7 @@ export function NetOverGame({ width, height, fontSize, points, title, formatTick
     .y0(zero)
     .y1((p) => y(p.net))(points);
   const compareLine = others.length > 1 ? line<NetOverGamePoint>().x((p) => x(p.week)).y((p) => y(p.net))(others) : null;
+  const ends = lineEnds(points, others, lineLabels, y, fontSize, plotTop, base);
   const labelled = weeks.length
     ? weekLabels(
         [
@@ -159,6 +182,23 @@ export function NetOverGame({ width, height, fontSize, points, title, formatTick
       {points.length === 1 ? (
         <circle cx={x(points[0]!.week)} cy={y(points[0]!.net)} r={3.5} fill={colour(points[0]!.net < 0 ? "restordre" : "lager")} />
       ) : null}
+      {yUnit ? (
+        <text data-label="unit" x={0} y={fontSize * 0.9} fill={colour("ink-muted")}>
+          {yUnit}
+        </text>
+      ) : null}
+      {ends.map((end) => (
+        <text
+          key={end.kind}
+          data-label={`line-${end.kind}`}
+          x={right + fontSize * 0.4}
+          y={end.y}
+          dy="0.35em"
+          fill={colour(end.kind === "compare" ? "ink-muted" : "ink")}
+        >
+          {end.text}
+        </text>
+      ))}
       {labelled.map((week, index) => (
         <text
           key={week}
@@ -173,6 +213,47 @@ export function NetOverGame({ width, height, fontSize, points, title, formatTick
       ))}
     </svg>
   );
+}
+
+/**
+ * Where the direct labels stand: at the height of each line's last Uke, pushed apart to at least
+ * 1.2 em when the two lines end close together, and kept inside the plot.
+ */
+function lineEnds(
+  points: readonly NetOverGamePoint[],
+  others: readonly NetOverGamePoint[],
+  labels: NetOverGameProps["lineLabels"],
+  y: (net: number) => number,
+  fontSize: number,
+  top: number,
+  bottom: number,
+): { kind: "main" | "compare"; text: string; y: number }[] {
+  if (!labels) return [];
+  const clamp = (value: number) => Math.min(bottom - fontSize * 0.5, Math.max(top + fontSize * 0.5, value));
+  const ends: { kind: "main" | "compare"; text: string; y: number }[] = [];
+  const lastMain = points[points.length - 1];
+  if (lastMain) ends.push({ kind: "main", text: labels.main, y: clamp(y(lastMain.net)) });
+  const lastOther = others[others.length - 1];
+  if (lastOther && labels.compare) ends.push({ kind: "compare", text: labels.compare, y: clamp(y(lastOther.net)) });
+  if (ends.length === 2) {
+    const [a, b] = ends as [(typeof ends)[number], (typeof ends)[number]];
+    const gap = fontSize * 1.2;
+    if (Math.abs(a.y - b.y) < gap) {
+      const middle = (a.y + b.y) / 2;
+      const [upper, lower] = a.y <= b.y ? [a, b] : [b, a];
+      upper.y = middle - gap / 2;
+      lower.y = middle + gap / 2;
+      if (upper.y < top) {
+        upper.y = top;
+        lower.y = top + gap;
+      }
+      if (lower.y > bottom) {
+        lower.y = bottom;
+        upper.y = bottom - gap;
+      }
+    }
+  }
+  return ends;
 }
 
 /**

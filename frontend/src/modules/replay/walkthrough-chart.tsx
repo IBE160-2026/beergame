@@ -62,6 +62,8 @@ export function WalkthroughChart({ data }: { data: Walkthrough }) {
             title={both ? copy.chartSvg : copy.chartSvgAlone}
             formatTick={(value) => formatNumber(value)}
             weekLabel={copy.week}
+            lineLabels={{ main: copy.runReplay, compare: copy.runClass }}
+            yUnit={nb.terms.units}
           />
         )}
       </div>

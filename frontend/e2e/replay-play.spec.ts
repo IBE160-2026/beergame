@@ -62,6 +62,30 @@ test.afterEach(async ({ page }) => {
 });
 
 const REPLAY: Envelope = { ...CLASS, projection: true, table_status: { seats: AI_SEATS as Envelope["table_status"]["seats"] } };
+
+test.describe("1280 px at 200 % text", () => {
+  test.use({ viewport: { width: 1280, height: 800 } });
+
+  test("the play screen reflows to one column: the chart keeps the row, nothing is clipped", async ({ page }) => {
+    await page.addInitScript(() => {
+      document.addEventListener("DOMContentLoaded", () => {
+        const style = document.createElement("style");
+        style.textContent = "html { font-size: 200% !important; }";
+        document.head.appendChild(style);
+      });
+    });
+    await openPlay(page, REPLAY, true);
+    const graph = page.locator('svg[data-chart="net"]:visible');
+    const field = page.getByRole("textbox", { name: copy.order.label(11) });
+    const [chart, order, main] = [await graph.boundingBox(), await field.boundingBox(), await page.getByRole("main").boundingBox()];
+    // One column: the Ordrefelt under the chart; the Kjedebånd inside the page.
+    expect(order!.y).toBeGreaterThan(chart!.y + chart!.height);
+    const band = await page.locator("[data-chain-band]").boundingBox();
+    expect(band!.x + band!.width).toBeLessThanOrEqual(main!.x + main!.width + 0.5);
+    expect(await labelProblems(page)).toEqual([]);
+    await expectReflow(page, false);
+  });
+});
 const sentenceOf = (envelope: Envelope, order: number | null) => {
   const p = orderProjection(envelope.seat_state, order);
   return copy.graph.projection(
