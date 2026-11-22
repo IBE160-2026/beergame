@@ -113,6 +113,15 @@ The founder asked for more speed (2026-11-21). From Epic 7 on, two epics are bui
 - Open items for close-outs are in the scratchpad lists `epic8-todo.md`, `epic9-todo.md` (recreate from the story issues if lost). The «Pause n» filter WIP backend is `pause-filter-wip.patch` in the scratchpad.
 - Stories in `review` so far (real-model check for the founder): 2.7 (#56), 2.11 (#60), 9.14 (#173), 9.15 (#176).
 
+## Resume point (2026-11-22, before `/compact`; weekly limit hit, resets 19:00 Europe/Paris)
+
+All stories of Epics 7–10 are built; 7 and 9 are merged to `main` (PRs #165, #179). Both close-outs stopped mid-work on the usage limit:
+- **Epic 8 close-out** (main folder, branch `epic-8`): the merge of `origin/main` is committed locally as 420544e («Merge origin/main (Epics 7 and 9) into epic-8»), not pushed and not yet tested. Next: check the Alembic chain has one head (epic-8's 0053 must follow main's 0113), run the full backend suite on a fresh stack (project `olspillet-e8`, 8090/5434), then tasks 2–7 of the close-out (visual 8.14 + 8.1 columns, MUST «Pause n» filter from `pause-filter-wip.patch`, MUST test speed, UX list in `epic8-todo.md`, stabilisation, PR, CI, issue «Epic 8: avslutning»). Resume the agent `close-epic-8` with SendMessage, or start a new one with the same brief.
+- **Epic 10 close-out** (`.claude/worktrees/lane-2`, branch `epic-10`): uncommitted fixes in progress (scenario errors, play screen at 200 %, walkthrough chart labels, «Send svar» names, Replay block, test speed in `games/helpers.py`). Resume the agent `close-epic-10`, or start a new one that first reviews `git diff`, finishes the MUSTs from `epic10-todo.md`, then stabilises, opens the PR and reports.
+- Merge each PR yourself when CI is green; the second to merge relinks Alembic to `main`'s head. Then set `epic-8`/`epic-10` done in `sprint-status.yaml`, log both close-outs, and **stop: wait for the founder's `/compact` before Epic 11 (lane 1) and Epic 12 (lane 2)** — unless the founder has already run it and says go.
+- Stray empty untracked files at the repo root (`policy.py`, `walkthrough-chart.tsx`) are not ours to stage; the founder may delete them.
+- Scratchpad lists (`epic8-todo.md`, `epic10-todo.md`, drafts) may vanish; the story issues #143–#195 hold the same items.
+
 ## Done
 
 The goal is reached when every story outside the skip list is `done`, `review` or (after three attempts) `blocked`, every epic is merged to `main` with CI green, and a final log section lists the `review` and `blocked` stories with their issues.
