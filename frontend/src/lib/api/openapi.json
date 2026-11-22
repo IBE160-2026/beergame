@@ -2228,6 +2228,123 @@
         "title": "ColumnRowOut",
         "type": "object"
       },
+      "CompletionOut": {
+        "description": "The Student's Completion status as `reports.service.completion_status` gives it (FR-17).\n`requirement_met` is None when the Class session is not obligatory. The shares are whole\npercents rounded down, None without a Class game snapshot; `required_share` is the one that\napplies to this Student, `adjusted` whether it is their own (Story 8.9).",
+        "properties": {
+          "adjusted": {
+            "title": "Adjusted",
+            "type": "boolean"
+          },
+          "obligatory": {
+            "title": "Obligatory",
+            "type": "boolean"
+          },
+          "ordered_share": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ordered Share"
+          },
+          "playout_share": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Playout Share"
+          },
+          "required_share": {
+            "title": "Required Share",
+            "type": "integer"
+          },
+          "requirement_met": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requirement Met"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/CompletionStepOut"
+            },
+            "title": "Steps",
+            "type": "array"
+          }
+        },
+        "required": [
+          "obligatory",
+          "requirement_met",
+          "required_share",
+          "adjusted",
+          "ordered_share",
+          "playout_share",
+          "steps"
+        ],
+        "title": "CompletionOut",
+        "type": "object"
+      },
+      "CompletionStepOut": {
+        "description": "One step of the «Fullføring» block: whether its step event is recorded and when, whether it\ncounts as done after the share, the minimums and any correction, and whether a correction\ndecided it (Story 13.1).",
+        "properties": {
+          "corrected": {
+            "title": "Corrected",
+            "type": "boolean"
+          },
+          "done": {
+            "title": "Done",
+            "type": "boolean"
+          },
+          "recorded": {
+            "title": "Recorded",
+            "type": "boolean"
+          },
+          "recorded_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recorded At"
+          },
+          "step": {
+            "enum": [
+              "class_game",
+              "debrief",
+              "quiz_passed",
+              "replay",
+              "test_submitted"
+            ],
+            "title": "Step",
+            "type": "string"
+          }
+        },
+        "required": [
+          "step",
+          "recorded",
+          "recorded_at",
+          "done",
+          "corrected"
+        ],
+        "title": "CompletionStepOut",
+        "type": "object"
+      },
       "CopiedFromOut": {
         "description": "The source of a copied Class session, as the Klasseøkt names it.",
         "properties": {
@@ -6342,6 +6459,42 @@
         "title": "OwnAdjustmentOut",
         "type": "object"
       },
+      "ParticipationOut": {
+        "description": "Participation signals, information only: they never change the Completion status (FR-17).\nThe seconds spent on the Student's own Orders, how many own Orders there are, and whether the\nown Orders after the Guided Weeks were constant (None with fewer than two).",
+        "properties": {
+          "after_guided": {
+            "title": "After Guided",
+            "type": "integer"
+          },
+          "constant": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Constant"
+          },
+          "own_orders": {
+            "title": "Own Orders",
+            "type": "integer"
+          },
+          "seconds": {
+            "title": "Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "own_orders",
+          "seconds",
+          "constant",
+          "after_guided"
+        ],
+        "title": "ParticipationOut",
+        "type": "object"
+      },
       "PasswordResetIn": {
         "properties": {
           "email": {
@@ -6918,6 +7071,236 @@
         "title": "QuizResultOut",
         "type": "object"
       },
+      "RecordAssessmentOut": {
+        "description": "The AI assessment part, as far as this branch has it: `off` when the Class session's\n«KI-vurdering» switch is off, else `not_ready`. Story 12.5's «KI-vurdering» block replaces this\npart. A self-enabled Indicative letter is never served to staff, so there is no field for one\n(FR-56, AD-12).",
+        "properties": {
+          "state": {
+            "enum": [
+              "off",
+              "not_ready"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "title": "RecordAssessmentOut",
+        "type": "object"
+      },
+      "RecordDebriefOut": {
+        "description": "The Explanation and the Debrief summary (`debrief.service.staff_summary`): the Explanation's\ntext and time, and when the Debrief was finished and whether after the Debrief deadline.",
+        "properties": {
+          "explanation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Explanation"
+          },
+          "explanation_saved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Explanation Saved At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "late": {
+            "title": "Late",
+            "type": "boolean"
+          },
+          "moments": {
+            "title": "Moments",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "explanation",
+          "explanation_saved_at",
+          "finished_at",
+          "late",
+          "moments"
+        ],
+        "title": "RecordDebriefOut",
+        "type": "object"
+      },
+      "RecordGameOut": {
+        "description": "The Student's Class game (`games.service.student_game`): its id for the link to\nSpillinnsikt, number, the Student's Role and where it stands (`ended`: closed without its last\nWeek, Story 10.6), with when it finished.",
+        "properties": {
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "game_id": {
+            "format": "uuid",
+            "title": "Game Id",
+            "type": "string"
+          },
+          "number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number"
+          },
+          "played_out": {
+            "title": "Played Out",
+            "type": "boolean"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "not_ready",
+              "ready",
+              "running",
+              "finished",
+              "ended"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "game_id",
+          "number",
+          "role",
+          "state",
+          "played_out",
+          "finished_at"
+        ],
+        "title": "RecordGameOut",
+        "type": "object"
+      },
+      "RecordQuizAttemptOut": {
+        "description": "A Debrief quiz attempt: its number, time and result; never the answers.",
+        "properties": {
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          },
+          "submitted_at": {
+            "format": "date-time",
+            "title": "Submitted At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "number",
+          "submitted_at",
+          "passed"
+        ],
+        "title": "RecordQuizAttemptOut",
+        "type": "object"
+      },
+      "RecordReplayOut": {
+        "description": "The Student's Replay Game (`replay.service.replay_game_of`) and when it finished.",
+        "properties": {
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "game_id": {
+            "format": "uuid",
+            "title": "Game Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "game_id",
+          "finished_at"
+        ],
+        "title": "RecordReplayOut",
+        "type": "object"
+      },
+      "RecordTestOut": {
+        "description": "The Student's Individual test attempt (`tests.service.attempt_summary`): its status, when it\nwas handed in and which parts hold content. Never an answer.",
+        "properties": {
+          "parts": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "title": "Parts",
+            "type": "object"
+          },
+          "status": {
+            "enum": [
+              "open",
+              "submitted",
+              "auto_submitted"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "submitted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted At"
+          }
+        },
+        "required": [
+          "status",
+          "submitted_at",
+          "parts"
+        ],
+        "title": "RecordTestOut",
+        "type": "object"
+      },
       "ReflectionAnswerIn": {
         "description": "«Fortsett» on a reflection question: the answer as typed. It must hold more than white\nspace and at most 2000 characters (422 `validation_error`).",
         "properties": {
@@ -7071,6 +7454,18 @@
           },
           "status": {
             "$ref": "#/components/schemas/RegistrationStatus"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
           }
         },
         "required": [
@@ -10357,6 +10752,128 @@
           "deadlines"
         ],
         "title": "StudentPageOut",
+        "type": "object"
+      },
+      "StudentRecordOut": {
+        "description": "The Studentside's record of one Student of a Class session (Story 13.2, FR-63, UX-DR55),\nfor the Lecturers and Assistant lecturers of its Class. `can_manage`: the reader is a Lecturer\nof the Class, so the page also shows «Tilrettelegging» and «Frister» (`getStudentPage`).\n`completion` is None for a Student the reports leave out (`reports.scope`); `report` is the\nslot for the link to the Student report, None until Story 13.12.",
+        "properties": {
+          "assessment": {
+            "$ref": "#/components/schemas/RecordAssessmentOut"
+          },
+          "can_manage": {
+            "title": "Can Manage",
+            "type": "boolean"
+          },
+          "class_id": {
+            "format": "uuid",
+            "title": "Class Id",
+            "type": "string"
+          },
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "class_session_id": {
+            "format": "uuid",
+            "title": "Class Session Id",
+            "type": "string"
+          },
+          "completion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CompletionOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "debrief": {
+            "$ref": "#/components/schemas/RecordDebriefOut"
+          },
+          "game": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecordGameOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "participation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ParticipationOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "quiz": {
+            "items": {
+              "$ref": "#/components/schemas/RecordQuizAttemptOut"
+            },
+            "title": "Quiz",
+            "type": "array"
+          },
+          "replay": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecordReplayOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "report": {
+            "title": "Report",
+            "type": "null"
+          },
+          "session_number": {
+            "title": "Session Number",
+            "type": "integer"
+          },
+          "test": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecordTestOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "class_session_id",
+          "class_id",
+          "class_name",
+          "session_number",
+          "user_id",
+          "name",
+          "can_manage",
+          "completion",
+          "participation",
+          "game",
+          "debrief",
+          "quiz",
+          "replay",
+          "test",
+          "assessment"
+        ],
+        "title": "StudentRecordOut",
         "type": "object"
       },
       "StudentReplayOut": {
@@ -16085,6 +16602,78 @@
         "summary": "Extend Test Deadline",
         "tags": [
           "tests"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/students/{user_id}/record": {
+      "get": {
+        "description": "The Studentside's record (Story 13.2, FR-63, FR-17, UX-DR54, UX-DR55): one Student of the\nClass session with the Completion status per step, the participation signals (information\nonly), the game, the Explanation, the Debrief summary, the Debrief quiz attempts, the Replay,\nthe Individual test and the AI assessment's state, for the Lecturers and Assistant lecturers\nof its Class. 403 `forbidden` for anyone else, an Admin without a staff role in the Class\nincluded, for a User who is no Student of the Class now and for a Class session that does not\nexist (FR-5, AD-12).",
+        "operationId": "getStudentRecord",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentRecordOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Student Record",
+        "tags": [
+          "reports"
         ]
       }
     },

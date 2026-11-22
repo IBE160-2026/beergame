@@ -129,7 +129,9 @@ __all__ = [
     "SeatState",
     "SessionGame",
     "SessionRuntime",
+    "SeatTiming",
     "seat_log",
+    "seat_timing",
     "session_games",
     "SimulationBatch",
     "StudentGame",
@@ -553,6 +555,38 @@ async def seat_log(session: AsyncSession, game_id: uuid.UUID, role: str) -> Seat
         weeks=settings.weeks,
         guided_weeks=settings.guided_weeks,
         rows=tuple((row["week"], row["decided_by"], row["reason"]) for row in rows),
+    )
+
+
+@dataclass(frozen=True)
+class SeatTiming:
+    """A Seat's Orders as the Studentside's participation signals read them (Story 13.2, FR-17):
+    the snapshot's Guided Weeks, and per Decision log row its Week, `decided_by`, occupancy
+    `reason`, quantity and the whole seconds from the turn's opening to the Order."""
+
+    guided_weeks: int
+    rows: tuple[tuple[int, str, str, int, int], ...]
+
+
+async def seat_timing(session: AsyncSession, game_id: uuid.UUID, role: str) -> SeatTiming | None:
+    """The `SeatTiming` of the Game's Seat of `role`, read in the caller's transaction; None before
+    the Game has its snapshot or for an unknown Game."""
+    game = await repo.get_game(session, game_id)
+    if game is None or game["settings"] is None:
+        return None
+    settings = GameSettings.model_validate(game["settings"])
+    return SeatTiming(
+        guided_weeks=settings.guided_weeks,
+        rows=tuple(
+            (
+                row["week"],
+                row["decided_by"],
+                row["reason"],
+                row["order"],
+                int((row["ordered_at"] - row["opened_at"]).total_seconds()),
+            )
+            for row in await repo.seat_timing(session, game_id, role)
+        ),
     )
 
 

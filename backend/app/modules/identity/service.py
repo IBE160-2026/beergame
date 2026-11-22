@@ -2045,6 +2045,9 @@ class RosterFacts:
     open: bool
     """The newest Invitation is neither accepted nor voided, and still valid at the time asked."""
     renewal_requested: bool
+    user_id: uuid.UUID | None = None
+    """The User linked to the entry, if any; only a registered entry's is ever shown (Story 13.2:
+    the Roster's link to the Studentside)."""
 
 
 async def class_roster(class_id: uuid.UUID, *, now: datetime) -> list[RosterFacts]:
@@ -2060,6 +2063,7 @@ async def class_roster(class_id: uuid.UUID, *, now: datetime) -> list[RosterFact
             expires_at=row["expires_at"],
             open=row["invitation_id"] is not None and _invitation_open(row, now),
             renewal_requested=row["renewal_requested"],
+            user_id=row["user_id"],
         )
         for row in rows
     ]

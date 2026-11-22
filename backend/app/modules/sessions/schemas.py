@@ -1402,8 +1402,9 @@ class GameInsightOut(BaseModel):
     play_deadline: AwareDatetime | None = None
     """Story 8.7: the Class session's Spillfrist, the latest agreed time; None without one."""
     can_adjust: bool = False
-    """Story 8.9 (AD-12): the reader is a Lecturer of the Class, so each Student's name leads to
-    their Studentside with «Tilrettelegging». False for an Assistant lecturer."""
+    """Story 8.9 (AD-12): the reader is a Lecturer of the Class, who sees «Tilrettelegging» (each
+    Seat's extra time in Spillstyring). False for an Assistant lecturer. Since Story 13.2 every
+    staff member's Spillinnsikt links each Student's name to their Studentside."""
     can_start: bool = False
     """Story 8.10 (FR-22, AD-12): the reader is a Lecturer of the Class and the game may start now
     (not started, with its settings snapshot, in a locked Class session), so Spillstyring offers

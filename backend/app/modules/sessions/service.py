@@ -2109,17 +2109,22 @@ class StudentTarget:
 
 
 async def student_target(
-    user: authz.Principal, class_session_id: uuid.UUID, user_id: uuid.UUID
+    user: authz.Principal,
+    class_session_id: uuid.UUID,
+    user_id: uuid.UUID,
+    action: str = "class_sessions.manage",
 ) -> StudentTarget | None:
-    """The Student `user_id` of the Class session when `user` may manage its Class's sessions
-    (`class_sessions.manage`: a Lecturer of the Class, never an Assistant lecturer) and `user_id`
-    is a Student of the Class now; None, one answer, for anything else (FR-5, AD-12). The
-    Studentside (Story 8.9) and a deadline extension (Story 11.13) are reached only so."""
+    """The Student `user_id` of the Class session when `user` may do `action` on its Class's
+    sessions and `user_id` is a Student of the Class now; None, one answer, for anything else
+    (FR-5, AD-12). By default `class_sessions.manage` (a Lecturer of the Class, never an Assistant
+    lecturer): the Tilrettelegging (Story 8.9) and a deadline extension (Story 11.13) are reached
+    only so. The Studentside's record (Story 13.2) passes `student_page.read`, which its Assistant
+    lecturers hold too."""
     async with get_sessionmaker()() as s:
         row = await repo.session_row(s, class_session_id)
     if row is None:
         return None
-    found = await _class_for(user, row["class_id"], "class_sessions.manage")
+    found = await _class_for(user, row["class_id"], action)
     if found is None:
         return None
     names = await classes.student_names(row["class_id"], [user_id])

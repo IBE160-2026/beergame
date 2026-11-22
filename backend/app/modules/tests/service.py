@@ -17,6 +17,7 @@ Klasseøkt» and «Lag kopi» (FR-66)."""
 
 import uuid
 from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
@@ -52,8 +53,10 @@ __all__ = [
     "PARTS",
     "ItemsOpen",
     "UnknownItem",
+    "AttemptSummary",
     "answer",
     "attempt_status",
+    "attempt_summary",
     "finish",
     "parts_with_content",
     "read",
@@ -278,6 +281,34 @@ async def attempt_status(user_id: uuid.UUID, class_session_id: uuid.UUID) -> str
                 test_attempts.c.class_session_id == class_session_id,
             )
         )
+
+
+@dataclass(frozen=True)
+class AttemptSummary:
+    """The Student's Individual test attempt as the Studentside shows it (Story 13.2, FR-63): its
+    status (`open`, `submitted`, `auto_submitted`), when it was handed in (None while open) and
+    which parts hold content (`parts_with_content`). Never an answer."""
+
+    status: str
+    submitted_at: datetime | None
+    parts: dict[str, bool]
+
+
+async def attempt_summary(user_id: uuid.UUID, class_session_id: uuid.UUID) -> AttemptSummary | None:
+    """The `AttemptSummary` of the Student's attempt in the Class session, None without one."""
+    async with get_sessionmaker()() as s:
+        found = (
+            await s.execute(
+                select(test_attempts.c.status, test_attempts.c.submitted_at).where(
+                    test_attempts.c.user_id == user_id,
+                    test_attempts.c.class_session_id == class_session_id,
+                )
+            )
+        ).first()
+    if found is None:
+        return None
+    parts = await parts_with_content(user_id, class_session_id)
+    return AttemptSummary(status=found.status, submitted_at=found.submitted_at, parts=parts or {})
 
 
 # «Lagre Klasseøkt» stores the timed sitting here (Story 11.12), and «Lag kopi» copies it (FR-66).

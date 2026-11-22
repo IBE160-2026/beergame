@@ -159,6 +159,10 @@ POLICIES: dict[str, frozenset[str]] = {
     # AD-12): its owners and Assistant lecturers read it; only its owners take questions out.
     "debrief_quiz.read": frozenset({LECTURER, ASSISTANT}),
     "debrief_quiz.exclude": frozenset({LECTURER}),
+    # The Studentside's record of one Student (Story 13.2, FR-63, AD-12): its Class's owners and
+    # Assistant lecturers; never another Student, never an Admin without a staff role. Its
+    # «Tilrettelegging» and «Frister» stay with `class_sessions.manage`.
+    "student_page.read": frozenset({LECTURER, ASSISTANT}),
     # The «KI-vurdering» switch of a Class session (Story 12.1, FR-61, AD-12): its Class's staff
     # read it with the Class session (`class_sessions.read`); only its owners change it.
     "ai_assessment.change": frozenset({LECTURER}),
@@ -195,6 +199,7 @@ CLASS_STAFF_ROLES: dict[str, frozenset[str]] = {
     "debrief_summaries.read": frozenset({OWNER, ASSISTANT_STAFF}),
     "debrief_quiz.read": frozenset({OWNER, ASSISTANT_STAFF}),
     "debrief_quiz.exclude": frozenset({OWNER}),
+    "student_page.read": frozenset({OWNER, ASSISTANT_STAFF}),
     "ai_assessment.change": frozenset({OWNER}),
     "question_set.change": frozenset({OWNER}),
     "scoring_guide.change": frozenset({OWNER}),

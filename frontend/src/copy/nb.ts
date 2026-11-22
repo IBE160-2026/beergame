@@ -3784,13 +3784,142 @@ export const nb = {
   },
 
   /** The Studentside (Story 8.9, UX-DR53, EXPERIENCE.md → Studentside and Tilrettelegging), for
-   * the Lecturers of the Class: for now the block «Tilrettelegging»; Story 13.2 adds its own. */
+   * the staff of the Class: «Tilrettelegging» and «Frister» for its Lecturers, and the record
+   * blocks of Story 13.2 (FR-63) for its Lecturers and Assistant lecturers. */
   reports: {
     studentPage: {
       /** The crumb and the link from Spillinnsikt are the Student's name. */
       linkLabel: (name: string) => `Studentside for ${name}`,
       /** [ASSUMPTION] the line under the name. */
       session: (number: number) => `Klasseøkt ${number}`,
+      /** [ASSUMPTION] The Roster's link from a registered Student (Story 13.2): «Studentside» for
+       * a Class with one Klasseøkt, «Studentside, økt 2» for each where it has several. */
+      rosterLink: "Studentside",
+      rosterLinkSession: (number: number) => `Studentside, økt ${number}`,
+      rosterLinkLabel: (email: string, number: number) => `Studentside for ${email}, Klasseøkt ${number}`,
+    },
+    /** The block «Fullføring» (Story 13.2, FR-17, UX-DR54, EXPERIENCE.md → Fullføringsretting):
+     * the step names, «gjort» / «ikke gjort» and the two share lines are the spine's; the rest is
+     * [ASSUMPTION] draft copy for the founder's review. */
+    completion: {
+      title: "Fullføring",
+      steps: {
+        class_game: "Klassespill",
+        debrief: "Debrief",
+        quiz_passed: "Debrief-quiz",
+        replay: "Replay",
+        test_submitted: "Individuell test",
+      } as Record<string, string>,
+      done: "gjort",
+      notDone: "ikke gjort",
+      /** «Registrert ti. 12. des.»: when the step event was recorded (the day ends in its own
+       * full stop). */
+      recorded: (day: string) => `Registrert ${day}`,
+      /** A recorded step that does not count, said in text. */
+      notCounted: {
+        class_game: "Spillet er ferdig, men studenten bestilte selv for sjelden.",
+        debrief: "Debriefen er fullført, men Forklaringen er for kort.",
+        test_submitted: "Testen ble levert ved fristen, men en del mangler svar.",
+      } as Record<string, string>,
+      /** «Bestilte i 70 % av ukene.» */
+      ordered: (percent: string) => `Bestilte i ${percent} av ukene.`,
+      /** « Kravet er 80 %.», only when the Class session is obligatory. */
+      required: (percent: string) => `Kravet er ${percent}.`,
+      /** The Student's own share (Tilrettelegging): «Kravet er 60 % (tilrettelagt).» */
+      requiredAdjusted: (percent: string) => `Kravet er ${percent} (tilrettelagt).`,
+      /** «20 % av ukene ble spilt i utspillingen ved Spillfristen.» */
+      playout: (percent: string) => `${percent} av ukene ble spilt i utspillingen ved Spillfristen.`,
+      met: "Kravet er oppfylt.",
+      notMet: "Kravet er ikke oppfylt.",
+      unavailable: "Fullføringen telles ikke for denne studenten.",
+      /** Participation signals (FR-17): never part of the status. */
+      infoTitle: "Til informasjon",
+      infoNote: "Endrer ikke fullføringen.",
+      /** «Tid på egne bestillinger: 1 t 4 min.» */
+      timeSpent: (time: string) => `Tid på egne bestillinger: ${time}.`,
+      hoursMinutes: (hours: number, minutes: number) => (hours > 0 ? `${hours} t ${minutes} min` : `${minutes} min`),
+      underMinute: "under 1 min",
+      /** Over the Student's own Orders after the Guided Weeks only. */
+      constant: (count: number) => `De ${count} egne bestillingene etter de veiledede ukene hadde samme antall.`,
+      varied: (count: number) => `De ${count} egne bestillingene etter de veiledede ukene hadde ulike antall.`,
+      tooFew: "For få egne bestillinger etter de veiledede ukene til å si om de var like.",
+      noOrders: "Ingen egne bestillinger.",
+    },
+    /** The record blocks of the Studentside (Story 13.2, FR-63). All [ASSUMPTION] draft copy. */
+    record: {
+      game: {
+        title: "Spillet",
+        none: "Ikke noe spill ennå.",
+        /** «Spill 3 · Grossist» */
+        line: (game: string, role: string) => `${game} · ${role}`,
+        name: (number: number | null) => gameName(number),
+        state: {
+          not_ready: "Ikke klart ennå.",
+          ready: "Ikke startet.",
+          running: "Pågår.",
+          finished: "Ferdig.",
+          ended: "Avsluttet før siste uke.",
+        } as Record<string, string>,
+        /** «Ferdig ti. 12. des.» (the day ends in its own full stop) */
+        finishedOn: (day: string) => `Ferdig ${day}`,
+        playedOut: "Spilt ut ved Spillfristen.",
+        insight: "Se Spillinnsikt",
+      },
+      debrief: {
+        title: "Debrief",
+        explanation: "Forklaring",
+        noExplanation: "Ingen Forklaring ennå.",
+        /** «Sendt ti. 12. des.» */
+        sent: (day: string) => `Sendt ${day}`,
+        notFinished: "Debriefen er ikke fullført.",
+        /** «Fullført ti. 12. des. 3 nøkkeløyeblikk.» */
+        finished: (day: string, moments: number) =>
+          moments === 0 ? `Fullført ${day}` : `Fullført ${day} ${moments} nøkkeløyeblikk.`,
+        late: "Etter Debrieffristen.",
+        summary: "Se Debrief-sammendraget",
+      },
+      quiz: {
+        title: "Debrief-quiz",
+        none: "Ingen forsøk ennå.",
+        /** One row: «Forsøk 2 · ti. 12. des. kl. 10:00 · bestått» */
+        attempt: (number: number, at: string, passed: boolean) =>
+          `Forsøk ${number} · ${at} · ${passed ? "bestått" : "ikke bestått"}`,
+      },
+      replay: {
+        title: "Replay",
+        none: "Ingen Replay ennå.",
+        running: "Startet, ikke ferdig.",
+        finishedOn: (day: string) => `Ferdig ${day}`,
+        insight: "Se Replay i Spillinnsikt",
+      },
+      test: {
+        title: "Individuell test",
+        none: "Ikke åpnet ennå.",
+        status: {
+          open: "Åpnet, ikke levert.",
+          submitted: "Levert.",
+          auto_submitted: "Levert automatisk ved Testfristen.",
+        } as Record<string, string>,
+        /** «Levert ti. 12. des. kl. 10:00.» */
+        submittedAt: (at: string) => `Levert ${at}.`,
+        partsTitle: "Deler med svar",
+        parts: {
+          choice: "Flervalg",
+          interactive: "Interaktive oppgaver",
+          long: "Langsvar",
+          adapted: "Tilpassede oppgaver",
+        } as Record<string, string>,
+        answered: "har svar",
+        unanswered: "mangler svar",
+      },
+      /** Until Story 12.5's «KI-vurdering» block takes this place. */
+      assessment: {
+        title: "KI-vurdering",
+        states: {
+          off: "KI-vurdering er slått av for denne klasseøkten.",
+          not_ready: "KI-vurderingen er ikke klar.",
+        } as Record<string, string>,
+      },
     },
     /** The block (EXPERIENCE.md → Tilrettelegging): the idle lines, the form, «Lagret. Gjelder fra
      * nå.» are the spine's; the refusals and the failure are [ASSUMPTION] draft copy. */

@@ -11,7 +11,9 @@ from app.modules.ops import sweep
 from app.modules.reports import service as reports
 from app.modules.tests import service as tests_service
 from app.platform.config import get_settings
+from tests.classes.test_classes import LECTURER
 from tests.classes.test_roster_upload import clock, klass
+from tests.classes.test_staff import call
 from tests.individual_test.test_answer import first, opened, put
 from tests.individual_test.test_open import no_playout
 from tests.sessions.test_dates import TEST
@@ -54,3 +56,21 @@ async def test_an_auto_submitted_test_with_an_empty_part_does_not_count(klass, m
 async def test_no_attempt_has_no_status(klass):
     session_id, seated, _ = await opened(klass, 2)
     assert await tests_service.attempt_status(seated[1], uuid.UUID(session_id)) is None
+
+
+async def test_the_studentside_shows_the_attempt_and_its_parts_never_an_answer(klass):
+    """Story 13.2 (FR-63): the record's Individual test part, read through `attempt_summary`."""
+    session_id, seated, test = await opened(klass)
+    me = seated[0]
+    choice = first(test, "choice")
+    assert (await put(session_id, choice["id"], choice["options"][0], 1)).status_code == 200
+    path = f"/api/class-sessions/{session_id}/students/{me}/record"
+    part = (await call(LECTURER, "GET", path)).json()["test"]
+    assert (part["status"], part["submitted_at"]) == ("open", None)
+    await sweep.run(TEST + timedelta(minutes=3))
+    found = await call(LECTURER, "GET", path)
+    part = found.json()["test"]
+    assert part["status"] == "auto_submitted" and part["submitted_at"] is not None
+    assert part["parts"]["choice"] is True and False in part["parts"].values()
+    assert set(part) == {"status", "submitted_at", "parts"}
+    assert all(isinstance(value, bool) for value in part["parts"].values())

@@ -11,8 +11,11 @@ import { classPath, classSessionPath, HOME_PATH, studentPagePath } from "@/modul
 import { PageShell } from "@/modules/identity/page-shell";
 
 import { AdjustmentBlock } from "./adjustment-block";
-import { type StudentPage, studentPageKey, useStudentPage } from "./api";
+import { type StudentPage, studentRecordKey, useStudentPage, useStudentRecord } from "./api";
+import { CompletionBlock } from "./completion-block";
 import { DeadlineBlock } from "./deadline-block";
+import { RecordBlocks } from "./record-blocks";
+import type { StudentRecord } from "./record";
 
 /** The Studentside's in-place forms: one open at a time (EXPERIENCE.md → Studentside, «One
  * panel»); opening another closes the first and keeps nothing. */
@@ -23,10 +26,11 @@ const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * The Studentside (Story 8.9, UX-DR53, EXPERIENCE.md → Studentside): one Student of a Class
- * session, as a page of blocks for the Lecturers of its Class: «Tilrettelegging» and «Frister»
- * (Story 11.13); Story 13.2 adds its own blocks here. Reached from the Student's name on
- * Spillinnsikt. Anyone else, an Assistant lecturer included, sees the permission-denied page (FR-5,
- * AD-12).
+ * session, as a page of blocks for the staff of its Class (Story 13.2, FR-63): «Fullføring» and
+ * the record blocks for its Lecturers and Assistant lecturers, then «Tilrettelegging» and «Frister»
+ * (Story 11.13) for its Lecturers only. Reached from the Student's name on Spillinnsikt and from
+ * the Roster. Anyone else sees the permission-denied page, which never says whether the Student
+ * exists (FR-5, AD-12).
  */
 export function StudentPageView({ sessionId, userId }: { sessionId: string; userId: string }) {
   const named = ID.test(sessionId) && ID.test(userId);
@@ -55,12 +59,16 @@ function StudentPageBody({
   user: SessionUser;
   updatedAt: number;
 }) {
-  const found = useStudentPage(sessionId, userId);
+  const found = useStudentRecord(sessionId, userId);
+  const data: StudentRecord | undefined = found.data;
+  // «Tilrettelegging» and «Frister» are the Lecturers' (`getStudentPage`); an Assistant lecturer
+  // never asks for them.
+  const page = useStudentPage(sessionId, userId, data?.can_manage === true);
   const [editing, setEditing] = useState<Editing>(null);
   const toggle = (block: Exclude<Editing, null>) => (open: boolean) =>
     setEditing((now) => (open ? block : now === block ? null : now));
-  const { phase, retry } = usePageState(found, studentPageKey(sessionId, userId));
-  const data: StudentPage | undefined = found.data;
+  const { phase, retry } = usePageState(found, studentRecordKey(sessionId, userId));
+  const managed: StudentPage | undefined = data?.can_manage ? page.data : undefined;
   if (found.error instanceof ApiRequestError && found.error.code === "forbidden") {
     return <AccessDenied user={user} updatedAt={updatedAt} />;
   }
@@ -80,7 +88,7 @@ function StudentPageBody({
       crumbs={crumbs}
       phase={data ? "ready" : phase === "ready" ? "loading" : phase}
       onRetry={retry}
-      skeleton={{ rows: 3, columns: 1 }}
+      skeleton={{ rows: 6, columns: 1 }}
       header={
         data ? (
           <header className="flex flex-col gap-1">
@@ -94,8 +102,14 @@ function StudentPageBody({
     >
       {data ? (
         <>
-          <AdjustmentBlock data={data} open={editing === "adjustment"} onOpenChange={toggle("adjustment")} />
-          <DeadlineBlock data={data} open={editing === "deadline"} onOpenChange={toggle("deadline")} />
+          <CompletionBlock record={data} />
+          <RecordBlocks record={data} />
+          {managed ? (
+            <>
+              <AdjustmentBlock data={managed} open={editing === "adjustment"} onOpenChange={toggle("adjustment")} />
+              <DeadlineBlock data={managed} open={editing === "deadline"} onOpenChange={toggle("deadline")} />
+            </>
+          ) : null}
         </>
       ) : null}
     </PageShell>

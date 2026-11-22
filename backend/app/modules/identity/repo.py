@@ -955,6 +955,7 @@ async def class_roster_facts(session: AsyncSession, class_id: uuid.UUID) -> list
             roster_entries.c.id,
             roster_entries.c.email,
             roster_entries.c.registration,
+            roster_entries.c.user_id,
             newest.c.invitation_id,
             newest.c.expires_at,
             newest.c.accepted_at,

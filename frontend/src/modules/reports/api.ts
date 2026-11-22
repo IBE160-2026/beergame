@@ -17,12 +17,34 @@ export const studentPageKey = (sessionId: string, userId: string) =>
 
 /** `/api/class-sessions/{id}/students/{user_id}`: anyone but a Lecturer of the Class, and a User
  * who is no Student of it, answers 403 `forbidden`. */
-export function useStudentPage(sessionId: string, userId: string) {
+export function useStudentPage(sessionId: string, userId: string, enabled = true) {
   return useQuery({
+    enabled,
     queryKey: studentPageKey(sessionId, userId),
     queryFn: () =>
       request(() =>
         api.GET("/api/class-sessions/{session_id}/students/{user_id}", {
+          params: { path: { session_id: sessionId, user_id: userId } },
+          cache: "no-store",
+        }),
+      ),
+    retry: false,
+  });
+}
+
+/** The Studentside's record (Story 13.2): under the Student's Studentside key, so the Class
+ * session's `session:<id>` event reads it again (`topics.ts`) when a step is recorded. */
+export const studentRecordKey = (sessionId: string, userId: string) =>
+  [...studentPageKey(sessionId, userId), "record"] as const;
+
+/** `/api/class-sessions/{id}/students/{user_id}/record`: for the Lecturers and Assistant lecturers
+ * of the Class; anyone else, and a User who is no Student of it, answers 403 `forbidden`. */
+export function useStudentRecord(sessionId: string, userId: string) {
+  return useQuery({
+    queryKey: studentRecordKey(sessionId, userId),
+    queryFn: () =>
+      request(() =>
+        api.GET("/api/class-sessions/{session_id}/students/{user_id}/record", {
           params: { path: { session_id: sessionId, user_id: userId } },
           cache: "no-store",
         }),

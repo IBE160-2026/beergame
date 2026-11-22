@@ -1,7 +1,7 @@
 # `modules/reports`: Completion and Student reports (Epic 13)
 
-Story 13.1 adds the shared pieces; later stories add the Studentside, corrections, the Student
-report and the exports.
+Story 13.1 adds the shared pieces, Story 13.2 the Studentside's record; later stories add
+corrections, the Student report and the exports.
 
 - `service.completion_status(user_id, class_session_id)` is the one Completion assembler (FR-17,
   AD-16). It gathers the inputs through `progress.service.step_events`,
@@ -23,6 +23,25 @@ report and the exports.
 The minimums are configuration, `COMPLETION_EXPLANATION_MIN_LENGTH` (50 characters, trimmed) and
 `COMPLETION_TEST_REQUIRED_PARTS` (`choice,interactive,long,adapted`), both placeholders
 [ASSUMPTION: these minimums].
+
+## The Studentside's record (Story 13.2)
+
+- `GET /api/class-sessions/{id}/students/{user_id}/record` (`routes.py`, `studentside.py`), policy
+  `student_page.read`: the Lecturers and Assistant lecturers of the Class, reached through
+  `sessions.service.student_target(..., "student_page.read")`. 403 `forbidden` is one answer for
+  everyone else, an Admin without a staff role included, and for a User who is no Student of the
+  Class now (FR-5). `Cache-Control: no-store`.
+- It reads each part through the owning module's `service.py`: `completion_status` (above), the
+  game (`games.student_game`, `play_status`, `finished_at`, `seat_timing`), the Explanation, the
+  Debrief summary and the quiz attempts (`debrief.staff_summary`), the Replay
+  (`replay.replay_game_of`), the Individual test (`tests.attempt_summary`: status, time, which
+  parts hold content, never an answer) and the AI assessment's switch (`assessment.switch_of`).
+- Participation (time on own Orders, constant Orders) is the pure `app.analysis.participation`:
+  information only, never an input of `analysis.completion` (FR-17).
+- `assessment` is `off` or `not_ready` on this branch. At the merge with Epic 12, Story 12.5's
+  «KI-vurdering» block takes this part's place on the page (`frontend/src/modules/reports/
+  record-blocks.tsx`); no Indicative letter is ever in this response (FR-56, AD-12).
+- `report` is always None: the slot Story 13.12 fills with the Student report link.
 
 ## Waiting for Epic 12 on this branch
 

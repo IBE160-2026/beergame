@@ -1160,6 +1160,25 @@ async def seat_log(session: AsyncSession, game_id: uuid.UUID, role: str) -> list
     return list(result.mappings())
 
 
+async def seat_timing(session: AsyncSession, game_id: uuid.UUID, role: str) -> list[RowMapping]:
+    """The Decision log rows of the Game's Seat of `role`, by Week, with the quantity and the
+    turn's `opened_at` and `ordered_at` (Story 13.2)."""
+    result = await session.execute(
+        select(
+            seat_weeks.c.week,
+            seat_weeks.c.decided_by,
+            seat_weeks.c.reason,
+            seat_weeks.c.order,
+            seat_weeks.c.opened_at,
+            seat_weeks.c.ordered_at,
+        )
+        .select_from(seat_weeks.join(seats, seats.c.id == seat_weeks.c.seat_id))
+        .where(seat_weeks.c.game_id == game_id, seats.c.role == role)
+        .order_by(seat_weeks.c.week)
+    )
+    return list(result.mappings())
+
+
 async def session_games(session: AsyncSession, class_session_id: uuid.UUID) -> list[RowMapping]:
     """Every Game of the Class session with its purpose, number and `end_reason` (Story 13.1)."""
     result = await session.execute(
