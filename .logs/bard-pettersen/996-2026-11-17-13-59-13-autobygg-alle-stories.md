@@ -2976,3 +2976,24 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Neste b
 
 ### Åpne punkter
 - Issue #187: beslutninger (ny beregning ved merking, avrunding, ett merke per spill).
+
+## Story 10.5: Fullfør Replay og lås opp neste steg (spor 2)
+
+### Oppgave
+Bygge Story 10.5 på `epic-10` i spor 2, med to utsatte punkter fra 10.3 og 10.4 og en ekte e2e-test for projeksjonen.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Neste byggeagent startet med en gang, og den visuelle kontrollen gikk samtidig med eget compose-prosjekt.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-10-5-finish-the-replay-and-unlock-the-next-step.md`.
+- Commit: 2469010.
+- Siste ordre fullfører Replay og registrerer steget som låser opp den individuelle prøven. Egen sluttskjerm for Replay uten «Gå til Debrief», «Se Replay» på Hjem, og Spillinnsikt for Replay for stab.
+- Ny dev-rute og en ekte e2e-test som starter en Replay på stacken og ser projeksjonslinja der, og ikke i klassespillet.
+- Tester: backend 3144 på 137 s, Vitest 1024, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 180 uten ustabile tester.
+- Gjennomgang: 29 funn, 3 lave rettet, 1 middels utsatt. Linja over etiketten fra 10.4 kom ikke med og er sendt til 10.6.
+- Visuell kontroll (Sonnet, bare rapport, eget compose-prosjekt): 15 skjermbilder i `screenshots/10.5/`, ingen klare feil. Setelista for en ferdig Replay på Hjem viser «har bestilt»/«venter»; tatt med i lista til slutten av epicen.
+- Status: done.
+
+### Åpne punkter
+- Issue #188: beslutninger og utsatt punkt om lenken for stab etter overtakelse.
