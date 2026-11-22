@@ -9,8 +9,10 @@ import { expectAccessible, freshClass, freshLecturer, test } from "./support/cla
  * digest mail are pinned through the routes by `backend/tests/sessions/test_obligatory.py`; here
  * the screen. */
 /** The Klasseøkt's setting switches: the Debrief quiz's own (Story 9.10, read through the real
- * api, so the Lecturer may exclude) are left out. */
-const settingSwitches = (page: Page) => page.locator("[role='switch']:not([data-quiz-exclusions] [role='switch'])");
+ * api, so the Lecturer may exclude) and KI-vurdering (Story 12.1, open until the Testfrist) are
+ * left out. */
+const settingSwitches = (page: Page) =>
+  page.locator("[role='switch']:not([data-quiz-exclusions] [role='switch']):not([data-ai-assessment] [role='switch'])");
 
 const copy = nb.sessions;
 const c = copy.choices;

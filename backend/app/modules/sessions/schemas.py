@@ -205,6 +205,22 @@ class TestGameRefOut(BaseModel):
     status: Literal["not_ready", "ready", "running", "finished"]
 
 
+class AiAssessmentOut(BaseModel):
+    """The «KI-vurdering» switch of a Class session (Story 12.1, FR-61), stored by
+    `modules/assessment`."""
+
+    enabled: bool
+    """On by default; off, the Individual tests get no AI assessment and no LLM call is made for
+    one. Answer-key and Interactive items are still scored, and the Student report exists."""
+    pinned_at: datetime | None
+    """When the Test-deadline lock pinned it; None while it can change."""
+    open: bool
+    """It can still change: not pinned, and the original Test deadline has not passed."""
+    can_change: bool
+    """The reader may change it now: an owner of a Class that is not archived, while `open`.
+    Assistant lecturers read it only (AD-12)."""
+
+
 class ClassSessionOut(BaseModel):
     """One Class session as its Class's staff read it."""
 
@@ -312,6 +328,8 @@ class ClassSessionOut(BaseModel):
     the screen shows nothing about it and the route answers 404 `not_found`."""
     test_game: TestGameRefOut | None = None
     """Story 6.20: the reader's latest test Game in this session, while the flag is on."""
+    ai_assessment: AiAssessmentOut
+    """Story 12.1 (FR-61): the «KI-vurdering» switch, open until the original Test deadline."""
 
 
 class TestGameIn(BaseModel):
@@ -404,6 +422,9 @@ class ClassSessionSaveIn(BaseModel):
     """Story 9.2: left out, the stored choice is kept; frozen at the Start date like the others."""
     debrief_ai_text: bool | None = None
     """Story 9.14: the Debrief's AI text on or off; left out, kept; frozen at the Start date."""
+    ai_assessment: bool | None = None
+    """Story 12.1 (FR-61): the «KI-vurdering» switch on or off; left out, kept. It can change
+    after the Start date, until the original Test deadline."""
     dates: DatesIn | None = None
     game_settings: dict[str, Any] | None = None
     obligatory: bool | None = None

@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import type { SessionUser } from "@/modules/identity/api";
 import { AccessDenied, GuardedPage } from "@/modules/identity/home-page";
 import { useClass } from "@/modules/classes/api";
+import { AiAssessmentBlock } from "@/modules/assessment/switch-block";
 import { QuizExclusionsBlock } from "@/modules/debrief/quiz-exclusions";
 import { classOverviewPath, classPath, classSessionPath, HOME_PATH } from "@/modules/identity/homes";
 import { PageLink, PageShell } from "@/modules/identity/page-shell";
@@ -164,13 +165,21 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
   const settingsOpen = editing && item.can_manage && !item.locked;
   // The Replay scenario as chosen (Story 10.2): sent with «Lagre Klasseøkt» while it can change.
   const replay = useReplayScenario(item);
+  // KI-vurdering as chosen (Story 12.1): null until the Lecturer touches it, so a save sends it
+  // only then and never turns back a value another owner saved meanwhile; sent with «Lagre
+  // Klasseøkt» until the Test deadline, also after the Start date.
+  const [aiAssessment, setAiAssessment] = useState<boolean | null>(null);
+  const assessmentOpen = item.ai_assessment.can_change;
+  const assessmentBody = assessmentOpen && aiAssessment !== null ? { ai_assessment: aiAssessment } : {};
   const action = useAction({
     mutationFn: async () => {
       try {
         return await saveClassSession(
           item.id,
           // Once locked the choices stand as stored; the api refuses any change.
-          choosing ? { ...choicesBody(choices), ...methodBody(method, item) } : { ai_mode: item.ai_mode },
+          choosing
+            ? { ...choicesBody(choices), ...methodBody(method, item), ...assessmentBody }
+            : { ai_mode: item.ai_mode, ...assessmentBody },
           datesBody(inputs),
           settingsOpen ? settingsBody(draft, item.game_settings.roles) : undefined,
           settingsOpen ? Number(inactivity.trim()) : undefined,
@@ -178,6 +187,12 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
         );
       } catch (error) {
         replay.refused(error);
+        // The Testfrist passed while the page was open: read the pinned switch again, so the block
+        // stands as text and the next save carries no change of it.
+        if (error instanceof ApiRequestError && error.code === "ai_assessment_pinned") {
+          setAiAssessment(null);
+          void queryClient.invalidateQueries({ queryKey: classSessionKey(item.id), exact: true });
+        }
         if (error instanceof ApiRequestError && error.code === "invalid_settings") {
           checks.current += 1;
           setProblems(problemsOf(error.fields));
@@ -202,6 +217,7 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
       invalid_effort_level: copy.choices.effortRefused,
       invalid_session_values: copy.choices.valuesRefused,
       allocation_confirmed: copy.allocation.methodConfirmed,
+      ai_assessment_pinned: nb.assessment.switchBlock.refused,
     },
     onSuccess: (result) => {
       queryClient.setQueryData(classSessionKey(item.id), result);
@@ -214,6 +230,7 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
       setInputs(inputsOf(result));
       setChoices(choicesOf(result));
       setMethod(result.allocation_method);
+      setAiAssessment(null);
       setTestTouched(result.test_deadline != null);
       setShareChecked(false);
       setInactivity(String(result.inactivity_limit_hours));
@@ -289,10 +306,14 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
   // deadlines', while one can still move.
   const deadlinesOpen = datesEditable(item);
   const copied = copyLines(item);
-  const saveShown = item.can_manage && (!item.locked || deadlinesOpen);
+  const saveShown = item.can_manage && (!item.locked || deadlinesOpen || assessmentOpen);
+  // Locked, «Lagre frister» sits under the dates it saves; while KI-vurdering can still change too
+  // (Story 12.1), the one save is «Lagre Klasseøkt» at the bottom, under both.
+  const lockedSaveUnderDates = item.locked && !assessmentOpen;
   const saveRow = (
     <SaveRow
-      locked={item.locked}
+      locked={lockedSaveUnderDates}
+      lockedWithAssessment={item.locked && assessmentOpen}
       secondary={labFormOpen || confirmShown}
       pending={action.isPending}
       // The reason of a switched-off setting stands at its field; the save line only says it was
@@ -329,7 +350,7 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
           ) : null}
           {item.can_manage ? (
             <p className="mt-1 text-body-phone text-ink-secondary lg:text-body">
-              {deadlinesOpen ? copy.lock.open : copy.lock.labHoursOpen}
+              {assessmentOpen ? copy.lock.openWithAssessment : deadlinesOpen ? copy.lock.open : copy.lock.labHoursOpen}
             </p>
           ) : null}
         </div>
@@ -411,7 +432,7 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
             <p className="mt-3 text-body-phone text-ink lg:text-body">{copy.dates.playTimeShort(settings.weeks)}</p>
           ) : null}
           {/* Locked, «Lagre frister» saves only these fields, so it sits under them. */}
-          {saveShown && item.locked ? saveRow : null}
+          {saveShown && lockedSaveUnderDates ? saveRow : null}
           <AllocationBlock item={item} method={method} onMethodChange={setMethod} onConfirmShown={setConfirmShown} />
         </section>
       </div>
@@ -426,7 +447,9 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
       {/* Stories 10.1 and 10.2 (FR-49): the Replay scenario, frozen at the Start date like the
           choices above. */}
       <ReplayScenarioBlock item={item} editable={choosing} state={replay} />
-      {saveShown && !item.locked ? saveRow : null}
+      {/* Story 12.1 (FR-61): KI-vurdering, open until the original Test deadline. */}
+      <AiAssessmentBlock item={item} draft={aiAssessment ?? item.ai_assessment.enabled} onChange={setAiAssessment} />
+      {saveShown && !lockedSaveUnderDates ? saveRow : null}
       {/* Story 9.10: its own save, since exclusions stay open after the lock until the Test deadline. */}
       <QuizExclusionsBlock classSessionId={item.id} />
       <TestGameBlock item={item} />
@@ -740,6 +763,7 @@ function AiDescriptions({ item }: { item: ClassSession }) {
  * and values. */
 function SaveRow({
   locked,
+  lockedWithAssessment,
   secondary,
   pending,
   errorMessage,
@@ -747,6 +771,9 @@ function SaveRow({
   onSave,
 }: {
   locked: boolean;
+  /** Locked while KI-vurdering can still change (Story 12.1): «Lagre Klasseøkt», saving the
+   * deadlines that can move and KI-vurdering. */
+  lockedWithAssessment: boolean;
   secondary: boolean;
   pending: boolean;
   errorMessage: string | undefined;
@@ -757,7 +784,7 @@ function SaveRow({
     <div className="mt-10 flex flex-col items-start gap-3 lg:items-end">
       <div className="flex flex-col-reverse items-start gap-3 lg:flex-row lg:items-center lg:gap-6">
         <p id="save-hint" className="text-body-phone text-ink-secondary">
-          {locked ? copy.lock.saveHint : copy.saveHint}
+          {locked ? copy.lock.saveHint : lockedWithAssessment ? copy.lock.saveHintWithAssessment : copy.saveHint}
         </p>
         <Button
           variant={secondary ? "secondary" : "primary"}

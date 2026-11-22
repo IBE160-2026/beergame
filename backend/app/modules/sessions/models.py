@@ -87,6 +87,10 @@ class_sessions = Table(
     # the one in force (`replay_template` pin).
     Column("replay_scenario", Text, nullable=False, server_default="default"),
     Column("replay_template", JSONB(none_as_null=True), nullable=True),
+    # The Test-deadline lock (Story 12.1, the seam of Epic 11's `lock_test`, AD-9): when
+    # `service.lock_test` pinned what hangs on the original Test deadline (the KI-vurdering
+    # switch; Epic 11 adds the Scoring guide). Set once; NULL until then.
+    Column("test_locked_at", DateTime(timezone=True), nullable=True),
     CheckConstraint("(locked_at IS NULL) = (snapshot IS NULL)", name="ck_class_sessions_lock"),
     CheckConstraint(
         "replay_scenario IN ('default', 'own')", name="ck_class_sessions_replay_scenario"

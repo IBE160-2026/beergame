@@ -138,6 +138,9 @@ POLICIES: dict[str, frozenset[str]] = {
     # AD-12): its owners and Assistant lecturers read it; only its owners take questions out.
     "debrief_quiz.read": frozenset({LECTURER, ASSISTANT}),
     "debrief_quiz.exclude": frozenset({LECTURER}),
+    # The «KI-vurdering» switch of a Class session (Story 12.1, FR-61, AD-12): its Class's staff
+    # read it with the Class session (`class_sessions.read`); only its owners change it.
+    "ai_assessment.change": frozenset({LECTURER}),
     # The own session.
     "session.read": frozenset({ANY_USER}),
     # The live event stream (Story 6.4, AD-8): any User; the scope decides which topics it sends.
@@ -163,6 +166,7 @@ CLASS_STAFF_ROLES: dict[str, frozenset[str]] = {
     "debrief_summaries.read": frozenset({OWNER, ASSISTANT_STAFF}),
     "debrief_quiz.read": frozenset({OWNER, ASSISTANT_STAFF}),
     "debrief_quiz.exclude": frozenset({OWNER}),
+    "ai_assessment.change": frozenset({OWNER}),
     "class_sessions.overview": frozenset({OWNER, ASSISTANT_STAFF}),
     "games.insight": frozenset({OWNER, ASSISTANT_STAFF}),
     "messages.send": frozenset({OWNER, ASSISTANT_STAFF}),

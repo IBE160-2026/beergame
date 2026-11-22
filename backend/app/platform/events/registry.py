@@ -80,6 +80,10 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # a missing provider key tells each owner and Admin once, which emits `user`. With no
         # confirmed allocation the lock allocates and seats the Students (`game`, Story 5.12).
         "sessions.lock": frozenset({"game", "session", "user"}),
+        # The Test-deadline lock (Story 12.1, the seam of Epic 11's `lock_test`, AD-9): it pins
+        # the «KI-vurdering» switch, so the staff read the Klasseøkt again. A second run emits
+        # nothing.
+        "sessions.lock_test": frozenset({"session"}),
         # A late registrant seated, or a removed Student's Seat given to an AI player (Story
         # 5.13): the Seat changes through `games.assign_seat` (`game`), the staff read the
         # session again, and the Students of that game (and the one seated, with the allocation

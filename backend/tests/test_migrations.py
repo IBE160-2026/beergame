@@ -105,6 +105,8 @@ WALKTHROUGH_TABLES = {"replay_narrations", "replay_walkthroughs"}
 """The tables of revision 0118 (Story 10.7)."""
 RATING_TABLES = {"believability_ratings", "replay_another_round"}
 """The tables of revision 0119 (Story 10.8)."""
+ASSESSMENT_SWITCH_TABLES = {"assessment_switches"}
+"""The tables of revision 0120 (Story 12.1)."""
 HEAD_TABLES = (
     PRE_SESSION_TABLES
     | SESSION_TABLES
@@ -128,8 +130,9 @@ HEAD_TABLES = (
     | REPLAY_TABLES
     | WALKTHROUGH_TABLES
     | RATING_TABLES
+    | ASSESSMENT_SWITCH_TABLES
 )
-HEAD = "0119"  # 0119 stores the answers after the game (Story 10.8)
+HEAD = "0120"  # 0120 holds the «KI-vurdering» switch and the Test-deadline lock (Story 12.1)
 
 
 def reset_schema(url: str) -> None:
@@ -317,6 +320,16 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     # 0111 (Story 9.12): presence, the Students who go on alone and the 48-hour fallback.
     assert "last_seen_at" in columns(url, "debrief_members")
     assert {"fallback_due_at", "fallback_at"} <= columns(url, "debrief_sessions")
+
+    # 0120 (Story 12.1): the «KI-vurdering» switch per Class session, unchangeable once pinned,
+    # and when the Test-deadline lock ran.
+    assert {"enabled", "pinned_at"} <= columns(url, "assessment_switches")
+    assert "test_locked_at" in columns(url, "class_sessions")
+    assert function_names(url, "assessment_switches_pinned")
+    command.downgrade(cfg, "0119")
+    assert ASSESSMENT_SWITCH_TABLES.isdisjoint(tables(url))
+    assert "test_locked_at" not in columns(url, "class_sessions")
+    assert not function_names(url, "assessment_switches_pinned")
 
     # 0119 (Story 10.8): a believability answer per Student and Game (1 to 5), an another-round
     # answer per Student and Class session, each stored once.

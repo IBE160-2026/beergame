@@ -156,6 +156,10 @@ DUE_ACTIONS: tuple[DueAction, ...] = (
     DueAction(
         "games.close_at_test_deadline", games.due_test_deadline_closes, _close_at_test_deadline
     ),
+    # Story 12.1 (AD-9, FR-61): the Test-deadline lock pins the «KI-vurdering» switch of each
+    # Class session whose original Test deadline has passed, once; Epic 11 adds the Scoring guide
+    # pin to it and closes the attempts after it.
+    DueAction("sessions.lock_test", sessions.due_test_locks, sessions.lock_test_due),
     # Story 9.2: release the Debriefs of a held Class session once its last Class game has
     # finished (by the last Week or the playout), and tell each seated Student (AD-9).
     DueAction("debrief.release", debrief.due_releases, debrief.release_due),

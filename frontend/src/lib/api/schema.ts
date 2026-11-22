@@ -574,6 +574,11 @@ export interface paths {
          *     `feature_disabled`; `own` with no template sent or stored names
          *     `replay_template` `required`. Once locked, a changed scenario answers 409 `session_locked`
          *     (`{"replay_scenario": "locked"}`).
+         *
+         *     `ai_assessment` (Story 12.1, FR-61), left out, keeps the «KI-vurdering» switch. It can change
+         *     after the Start date too; once the original Test deadline has passed (and the Test-deadline
+         *     lock has pinned it) a changed value answers 409 `ai_assessment_pinned`
+         *     (`{"ai_assessment": "pinned"}`). Only the Class's owners change it (`ai_assessment.change`).
          */
         put: operations["saveClassSession"];
         post?: never;
@@ -2617,6 +2622,21 @@ export interface components {
          */
         AddressProblem: "empty" | "whitespace" | "missing_at" | "two_at" | "missing_name" | "missing_domain";
         /**
+         * AiAssessmentOut
+         * @description The «KI-vurdering» switch of a Class session (Story 12.1, FR-61), stored by
+         *     `modules/assessment`.
+         */
+        AiAssessmentOut: {
+            /** Can Change */
+            can_change: boolean;
+            /** Enabled */
+            enabled: boolean;
+            /** Open */
+            open: boolean;
+            /** Pinned At */
+            pinned_at: string | null;
+        };
+        /**
          * AiDescriptionsOut
          * @description The plain-language Norwegian description of each AI player type, from
          *     `players.service.describe` (FR-33): Markdown with a title line, paragraphs and `- ` lists.
@@ -3145,6 +3165,7 @@ export interface components {
          * @description One Class session as its Class's staff read it.
          */
         ClassSessionOut: {
+            ai_assessment: components["schemas"]["AiAssessmentOut"];
             ai_descriptions: components["schemas"]["AiDescriptionsOut"];
             ai_mode: components["schemas"]["AiMode"];
             /**
@@ -3260,6 +3281,8 @@ export interface components {
          *     level is in force, and a sent one is ignored.
          */
         ClassSessionSaveIn: {
+            /** Ai Assessment */
+            ai_assessment?: boolean | null;
             ai_mode: components["schemas"]["AiMode"];
             /** Allocation Method */
             allocation_method?: ("random" | "student_choice") | null;

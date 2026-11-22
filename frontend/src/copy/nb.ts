@@ -1256,9 +1256,13 @@ export const nb = {
       refused:
         "Klasseøkten kan ikke starte: KI-leverandøren for LLM-spillerne er ikke satt opp. Be en Admin ordne det. Låsen prøves igjen hvert minutt.",
       open: "Frister som ikke er passert, og Labtimer, kan fortsatt endres.",
+      /** Story 12.1: while KI-vurdering can still change too. [ASSUMPTION] */
+      openWithAssessment: "Frister som ikke er passert, Labtimer og KI-vurdering kan fortsatt endres.",
       labHoursOpen: "Labtimer kan fortsatt endres.",
       save: "Lagre frister",
       saveHint: "Bare frister som ikke er passert, blir lagret.",
+      /** Story 12.1: «Lagre Klasseøkt» after the lock saves the deadlines and KI-vurdering. [ASSUMPTION] */
+      saveHintWithAssessment: "Bare frister som ikke er passert, og KI-vurdering, blir lagret.",
       saved: "Fristene er lagret.",
     },
     // [ASSUMPTION] the save of LLM players refused (`llm_unavailable`).
@@ -2758,6 +2762,29 @@ export const nb = {
     sendName: "Send svar om troverdighet",
     saved: (rating: number) => `Takk. Du svarte ${rating} av 5.`,
     failed: "Svaret ble ikke sendt. Prøv igjen.",
+  },
+
+  /** The AI assessment (Epic 12). */
+  assessment: {
+    /** Story 12.1 (FR-61, UX-DR49): the block «KI-vurdering» on the Klasseøkt. The title and the
+     * help text are the spine's; the rest is [ASSUMPTION] draft copy for the founder's review. */
+    switchBlock: {
+      title: "KI-vurdering",
+      /** The Bryter's state words. */
+      on: "På",
+      off: "Av",
+      /** What the switch decides, above it. [ASSUMPTION] */
+      lead: "Når KI-vurdering er på, vurderer en KI hvert langsvar i Individuell test etter testfristen. Vurderingen teller ikke og er ingen karakter.",
+      help: "Flervalg og interaktive oppgaver rettes fortsatt automatisk. Studentrapporten finnes som vanlig.",
+      /** Under the switch while it can change. [ASSUMPTION] */
+      open: "Kan endres fram til testfristen. Da låses valget.",
+      /** Pinned by the Test-deadline lock; `when` as «ti. 24. nov. kl. 10:00». [ASSUMPTION] */
+      pinned: (when: string) => `Låst ved testfristen ${when}.`,
+      /** The Test deadline has passed and the lock has not run yet (each minute). [ASSUMPTION] */
+      deadlinePassed: "Testfristen er passert. Valget kan ikke endres.",
+      /** The save refused (`ai_assessment_pinned`). [ASSUMPTION] */
+      refused: "KI-vurdering kan ikke endres etter testfristen. Valget er låst.",
+    },
   },
 
   /** The Oversikt of a Class session (Story 7.1, FR-39, UX-DR40). The headline form, «Oppdatert»,

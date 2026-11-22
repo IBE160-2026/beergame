@@ -180,8 +180,9 @@ test("a passed date is read-only, and a short play time is said without blocking
   await expect(lecturer.locator("input#date-start_at")).toHaveCount(0);
   await expect(lecturer.locator("input#date-play_deadline")).toBeEditable();
   await expect(lecturer.getByText(dates.playTimeShort(36))).toBeVisible();
-  await expect(lecturer.getByRole("button", { name: copy.lock.save })).toBeEnabled();
-  await expect(lecturer.getByRole("button", { name: copy.save })).toHaveCount(0);
+  // KI-vurdering can still change until the Testfrist (Story 12.1): the one save is «Lagre Klasseøkt».
+  await expect(lecturer.getByRole("button", { name: copy.save })).toBeEnabled();
+  await expect(lecturer.getByRole("button", { name: copy.lock.save })).toHaveCount(0);
 });
 
 test("two sessions made in the same minute have labels of their own (Issue #98)", async ({ page, browser }) => {

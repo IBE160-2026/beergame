@@ -75,6 +75,7 @@ export type ChoicesBody = Pick<
   | "obligatory"
   | "required_share_percent"
   | "allocation_method"
+  | "ai_assessment"
 >;
 export type AllocationMethod = ClassSession["allocation_method"];
 type ClassSessionSaveIn = components["schemas"]["ClassSessionSaveIn"];

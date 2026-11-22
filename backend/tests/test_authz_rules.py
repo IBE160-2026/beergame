@@ -35,6 +35,8 @@ PUBLIC_ROUTES = {
     ("POST", "/api/dev/mailbox/bounce"),
     # The local dev lock (Story 6.15), mounted only outside production like the dev mailbox.
     ("POST", "/api/dev/class-sessions/{class_session_id}/lock"),
+    # Story 12.1: the local dev Test-deadline lock, never in production.
+    ("POST", "/api/dev/class-sessions/{class_session_id}/lock-test"),
     # Story 9.11: the local dev back-dating of a Group debrief step, never in production.
     ("POST", "/api/dev/debriefs/{debrief_id}/backdate"),
     ("POST", "/api/dev/games/{game_id}/seats/{seat}/narrate"),

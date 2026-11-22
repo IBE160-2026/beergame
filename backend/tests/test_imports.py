@@ -104,6 +104,21 @@ def test_content_imports_no_feature_module():
             assert name.startswith("app.modules.content"), f"{path.name}:{line} imports {name}"
 
 
+def test_assessment_imports_no_feature_module_and_is_reached_through_its_service():
+    """Story 12.1 (AD-2): `sessions` stores and pins the «KI-vurdering» switch through
+    `assessment.service`, so `assessment` imports no other module, and others only its service."""
+    found = imports(APP / "modules" / "assessment")
+    assert found
+    for path, line, name in found:
+        if name.startswith("app.modules."):
+            assert name.startswith("app.modules.assessment"), f"{path.name}:{line} imports {name}"
+    for path, line, name in imports(APP):
+        if (APP / "modules" / "assessment") not in path.parents and name.startswith(
+            "app.modules.assessment"
+        ):
+            assert name == "app.modules.assessment.service", f"{path.name}:{line} imports {name}"
+
+
 def test_analysis_is_pure():
     """AD-1: `app/analysis` (the Play guard, the Starting task's scoring) imports only the
     stdlib, pydantic and `app.engine`: no module, no platform, no database, no LLM."""

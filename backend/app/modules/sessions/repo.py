@@ -310,6 +310,27 @@ async def due_locks(session: AsyncSession, now: datetime) -> list[RowMapping]:
     return list(result.mappings())
 
 
+async def due_test_locks(session: AsyncSession, now: datetime) -> list[uuid.UUID]:
+    """The Class sessions whose original Test deadline has passed and that the Test-deadline lock
+    has not run for (Story 12.1), by id."""
+    result = await session.execute(
+        select(class_sessions.c.id)
+        .where(class_sessions.c.test_deadline <= now, class_sessions.c.test_locked_at.is_(None))
+        .order_by(class_sessions.c.id)
+    )
+    return list(result.scalars())
+
+
+async def set_test_locked(session: AsyncSession, session_id: uuid.UUID, at: datetime) -> bool:
+    """Mark the Test-deadline lock done (Story 12.1), once. True when this call marked it."""
+    result = await session.execute(
+        update(class_sessions)
+        .where(class_sessions.c.id == session_id, class_sessions.c.test_locked_at.is_(None))
+        .values(test_locked_at=at)
+    )
+    return bool(result.rowcount)
+
+
 async def set_lock_refused(session: AsyncSession, session_id: uuid.UUID, at: datetime) -> bool:
     """Mark the first refusal of an unlocked session's lock (GitHub issue 109); a later refusal
     keeps the first time. True when this call marked it."""

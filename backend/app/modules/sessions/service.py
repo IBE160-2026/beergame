@@ -111,6 +111,7 @@ from app.engine.settings import (
     validate,
     warnings,
 )
+from app.modules.assessment import service as assessment
 from app.modules.classes import service as classes
 from app.modules.content import service as content
 from app.modules.games import commands as games_commands
@@ -128,6 +129,7 @@ from app.modules.sessions.models import (
     PLACE_MAX_LENGTH,
 )
 from app.modules.sessions.schemas import (
+    AiAssessmentOut,
     AiDescriptionsOut,
     AiMode,
     AllocationConfirmIn,
@@ -270,6 +272,14 @@ class SeatCommandRefused(_FieldsError):
         super().__init__({"allocation": code})
         self.code = code
         self.status = status
+
+
+class AiAssessmentPinned(_FieldsError):
+    """The «KI-vurdering» switch was changed once the original Test deadline has passed or the
+    Test-deadline lock has pinned it (409 `ai_assessment_pinned`, `{"ai_assessment": "pinned"}`,
+    Story 12.1)."""
+
+    code = "ai_assessment_pinned"
 
 
 class DeadlinePassed(_FieldsError):
@@ -821,6 +831,7 @@ async def get_session(user: authz.Principal, session_id: uuid.UUID) -> ClassSess
         row = await repo.session_row(s, session_id)
         number = await repo.number_of(s, session_id, row["class_id"]) if row else 0
         labs = await repo.lab_hours_of(s, [session_id]) if row else []
+        switch = await assessment.switch_of(s, session_id) if row else assessment.DEFAULT_SWITCH
     if row is None:
         return None
     found = await _class_for(user, row["class_id"], "class_sessions.read")
@@ -893,6 +904,32 @@ async def get_session(user: authz.Principal, session_id: uuid.UUID) -> ClassSess
         effort_level_replaced=effort_level_replaced,
         lecturer_test_enabled=lecturer_test_enabled(),
         test_game=test_game,
+        ai_assessment=_ai_assessment_out(user, found, row, switch, now),
+    )
+
+
+def _ai_assessment_open(row: Mapping[str, Any], switch: assessment.Switch, now: datetime) -> bool:
+    """Whether the «KI-vurdering» switch can still change (Story 12.1): not pinned, and the
+    original Test deadline has not passed, also before the sweep has run `lock_test`."""
+    deadline = row["test_deadline"]
+    return not switch.pinned and (deadline is None or deadline > now)
+
+
+def _ai_assessment_out(
+    user: authz.Principal,
+    found: classes.ClassOut,
+    row: Mapping[str, Any],
+    switch: assessment.Switch,
+    now: datetime,
+) -> AiAssessmentOut:
+    is_open = _ai_assessment_open(row, switch, now)
+    return AiAssessmentOut(
+        enabled=switch.enabled,
+        pinned_at=switch.pinned_at,
+        open=is_open,
+        can_change=is_open
+        and not found.archived
+        and authz.can(user, "ai_assessment.change", found),
     )
 
 
@@ -942,6 +979,7 @@ async def save_session(
     allocation_method: AllocationMethod | None = None,
     replay_scenario: str | None = None,
     replay_template: Mapping[str, Any] | None = None,
+    ai_assessment: bool | None = None,
 ) -> ClassSessionOut | None:
     """«Lagre Klasseøkt»: saves the Class session as it stands and emits `session:<id>`. LLM
     players on a Class session with no model config take the active default and its budget row
@@ -962,10 +1000,19 @@ async def save_session(
     (`_open_student_choice`). `replay_scenario` (Story 10.2), None, keeps the Replay scenario;
     `own` with `replay_template` stores the own template judged by `judge_replay_template` for
     the Game settings as saved, or raises `InvalidReplayScenario` (`_replay_to_store`).
-    None when the User may not manage the Class; raises `ClassArchived`."""
+    `ai_assessment` (Story 12.1), None, keeps the «KI-vurdering» switch; a change is stored
+    through `assessment.set_switch` in the same transaction, also after the Start date, and
+    raises `AiAssessmentPinned` once the original Test deadline has passed or the switch is
+    pinned. None when the User may not manage the Class (or change the switch); raises
+    `ClassArchived`."""
     async with get_sessionmaker().begin() as s:
         row = await repo.session_row(s, session_id)
-    if row is None or await _class_for(user, row["class_id"], "class_sessions.manage") is None:
+    found = (
+        await _class_for(user, row["class_id"], "class_sessions.manage")
+        if row is not None
+        else None
+    )
+    if row is None or found is None:
         return None
     needs_students = (
         dates is not None or obligatory is True or allocation_method == "student_choice"
@@ -1028,6 +1075,13 @@ async def save_session(
                 }
                 if refused:
                     raise SessionLocked(refused)
+            switch = await assessment.switch_of(s, session_id)
+            switching_assessment = ai_assessment is not None and ai_assessment != switch.enabled
+            if switching_assessment:
+                if not authz.can(user, "ai_assessment.change", found):
+                    return None
+                if not _ai_assessment_open(row, switch, now):
+                    raise AiAssessmentPinned({"ai_assessment": "pinned"})
             _judge_values(row, share, limit)
             if game_settings is not None:
                 new_settings = _settings_to_store(row, game_settings, locked=locked)
@@ -1103,6 +1157,10 @@ async def save_session(
             allocation_method=method if switching else None,
             replay=replay,
         )
+        if switching_assessment:
+            assert ai_assessment is not None
+            # The Class session's row lock, held since the read, keeps `lock_test` out meanwhile.
+            await assessment.set_switch(s, session_id, ai_assessment, now=now)
         if switching and method == "student_choice":
             await _open_student_choice(s, session_id, user.id, students, now)
         await events.emit(s, "session", str(session_id))
@@ -1130,6 +1188,7 @@ async def save_session(
         obligatory_switched_on=switched_on,
         students_told=len(students) if switched_on else 0,
         student_choice_opened=switching,
+        ai_assessment=ai_assessment if switching_assessment else None,
     )
     if changed and locked:
         # After the start a moved deadline holds for the whole Class session (FR-18).
@@ -3739,6 +3798,44 @@ async def lock_due(class_session_id: object, now: datetime) -> bool:
         return False
 
 
+async def lock_test(class_session_id: uuid.UUID, *, now: datetime) -> bool:
+    """The Test-deadline lock (Story 12.1; Epic 11's `lock_test`, AD-9, FR-18): under the Class
+    session's row lock, in one transaction, it pins what hangs on the original Test deadline,
+    once and idempotently: the «KI-vurdering» switch (`assessment.pin_switch`). Epic 11 adds the
+    Scoring guide pin here, and runs `tests.close_attempt` only after it. It sets
+    `test_locked_at` and emits `session:<id>`; a second call changes and emits nothing. It does
+    not judge the deadline: the sweep's finder does, and the local dev route calls it at once.
+    True when this call locked it."""
+    async with get_sessionmaker().begin() as s:
+        row = await repo.session_row(s, class_session_id, lock=True)
+        if row is None or row["test_locked_at"] is not None:
+            return False
+        # Pinned as of the Test deadline it hangs on, also when the sweep runs late (after an
+        # outage, or for a session whose deadline passed before this lock existed); the dev route
+        # runs it before the deadline, as of now.
+        deadline = row["test_deadline"]
+        at = now if deadline is None else min(now, deadline)
+        pinned = await assessment.pin_switch(s, class_session_id, at=at)
+        await repo.set_test_locked(s, class_session_id, now)
+        await events.emit(s, "session", str(class_session_id))
+    log.info("class_session_test_locked", class_session_id=str(class_session_id), pinned=pinned)
+    return True
+
+
+async def due_test_locks(now: datetime) -> list[uuid.UUID]:
+    """The sweep's `sessions.lock_test` finder (AD-9): the Class sessions whose original Test
+    deadline has passed and that the Test-deadline lock has not run for, by id."""
+    async with get_sessionmaker()() as s:
+        return await repo.due_test_locks(s, now)
+
+
+async def lock_test_due(class_session_id: object, now: datetime) -> bool:
+    """The sweep's `sessions.lock_test` action, one Class session per transaction with its id
+    only (AD-9)."""
+    assert isinstance(class_session_id, uuid.UUID)
+    return await lock_test(class_session_id, now=now)
+
+
 async def _tell_lock_refused(class_session_id: uuid.UUID, now: datetime) -> int:
     """Mark the session's lock refused (`lock_refused_at`, the first time only, so the Klasseøkt
     can say so), and one `LOCK_REFUSED_NOTICE` per owner of the Class and per active Admin, keyed
@@ -4828,9 +4925,9 @@ async def copy_from(
     «Lag Klasseøkt» does. Dates, Lab hours, the Roster, the allocation and the obligatory mark
     with its share are not copied. Raises `FeatureDisabled` while `FEATURE_RERUN` is off,
     `InvalidSettings`, `ClassArchived`; None when the User may not manage the target Class or may
-    not read the source. It copies the settings of Epic 5 and the Replay scenario
-    (`_copied_replay`, Story 10.2); the later stories that own more session settings (FR-66) add
-    theirs here."""
+    not read the source. It copies the settings of Epic 5, the Replay scenario
+    (`_copied_replay`, Story 10.2) and the «KI-vurdering» switch (Story 12.1); the later stories
+    that own more session settings (FR-66) add theirs here."""
     if not rerun_enabled():
         raise FeatureDisabled(dict(RERUN_DISABLED))
     if await _class_for(user, target_class_id, "class_sessions.manage") is None:
@@ -4892,6 +4989,8 @@ async def copy_from(
         )
         if default is not None:
             await budget.set_budget(budget.BudgetScope.class_session(session_id), session=s)
+        # Story 12.1 (FR-66): the «KI-vurdering» switch's value, never its pin.
+        await assessment.copy_switch(s, source_id, session_id, now=now)
         await events.emit(s, "session", str(session_id))
     log.info(
         "class_session_copied",

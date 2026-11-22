@@ -135,6 +135,24 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
   while the flag is on. The Replay's snapshot carries it; `seat_state`, the LLM prompt and the
   Decision log read it as for any Game, behind the same flag at read (AD-17).
 
+## The Test-deadline lock and «KI-vurdering» (Story 12.1)
+
+- `class_sessions.test_locked_at` (migration 0120): when `service.lock_test` ran. The sweep's due
+  action `sessions.lock_test` (after `games.close_at_test_deadline`) finds the sessions whose
+  original Test deadline has passed and that have no `test_locked_at` (`due_test_locks`), and runs
+  `lock_test_due` on each, one per transaction with its id. Under the row lock `lock_test` pins
+  the «KI-vurdering» switch (`assessment.pin_switch`), sets `test_locked_at` and emits
+  `session:<id>`, once; a second call changes nothing. This is the seam of Epic 11's
+  `sessions.lock_test`: Story 11.11 adds the Scoring guide pin to it and runs
+  `tests.close_attempt` after it. The local dev route `POST /api/dev/class-sessions/{id}/lock-test`
+  runs it at once.
+- «Lagre Klasseøkt» takes `ai_assessment`; left out it is kept. A change is stored through
+  `assessment.set_switch` in the same transaction, also after the Start-date lock, and needs
+  `ai_assessment.change` (owners); once the original Test deadline has passed or the switch is
+  pinned it answers 409 `ai_assessment_pinned` (`{"ai_assessment": "pinned"}`). The read carries
+  `ai_assessment` (`enabled`, `pinned_at`, `open`, `can_change`). «Lag kopi» copies the value,
+  not the pin.
+
 ## AI mode, Effort level and Debrief mode (Story 5.5)
 
 - `class_sessions.effort_level` (migration 0034) holds a level name of the session's model
