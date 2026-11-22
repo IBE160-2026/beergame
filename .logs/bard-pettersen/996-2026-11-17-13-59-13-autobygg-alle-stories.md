@@ -3650,3 +3650,22 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Kun AI-
 
 ### Åpne punkter
 - Issue #226: beslutninger, at OpenRouter-konfigurasjonene mangler `assessment`-prompten, og ny tabell med persondata.
+
+## Story 12.3: Les skriftlig tilbakemelding som siterer svaret og stemmer med spillene (spor 3)
+
+### Oppgave
+Bygge Story 12.3 på `epic-12` i spor 3.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Kun AI-mock.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-12-3-read-written-feedback-that-quotes-my-answer-and-matches-my-games.md`.
+- Commit: ef6c9be. Migrasjon 0203.
+- Prompten `assessment/v2` gir poeng og 1–4 setninger tilbakemelding som bare kan vise til godkjente maler, sitater fra svaret, kriterier og fakta. Koden skriver teksten. Avvist tilbakemelding får ett nytt forsøk, ellers beholdes bare poenget.
+- Tester: backend 3742, Vitest 1179, tsc, `lint:colours`, `check:copy`, bygg, Playwright 135 med axe.
+- Gjennomgang: 37 funn, 9 rettet; oppfølgende gjennomgang anbefalt.
+- Status: done.
+
+### Åpne punkter
+- Issue #227: beslutninger, ukjent treffsikkerhet med ekte modell, og persondata i `ai_item_scores`.
