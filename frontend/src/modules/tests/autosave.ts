@@ -16,7 +16,8 @@ const copy = nb.tests.individual;
 export type Stored = { value: unknown; revision: number; saved_at: string };
 
 /** An answer's value: a choice item's option id (Story 11.4), a number item's whole number, a
- * table item's whole number or null per Uke (Story 11.5), or null (none, or a number cleared). */
+ * table item's whole number or null per Uke (Story 11.5), a long answer's text (Story 11.6), or
+ * null (none, or a number cleared). */
 export type AnswerValue = string | number | (number | null)[] | null;
 
 /** A value not yet stored, kept on this device with its revision. */
@@ -176,3 +177,12 @@ export function statusLine(entry: Entry, previous: string): string {
 /** How long a failed save waits before it is tried again (also at once when the device is back
  * online). */
 export const RETRY_MS = 5_000;
+
+/** How long typing in a long answer pauses before the text is saved (Story 11.6, AD-10). The one
+ * place this is configured; [PLACEHOLDER] value until the pilot shows a better one. Leaving the
+ * field or hiding the page saves at once. */
+export const LONG_ANSWER_PAUSE_MS = 1_500;
+
+/** The longest long answer in characters: the api's `commands.LONG_ANSWER_MAX`, so the field
+ * stops where the api would refuse. */
+export const LONG_ANSWER_MAX = 20_000;

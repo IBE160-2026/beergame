@@ -6861,8 +6861,8 @@ export interface components {
          * TestAnswerIn
          * @description One autosave of an item's answer (Story 11.4, AD-10): the value (a choice item: one of its
          *     option ids; a table item: one whole number or null per row; a number item: a whole number or
-         *     null, Story 11.5) and the answer's revision, which rises by one per change on the Student's
-         *     device.
+         *     null, Story 11.5; a long-answer item: its text as typed, Story 11.6) and the answer's revision,
+         *     which rises by one per change on the Student's device.
          */
         TestAnswerIn: {
             /** Revision */

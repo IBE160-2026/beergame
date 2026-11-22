@@ -128,3 +128,16 @@ describe("the autosave of an Individual test answer (Story 11.4, AD-10)", () => 
     expect(entry).toMatchObject({ value: null, storedValue: null, stored: 2, status: "saved" });
   });
 });
+
+describe("a long answer's draft (Story 11.6)", () => {
+  it("keeps the text exactly as typed, also emptied, and a session that ended keeps it", () => {
+    const text = "  Forsinkelsen gjør at ordren kommer senere.\n\nDerfor …  ";
+    expect(parseDraft(draftText({ value: text, revision: 7 }))).toEqual({ value: text, revision: 7 });
+    expect(parseDraft(draftText({ value: "", revision: 8 }))).toEqual({ value: "", revision: 8 });
+    // After a new login the draft is above the stored revision: shown and sent.
+    const back = initial({ value: "Eldre", revision: 4, saved_at: AT }, draftText({ value: text, revision: 7 }));
+    expect(back).toMatchObject({ send: true, entry: { value: text, revision: 7, stored: 4, status: "saving" } });
+    // An ended session is not refused for good: the draft stays.
+    expect(refusedForGood(new ApiRequestError(401, "session_expired"))).toBe(false);
+  });
+});

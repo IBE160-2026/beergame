@@ -51,6 +51,7 @@ __all__ = [
     "AttemptSubmitted",
     "DeadlinePassed",
     "InvalidAnswer",
+    "LONG_ANSWER_MAX",
     "Opened",
     "ReplayRequired",
     "attempt_of",
@@ -61,6 +62,10 @@ __all__ = [
 ]
 
 log = structlog.get_logger(__name__)
+
+LONG_ANSWER_MAX = 20_000
+"""The longest long answer, in characters (Story 11.6): room for an argument built over several
+evenings; the page's field stops there too."""
 
 
 class ReplayRequired(Exception):
@@ -196,13 +201,29 @@ def _whole(value: Any, negative: bool) -> bool:
     return type(value) is int and abs(value) <= INTERACTIVE_LIMIT and (negative or value >= 0)
 
 
+def _text(value: Any) -> bool:
+    """A long answer's text as typed (Story 11.6): at most `LONG_ANSWER_MAX` characters, empty when
+    the Student emptied it. A NUL character, which JSONB cannot hold, and a lone surrogate, which
+    is no text, are refused rather than stored altered."""
+    if not isinstance(value, str) or len(value) > LONG_ANSWER_MAX or "\x00" in value:
+        return False
+    try:
+        value.encode("utf-8")
+    except UnicodeEncodeError:
+        return False
+    return True
+
+
 def _valid(item_type: str, item: QuestionSetItem | None, value: Any) -> bool:
     """Whether `value` answers an item of this type: a choice item's option id (Story 11.4); a
     table item's list of one whole number or null per row, and a number item's whole number or
     null (cleared), negative only where the item allows it (Story 11.5; a Starting task item
-    always does). An item with no table of its own (question set version 1) takes nothing."""
+    always does); a long-answer item's text, stored as typed (Story 11.6). An item with no table
+    of its own (question set version 1) takes nothing."""
     if item is None:
         return False
+    if item_type == "long":
+        return _text(value)
     if item_type == "choice":
         return isinstance(value, str) and value in item.options
     if item_type == "number" and item.starting_task_item is not None:

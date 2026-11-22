@@ -2824,6 +2824,11 @@ export const nb = {
         cell: (asked: string, row: string) => `${asked}, ${row}`,
         wholeNumber: "Skriv et helt tall.",
       },
+      /** Long answers (Story 11.6, FR-73, UX-DR65). [ASSUMPTION] draft copy: the advice shown
+       * above the field on a phone. */
+      long: {
+        largerScreen: "Langsvar er lettere å skrive på en større skjerm, som en PC. Du kan likevel skrive og lagre her.",
+      },
     },
     /** Story 11.1 (FR-52, FR-53, UX-DR49): the Klasseøkt's block «Spørsmål og vekter». The title,
      * «Ta ut», «Vekt», the sum line and the quantity warning are the spine's; the rest is

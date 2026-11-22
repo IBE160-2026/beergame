@@ -94,7 +94,7 @@ Story 11.13 must leave Students with their own extension out.
   (`{item_id, value, revision, saved_at}`) comes back either way, so a late save from a second
   device is no error. 409 `attempt_submitted`, 409 `test_deadline_passed`, 422 `unknown_item`,
   422 `invalid_answer` (a choice item: not one of its option ids; table and number items: see
-  Story 11.5; long answers are refused until Story 11.6 extends `commands._valid`), 403 `forbidden` for any
+  Story 11.5; long answers: Story 11.6), 403 `forbidden` for any
   session that is not the Student's own or a test not yet opened. No event; no value logged.
 - `GET`/`POST …/test` items carry `options` (a choice item's option ids) and `answer` (the saved
   `{value, revision, saved_at}` or null). No score and no right or wrong state is sent (FR-54).
@@ -118,3 +118,17 @@ Story 11.13 must leave Students with their own extension out.
   `score_choice`, `score_sum` for a Starting task item (FR-85), and `score_interactive` for a
   table or number item, partial credit per coded criterion with its explanation (FR-80). Epic 12
   reads it; the web app computes no score.
+
+## Writing long answers with autosave (Story 11.6)
+
+- A long-answer item's answer is its text as typed, stored unchanged through `save_answer`: a
+  string of at most `commands.LONG_ANSWER_MAX` (20 000) characters, `""` once emptied. Anything
+  else, a NUL character (JSONB cannot hold it) or a lone surrogate is 422 `invalid_answer`.
+- Items out stay as they are: the question is the item's `title` from the attempt's pinned
+  question set version, shown as-is (so the item tagged `explanation-wording` keeps the
+  Explanation's wording, FR-52).
+- No LLM call and no score: `tests.scoring.score_answer` returns None for a long answer; the
+  Scoring guide scores it in Epic 12. No answer text is logged.
+- The page keeps every keystroke on the device (`lib/drafts.ts`) and saves when typing pauses
+  (`LONG_ANSWER_PAUSE_MS` in `frontend/src/modules/tests/autosave.ts`, a placeholder), when the
+  field loses focus and when the page is hidden.

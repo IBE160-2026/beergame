@@ -3,6 +3,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { isSessionExpired } from "@/lib/api/client";
 import { errorCode } from "@/lib/api/mutation";
 import { clearDraft, loadDraft, saveDraft } from "@/lib/drafts";
 
@@ -17,6 +18,7 @@ import {
   draftText,
   type Entry,
   initial,
+  LONG_ANSWER_PAUSE_MS,
   merge,
   RETRY_MS,
   refusedForGood,
@@ -29,7 +31,12 @@ import {
  * (`lib/drafts.ts`), then sent; one save runs at a time, and the latest change goes after it. A
  * failure is tried again every `RETRY_MS` and at once when the device is back online, until the
  * api stores it; a refusal for good (handed in, past the deadline) drops the draft, shows why and
- * reads the test again.
+ * reads the test again. An ended session keeps the draft and reads the test again, which takes
+ * the Student to «Logg inn»; back on the page the draft goes with its higher revision.
+ *
+ * Typing in a long answer (Story 11.6) uses `write`: each keystroke is kept on the device at once
+ * and saved when typing pauses for `LONG_ANSWER_PAUSE_MS`; `flush` saves at once, which the field
+ * does when it loses focus, and the hook does when the page is hidden or the item leaves the page.
  */
 export function useAutosave(classSessionId: string, userId: string, item: MyTestItem) {
   const queryClient = useQueryClient();
@@ -40,6 +47,8 @@ export function useAutosave(classSessionId: string, userId: string, item: MyTest
   const current = useRef(start.entry);
   const sending = useRef(false);
   const timer = useRef<number | null>(null);
+  // A pending save after a pause in typing (`write`).
+  const pause = useRef<number | null>(null);
   const live = useRef(true);
 
   const update = useCallback((next: Entry) => {
@@ -73,7 +82,9 @@ export function useAutosave(classSessionId: string, userId: string, item: MyTest
             : test,
         );
         if (done) clearDraft(userId, field);
-        else if (live.current) send();
+        // Still typing: the newer text goes when the pause ends, not at once. Also after the item
+        // has left the page, so text typed during the last save is not left on the device only.
+        else if (pause.current === null) send();
       })
       .catch((error: unknown) => {
         sending.current = false;
@@ -84,6 +95,8 @@ export function useAutosave(classSessionId: string, userId: string, item: MyTest
           return;
         }
         update(applyFailed(current.current));
+        // Read the test again: an ended session takes the Student to «Logg inn»; the draft stays.
+        if (isSessionExpired(error)) void queryClient.invalidateQueries({ queryKey: myTestKey(classSessionId) });
         if (live.current) timer.current = window.setTimeout(send, RETRY_MS);
       });
   }, [classSessionId, field, item.id, queryClient, update, userId]);
@@ -98,6 +111,28 @@ export function useAutosave(classSessionId: string, userId: string, item: MyTest
     [field, send, update, userId],
   );
 
+  const flush = useCallback(() => {
+    if (pause.current !== null) {
+      window.clearTimeout(pause.current);
+      pause.current = null;
+    }
+    send();
+  }, [send]);
+
+  const write = useCallback(
+    (value: AnswerValue) => {
+      const next = choose(current.current, value);
+      saveDraft(userId, field, draftText({ value, revision: next.revision }));
+      update(next);
+      if (pause.current !== null) window.clearTimeout(pause.current);
+      pause.current = window.setTimeout(() => {
+        pause.current = null;
+        send();
+      }, LONG_ANSWER_PAUSE_MS);
+    },
+    [field, send, update, userId],
+  );
+
   // A draft the api does not have yet goes at once; one it has already is dropped.
   useEffect(() => {
     live.current = true;
@@ -106,13 +141,22 @@ export function useAutosave(classSessionId: string, userId: string, item: MyTest
     const online = () => {
       if (current.current.status === "failed") send();
     };
+    // The page hidden or left: what is typed goes now, not after the pause.
+    const hidden = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
     window.addEventListener("online", online);
+    document.addEventListener("visibilitychange", hidden);
+    window.addEventListener("pagehide", flush);
     return () => {
-      live.current = false;
       window.removeEventListener("online", online);
+      document.removeEventListener("visibilitychange", hidden);
+      window.removeEventListener("pagehide", flush);
+      if (pause.current !== null) flush();
+      live.current = false;
       if (timer.current !== null) window.clearTimeout(timer.current);
     };
-  }, [field, send, start, userId]);
+  }, [field, flush, send, start, userId]);
 
   // The test read again (a live update, another device): a higher stored revision replaces this one.
   const answer = item.answer ?? null;
@@ -121,7 +165,7 @@ export function useAutosave(classSessionId: string, userId: string, item: MyTest
     if (next !== current.current) update(next);
   }, [answer, update]);
 
-  return { ...shown, pick };
+  return { ...shown, pick, write, flush };
 }
 
 /** The autosave line under an item: «Lagret 21:14», the failure line or a refusal, in a polite

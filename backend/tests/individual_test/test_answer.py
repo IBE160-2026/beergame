@@ -131,9 +131,7 @@ async def test_a_value_that_is_no_answer_or_an_unknown_item_stores_nothing(klass
     item = first(test, "choice")
     for value in ("z", 1, None, [item["options"][0]], {"id": item["options"][0]}):
         assert code(await put(session_id, item["id"], value, 1)) == (422, "invalid_answer")
-    # Long answers arrive with Story 11.6 (table and number: `test_interactive.py`).
-    long_item = first(test, "long")["id"]
-    assert code(await put(session_id, long_item, "tekst", 1)) == (422, "invalid_answer")
+    # Table and number: `test_interactive.py`; long answers: `test_long_answer.py`.
     assert code(await put(session_id, "no-such-item", "a", 1)) == (422, "unknown_item")
     for revision in (0, -1, 1_000_001, "2"):
         bad = await put(session_id, item["id"], item["options"][0], revision)

@@ -15,7 +15,10 @@ import { liveClassGame } from "./support/live-game";
  * Interactive items (Story 11.5, FR-80, UX-DR38, UX-DR75): the value table answered by keyboard
  * alone at 320, 360 and 1440 px and with 200 % text, in its own scrolling region with a sticky
  * label column, «Skriv et helt tall.» on leaving an invalid cell and nothing sent; the column of a
- * number item and of a Starting task item. */
+ * number item and of a Starting task item. Long answers (Story 11.6, FR-51, FR-73, AD-10, UX-DR65):
+ * the question as the field's label, typing saved once after the pause, on leaving the field and
+ * when the page is hidden, the save-failed and restored-draft states at 320, 360 and 1440 px with
+ * axe, the larger-screen advice on phones only, and a draft kept through an ended session. */
 const SESSION = "01a1f8ee-33b9-75e6-9502-79db27b37c0e";
 const CSRF = { "X-Requested-With": "olspillet" };
 const copy = nb.tests.individual;
@@ -68,6 +71,9 @@ const ITEMS = [
   { id: "startoppgave-1", number: 5, type: "number", title: "Utkast: Startoppgaven, posisjonen.", options: [], ...PLAIN, column: STARTING },
 ] as const;
 const SAVED_AT = "2026-11-22T20:14:00Z"; // «Lagret 21:14» in Oslo
+const ANSWERS = `**/api/me/class-sessions/${SESSION}/test/answers/*`;
+const UNAVAILABLE = { status: 503, json: { error: { code: "unavailable", message: "x", fields: {} } } };
+const EXPIRED = { status: 401, json: { error: { code: "session_expired", message: "x", fields: {} } } };
 
 const VIEWPORTS = [
   { name: "320 px", width: 320, height: 640, phone: true },
@@ -97,6 +103,19 @@ async function storeSaves(page: Page): Promise<Save[]> {
     saves.push(body);
     const itemId = route.request().url().split("/").at(-1);
     await route.fulfill({ status: 200, json: { item_id: itemId, ...body, saved_at: SAVED_AT } });
+  });
+  return saves;
+}
+
+/** Every PUT of an answer: stored as sent, or failed while `failing()` says so. */
+async function saveOrFail(page: Page, failing: () => boolean): Promise<Save[]> {
+  const saves: Save[] = [];
+  await page.route(ANSWERS, async (route) => {
+    const body = route.request().postDataJSON() as Save;
+    saves.push(body);
+    if (failing()) return route.fulfill(UNAVAILABLE);
+    const itemId = route.request().url().split("/").at(-1);
+    return route.fulfill({ status: 200, json: { item_id: itemId, ...body, saved_at: SAVED_AT } });
   });
   return saves;
 }
@@ -216,6 +235,58 @@ for (const vp of VIEWPORTS) {
       await expect(main.locator("[data-test-state=closed]")).toHaveText(copy.closed);
       await expect(main.getByRole("button")).toHaveCount(0);
       await expectAccessible(page, vp.phone);
+    });
+
+    test("a long answer: typing, saved after the pause, save-failed and restored draft; advice on phones; axe passes", async ({ page }) => {
+      let failing = false;
+      const saves = await saveOrFail(page, () => failing);
+      await standIn(page, { status: 200, json: opened });
+      const item = page.locator("[data-test-item=langsvar-1]");
+      // The question, as the pinned set words it, is the label above the field.
+      const field = item.getByRole("textbox", { name: ITEMS[2].title, exact: true });
+      const status = item.getByRole("status");
+      const advice = item.getByText(copy.long.largerScreen);
+      await expect(field).toBeVisible();
+      const label = item.locator("label", { hasText: ITEMS[2].title });
+      expect((await label.boundingBox())!.y).toBeLessThan((await field.boundingBox())!.y);
+      // The api's limit (`commands.LONG_ANSWER_MAX`): the field stops where a save would be refused.
+      await expect(field).toHaveAttribute("maxlength", "20000");
+      if (vp.phone) {
+        await expect(advice).toBeVisible();
+        expect((await advice.boundingBox())!.y).toBeLessThan((await field.boundingBox())!.y);
+      } else {
+        await expect(advice).toBeHidden();
+      }
+      await expect(status).toHaveText("");
+
+      // Typing: kept on this device at once, one save for the whole word once typing pauses.
+      await field.focus();
+      await page.keyboard.type("Forsinkelse");
+      await expect(field).toHaveValue("Forsinkelse");
+      await expectAccessible(page, vp.phone);
+      await expect(status).toHaveText(copy.saved("21:14"));
+      expect(saves).toEqual([{ value: "Forsinkelse", revision: 11 }]);
+      await expect(field).toBeFocused();
+      await expectAccessible(page, vp.phone);
+
+      // Save failed on leaving the field: the spine's line, the text kept.
+      failing = true;
+      await page.keyboard.type(" gir");
+      await page.keyboard.press("Tab");
+      await expect(status).toHaveText(copy.notSaved);
+      expect(saves.at(-1)).toEqual({ value: "Forsinkelse gir", revision: 15 });
+      await expect(field).toHaveValue("Forsinkelse gir");
+      await expectAccessible(page, vp.phone);
+
+      // Restored draft: after a reload the text kept on this device shows and goes again.
+      await page.reload();
+      await expect(field).toHaveValue("Forsinkelse gir");
+      await expect(status).toHaveText(copy.notSaved);
+      expect(saves.at(-1)).toEqual({ value: "Forsinkelse gir", revision: 15 });
+      await expectAccessible(page, vp.phone);
+      failing = false;
+      await page.evaluate(() => window.dispatchEvent(new Event("online")));
+      await expect(status).toHaveText(copy.saved("21:14"));
     });
 
     test("a multiple-choice item: idle, selected, saved and save-failed by keyboard, 44 px rows; axe passes", async ({ page }) => {
@@ -472,6 +543,120 @@ test("a save refused once the test is handed in shows why and the stored answer"
   await expect(item.getByRole("radio", { name: copy.option("a") })).toBeChecked();
 });
 
+test("a long answer is saved at once when the page is hidden, and after the pause otherwise", async ({ page }) => {
+  await page.clock.install({ time: new Date("2026-11-22T20:00:00Z") });
+  const saves = await saveOrFail(page, () => false);
+  await standIn(page, { status: 200, json: opened });
+  const field = page.locator("[data-test-item=langsvar-1]").getByRole("textbox", { name: ITEMS[2].title, exact: true });
+  await expect(field).toBeVisible();
+  // The clock stands still: no pause ends unless the test moves it.
+  await page.clock.pauseAt(new Date("2026-11-22T20:00:30Z"));
+  await field.fill("Svar");
+  await expect(field).toHaveValue("Svar");
+  expect(saves).toEqual([]);
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await expect.poll(() => saves.length).toBe(1);
+  expect(saves[0]).toEqual({ value: "Svar", revision: 1 });
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
+  });
+  await field.fill("Svar to");
+  await expect(field).toHaveValue("Svar to");
+  expect(saves).toHaveLength(1);
+  await page.clock.runFor(1_500);
+  await expect.poll(() => saves.length).toBe(2);
+  expect(saves[1]).toEqual({ value: "Svar to", revision: 2 });
+});
+
+test("a long answer is saved at once when the page is left, and a reply during typing waits for the pause", async ({ page }) => {
+  await page.clock.install({ time: new Date("2026-11-22T20:00:00Z") });
+  const saves: Save[] = [];
+  const held: (() => void)[] = [];
+  let replied = 0;
+  await page.route(ANSWERS, async (route) => {
+    const body = route.request().postDataJSON() as Save;
+    saves.push(body);
+    await new Promise<void>((go) => held.push(go));
+    await route.fulfill({ status: 200, json: { item_id: "langsvar-1", ...body, saved_at: SAVED_AT } });
+    replied += 1;
+  });
+  await standIn(page, { status: 200, json: opened });
+  const field = page.locator("[data-test-item=langsvar-1]").getByRole("textbox", { name: ITEMS[2].title, exact: true });
+  await expect(field).toBeVisible();
+  await page.clock.pauseAt(new Date("2026-11-22T20:00:30Z"));
+  // `pagehide` (the tab closed or the page left): sent at once.
+  await field.fill("En");
+  await page.evaluate(() => window.dispatchEvent(new Event("pagehide")));
+  await expect.poll(() => saves.length).toBe(1);
+  // More typing while that save runs; its reply comes inside the pause: nothing more goes yet.
+  await field.fill("En to");
+  held.shift()!();
+  await expect.poll(() => replied).toBe(1);
+  await page.waitForTimeout(500); // real time; the page's clock stands still
+  expect(saves).toHaveLength(1);
+  await page.clock.runFor(1_500);
+  await expect.poll(() => saves.length).toBe(2);
+  expect(saves).toEqual([
+    { value: "En", revision: 1 },
+    { value: "En to", revision: 2 },
+  ]);
+  held.shift()!();
+  await expect(page.locator("[data-test-item=langsvar-1]").getByRole("status")).toHaveText(copy.saved("21:14"));
+});
+
+test("a long answer still in its pause is saved when the Student leaves the page in the app", async ({ page }) => {
+  await page.clock.install({ time: new Date("2026-11-22T20:00:00Z") });
+  const saves = await saveOrFail(page, () => false);
+  await standIn(page, { status: 200, json: opened });
+  const field = page.locator("[data-test-item=langsvar-1]").getByRole("textbox", { name: ITEMS[2].title, exact: true });
+  await expect(field).toBeVisible();
+  await page.clock.pauseAt(new Date("2026-11-22T20:00:30Z"));
+  await field.fill("Skrevet rett før jeg gikk.");
+  expect(saves).toEqual([]);
+  // In-app navigation home: the item leaves the page and its pending text goes.
+  await page.getByRole("main").getByRole("link", { name: nb.navigation.toHome }).click();
+  await expect.poll(() => saves.length).toBe(1);
+  expect(saves[0]).toEqual({ value: "Skrevet rett før jeg gikk.", revision: 1 });
+});
+
+test("a long answer written after the session ended is kept, and saved with a higher revision after login", async ({ page }) => {
+  let ended = true;
+  const saves: Save[] = [];
+  await page.route(ANSWERS, async (route) => {
+    const body = route.request().postDataJSON() as Save;
+    saves.push(body);
+    if (ended) return route.fulfill(EXPIRED);
+    return route.fulfill({ status: 200, json: { item_id: "langsvar-1", ...body, saved_at: SAVED_AT } });
+  });
+  await loginByApi(page, "student");
+  let reads = 0;
+  await page.route(`**/api/me/class-sessions/${SESSION}/test`, (route) => {
+    reads += 1;
+    // The session has ended by the time the test is read again.
+    return ended && reads > 1 ? route.fulfill(EXPIRED) : route.fulfill({ status: 200, json: opened });
+  });
+  await page.goto(`/individuell-test/${SESSION}`);
+  const text = "Skrevet etter at økten gikk ut.";
+  const field = page.locator("[data-test-item=langsvar-1]").getByRole("textbox");
+  await field.fill(text);
+  await field.blur();
+  // To «Logg inn», with the way back; the text stays on this device.
+  await expect(page).toHaveURL(/\/logg-inn/);
+  expect(saves).toEqual([{ value: text, revision: 1 }]);
+
+  ended = false;
+  await loginByApi(page, "student");
+  await page.goto(`/individuell-test/${SESSION}`);
+  const item = page.locator("[data-test-item=langsvar-1]");
+  await expect(item.getByRole("textbox")).toHaveValue(text);
+  await expect(item.getByRole("status")).toHaveText(copy.saved("21:14"));
+  // Sent again with its revision, above the stored one (none).
+  expect(saves.at(-1)).toEqual({ value: text, revision: 1 });
+});
+
 test("another Student's session shows the permission-denied page", async ({ page }) => {
   await standIn(page, { status: 403, json: { error: { code: "forbidden", message: "x", fields: {} } } });
   await expect(page.getByRole("heading", { level: 1 })).not.toHaveText(copy.title);
@@ -523,5 +708,13 @@ test("live: Stegene leads to the statement, which opens the test once; a reload 
   await expect(table.getByRole("status")).toHaveText(/^Lagret \d{2}:\d{2}$/);
   await page.reload();
   await expect(first).toHaveValue("8");
+
+  // A long answer written: saved after the pause, and there again after a reload (Story 11.6).
+  const long = page.locator("[data-test-item]").filter({ has: page.locator("textarea") }).first();
+  const text = "Et langsvar\n\nmed to avsnitt.";
+  await long.getByRole("textbox").fill(text);
+  await expect(long.getByRole("status")).toHaveText(/^Lagret \d{2}:\d{2}$/);
+  await page.reload();
+  await expect(long.getByRole("textbox")).toHaveValue(text);
   await page.close();
 });
