@@ -3573,3 +3573,23 @@ Byggeagent med `bmad-build-auto`, to gjennomgangsagenter og én agent som sjekke
 
 ### Åpne punkter
 - Issue #220: beslutninger, fire kontroller grunnleggeren må gjøre selv, og kontaktadressen som er en plassholder.
+
+## Story 11.13: Forleng Testfristen for én student (spor 2), og merge av Epic 8 inn i Epic 11
+
+### Oppgave
+Hente inn `main` (Epic 8) i `epic-11`, så tidsfaktoren fra Story 8.9 kommer med, og bygge Story 11.13.
+
+### Plan
+Byggeagenten gjorde mergen først, så storyen med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Merge: 72364a3, retting c0d7d23. Migrasjon 0120 kommer nå etter 0064, med én head. Den tidsbegrensede økta i 11.12 bruker tidsfaktoren fra 8.9 direkte.
+- Spec: `.docs/implementation-artifacts/spec-11-13-extend-one-students-test-deadline.md`. Commit: 349a815. Migrasjon 0130.
+- Læreren gir én student en senere Testfrist; Debrief-fristen flyttes like mye, og påminnelsene følger studentens egne frister.
+- Tester: backend 3668, Vitest 1163, tsc, `lint:colours`, `check:copy`, bygg, Playwright 130 med axe (etter mergen: backend 3652, Playwright 251).
+- Gjennomgang: 33 funn, 3 lave rettet.
+- Status: done.
+- Videre: spor 2 bygger 11.14 på `epic-11`. Spor 1 er ferdig med det som kan bygges i Epic 15, så et tredje worktree (`.claude/worktrees/lane-3`, stack på 8082/5434) bygger Epic 12 fra 12.7 på `epic-12`, spolt fram til `epic-11`. Fremdeles bare to byggeagenter samtidig.
+
+### Åpne punkter
+- Issue #221: beslutninger og nye tabeller med persondata.
