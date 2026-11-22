@@ -157,7 +157,7 @@ development_status:
   7-11-act-on-the-longest-waiting-game-from-the-varselbånd: done
   epic-7-retrospective: optional
 
-  epic-8: in-progress
+  epic-8: done
   8-1-record-when-each-week-opened-and-when-each-seat-ordered: done
   8-2-an-ai-player-takes-over-after-the-inactivity-limit: done
   8-3-see-on-the-oversikt-which-class-game-is-closest-to-takeover: done
@@ -262,9 +262,9 @@ development_status:
   14-8-export-a-class-session-s-game-data-cut-list: backlog
   epic-14-retrospective: optional
 
-  epic-15: backlog
+  epic-15: in-progress
   15-1-a-student-sees-their-own-data-in-mine-data: backlog
-  15-2-the-admin-deletes-a-user-on-the-institution-s-instruction: backlog
+  15-2-the-admin-deletes-a-user-on-the-institution-s-instruction: in-progress
   15-3-student-data-is-deleted-automatically-when-retention-ends: backlog
   15-4-the-admin-exports-pseudonymised-data-for-evaluation: backlog
   15-5-the-admin-pins-and-freezes-a-model-for-class-sessions: backlog
