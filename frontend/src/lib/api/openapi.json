@@ -174,6 +174,93 @@
         "title": "AdaptedOut",
         "type": "object"
       },
+      "AdaptedPreviewItemOut": {
+        "description": "One Adapted item template filled for the sample Student (Story 11.9): its id, the Game it\nreads (`game`, the Class game, or `replay`), its fact kind, its weight (its share of the\nAdapted total) and the code-rendered text; `text` is None when the sample has no such fact.",
+        "properties": {
+          "fact": {
+            "enum": [
+              "moment",
+              "pattern",
+              "outcome"
+            ],
+            "title": "Fact",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "game",
+              "replay"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          },
+          "weight": {
+            "title": "Weight",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "source",
+          "fact",
+          "weight",
+          "text"
+        ],
+        "title": "AdaptedPreviewItemOut",
+        "type": "object"
+      },
+      "AdaptedPreviewOut": {
+        "description": "The Adapted item preview (Story 11.9, FR-53, UX-DR70): the template version the Class\nsession pins (pinned once locked, the latest before), whether it is a draft (issue #16),\nwhether the lock has pinned it, the Adapted total weight in force, and each template filled\nfrom the static sample facts set («Demodata»).",
+        "properties": {
+          "adapted_weight": {
+            "title": "Adapted Weight",
+            "type": "integer"
+          },
+          "draft": {
+            "title": "Draft",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AdaptedPreviewItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "pinned": {
+            "title": "Pinned",
+            "type": "boolean"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "draft",
+          "pinned",
+          "adapted_weight",
+          "items"
+        ],
+        "title": "AdaptedPreviewOut",
+        "type": "object"
+      },
       "AddressProblem": {
         "description": "Why a value is not an address (Story 4.3, FR-7). The web app words each one.",
         "enum": [
@@ -12386,6 +12473,69 @@
         "summary": "Save Class Session",
         "tags": [
           "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/adapted-preview": {
+      "get": {
+        "description": "The Adapted item preview (Story 11.9, FR-53, UX-DR70): each template of the version the\nClass session pins, filled by code from the static sample facts set («Demodata»), with its\nweight of the Adapted total in force. No Game, no stored facts set, no LLM call.",
+        "operationId": "getAdaptedPreview",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdaptedPreviewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Adapted Preview",
+        "tags": [
+          "tests"
         ]
       }
     },

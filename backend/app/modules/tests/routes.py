@@ -11,6 +11,9 @@ The Scoring guide, «Sensorveiledning» (Story 11.2, FR-81): `GET
 /api/class-sessions/{id}/scoring-guide` for the Class's owners and Assistant lecturers and `PUT …`
 («Lagre sensorveiledning») for its owners, likewise.
 
+The Adapted item preview (Story 11.9, FR-53): `GET /api/class-sessions/{id}/adapted-preview`
+for the Class's owners and Assistant lecturers, likewise.
+
 The Student's Individual test (Story 11.3, FR-51): `GET /api/me/class-sessions/{id}/test` and
 `POST …` (accepting the own-work statement). Any session that is not the Student's own locked
 Class session answers 403 `forbidden`, whether or not an attempt exists (FR-5). `PUT
@@ -23,8 +26,9 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse, Response
 
 from app.modules.sessions import service as sessions
-from app.modules.tests import attempt, commands, guide, selection, service
+from app.modules.tests import attempt, commands, guide, preview, selection, service
 from app.modules.tests.schemas import (
+    AdaptedPreviewOut,
     AnswerIn,
     FinalIn,
     MyTestOut,
@@ -165,6 +169,25 @@ async def set_session_question_set(
         )
     except sessions.SessionLocked as refused:
         return error_response(409, refused.code, "The Class session has started.", refused.fields)
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.get(
+    "/class-sessions/{session_id}/adapted-preview",
+    response_model=AdaptedPreviewOut,
+    responses=documented(401, 403),
+    operation_id="getAdaptedPreview",
+)
+async def get_adapted_preview(
+    session_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("class_sessions.read"))],
+) -> Response:
+    """The Adapted item preview (Story 11.9, FR-53, UX-DR70): each template of the version the
+    Class session pins, filled by code from the static sample facts set («Demodata»), with its
+    weight of the Adapted total in force. No Game, no stored facts set, no LLM call."""
+    found = await preview.read_preview(user, _id(session_id))
     if found is None:
         raise authz.Forbidden
     return JSONResponse(found.model_dump(mode="json"))

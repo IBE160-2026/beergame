@@ -588,6 +588,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/class-sessions/{session_id}/adapted-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Adapted Preview
+         * @description The Adapted item preview (Story 11.9, FR-53, UX-DR70): each template of the version the
+         *     Class session pins, filled by code from the static sample facts set («Demodata»), with its
+         *     weight of the Adapted total in force. No Game, no stored facts set, no LLM call.
+         */
+        get: operations["getAdaptedPreview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/class-sessions/{session_id}/allocation": {
         parameters: {
             query?: never;
@@ -2748,6 +2770,49 @@ export interface components {
             replacements: number;
             /** Weight */
             weight: number;
+        };
+        /**
+         * AdaptedPreviewItemOut
+         * @description One Adapted item template filled for the sample Student (Story 11.9): its id, the Game it
+         *     reads (`game`, the Class game, or `replay`), its fact kind, its weight (its share of the
+         *     Adapted total) and the code-rendered text; `text` is None when the sample has no such fact.
+         */
+        AdaptedPreviewItemOut: {
+            /**
+             * Fact
+             * @enum {string}
+             */
+            fact: "moment" | "pattern" | "outcome";
+            /** Id */
+            id: string;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "game" | "replay";
+            /** Text */
+            text: string | null;
+            /** Weight */
+            weight: number;
+        };
+        /**
+         * AdaptedPreviewOut
+         * @description The Adapted item preview (Story 11.9, FR-53, UX-DR70): the template version the Class
+         *     session pins (pinned once locked, the latest before), whether it is a draft (issue #16),
+         *     whether the lock has pinned it, the Adapted total weight in force, and each template filled
+         *     from the static sample facts set («Demodata»).
+         */
+        AdaptedPreviewOut: {
+            /** Adapted Weight */
+            adapted_weight: number;
+            /** Draft */
+            draft: boolean;
+            /** Items */
+            items: components["schemas"]["AdaptedPreviewItemOut"][];
+            /** Pinned */
+            pinned: boolean;
+            /** Version */
+            version: number;
         };
         /**
          * AddressProblem
@@ -8666,6 +8731,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getAdaptedPreview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdaptedPreviewOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

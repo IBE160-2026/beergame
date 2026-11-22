@@ -71,6 +71,25 @@ export function useQuestionSet(classSessionId: string) {
   });
 }
 
+/** The Adapted item preview (Story 11.9): each template filled for the sample Student. */
+export type AdaptedPreview = components["schemas"]["AdaptedPreviewOut"];
+export type AdaptedPreviewItem = components["schemas"]["AdaptedPreviewItemOut"];
+
+/** Under `["class-sessions", id]`, so a `session:<id>` event (a saved Adapted total) reads it again. */
+export const adaptedPreviewKey = (classSessionId: string) => ["class-sessions", classSessionId, "adapted-preview"] as const;
+
+/** The preview for the Class's staff; 403 `forbidden` for anyone else. */
+export function useAdaptedPreview(classSessionId: string) {
+  return useQuery({
+    queryKey: adaptedPreviewKey(classSessionId),
+    queryFn: () =>
+      request(() =>
+        api.GET("/api/class-sessions/{session_id}/adapted-preview", { params: { path: { session_id: classSessionId } } }),
+      ),
+    retry: false,
+  });
+}
+
 /** «Lagre vekter»: the whole selection. 422 `weights_not_100`, 409 `session_locked`, `class_archived`. */
 export function saveQuestionSet(classSessionId: string, body: QuestionSetBody): Promise<QuestionSet> {
   return request(() =>

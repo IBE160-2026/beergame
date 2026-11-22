@@ -5,10 +5,12 @@ import { useId, useState } from "react";
 
 import { ActionError } from "@/components/action-error";
 import { Button } from "@/components/button";
+import { Link } from "@/components/link";
 import { TextField } from "@/components/text-field";
 import { nb } from "@/copy/nb";
 import { ApiRequestError } from "@/lib/api/client";
 import { useAction } from "@/lib/api/mutation";
+import { adaptedPreviewPath } from "@/modules/identity/homes";
 
 import {
   draftOf,
@@ -34,7 +36,8 @@ const TOGGLE = "w-36 shrink-0";
 /**
  * The Klasseøkt's «Spørsmål og vekter» block (Story 11.1, FR-52, FR-53, UX-DR49, AD-12): every
  * question of the Individual test with its type, its «Vekt i %» and «Ta ut», and one line for the
- * Adapted items' total weight. The sum shows live and is announced politely; while it is not
+ * Adapted items' total weight, with a Lenke to their preview with a sample Student (Story 11.9).
+ * The sum shows live and is announced politely; while it is not
  * 100 % «Lagre vekter» is unavailable (the api refuses such a save too). Taking out a question
  * that measures quantities warns without blocking. Its own secondary save, like «Lagre quizvalg»:
  * the selection belongs to the test. From the Start date, for an Assistant lecturer and for an
@@ -151,6 +154,11 @@ function QuestionSetView({ set, classSessionId, titleId }: { set: QuestionSet; c
               </p>
               <p id={`${ids}-adapted-help`} className="mt-1 text-body-phone text-ink-secondary">
                 {copy.adaptedHelp} {copy.replacements(set.adapted.replacements)}
+              </p>
+              <p>
+                <Link href={adaptedPreviewPath(classSessionId)} standalone data-adapted-preview-link="">
+                  {copy.adaptedPreview}
+                </Link>
               </p>
             </div>
             <div className={CONTROLS}>

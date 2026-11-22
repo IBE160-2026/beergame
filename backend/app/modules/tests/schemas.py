@@ -130,6 +130,31 @@ class QuestionSetIn(BaseModel):
     adapted_weight: Weight
 
 
+class AdaptedPreviewItemOut(BaseModel):
+    """One Adapted item template filled for the sample Student (Story 11.9): its id, the Game it
+    reads (`game`, the Class game, or `replay`), its fact kind, its weight (its share of the
+    Adapted total) and the code-rendered text; `text` is None when the sample has no such fact."""
+
+    id: str
+    source: Literal["game", "replay"]
+    fact: Literal["moment", "pattern", "outcome"]
+    weight: int
+    text: str | None
+
+
+class AdaptedPreviewOut(BaseModel):
+    """The Adapted item preview (Story 11.9, FR-53, UX-DR70): the template version the Class
+    session pins (pinned once locked, the latest before), whether it is a draft (issue #16),
+    whether the lock has pinned it, the Adapted total weight in force, and each template filled
+    from the static sample facts set («Demodata»)."""
+
+    version: int
+    draft: bool
+    pinned: bool
+    adapted_weight: int
+    items: list[AdaptedPreviewItemOut]
+
+
 # The «Sensorveiledning» block (Story 11.2, FR-81, UX-DR49).
 
 

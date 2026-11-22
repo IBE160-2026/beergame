@@ -180,3 +180,20 @@ The Deferred item "Timing of Adapted items", closed here (`prepare.py`, `jobs.py
   attempt never changes, whatever a later or repeated job does.
 - The page shows an AI-worded item's label as «KI-generert, kan ta feil: «…»» with
   `data-ai-generated="true"`, taken from `wording.ai_generated` only.
+
+## The Adapted item preview with a sample Student (Story 11.9)
+
+`preview.py`: `GET /api/class-sessions/{id}/adapted-preview` (owners and Assistant lecturers,
+`class_sessions.read`; 403 `forbidden` for everyone else and for a session that does not exist).
+
+- Each template of the version the Class session pins (the lock's pin; the latest before the
+  lock) is filled by `analysis.adapted.fill` from one static sample facts set, with its share of
+  the Adapted total in force (the pinned selection, else the one «Spørsmål og vekter» shows).
+  `text` is null for a template whose fact the sample lacks.
+- The sample is `files/sample_facts.json`: the Retailer of Story 9.1's Takeover golden Game (a
+  Student placed the Orders of Weeks 3-14), built by `analysis.facts` from the fixture
+  `tests/golden/facts/takeover-seat-weeks.json` with Detected patterns v1 and no simulated rows.
+  Both template sources read it. `tests/individual_test/test_preview.py` rebuilds it and
+  compares (rewrite with `UPDATE_GOLDEN=1`); `tests/games/test_facts.py` checks the fixture
+  against the played Game.
+- No Game row, no stored facts set, no LLM call and no write.

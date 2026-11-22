@@ -2859,6 +2859,8 @@ export const nb = {
       takenOut: "Tatt ut",
       adaptedTitle: "Tilpassede oppgaver",
       adaptedHelp: "Lages fra hver students eget spill og Replay. Samme samlede vekt for alle studentene.",
+      /** [ASSUMPTION] Story 11.9: the Lenke to the Adapted item preview. */
+      adaptedPreview: "Se de tilpassede oppgavene med demodata",
       replacements: (n: number) =>
         `Studenter med færre enn 10 egne ordrer får ${n} vanlige oppgaver med samme samlede vekt i stedet.`,
       /** The live sum; «Sum 95 %. Vektene må bli 100 %.» blocks the save. */
@@ -2876,6 +2878,29 @@ export const nb = {
       archived: "Klassen er arkivert, så spørsmål og vekter kan ikke endres.",
       failed: "Vektene ble ikke lagret. Prøv igjen.",
       loadFailed: "Spørsmål og vekter kunne ikke hentes.",
+    },
+    /** Story 11.9 (FR-53, UX-DR70): the Adapted item preview, each template filled for a sample
+     * Student and labelled «Demodata». The draft notice is «Spørsmål og vekter»'s own; the rest
+     * is [ASSUMPTION] draft copy for the founder's review. */
+    adaptedPreview: {
+      title: "Tilpassede oppgaver",
+      crumb: "Tilpassede oppgaver",
+      lead: "Slik ser de tilpassede oppgavene ut for én student. Alle studentene får de samme oppgavene, fylt med tall fra sitt eget Klassespill og sin egen Replay.",
+      /** Under the lead: where the numbers come from. */
+      sample: "Tallene her er fra ett eksempelspill, ikke fra noen av studentene dine. Oppgaven fra Replay bruker tall fra det samme spillet.",
+      /** The Debrief's AI-text switch may let an AI choose another approved wording (Story 11.8). */
+      wordings: "Når KI-tekst er slått på, kan en KI velge en annen godkjent ordlyd for en student. Tallene er de samme.",
+      /** The Adapted total weight in force, from «Spørsmål og vekter». */
+      total: (n: number) => `Samlet vekt ${n} %`,
+      item: (n: number) => `Oppgave ${n}`,
+      sources: {
+        game: "Fra Klassespillet",
+        replay: "Fra Replay",
+      } as Record<string, string>,
+      weightText: (n: number) => `Vekt ${n} %`,
+      /** A template the sample game has no fact for. */
+      noFact: "Eksempelspillet har ingen slik hendelse, så denne oppgaven kan ikke vises her.",
+      loadFailed: "De tilpassede oppgavene kunne ikke hentes.",
     },
     /** Story 11.2 (FR-81, UX-DR49): the Klasseøkt's block «Sensorveiledning». The title, «Standard»,
      * «Endret» and «Ikke kontrollert med en Kontrolltest.» are the spine's; the rest is [ASSUMPTION]
