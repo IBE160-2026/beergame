@@ -8,7 +8,7 @@ import week11 from "../src/modules/games/fixtures/play-week-11.json";
 import { formatNumber } from "../src/lib/number-format";
 import { loginByApi, untilFontsLoaded } from "./support/auth";
 import { expectAccessible, expectReflow } from "./support/classes";
-import { alignment, labelProblems } from "./support/graph";
+import { alignment, labelProblems, projectionCrossings, projectionSumLines } from "./support/graph";
 
 /** Playing the Replay (Story 10.4, FR-48, FR-49, FR-14, FR-73, NFR-6, AD-10, UX-DR19, UX-DR64): the
  * Epic 6 play screen with the dashed projection and its sentence, which only an envelope with
@@ -100,6 +100,8 @@ for (const vp of VIEWPORTS) {
       expect(found.off).toEqual([]);
       expect(Math.max(...found.drawn)).toBe(15); // the axis stops at nå + 4
       expect(await labelProblems(page)).toEqual([]);
+      // Story 10.6: the line and its dot stay off «Restordre» and «Posisjon».
+      expect(await projectionCrossings(page)).toEqual([]);
       const sentence = main.locator("[data-projection-sentence]");
       await expect(sentence).toHaveText(sentenceOf(REPLAY, null));
       // The graph rows are hidden from screen readers; the sentence is read (NFR-6).
@@ -112,6 +114,7 @@ for (const vp of VIEWPORTS) {
       const field = page.getByRole("textbox", { name: copy.order.label(11) });
       await field.fill("24");
       await expect(sentence).toHaveText(sentenceOf(REPLAY, 24));
+      expect(await projectionCrossings(page)).toEqual([]);
       await expectReflow(page, vp.phone);
       // An AI player's Setestatus row reads «venter» while it has not ordered (NFR-2); there is
       // no Pausevalg and no «Sett inn KI-spiller» (FR-49).
@@ -134,6 +137,19 @@ for (const vp of VIEWPORTS) {
   });
 }
 
+test("at 390 px the labels stay clear of the projection and its sum keeps to one line (Story 10.6)", async ({ page }) => {
+  // The 10.4 visual check: «Restordre 20» struck through by the line and dot, and «−4 − 4 / × 10».
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openPlay(page, REPLAY, true);
+  expect(await projectionCrossings(page)).toEqual([]);
+  expect(await labelProblems(page)).toEqual([]);
+  expect(await projectionSumLines(page)).toBe(1);
+  await page.getByRole("textbox", { name: copy.order.label(11) }).fill("24");
+  await expect(page.locator("[data-projection-sentence]")).toHaveText(sentenceOf(REPLAY, 24));
+  expect(await projectionCrossings(page)).toEqual([]);
+  expect(await projectionSumLines(page)).toBe(1);
+});
+
 test("a Replay with shorter delays puts the dot at nå + 2 and says «om to uker»", async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 740 });
   const envelope = short as unknown as Envelope;
@@ -147,6 +163,8 @@ test("a Replay with shorter delays puts the dot at nå + 2 and says «om to uker
   await expect(sentence).toHaveText(sentenceOf(envelope, null));
   await expect(sentence).toContainText("om to uker");
   await expect(sentence).toContainText(" − 2 × ");
+  expect(await projectionCrossings(page)).toEqual([]);
+  expect(await projectionSumLines(page)).toBe(1);
 });
 
 test.describe("Hjem and Stegene lead back to a running Replay", () => {

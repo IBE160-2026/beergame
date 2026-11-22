@@ -42,6 +42,11 @@ const TEST_GAME = "Testspill";
 const WEEK_WORDS = ["null uker", "én uke", "to uker", "tre uker", "fire uker", "fem uker", "seks uker"];
 const weeksInWords = (weeks: number) => WEEK_WORDS[weeks] ?? `${weeks} uker`;
 
+/** A sum kept on one line: its spaces made non-breaking, so «−4 − 4 × 10 = −44» never breaks
+ * inside (the projection's sentence, Story 10.6 fix of the 10.4 visual check). Where a line is
+ * narrower than the sum, the sentence's `overflow-wrap` breaks it rather than the page scroll. */
+const formula = (sum: string) => sum.replaceAll(" ", " ");
+
 /** «Spill 17», or «Testspill» for a test Game, which has no number (Story 6.20). */
 const gameName = (number: number | null) => (number === null ? TEST_GAME : `Spill ${number}`);
 
@@ -441,6 +446,9 @@ export const nb = {
       /** Story 10.3: the current Replay step after the Student's Testfrist with no Replay
        * started; it is not done. [ASSUMPTION] */
       replayClosed: "ikke gjort, Testfristen er ute",
+      /** Story 10.6: the current Replay step once a started Replay was closed at the Testfrist
+       * unfinished. [ASSUMPTION] */
+      replayClosedUnfinished: "stengt ved Testfristen, ikke fullført",
       /** Story 10.4 (UX-DR64, EXPERIENCE.md → Replay in progress): the current Replay step while
        * the Replay runs; its link leads to the play screen. The spine's line. */
       replayResume: (week: number) => `Fortsett Replay, Uke ${week}.`,
@@ -458,6 +466,8 @@ export const nb = {
         resume: (week: number) => `Fortsett Replay, Uke ${week}`,
         /** Story 10.5: the finished Replay, read again on its own screen. [ASSUMPTION] */
         view: "Se Replay",
+        /** Story 10.6: a Replay closed at the Testfrist unfinished, on Hjem. [ASSUMPTION] */
+        closed: "Replay ble stengt ved Testfristen og er ikke fullført.",
         failed: "Replay ble ikke startet. Prøv igjen.",
         errors: {
           quiz_required: "Bestå Debrief-quizen først.",
@@ -1751,6 +1761,13 @@ export const nb = {
         totalNote: (role: string) => `${role}, to kostnadsarter, hele Replay.`,
         toWalkthrough: "Gå til gjennomgangen",
       },
+      /** A Replay closed at the Testfrist without its last Uke (Story 10.6, FR-18, EXPERIENCE.md →
+       * Replay): not finished, no Totalkostnad, no walkthrough. [ASSUMPTION] */
+      replayClosed: {
+        title: "Replay stengt",
+        lead: "Testfristen er ute. Replay ble stengt før siste uke og er ikke fullført.",
+        kept: "Ordrene du la inn, er lagret som de var.",
+      },
       /** Ordrefelt (Story 6.10, DESIGN.md → Ordrefelt, UX-DR20). The label is the spine's; the
        * Veiledet uke line is [ASSUMPTION] draft copy. It never says how many Veiledede uker are
        * left (FR-14): the briefing told that. */
@@ -1790,6 +1807,8 @@ export const nb = {
         reconnected: "Tilkoblet igjen. Ordren er ikke sendt ennå.",
         weekGone: (week: number, value: string) => `Uke ${week} er over. Ordren på ${value} ble ikke sendt.`,
         seatGone: (value: string) => `Du har ikke dette setet lenger. Ordren på ${value} ble ikke sendt.`,
+        /** Story 10.6: `409 test_deadline_passed`, a Replay past the Testfrist. [ASSUMPTION] */
+        deadlineGone: (value: string) => `Testfristen er ute. Ordren på ${value} ble ikke sendt.`,
       },
       /** The Uke-overgang (Story 6.15, EXPERIENCE.md → Uke-overgang, UX-DR23): «Uke 11 er ferdig
        * regnet», «Restordre 13 blir 20», «Denne uka: 20 restordre × 1,00 = 20,00 kr» and «Hopp
@@ -1927,8 +1946,8 @@ export const nb = {
          * formatted («−5»); `weeks` is the delay horizon. */
         projection: (weeks: number, position: string, order: string | null, horizon: string, incoming: string, value: string) =>
           order === null
-            ? `Den stiplede linja viser netto lager om ${weeksInWords(weeks)}: ${position} − ${horizon} × ${incoming} = ${value} hvis du ikke bestiller og ordre inn holder seg. Ikke garantert.`
-            : `Den stiplede linja viser netto lager om ${weeksInWords(weeks)}: ${position} + ${order} − ${horizon} × ${incoming} = ${value} hvis ordre inn holder seg. Ikke garantert.`,
+            ? `Den stiplede linja viser netto lager om ${weeksInWords(weeks)}: ${formula(`${position} − ${horizon} × ${incoming} = ${value}`)} hvis du ikke bestiller og ordre inn holder seg. Ikke garantert.`
+            : `Den stiplede linja viser netto lager om ${weeksInWords(weeks)}: ${formula(`${position} + ${order} − ${horizon} × ${incoming} = ${value}`)} hvis ordre inn holder seg. Ikke garantert.`,
       },
       /** Kjedebånd (Story 6.9, DESIGN.md → Kjedebånd, UX-DR14, UX-DR73). The labels («Ordre inn
        * 8», «Din ordre», «Levering 4», «Sendt 4», «Lager 12», «Restordre 13», «På vei 16») and the
@@ -2892,6 +2911,8 @@ export const nb = {
       not_started: "Ikke startet",
       finished: "Ferdig",
     },
+    /** Story 10.6: a Replay closed at the Testfrist unfinished, in place of «Ferdig». [ASSUMPTION] */
+    closedAtTestDeadline: "Stengt ved Testfristen, ikke fullført",
     /** Read before the status word. */
     statusLabel: "Status",
     seatsTitle: "Setene",

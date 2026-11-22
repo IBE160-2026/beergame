@@ -125,3 +125,12 @@ def test_staff_open_class_games_and_replays_on_spillinnsikt_and_nothing_else():
     Spillinnsikt; a Lecturer's test Game and a simulation never."""
     assert purposes_with("staff_insight") == ["class", "replay"]
     assert set(purposes_with("lecturer_overview")) <= set(purposes_with("staff_insight"))
+
+
+def test_only_the_replay_is_closed_at_the_test_deadline_and_never_played_out():
+    """Story 10.6 (FR-18, AD-13): an unfinished Replay is closed at the Test deadline, not played
+    out, since a played-out Replay would not be the Student's own; a Class game is played out."""
+    assert purposes_with("closes_at_test_deadline") == ["replay"]
+    assert not set(purposes_with("closes_at_test_deadline")) & set(
+        purposes_with("play_deadline_playout")
+    )

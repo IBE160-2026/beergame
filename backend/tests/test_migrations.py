@@ -123,7 +123,7 @@ HEAD_TABLES = (
     | MESSAGE_TABLES
     | REPLAY_TABLES
 )
-HEAD = "0116"  # 0116 names each Student's Replay (Story 10.3)
+HEAD = "0117"  # 0117 says why a Game ended without its last Week (Story 10.6)
 
 
 def reset_schema(url: str) -> None:
@@ -312,6 +312,13 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     # 0111 (Story 9.12): presence, the Students who go on alone and the 48-hour fallback.
     assert "last_seen_at" in columns(url, "debrief_members")
     assert {"fallback_due_at", "fallback_at"} <= columns(url, "debrief_sessions")
+
+    # 0117 (Story 10.6): why a Game ended without its last Week, only on a finished Game.
+    assert "end_reason" in columns(url, "games")
+    assert "'test_deadline'" in definition(url, "ck_games_end_reason")
+    assert "finished" in definition(url, "ck_games_end_reason_finished")
+    command.downgrade(cfg, "0116")
+    assert "end_reason" not in columns(url, "games")
 
     # 0116 (Story 10.3): each Student's one Replay in a Class session.
     assert {"user_id", "class_session_id", "game_id"} <= columns(url, "replays")

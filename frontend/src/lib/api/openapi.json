@@ -2792,6 +2792,18 @@
             "title": "Demand",
             "type": "array"
           },
+          "end_reason": {
+            "anyOf": [
+              {
+                "const": "test_deadline",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Reason"
+          },
           "game_id": {
             "format": "uuid",
             "title": "Game Id",
@@ -5897,6 +5909,18 @@
       "ReplayGameOut": {
         "description": "The Student's started Replay on Hjem (Story 10.3, FR-48, FR-34): its Role and Seats, every\nAI player as `ai` (named «KI-spiller») from the first view, and where it stands. Never the\nnumber of Weeks, the demand or the scenario (FR-49).",
         "properties": {
+          "end_reason": {
+            "anyOf": [
+              {
+                "const": "test_deadline",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Reason"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -8267,6 +8291,18 @@
               }
             ],
             "title": "Debrief"
+          },
+          "end_reason": {
+            "anyOf": [
+              {
+                "const": "test_deadline",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Reason"
           },
           "id": {
             "format": "uuid",

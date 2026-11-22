@@ -18,6 +18,12 @@ export function seatsUpstreamFirst(insight: Pick<GameInsight, "seats">): Insight
 }
 
 /** Who holds a Seat or held it in a Week: the Student's name, «KI-spiller», or «Ledig». */
+/** The status word in Spillinnsikt's header: the api's `status`, except a Replay closed at the
+ * Testfrist, which is `finished` without having finished (Story 10.6). */
+export function statusText(insight: Pick<GameInsight, "status" | "end_reason">): string {
+  return insight.end_reason === "test_deadline" ? copy.closedAtTestDeadline : copy.status[insight.status];
+}
+
 export function holderText(holder: Pick<InsightSeat, "holder" | "name">): string {
   if (holder.holder === "ai") return copy.aiPlayer;
   if (holder.holder === "free") return copy.freeSeat;

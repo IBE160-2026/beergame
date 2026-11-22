@@ -325,7 +325,9 @@ export function WeekTable({
 /**
  * The projection's sentence (Story 10.4, UX-DR19, NFR-6): the dashed line's text alternative, read
  * as text (the graph is `aria-hidden`) and wrapped to the page width under the table. A short
- * dashed rule before it ties it to the line by stroke, not by colour alone.
+ * dashed rule before it ties it to the line by stroke, not by colour alone. Its sum keeps to one
+ * line (non-breaking spaces in `nb.ts`, Story 10.6); only on a line narrower than the sum itself
+ * (200 % text at 320 px) does `overflow-wrap` break it, so the page never scrolls sideways.
  */
 export function ProjectionSentence({ projection }: { projection: Projection }) {
   const text = graphCopy.projection(
@@ -339,7 +341,7 @@ export function ProjectionSentence({ projection }: { projection: Projection }) {
   return (
     <p
       data-projection-sentence=""
-      className="mt-2 max-w-prose px-[calc(var(--spacing-gutter-phone)-var(--spacing-gutter-phone-chart))] text-body-phone text-ink-secondary lg:px-0 lg:text-body"
+      className="mt-2 max-w-prose px-[calc(var(--spacing-gutter-phone)-var(--spacing-gutter-phone-chart))] text-body-phone text-ink-secondary [overflow-wrap:anywhere] lg:px-0 lg:text-body"
     >
       <span aria-hidden="true" className="mr-2 inline-block w-[1.6em] border-t-2 border-dashed border-projection align-middle" />
       {text}

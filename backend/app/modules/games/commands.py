@@ -61,6 +61,7 @@ from app.modules.games.models import SNAPSHOT_COLUMNS
 from app.modules.games.policy import GamePolicy, PurposeNotSupportedError, policy
 from app.modules.games.schemas import (
     DecidedBy,
+    EndReason,
     Fallback,
     Lifecycle,
     OccupancyReason,
@@ -70,6 +71,7 @@ from app.modules.games.schemas import (
     SessionRuntime,
 )
 from app.modules.games.service import (
+    past_test_deadline,
     run_finish_hooks,
     scope_of,
     seated_students,
@@ -78,7 +80,7 @@ from app.modules.games.service import (
 from app.modules.games.turns import OpenGame, play_of
 from app.modules.games.views import build_seat_state, stored_orders, stored_play
 from app.modules.progress import service as progress
-from app.platform import events, notify
+from app.platform import auth, events, notify
 from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker
 from app.platform.parameter_sets import UnknownParameterSetError, read_parameter_set
@@ -89,6 +91,7 @@ __all__ = [
     "accept_time",
     "advance",
     "assign_seat",
+    "close",
     "create",
     "default_runtime",
     "finish",
@@ -1198,8 +1201,12 @@ async def _place(
     if stored:
         await _check_actor(session, row, week, actor)
         raise CommandError("order_exists", "the Seat has already ordered this Week", 409)
-    if game["lifecycle"] == Lifecycle.FINISHED:
-        raise CommandError("game_finished", "the Game has finished", 409)
+    _refuse_finished(game)
+    if actor is not None:
+        # A Student's own Order. An AI player's (an `ai-orders` job, the rescue loop) may still
+        # complete a Week the Student ordered in before the deadline, so a Replay finished in time
+        # is never stranded; once the sweep has closed it, `_refuse_finished` refuses those too.
+        await _refuse_past_test_deadline(session, game)
     if open_game is not None:
         states, orders = await play_of(open_game)
     else:
@@ -1446,8 +1453,8 @@ async def view_week(game_id: str, seat: Role | str, week: int, *, actor: uuid.UU
         row = _seat_row(seat_rows, seat)
         if game["lifecycle"] == Lifecycle.NOT_STARTED:
             raise CommandError("game_not_started", "the Game has not started", 409)
-        if game["lifecycle"] == Lifecycle.FINISHED:
-            raise CommandError("game_finished", "the Game has finished", 409)
+        _refuse_finished(game)
+        await _refuse_past_test_deadline(session, game)
         settings, params = _snapshot(game)
         states, _ = await stored_play(session, game_uuid)
         if type(week) is not int or week != states[-1].week:
@@ -1665,6 +1672,71 @@ async def finish(session: AsyncSession, game_id: uuid.UUID, state: WeekState) ->
     # Story 9.14: the registered finish hooks (the Debrief defers its narration jobs).
     await run_finish_hooks(session, game_id)
     log.info("game_finished", game_id=str(game_id))
+
+
+def _refuse_finished(game: Mapping[str, Any]) -> None:
+    """A finished Game takes no turn: 409 `game_finished`, or `test_deadline_passed` for one
+    `close` ended at the Test deadline (Story 10.6), so the screen can say why."""
+    if game["lifecycle"] != Lifecycle.FINISHED:
+        return
+    if game["end_reason"] == EndReason.TEST_DEADLINE:
+        raise CommandError("test_deadline_passed", "the Game was closed at the Test deadline", 409)
+    raise CommandError("game_finished", "the Game has finished", 409)
+
+
+async def _refuse_past_test_deadline(session: AsyncSession, game: Mapping[str, Any]) -> None:
+    """Story 10.6 (FR-18): a Game whose policy closes it at the Test deadline takes no Student turn
+    once its Students' deadline has passed on the app's clock, also in the minute before the sweep
+    closes it: 409 `test_deadline_passed`, nothing written."""
+    if not _policy(game["purpose"]).closes_at_test_deadline:
+        return
+    if await past_test_deadline(session, game, auth.utcnow()):
+        raise CommandError("test_deadline_passed", "the Test deadline has passed", 409)
+
+
+def _end_reason(reason: object) -> EndReason:
+    try:
+        return EndReason(reason)
+    except ValueError:
+        raise CommandError("reason_invalid", f"{reason!r} is not a reason to close", 422) from None
+
+
+async def close(game_id: str, reason: EndReason | str, *, due: datetime | None = None) -> bool:
+    """End an unfinished Game without its last Week (Story 10.6, AD-2, AD-13): `lifecycle =
+    finished` with `end_reason`, in one transaction that locks the Game row, raises its version
+    and emits `game:<id>` (and `session:<id>` where the Lecturer overview lists it) and `user:<id>`
+    for every Student its occupancy history names. It opens no Week and stores no finished Week
+    state, and it runs no finish hook, so no step is recorded and no AI player plays the rest
+    out; the Orders stored stay as they are (AD-15). Only for a purpose whose policy closes it at
+    the Test deadline (`closes_at_test_deadline`), else 409 `close_not_allowed`.
+
+    Idempotent: a Game already finished, either way, is left alone and False is returned. With
+    `due` (the sweep's `now`), the Game is closed only when its Test deadline has passed at `due`,
+    judged under the row lock (`games.service.past_test_deadline`), so a deadline moved since the
+    sweep found it is respected; False otherwise. Refuses `game_not_found` 404 and
+    `reason_invalid` 422. Returns True when it closed the Game."""
+    end_reason = _end_reason(reason)
+    game_uuid = _game_uuid(game_id)
+    async with get_sessionmaker().begin() as session:
+        game = await repo.lock_game(session, game_uuid)
+        if game is None:
+            raise CommandError("game_not_found", f"no Game {game_id!r}", 404)
+        if game["lifecycle"] == Lifecycle.FINISHED:
+            return False
+        if not _policy(game["purpose"]).closes_at_test_deadline:
+            raise CommandError(
+                "close_not_allowed", "Games of this purpose are not closed at a deadline", 409
+            )
+        if due is not None and not await past_test_deadline(session, game, due):
+            return False
+        await repo.set_lifecycle(
+            session, game_uuid, Lifecycle.FINISHED.value, end_reason=end_reason.value
+        )
+        await _commit_change(session, game_uuid)
+        for student in sorted(str(each) for each in await repo.named_students(session, game_uuid)):
+            await events.emit(session, "user", student)
+    log.info("game_closed", game_id=game_id, end_reason=end_reason.value)
+    return True
 
 
 async def _record_class_game_step(session: AsyncSession, game_id: uuid.UUID) -> None:

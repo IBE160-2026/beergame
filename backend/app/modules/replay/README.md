@@ -29,3 +29,13 @@ game, against three AI players, under the Class session's Replay scenario.
   finished-game check is the sweep's `games.verify_finished`, which takes every finished Game.
   Dev only: `POST /api/dev/class-sessions/{id}/quiz-passed` records the logged-in Student's steps
   up to `quiz_passed` (for the end-to-end test of a real Replay), never mounted in production.
+- **Story 10.6:** policy `closes_at_test_deadline` (the Replay only). The sweep's
+  `games.close_at_test_deadline` calls `games.commands.close(game, test_deadline, due=now)` for
+  each unfinished Replay once its Student's `effective_test_deadline` (read through a reader
+  `sessions` registers with `games.service`) has passed: `finished` with `end_reason =
+  test_deadline`, no last Week, no finish hook (so no `replay` step), never played out; the
+  Orders stay. `place_order` (and `view_week`) answer 409 `test_deadline_passed` on it, and a
+  Student's own Order on a Replay past the deadline before the sweep has closed it; an AI
+  player's may still complete a Week the Student ordered in time. `ai-orders` jobs and the rescue
+  loop end on that code. `end_reason` comes with the Game (`games.service`, the card, Hjem's Replay,
+  Spillinnsikt); a closed Replay has no `/result`, facts set or finished-game check.

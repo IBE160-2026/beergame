@@ -3,10 +3,11 @@ import { describe, expect, it } from "vitest";
 import { nb } from "@/copy/nb";
 import type { GameResult } from "@/modules/games/api";
 import result from "@/modules/games/fixtures/result-classic.json";
+import { endTitle } from "@/modules/games/game-end";
 import { stepItems } from "@/modules/games/home";
 
 import type { StudentReplay } from "./api";
-import { finishedReplay, replayEnd, replayTitle, resumeWeek, wantsReplayPrimary } from "./replay";
+import { closedReplay, finishedReplay, replayEnd, replayTitle, resumeWeek, wantsReplayPrimary } from "./replay";
 
 const classic = result as GameResult;
 /** The formatter's narrow spaces as plain ones, so the expectations read as the screen does. */
@@ -89,5 +90,28 @@ describe("the Replay on Hjem (Story 10.3)", () => {
       },
     ]);
     expect(open.note).toBe(nb.homes.student.current);
+  });
+
+  it("tells a Replay closed at the Testfrist from a finished one (Story 10.6)", () => {
+    const closed = {
+      ...STARTED,
+      game: { ...STARTED.game!, status: "finished" as const, week: null, end_reason: "test_deadline" as const },
+    };
+    expect(closedReplay(closed.game)).toBe(true);
+    expect(finishedReplay(closed)).toBe(false); // no «Se Replay»
+    expect(wantsReplayPrimary(closed)).toBe(false);
+    const finished = { ...STARTED.game!, status: "finished" as const, week: null, end_reason: null };
+    expect(closedReplay(finished)).toBe(false);
+    expect(closedReplay(STARTED.game)).toBe(false);
+    expect(closedReplay(null)).toBe(false);
+    // Stegene: a started Replay closed there reads so; none started, as before.
+    const steps = [
+      { step: "replay" as const, state: "current" as const, held: false, quiz_changed: false, group_open: false, closed: true },
+    ];
+    expect(stepItems(steps, "s1", closed)[0]!.note).toBe(nb.homes.student.replayClosedUnfinished);
+    expect(stepItems(steps, "s1", { can_start: false, game: null })[0]!.note).toBe(nb.homes.student.replayClosed);
+    // The page title: «Replay stengt», never «Replay er ferdig».
+    expect(endTitle({ replay: true, end_reason: "test_deadline" })).toBe("Replay stengt");
+    expect(endTitle({ replay: true, end_reason: null })).toBe("Replay er ferdig");
   });
 });

@@ -325,6 +325,7 @@ async def game_insight(user: authz.Principal, game_id: uuid.UUID) -> GameInsight
         game_number=insight.game_number,
         replay=head.replay,
         status=insight.status,
+        end_reason=insight.end_reason,
         version=insight.version,
         weeks_total=insight.weeks_total,
         demand=[DemandWeekOut(week=week, demand=demand) for week, demand in insight.demand],

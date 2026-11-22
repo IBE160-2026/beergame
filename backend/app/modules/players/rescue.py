@@ -31,8 +31,9 @@ log = structlog.get_logger(__name__)
 RESCUE_INTERVAL_S = 5.0
 """Seconds between two passes (AD-5)."""
 
-ENDED = frozenset({"order_exists", "week_not_open", "game_finished"})
-"""Refusals that mean the turn no longer waits: the job or another pass placed the Order."""
+ENDED = frozenset({"order_exists", "week_not_open", "game_finished", "test_deadline_passed"})
+"""Refusals that mean the turn no longer waits: the job or another pass placed the Order, or the
+Replay was closed at its Test deadline and takes none (Story 10.6)."""
 
 
 @dataclass(frozen=True)

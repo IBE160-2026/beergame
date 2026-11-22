@@ -56,6 +56,11 @@ class GamePolicy(BaseModel):
     """Whether the staff of its Class open it on Spillinnsikt (Story 7.7, FR-62): every Game the
     Lecturer overview lists, and the Replay, which is no Class game but a Student's own round in
     the Class session (Story 10.5, FR-34). A Lecturer's test Game and a simulation never."""
+    closes_at_test_deadline: bool
+    """Whether an unfinished Game is closed, not played out, at its Students' Test deadline
+    (`games.commands.close`, the sweep's `games.close_at_test_deadline`, Story 10.6, FR-18), and
+    takes no Order after it (`409 test_deadline_passed`): only the Replay, which a playout would
+    make no longer the Student's own (AD-13)."""
 
 
 POLICIES: Mapping[Purpose, GamePolicy] = MappingProxyType(
@@ -76,6 +81,7 @@ POLICIES: Mapping[Purpose, GamePolicy] = MappingProxyType(
             played_by_staff=False,
             projection=False,
             staff_insight=False,
+            closes_at_test_deadline=False,
         ),
         # A Class game (Story 5.9): created when the allocation is confirmed, its snapshot taken
         # at the Class session's lock.
@@ -95,6 +101,7 @@ POLICIES: Mapping[Purpose, GamePolicy] = MappingProxyType(
             played_by_staff=False,
             projection=False,
             staff_insight=True,
+            closes_at_test_deadline=False,
         ),
         # A Lecturer's private test Game (Story 6.20, FR-87): snapshot of its Class session's
         # current settings at creation, the Lecturer in one Seat and AI players in the others. It
@@ -116,6 +123,7 @@ POLICIES: Mapping[Purpose, GamePolicy] = MappingProxyType(
             played_by_staff=True,
             projection=False,
             staff_insight=False,
+            closes_at_test_deadline=False,
         ),
         # A Student's Replay (Story 10.3, FR-48, AD-13): one round alone in the Class game's Role
         # against three AI players, on the Class session's frozen runtime with its own drawn
@@ -138,6 +146,7 @@ POLICIES: Mapping[Purpose, GamePolicy] = MappingProxyType(
             played_by_staff=False,
             projection=True,
             staff_insight=True,
+            closes_at_test_deadline=True,
         ),
     }
 )
@@ -157,6 +166,7 @@ BoolColumn = Literal[
     "played_by_staff",
     "projection",
     "staff_insight",
+    "closes_at_test_deadline",
 ]
 
 

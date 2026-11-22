@@ -16,6 +16,7 @@ import {
   orderTableRows,
   roleTables,
   seatsUpstreamFirst,
+  statusText,
   stockRoles,
   stockTableRows,
   weekRow,
@@ -123,6 +124,14 @@ describe("Spillinnsikt's words (Story 7.7)", () => {
     ]);
     expect(hasWeeks(insight([]))).toBe(false);
     expect(hasWeeks(insight([[week(1)]]))).toBe(true);
+  });
+});
+
+describe("Spillinnsikt's status word (Story 10.6)", () => {
+  it("names a Replay closed at the Testfrist as such, never «Ferdig»", () => {
+    expect(statusText({ status: "finished", end_reason: "test_deadline" })).toBe("Stengt ved Testfristen, ikke fullført");
+    expect(statusText({ status: "finished", end_reason: null })).toBe(copy.status.finished);
+    expect(statusText({ status: "running" })).toBe(copy.status.running);
   });
 });
 

@@ -25,6 +25,7 @@ from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 
 from app.modules.games.schemas import (
     DecidedBy,
+    EndReason,
     Fallback,
     GameStatus,
     Lifecycle,
@@ -94,8 +95,15 @@ games = Table(
         nullable=True,
         index=True,
     ),
+    # Story 10.6: why a Game ended without its last Week (`games.commands.close`); NULL on every
+    # other Game, also one that finished through `finish`.
+    Column("end_reason", Text, nullable=True),
     CheckConstraint(_in("purpose", Purpose), name="ck_games_purpose"),
     CheckConstraint(_in("lifecycle", Lifecycle), name="ck_games_lifecycle"),
+    CheckConstraint(_in("end_reason", EndReason), name="ck_games_end_reason"),
+    CheckConstraint(
+        "end_reason IS NULL OR lifecycle = 'finished'", name="ck_games_end_reason_finished"
+    ),
     CheckConstraint("version >= 0", name="ck_games_version"),
     CheckConstraint(SNAPSHOT_TOGETHER, name="ck_games_snapshot"),
     # A game number needs its Class session; a test Game has the session and no number (6.20).

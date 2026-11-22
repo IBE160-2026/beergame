@@ -478,6 +478,10 @@ class GameRulesOut(BaseModel):
 
 GamePlayStatus = Literal["not_ready", "ready", "running", "finished"]
 
+EndReasonOut = Literal["test_deadline"]
+"""Story 10.6: why a `finished` Game ended without its last Week; `test_deadline`, a Replay
+closed at the Student's Test deadline, not finished and not played out."""
+
 
 class PlayTurnOut(BaseModel):
     """The Student's own turn in the open Week (Story 6.10): whether it is a Guided Week, the
@@ -544,6 +548,9 @@ class StudentGameOut(BaseModel):
     status: GamePlayStatus
     """Story 6.5: `not_ready` before the lock has given the Game its snapshot, `ready` to start,
     `running` (also while it plays out), or `finished`."""
+    end_reason: EndReasonOut | None = None
+    """Story 10.6: with `finished`, `test_deadline` when the Replay was closed at the Testfrist
+    without its last Week: it is not finished, and it has no result (`/result` answers 409)."""
     week: int | None
     """The open Week while `running`, else None. Never the number of Weeks (FR-14)."""
     server_now: AwareDatetime
@@ -623,7 +630,8 @@ class StepOut(BaseModel):
     way that they have not joined; Stegene says so and its link leads there to join."""
     closed: bool = False
     """Story 10.3: the current Replay step after the Student's Test deadline with no Replay
-    started: it is not done, and it can no longer start (FR-18)."""
+    started: it is not done, and it can no longer start (FR-18). Story 10.6: also once a started
+    Replay was closed at the Testfrist unfinished (the Replay's `end_reason` says so)."""
 
 
 class ReplayGameOut(BaseModel):
@@ -634,6 +642,8 @@ class ReplayGameOut(BaseModel):
     id: uuid.UUID
     role: Role
     status: GamePlayStatus
+    end_reason: EndReasonOut | None = None
+    """Story 10.6: `test_deadline` once the Replay was closed at the Testfrist unfinished."""
     week: int | None
     """The open Week while `running`, else None."""
     seats: list[TableSeatOut]
@@ -1099,6 +1109,9 @@ class GameInsightOut(BaseModel):
     replay: bool = False
     """A Student's Replay (Story 10.5, FR-34): no game number; the page labels it «Replay»."""
     status: GameStatus
+    end_reason: EndReasonOut | None = None
+    """Story 10.6: `test_deadline` on a Replay closed at the Test deadline (`status` is then
+    `finished`, but it did not finish); None else."""
     version: int
     weeks_total: int | None
     """The number of Weeks in the Game's snapshot; None before it has one."""

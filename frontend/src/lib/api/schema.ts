@@ -3636,6 +3636,8 @@ export interface components {
             class_session_id: string;
             /** Demand */
             demand: components["schemas"]["DemandWeekOut"][];
+            /** End Reason */
+            end_reason?: "test_deadline" | null;
             /**
              * Game Id
              * Format: uuid
@@ -5042,6 +5044,8 @@ export interface components {
          *     number of Weeks, the demand or the scenario (FR-49).
          */
         ReplayGameOut: {
+            /** End Reason */
+            end_reason?: "test_deadline" | null;
             /**
              * Id
              * Format: uuid
@@ -6068,6 +6072,8 @@ export interface components {
             class_session_id: string;
             /** Debrief */
             debrief?: ("open" | "not_open" | "held") | null;
+            /** End Reason */
+            end_reason?: "test_deadline" | null;
             /**
              * Id
              * Format: uuid

@@ -22,9 +22,16 @@ export function replayEnd(
   };
 }
 
-/** Whether a Replay on Hjem has finished, so its screen is offered to read again (Story 10.5). */
+/** Whether a Replay on Hjem has finished by its last Uke, so its screen is offered to read again
+ * (Story 10.5); one closed at the Testfrist has not (Story 10.6). */
 export function finishedReplay(replay: StudentReplay | null | undefined): boolean {
-  return replay?.game?.status === "finished";
+  return replay?.game?.status === "finished" && replay.game.end_reason == null;
+}
+
+/** Whether the Replay was closed at the Testfrist unfinished (Story 10.6), from the api's
+ * `end_reason` alone (AD-10). */
+export function closedReplay(game: { status: string; end_reason?: string | null } | null | undefined): boolean {
+  return game?.status === "finished" && game.end_reason === "test_deadline";
 }
 
 /** «Replay · Du er Grossist» once started; «Replay» before. */

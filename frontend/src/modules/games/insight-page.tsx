@@ -24,7 +24,7 @@ import { roleName } from "@/modules/sessions/sessions";
 
 import { type GameInsight, gameInsightKey, type InsightSeat, useGameInsight } from "./api";
 import { InsightCharts } from "./insight-charts";
-import { hasWeeks, holderText, linkTexts, roleTables, seatsUpstreamFirst, type WeekRow } from "./insight";
+import { hasWeeks, holderText, linkTexts, roleTables, seatsUpstreamFirst, statusText, type WeekRow } from "./insight";
 
 const copy = nb.insight;
 
@@ -111,7 +111,7 @@ function InsightHeader({ data, title, sessionId }: { data: GameInsight; title: s
       <h1 className="text-title-phone text-ink lg:text-title-page">{title}</h1>
       <p className="text-body-phone text-ink-secondary lg:text-body" data-status={data.status}>
         <span className="sr-only">{copy.statusLabel}: </span>
-        {copy.status[data.status]}
+        {statusText(data)}
       </p>
       {/* A Message to every Student of this Class game (Story 7.9); a Replay is no Class game. */}
       {data.replay ? null : (

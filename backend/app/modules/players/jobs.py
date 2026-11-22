@@ -19,7 +19,7 @@ writing the Order is tried again a few times, and the `worker-ai` rescue loop
 (`players.rescue`) places the fallback Order when the deadline passes without one. A job
 delivered twice, a late answer after the rescue loop placed the fallback, or one that finds the
 Week moved on or the Game finished, ends without error (`order_exists`, `week_not_open`,
-`game_finished`).
+`game_finished`), as does one for a Replay closed at its Test deadline (`test_deadline_passed`).
 """
 
 import asyncio
@@ -42,8 +42,9 @@ log = structlog.get_logger(__name__)
 RETRY_DELAYS_S = (0.2, 1.0)
 """Seconds to wait before each further try of writing the Order after a database error."""
 
-ENDED = frozenset({"order_exists", "week_not_open", "game_finished"})
-"""Refusals that mean the Order is no longer this job's to place."""
+ENDED = frozenset({"order_exists", "week_not_open", "game_finished", "test_deadline_passed"})
+"""Refusals that mean the Order is no longer this job's to place; `test_deadline_passed`: a
+Replay the sweep closed at its Student's Test deadline (Story 10.6) takes no Order."""
 
 
 def _deadline(turn: games_service.PendingTurn) -> datetime | None:

@@ -26,6 +26,10 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # reads Hjem again. A simulation emits `game` alone.
         "games.advance": frozenset({"game", "session", "user"}),
         "games.switch_to_rule_based": frozenset({"game"}),
+        # An unfinished Replay closed at its Student's Test deadline (Story 10.6, AD-9 sweep): the
+        # Student's Hjem and play screen read it again. No Lecturer overview lists a purpose this
+        # closes, so no `session`.
+        "games.close": frozenset({"game", "user"}),
         # A Student opened a Guided Week (Story 6.10): only Class games take Students, so their
         # Class session hears of it; the viewer's waiting status changes, and when the view
         # completes the Week every Student of the Game sees the next one.

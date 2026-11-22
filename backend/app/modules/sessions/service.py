@@ -1475,6 +1475,18 @@ def test_deadline_passed(
     return deadline is not None and deadline <= now
 
 
+async def _test_deadline_of(
+    s: AsyncSession, user_id: uuid.UUID, class_session_id: uuid.UUID
+) -> datetime | None:
+    """The Student's `effective_test_deadline` in the Class session, read in `s`; None for no such
+    session. What `games` judges a Replay's close and its Orders by (Story 10.6, FR-18)."""
+    row = await repo.session_row(s, class_session_id)
+    return None if row is None else effective_test_deadline(user_id, row)
+
+
+games_service.register_test_deadline(_test_deadline_of)
+
+
 async def _replay_out(
     s: AsyncSession, user: authz.Principal, row: Mapping[str, Any], now: datetime
 ) -> StudentReplayOut:
@@ -1496,6 +1508,7 @@ async def _replay_out(
             id=game_id,
             role=role,
             status=play.status,
+            end_reason=play.end_reason,
             week=play.week,
             seats=seats,
             server_now=await games_service.database_now(s),
@@ -1507,8 +1520,12 @@ def _replay_closed(
     replay: StudentReplayOut | None, user: authz.Principal, row: Mapping[str, Any], now: datetime
 ) -> bool:
     """Stegene's Replay step says the Test deadline has passed (Story 10.3): the quiz is passed,
-    no Replay was started and the deadline is behind."""
-    return replay is not None and replay.game is None and test_deadline_passed(user, row, now)
+    the deadline is behind, and no Replay was started or the started one was closed there
+    unfinished (Story 10.6). A Replay still running in the minute before the sweep closes it reads
+    as running, as Hjem's Replay block does."""
+    if replay is None or not test_deadline_passed(user, row, now):
+        return False
+    return replay.game is None or replay.game.end_reason is not None
 
 
 async def group_debrief_opened_mail_context(
@@ -1773,6 +1790,7 @@ async def _game_out(
         briefing_first=found.pre_play_gate and progress.Step.STARTING_TASK not in done,
         rules=game_rules(row),
         status=play.status,
+        end_reason=play.end_reason,
         week=play.week,
         server_now=await games_service.database_now(s),
         seat_state=state,

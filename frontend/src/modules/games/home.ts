@@ -39,7 +39,8 @@ export function holderText(seat: TableSeat): string {
  * step to its step 5, the Debrief quiz (Story 9.9), and says when the Faglærer has changed the quiz
  * (Story 9.10). A current Debrief step says when a Group debrief the Student can join is under way
  * (Story 9.11); its link is the way in. A current Replay step says when the Testfrist has passed
- * with no Replay started (Story 10.3), and while the Replay runs «Fortsett Replay, Uke 9.» (Story
+ * with no Replay started (Story 10.3), or that a started one was closed there unfinished (Story
+ * 10.6), and while the Replay runs «Fortsett Replay, Uke 9.» (Story
  * 10.4, UX-DR64), from the api's `replay` (AD-10); the way there is the Replay block's button just
  * above, so the step itself is no second Lenke. */
 export function stepItems(
@@ -59,7 +60,10 @@ export function stepItems(
           : group_open && step === "debrief"
             ? copy.groupOpen
             : closed && step === "replay"
-              ? copy.replayClosed
+              ? // Story 10.6: a Replay started and closed at the Testfrist, or none started.
+                replay?.game
+                ? copy.replayClosedUnfinished
+                : copy.replayClosed
               : running && step === "replay"
                 ? copy.replayResume(running.week!)
                 : copy.current

@@ -15,7 +15,7 @@ import { gamePath } from "@/modules/identity/homes";
 import { enrolledSessionsKey } from "@/modules/sessions/api";
 
 import { type ReplayGame, type StudentReplay, startReplay } from "./api";
-import { finishedReplay, replayTitle, resumeWeek } from "./replay";
+import { closedReplay, finishedReplay, replayTitle, resumeWeek } from "./replay";
 
 const copy = nb.homes.student.replay;
 const LINE = "text-body-phone text-ink lg:text-body";
@@ -28,7 +28,8 @@ const LINE = "text-body-phone text-ink lg:text-body";
  * started shows its Seats above the button. Once started: «Replay · Du er Grossist», its Setene,
  * every AI player «KI-spiller» in text from the first view, and while it runs «Fortsett Replay,
  * Uke 9» to the play screen at its open Uke; once finished, the Lenke «Se Replay» to its end
- * screen (Story 10.5). After the Testfrist with no Replay, nothing shows
+ * screen (Story 10.5); once closed at the Testfrist unfinished, the line that says so and no link
+ * (Story 10.6). After the Testfrist with no Replay, nothing shows
  * here; Stegene says the step is not done. The api decides each state (AD-10).
  */
 export function ReplayBlock({
@@ -49,6 +50,12 @@ export function ReplayBlock({
         {replayTitle(replay)}
       </h3>
       {replay.game && week !== null ? <ResumeAction game={replay.game} week={week} primary={primary} /> : null}
+      {closedReplay(replay.game) ? (
+        // Story 10.6: closed at the Testfrist unfinished; its screen says the same, so no link.
+        <p data-replay-closed="" className={`${LINE} mt-3`}>
+          {copy.closed}
+        </p>
+      ) : null}
       {replay.game && finishedReplay(replay) ? (
         // Story 10.5: the finished Replay is read again on its screen, which takes no Order.
         <p className="mt-3">

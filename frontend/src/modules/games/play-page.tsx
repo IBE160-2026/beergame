@@ -16,6 +16,8 @@ import type { SessionUser } from "@/modules/identity/api";
 import { AccessDenied, GuardedPage } from "@/modules/identity/home-page";
 import { classSessionPath, HOME_LINK, HOME_PATH, rulesPath } from "@/modules/identity/homes";
 import { PageLink, PageShell } from "@/modules/identity/page-shell";
+import { closedReplay } from "@/modules/replay/replay";
+import { ReplayClosed } from "@/modules/replay/replay-closed";
 import { ReplayEnd } from "@/modules/replay/replay-end";
 import { classSessionKey } from "@/modules/sessions/api";
 
@@ -87,8 +89,10 @@ function PlayView({ gameId, user, updatedAt }: { gameId: string; user: SessionUs
   // The envelope is asked for only while the game runs; its wait follows the game's.
   const envelope = usePlay(gameId, running);
   const play = usePageState(envelope, playKey(gameId));
+  // Story 10.6: a Replay closed at the Testfrist is `finished` without a result: its own screen.
+  const closed = closedReplay(game);
   // Story 6.18: a finished game shows «Spillet er ferdig» from its result.
-  const finished = game?.status === "finished";
+  const finished = game?.status === "finished" && !closed;
   const resultQuery = useGameResult(gameId, finished);
   const ended = usePageState(resultQuery, resultKey(gameId));
   // A game that stopped running between the two reads: read the game again, which then shows
@@ -125,13 +129,13 @@ function PlayView({ gameId, user, updatedAt }: { gameId: string; user: SessionUs
         game
           ? running
             ? copy.week(shown?.seat_state.week ?? game.week!)
-            : finished
+            : finished || closed
               ? endTitle(game)
               : gameTitle(game)
           : undefined
       }
       header={
-        game && result ? (
+        game && (result || closed) ? (
           <GameEndHeading game={game} />
         ) : game && shown ? (
           // Kept while Alle rader is open, so its button can take focus back on «Lukk».
@@ -152,6 +156,8 @@ function PlayView({ gameId, user, updatedAt }: { gameId: string; user: SessionUs
       {game ? (
         shown ? (
           <Running game={game} envelope={shown} userId={user.id} allRows={allRows} />
+        ) : closed ? (
+          <ReplayClosed />
         ) : result ? (
           // Story 10.5: a Replay ends on its own screen, never the Class game's Debrief line.
           game.replay ? (
@@ -450,7 +456,7 @@ function useDroppedDraft(state: PlayEnvelope["seat_state"], text: string, editab
 export const ORDER_SUBMIT_TIMEOUT_MS = 10_000;
 
 /** What the last send left to say, for the Uke it was sent in (Story 6.13). */
-type SendOutcome = { week: number; value: number; kind: "checking" | "failed" | "weekGone" | "seatGone" };
+type SendOutcome = { week: number; value: number; kind: "checking" | "failed" | "weekGone" | "seatGone" | "deadlineGone" };
 
 /** Rejects with `network_error` when `promise` has not settled after `ms`. */
 function within<T>(promise: Promise<T>, ms: number): Promise<T> {
@@ -557,6 +563,13 @@ function useSendOrder(gameId: string, week: number, userId: string, field: strin
             confirmed();
             return;
           }
+          // Story 10.6: a Replay past the Testfrist takes no Order; the game is read again, which
+          // shows the closed Replay once the sweep has closed it.
+          if (code === "test_deadline_passed") {
+            setOutcome({ week: ordered, value, kind: "deadlineGone" });
+            void queryClient.invalidateQueries({ queryKey: myGameKey(gameId), exact: true });
+            return;
+          }
           // The api answers `order_exists` before `week_not_open`, but the history is still read:
           // a `week_not_open` may hide an Order a second device placed with this value.
           const there = await stored(ordered, value);
@@ -590,6 +603,8 @@ function outcomeProps(outcome: SendOutcome | null, week: number) {
       return { checking: false, failure: copy.order.weekGone(outcome.week, value), retry: false };
     case "seatGone":
       return { checking: false, failure: here ? copy.order.seatGone(value) : null, retry: false };
+    case "deadlineGone":
+      return { checking: false, failure: copy.order.deadlineGone(value), retry: false };
   }
 }
 

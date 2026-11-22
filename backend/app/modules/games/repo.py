@@ -381,8 +381,27 @@ async def class_session_seats(
     return list(result.mappings())
 
 
-async def set_lifecycle(session: AsyncSession, game_id: uuid.UUID, lifecycle: str) -> None:
-    await session.execute(update(games).where(games.c.id == game_id).values(lifecycle=lifecycle))
+async def set_lifecycle(
+    session: AsyncSession, game_id: uuid.UUID, lifecycle: str, *, end_reason: str | None = None
+) -> None:
+    await session.execute(
+        update(games)
+        .where(games.c.id == game_id)
+        .values(lifecycle=lifecycle, end_reason=end_reason)
+    )
+
+
+async def unfinished_games(session: AsyncSession, purposes: Collection[str]) -> list[RowMapping]:
+    """The id and Class session of every Game of `purposes` that has not finished, oldest first
+    (Story 10.6): what the sweep's close at the Test deadline looks through."""
+    if not purposes:
+        return []
+    result = await session.execute(
+        select(games.c.id, games.c.class_session_id)
+        .where(games.c.purpose.in_(list(purposes)), games.c.lifecycle != "finished")
+        .order_by(games.c.id)
+    )
+    return list(result.mappings())
 
 
 async def insert_week(
@@ -712,9 +731,12 @@ async def insert_game_check(session: AsyncSession, values: dict[str, Any]) -> Ro
 
 
 async def finished_game_ids(session: AsyncSession) -> list[uuid.UUID]:
-    """The id of every finished Game, oldest first (ids are UUIDv7)."""
+    """The id of every finished Game, oldest first (ids are UUIDv7); a Game `close` ended has no
+    last Week to check and is not one (Story 10.6)."""
     result = await session.execute(
-        select(games.c.id).where(games.c.lifecycle == "finished").order_by(games.c.id)
+        select(games.c.id)
+        .where(games.c.lifecycle == "finished", games.c.end_reason.is_(None))
+        .order_by(games.c.id)
     )
     return list(result.scalars())
 
@@ -723,11 +745,16 @@ async def unchecked_finished_game_ids(
     session: AsyncSession, limit: int, exclude: Collection[uuid.UUID] = ()
 ) -> list[uuid.UUID]:
     """At most `limit` finished Games that have no `game_checks` row yet, oldest first (Story
-    6.18): what the sweep's finished-game check still has to verify, but those in `exclude`."""
+    6.18): what the sweep's finished-game check still has to verify, but those in `exclude`. A
+    Game `close` ended (Story 10.6) is not finished and is never checked."""
     query = (
         select(games.c.id)
         .select_from(games.outerjoin(game_checks, game_checks.c.game_id == games.c.id))
-        .where(games.c.lifecycle == "finished", game_checks.c.id.is_(None))
+        .where(
+            games.c.lifecycle == "finished",
+            games.c.end_reason.is_(None),
+            game_checks.c.id.is_(None),
+        )
     )
     if exclude:
         query = query.where(games.c.id.not_in(list(exclude)))

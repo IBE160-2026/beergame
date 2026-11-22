@@ -36,6 +36,7 @@ from app.modules.games.policy import GamePolicy, PurposeNotSupportedError, polic
 from app.modules.games.schemas import (
     DecidedBy,
     DecisionLogRow,
+    EndReason,
     Fallback,
     GameCheck,
     GameOverview,
@@ -93,7 +94,12 @@ __all__ = [
     "cost_parts",
     "DecidedBy",
     "DecisionLogRow",
+    "EndReason",
     "Fallback",
+    "TestDeadlineProvider",
+    "past_test_deadline",
+    "register_test_deadline",
+    "due_test_deadline_closes",
     "GameCheck",
     "GameOverview",
     "GamePolicy",
@@ -345,6 +351,9 @@ class PlayStatus:
 
     status: PlayStatusName
     week: int | None
+    end_reason: EndReason | None = None
+    """Story 10.6: with `finished`, why the Game ended without its last Week (`close`): it is then
+    not finished in any result's sense, and no screen may show it as such."""
 
 
 async def play_status(session: AsyncSession, game_id: uuid.UUID) -> PlayStatus:
@@ -356,7 +365,8 @@ async def play_status(session: AsyncSession, game_id: uuid.UUID) -> PlayStatus:
     if lifecycle == Lifecycle.NOT_STARTED:
         return PlayStatus("ready" if game["settings"] is not None else "not_ready", None)
     if lifecycle == Lifecycle.FINISHED:
-        return PlayStatus("finished", None)
+        reason = game["end_reason"]
+        return PlayStatus("finished", None, EndReason(reason) if reason is not None else None)
     if lifecycle in (Lifecycle.RUNNING, Lifecycle.PLAYING_OUT):
         return PlayStatus("running", await repo.open_week(session, game_id))
     raise ValueError(f"unknown lifecycle {lifecycle!r}")
@@ -525,6 +535,7 @@ async def get_game(game_id: str) -> GameOverview | None:
             )
             for seat in seats
         ),
+        end_reason=game["end_reason"],
     )
 
 
@@ -627,6 +638,52 @@ async def complete_running_games() -> list[str]:
     process stopped between an Order and the advance (NFR-4)."""
     async with get_sessionmaker()() as session:
         return [str(game_id) for game_id in await repo.complete_running_games(session)]
+
+
+# Story 10.6: a Student's Test deadline, as `sessions` reads it. `sessions` imports `games`, so it
+# registers its reader here instead of `games` importing it (AD-25), as the finish hooks do.
+
+type TestDeadlineProvider = Callable[
+    [AsyncSession, uuid.UUID, uuid.UUID], Awaitable[datetime | None]
+]
+"""`(session, user_id, class_session_id)` → `sessions.service.effective_test_deadline` of the
+Student in the Class session, or None (no such session, or no Test deadline)."""
+
+_test_deadline: list[TestDeadlineProvider] = []
+
+
+def register_test_deadline(provider: TestDeadlineProvider) -> None:
+    """`sessions.service` registers its one reader at import; another is refused."""
+    if _test_deadline and _test_deadline[0] is not provider:
+        raise ValueError("a Test deadline provider is registered already")
+    _test_deadline[:] = [provider]
+
+
+async def past_test_deadline(session: AsyncSession, game: Mapping[str, Any], at: datetime) -> bool:
+    """Whether the Game's Test deadline has passed at `at` (Story 10.6, FR-18): the Game belongs
+    to a Class session and the deadline of every Student its occupancy history names is set and
+    no later than `at`. False while no reader is registered, so nothing is judged without one.
+    `at` is the app's clock (`auth.utcnow()`, or the sweep's `now`), the one the deadline is set
+    and judged on elsewhere (`replay.start`), never the database clock (Issue #63)."""
+    if not _test_deadline or game["class_session_id"] is None:
+        return False
+    students = await repo.named_students(session, game["id"])
+    if not students:
+        return False
+    for user_id in students:
+        deadline = await _test_deadline[0](session, user_id, game["class_session_id"])
+        if deadline is None or deadline > at:
+            return False
+    return True
+
+
+async def due_test_deadline_closes(now: datetime) -> list[str]:
+    """The sweep's finder for `games.close_at_test_deadline` (Story 10.6, AD-9): every Game of a
+    purpose whose policy closes it at the Test deadline (`closes_at_test_deadline`), not finished,
+    whose Test deadline has passed at `now`, oldest first. Ids only."""
+    async with get_sessionmaker()() as session:
+        rows = await repo.unfinished_games(session, purposes_with("closes_at_test_deadline"))
+        return [str(row["id"]) for row in rows if await past_test_deadline(session, row, now)]
 
 
 # The finish hooks (Story 9.14, AD-9): the pattern of the lock's pin providers (Story 5.11).
