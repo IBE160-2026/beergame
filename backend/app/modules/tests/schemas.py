@@ -380,14 +380,36 @@ class ComputedScoreOut(BaseModel):
     criteria: list[ComputedCriterionOut]
 
 
+class FeedbackPartOut(BaseModel):
+    """A piece of an item's written feedback (Story 12.3): code-rendered `text`, or a `quote` of
+    the Student's own answer, cut from their original text by the stored span."""
+
+    kind: Literal["text", "quote"]
+    text: str
+
+
+class FeedbackOut(BaseModel):
+    """An item's written feedback (Story 12.3, FR-54, AD-7): `ai_generated` marks it «KI-generert,
+    kan ta feil:»; `text` is the whole with the quotes as «…», `parts` the same in pieces so the
+    view sets each quote apart."""
+
+    ai_generated: bool
+    text: str
+    parts: list[FeedbackPartOut]
+
+
 class AiScoreOut(BaseModel):
     """The AI's overall score of a long-answer or Adapted item (Story 12.2, FR-54): the step on
-    the Scoring guide's five-step scale and its label, or `assessed` false with no step."""
+    the Scoring guide's five-step scale and its label, or `assessed` false with no step. Story
+    12.3: its written feedback when there is one, and `feedback_dropped` when the feedback was
+    rejected twice and left out (the score stands)."""
 
     assessed: bool
     step: int | None
     top: int
     label: str | None
+    feedback: FeedbackOut | None = None
+    feedback_dropped: bool = False
 
 
 class AssessedItemOut(BaseModel):
@@ -424,3 +446,7 @@ class MyAssessmentOut(BaseModel):
     unassessed: list[int]
     total: float | None
     total_max: int | None
+    checked: bool = False
+    """Story 12.3 (FR-81, AD-27): whether a Control test has checked the pinned Scoring guide
+    version with the assessment's model config (`content.service.is_checked`); while false the
+    view says «Ikke kontrollert med en Kontrolltest.»."""

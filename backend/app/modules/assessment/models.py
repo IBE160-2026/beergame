@@ -10,7 +10,10 @@ Story 12.2 (FR-54, AD-6, AD-9, AD-23): the lock pins the model config (and Effor
 assessment uses on the same row; `ai_assessments` holds one assessment per Test attempt and
 `ai_item_scores` the overall score of each long-answer and Adapted item, written once, each with
 the pinned versions and the id of the call it came from (`llm_call_id`). The total is never
-stored: it comes from `analysis.total_score` when read."""
+stored: it comes from `analysis.total_score` when read.
+
+Story 12.3 (FR-54, AD-7): an item's written feedback, or the note that it was left out, on its
+`ai_item_scores` row (migration 0203)."""
 
 from sqlalchemy import (
     Boolean,
@@ -29,6 +32,7 @@ from sqlalchemy import (
     func,
     true,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 
 from app.platform.db import metadata
 
@@ -100,8 +104,24 @@ ai_item_scores = Table(
     Column("question_set_version", Integer, nullable=False),
     Column("model_config_id", Uuid, nullable=True),
     Column("created_at", DateTime(timezone=True), nullable=False),
+    # Story 12.3: the written feedback as it travels (`{text, ai_generated, llm_call_id, parts}`),
+    # or `feedback_note = 'dropped'` when it was rejected twice; both NULL for a score-only prompt
+    # and for an empty answer.
+    Column("feedback", JSONB(none_as_null=True), nullable=True),
+    Column("feedback_note", Text, nullable=True),
     PrimaryKeyConstraint("assessment_id", "item_id", name="pk_ai_item_scores"),
     CheckConstraint("score BETWEEN 0 AND 4", name="ck_ai_item_scores_score"),
     CheckConstraint("source IN ('ai', 'blank')", name="ck_ai_item_scores_source"),
     CheckConstraint("(source = 'ai') = (llm_call_id IS NOT NULL)", name="ck_ai_item_scores_call"),
+    CheckConstraint(
+        "feedback_note IS NULL OR feedback_note = 'dropped'",
+        name="ck_ai_item_scores_feedback_note",
+    ),
+    CheckConstraint(
+        "source = 'ai' OR (feedback IS NULL AND feedback_note IS NULL)",
+        name="ck_ai_item_scores_feedback",
+    ),
+    CheckConstraint(
+        "feedback IS NULL OR feedback_note IS NULL", name="ck_ai_item_scores_feedback_one"
+    ),
 )

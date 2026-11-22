@@ -132,6 +132,25 @@ async def test_a_default_mock_config_without_the_debriefs_prompts_gets_a_derived
     assert await seed.ensure_zero_config() is None
 
 
+async def test_a_default_mock_config_with_an_older_prompt_version_gets_a_derived_row(ai_db):
+    """Story 12.3: a database whose mock default names `assessment/v1` gets a row derived with the
+    seeded version (Story 2.2's `config edit … --prompt` path), measured and pinned; the old row
+    never changes, and a Class session holding it keeps the score-only prompt."""
+    from app.ai import seed
+
+    prompts = {**seed.MOCK_SPEC["prompts"], "assessment": 1}  # type: ignore[dict-item]
+    old = await config.add(config.parse(mock_config(prompts=prompts)))
+    await config.add_mock_measurement(old.id, "standard")
+    await config.pin(old.id)
+    new_id = await seed.ensure_zero_config()
+    assert new_id is not None and new_id != str(old.id)
+    found = await config.active_default()
+    assert found is not None and str(found.id) == new_id
+    assert found.spec.prompts["assessment"] == seed.MOCK_SPEC["prompts"]["assessment"] == 2  # type: ignore[index]
+    assert (await config.get(old.id)).spec.prompts["assessment"] == 1
+    assert await seed.ensure_zero_config() is None
+
+
 async def test_can_word_needs_the_config_its_prompt_and_a_provider_that_may_answer(
     ai_db, monkeypatch
 ):

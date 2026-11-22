@@ -392,10 +392,25 @@
         "type": "string"
       },
       "AiScoreOut": {
-        "description": "The AI's overall score of a long-answer or Adapted item (Story 12.2, FR-54): the step on\nthe Scoring guide's five-step scale and its label, or `assessed` false with no step.",
+        "description": "The AI's overall score of a long-answer or Adapted item (Story 12.2, FR-54): the step on\nthe Scoring guide's five-step scale and its label, or `assessed` false with no step. Story\n12.3: its written feedback when there is one, and `feedback_dropped` when the feedback was\nrejected twice and left out (the score stands).",
         "properties": {
           "assessed": {
             "title": "Assessed",
+            "type": "boolean"
+          },
+          "feedback": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FeedbackOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "feedback_dropped": {
+            "default": false,
+            "title": "Feedback Dropped",
             "type": "boolean"
           },
           "label": {
@@ -3519,6 +3534,56 @@
         "title": "ExplanationOut",
         "type": "object"
       },
+      "FeedbackOut": {
+        "description": "An item's written feedback (Story 12.3, FR-54, AD-7): `ai_generated` marks it «KI-generert,\nkan ta feil:»; `text` is the whole with the quotes as «…», `parts` the same in pieces so the\nview sets each quote apart.",
+        "properties": {
+          "ai_generated": {
+            "title": "Ai Generated",
+            "type": "boolean"
+          },
+          "parts": {
+            "items": {
+              "$ref": "#/components/schemas/FeedbackPartOut"
+            },
+            "title": "Parts",
+            "type": "array"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ai_generated",
+          "text",
+          "parts"
+        ],
+        "title": "FeedbackOut",
+        "type": "object"
+      },
+      "FeedbackPartOut": {
+        "description": "A piece of an item's written feedback (Story 12.3): code-rendered `text`, or a `quote` of\nthe Student's own answer, cut from their original text by the stored span.",
+        "properties": {
+          "kind": {
+            "enum": [
+              "text",
+              "quote"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "text"
+        ],
+        "title": "FeedbackPartOut",
+        "type": "object"
+      },
       "FillSeatsIn": {
         "additionalProperties": false,
         "description": "«Sett inn 9 KI-spillere»: the Seats the page or Spillinnsikt listed (Story 8.12).",
@@ -5847,6 +5912,11 @@
       "MyAssessmentOut": {
         "description": "The Student's «KI-vurdering» of their Individual test (Story 12.2, FR-54, FR-55, FR-61):\n\n- `no_test`: they have no attempt in the Class session;\n- `not_ready`: the test is not closed yet, or no run of the assessment has finished;\n- `switched_off`: the Lecturer switched the AI assessment off for the Class session;\n- `incomplete`: some items have no AI score yet; `items` and `unassessed` (their numbers), no\n  total;\n- `failed`: no AI assessment could be made; no items, no total;\n- `ready`: every item scored, with `total` out of `total_max` from `analysis.total_score`.\n\nThere is no pass or fail and no letter. Every number is the api's; the web app adds nothing.",
         "properties": {
+          "checked": {
+            "default": false,
+            "title": "Checked",
+            "type": "boolean"
+          },
           "items": {
             "items": {
               "$ref": "#/components/schemas/AssessedItemOut"

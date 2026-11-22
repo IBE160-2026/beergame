@@ -11,7 +11,12 @@ rebuilt, AD-7), plus the versions the attempt was frozen and is scored with.
 once a run of the assessment has finished each item in the test's order with its Item weight, the
 computed score `tests` stored at the hand-in (never recomputed) or the AI's step on the five-step
 scale, and the weighted total from `analysis.total_score` only, never a partial one. Only the
-Student of their own locked Class session reads it; every other caller gets None (403)."""
+Student of their own locked Class session reads it; every other caller gets None (403).
+
+Story 12.3 (FR-54, FR-81, AD-7): the reader also hands over an Adapted item's stored facts set
+and the Class session's pinned narration templates, which written feedback may cite; the view
+adds each AI item's feedback, its quotes cut from the Student's original answer by the stored
+spans, the note where feedback was left out, and `checked` from `content.service.is_checked`."""
 
 import uuid
 from collections.abc import Mapping
@@ -21,6 +26,8 @@ import structlog
 from sqlalchemy import select
 
 from app.analysis import adapted as adapted_rules
+from app.analysis.facts import FactSet
+from app.analysis.narration import NarrationTemplates
 from app.analysis.total import SCALE_TOP, total_score
 from app.modules.assessment import service as assessment
 from app.modules.content import service as content
@@ -35,6 +42,8 @@ from app.modules.tests.schemas import (
     AssessedItemOut,
     ComputedCriterionOut,
     ComputedScoreOut,
+    FeedbackOut,
+    FeedbackPartOut,
     MyAssessmentOut,
     WordingOut,
 )
@@ -49,23 +58,40 @@ AI_TYPES = frozenset({"long", ADAPTED})
 """The item types the AI assesses against the Scoring guide; every other type is computed."""
 
 
-async def _fact_lines(frozen: Mapping[str, Any]) -> str:
+async def _fact_lines(frozen: Mapping[str, Any]) -> tuple[str, FactSet | None]:
     """The fact an Adapted item cites, as `id: name=value, …` from its stored facts set and its
-    template; `""` when either cannot be read (the question text carries the same numbers)."""
+    template (`""` when either cannot be read: the question text carries the same numbers), and
+    the stored facts set itself, read by the item's `fact_set_id` and never rebuilt (Story 12.3:
+    what its feedback may cite)."""
     stored = await games.fact_set_by_id(str(frozen.get("fact_set_id")))
     if stored is None:
         log.warning("assessment_facts_unavailable", item_id=frozen["id"])
-        return ""
+        return "", None
     _, templates = await content.adapted_templates(frozen.get("template_version"))
     template = next((t for t in templates.templates if t.id == frozen["id"]), None)
     if template is None:
-        return ""
+        return "", stored.facts
     names = await adapted.pattern_names(stored) if template.fact == "pattern" else {}
     picked = adapted_rules.picked(template, stored.facts, names)
     if picked is None:
-        return ""
+        return "", stored.facts
     fact_id, values = picked
-    return f"{fact_id}: " + ", ".join(f"{name}={value}" for name, value in values.items())
+    line = f"{fact_id}: " + ", ".join(f"{name}={value}" for name, value in values.items())
+    return line, stored.facts
+
+
+async def _narration_templates(pins: Any) -> NarrationTemplates | None:
+    """The narration templates the Class session pinned (the latest for a session locked before
+    the pin existed), which a feedback sentence about the Student's game uses; None when they
+    cannot be read (the feedback then cites no fact)."""
+    try:
+        _, templates = await content.narration_templates(
+            content.pinned_version(pins, content.Kind.NARRATION_TEMPLATES)
+        )
+    except Exception as exc:  # the type only: the feedback goes on without facts
+        log.warning("assessment_templates_unavailable", exc_type=type(exc).__name__)
+        return None
+    return templates
 
 
 def _entry(question: GuideQuestion | None) -> dict[str, Any]:
@@ -95,6 +121,7 @@ async def read_for_assessment(attempt_id: uuid.UUID) -> assessment.AttemptToAsse
             )
         )
         answers = {item_id: value for item_id, value in saved.all()}
+        pins = await sessions.locked_pins(s, attempt["class_session_id"])
     question_set: QuestionSet = await content.get(
         content.Kind.QUESTION_SET, attempt["question_set_version"]
     )
@@ -106,10 +133,13 @@ async def read_for_assessment(attempt_id: uuid.UUID) -> assessment.AttemptToAsse
             continue
         value = answers.get(frozen["id"])
         answer = value if isinstance(value, str) else None
+        fact_set: FactSet | None = None
+        fact_ids: tuple[str, ...] = ()
         if frozen["type"] == ADAPTED:
             question = frozen["text"]["text"]
             entry = entries.get(frozen["id"])
-            facts = await _fact_lines(frozen)
+            facts, fact_set = await _fact_lines(frozen)
+            fact_ids = tuple(frozen.get("fact_ids") or ())
         else:
             found = by_id.get(frozen["id"])
             question = found.title if found is not None else ""
@@ -117,9 +147,16 @@ async def read_for_assessment(attempt_id: uuid.UUID) -> assessment.AttemptToAsse
             facts = ""
         items.append(
             assessment.ItemToAssess(
-                item_id=frozen["id"], question=question, answer=answer, facts=facts, **_entry(entry)
+                item_id=frozen["id"],
+                question=question,
+                answer=answer,
+                facts=facts,
+                fact_set=fact_set,
+                fact_ids=fact_ids,
+                **_entry(entry),
             )
         )
+    templates = await _narration_templates(pins) if any(i.fact_set for i in items) else None
     return assessment.AttemptToAssess(
         attempt_id=attempt["id"],
         user_id=attempt["user_id"],
@@ -129,6 +166,7 @@ async def read_for_assessment(attempt_id: uuid.UUID) -> assessment.AttemptToAsse
         scoring_guide_id=in_force.record.id,
         scale=tuple((step.step, step.label) for step in in_force.record.guide.scale),
         items=tuple(items),
+        narration_templates=templates,
     )
 
 
@@ -153,6 +191,33 @@ def _computed(score: Mapping[str, Any] | None) -> tuple[float, ComputedScoreOut]
     return credit, ComputedScoreOut(result=result, criteria=criteria)
 
 
+def _feedback_of(
+    stored: assessment.ItemFeedback | None, answer: Any
+) -> dict[str, FeedbackOut | bool | None]:
+    """An item's written feedback as the view shows it (Story 12.3): each quote cut from the
+    Student's original answer by its stored span, so the LLM never retypes their words; or the
+    `dropped` mark; nothing for an item without feedback."""
+    if stored is None:
+        return {}
+    if stored.dropped or stored.text is None:
+        return {"feedback": None, "feedback_dropped": stored.dropped}
+    text = answer if isinstance(answer, str) else ""
+    parts: list[FeedbackPartOut] = []
+    for part in stored.parts:
+        if "quote" in part:
+            start, end = part["quote"]
+            if not 0 <= start < end <= len(text):  # never for a closed attempt's own answer
+                log.warning("assessment_feedback_span_unreadable")
+                return {"feedback": None, "feedback_dropped": True}
+            parts.append(FeedbackPartOut(kind="quote", text=text[start:end]))
+        else:
+            parts.append(FeedbackPartOut(kind="text", text=str(part.get("text", ""))))
+    return {
+        "feedback": FeedbackOut(ai_generated=True, text=stored.text, parts=parts),
+        "feedback_dropped": False,
+    }
+
+
 async def read(user: authz.Principal, class_session_id: uuid.UUID) -> MyAssessmentOut | None:
     """The Student's «KI-vurdering»; None for every caller but the Student of the Class session
     (FR-5)."""
@@ -175,12 +240,18 @@ async def read(user: authz.Principal, class_session_id: uuid.UUID) -> MyAssessme
         if record.status == "failed":
             return _state("failed")
         in_force = await guide.in_force(s, class_session_id)
-        saved = await s.execute(
-            select(test_answers.c.item_id, test_answers.c.score).where(
-                test_answers.c.attempt_id == attempt["id"]
+        saved = (
+            await s.execute(
+                select(test_answers.c.item_id, test_answers.c.score, test_answers.c.value).where(
+                    test_answers.c.attempt_id == attempt["id"]
+                )
             )
-        )
-        stored = {item_id: score for item_id, score in saved.all()}
+        ).all()
+        stored = {each.item_id: each.score for each in saved}
+        answers = {each.item_id: each.value for each in saved}
+    checked = record.scoring_guide_id is not None and await content.is_checked(
+        record.scoring_guide_id, record.model_config_id
+    )
     question_set: QuestionSet = await content.get(
         content.Kind.QUESTION_SET, attempt["question_set_version"]
     )
@@ -204,6 +275,7 @@ async def read(user: authz.Principal, class_session_id: uuid.UUID) -> MyAssessme
                 step=step,
                 top=SCALE_TOP,
                 label=labels.get(step) if step is not None else None,
+                **_feedback_of(record.feedback.get(item_id), answers.get(item_id)),
             )
             if step is None:
                 unassessed.append(number)
@@ -241,4 +313,5 @@ async def read(user: authz.Principal, class_session_id: uuid.UUID) -> MyAssessme
         unassessed=unassessed,
         total=total if ready else None,
         total_max=sum(weights.values()) if ready else None,
+        checked=checked,
     )

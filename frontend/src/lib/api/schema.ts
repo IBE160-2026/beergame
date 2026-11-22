@@ -3341,11 +3341,19 @@ export interface components {
         /**
          * AiScoreOut
          * @description The AI's overall score of a long-answer or Adapted item (Story 12.2, FR-54): the step on
-         *     the Scoring guide's five-step scale and its label, or `assessed` false with no step.
+         *     the Scoring guide's five-step scale and its label, or `assessed` false with no step. Story
+         *     12.3: its written feedback when there is one, and `feedback_dropped` when the feedback was
+         *     rejected twice and left out (the score stands).
          */
         AiScoreOut: {
             /** Assessed */
             assessed: boolean;
+            feedback?: components["schemas"]["FeedbackOut"] | null;
+            /**
+             * Feedback Dropped
+             * @default false
+             */
+            feedback_dropped: boolean;
             /** Label */
             label: string | null;
             /** Step */
@@ -4638,6 +4646,34 @@ export interface components {
             text: string;
         };
         /**
+         * FeedbackOut
+         * @description An item's written feedback (Story 12.3, FR-54, AD-7): `ai_generated` marks it «KI-generert,
+         *     kan ta feil:»; `text` is the whole with the quotes as «…», `parts` the same in pieces so the
+         *     view sets each quote apart.
+         */
+        FeedbackOut: {
+            /** Ai Generated */
+            ai_generated: boolean;
+            /** Parts */
+            parts: components["schemas"]["FeedbackPartOut"][];
+            /** Text */
+            text: string;
+        };
+        /**
+         * FeedbackPartOut
+         * @description A piece of an item's written feedback (Story 12.3): code-rendered `text`, or a `quote` of
+         *     the Student's own answer, cut from their original text by the stored span.
+         */
+        FeedbackPartOut: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "text" | "quote";
+            /** Text */
+            text: string;
+        };
+        /**
          * FillSeatsIn
          * @description «Sett inn 9 KI-spillere»: the Seats the page or Spillinnsikt listed (Story 8.12).
          */
@@ -5692,6 +5728,11 @@ export interface components {
          *     There is no pass or fail and no letter. Every number is the api's; the web app adds nothing.
          */
         MyAssessmentOut: {
+            /**
+             * Checked
+             * @default false
+             */
+            checked: boolean;
             /** Items */
             items: components["schemas"]["AssessedItemOut"][];
             /**

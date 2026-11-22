@@ -12,7 +12,13 @@ import { liveClassGame } from "./support/live-game";
  * without a score and shows no total. These use stand-ins with the api's shapes; the job, the
  * scores and the total are `backend/tests/assessment/test_assess.py`. The last test runs on the
  * stack with no stand-in: a fresh Class game, the test handed in, Hjem's «KI-vurdering» link and
- * the not-ready line. */
+ * the not-ready line.
+ *
+ * Story 12.3 (FR-34, FR-54, FR-81, UX-DR66, UX-DR69): at 360 and 1440 px with axe, an item's
+ * written feedback under its score with «KI-generert, kan ta feil:» and the Student's own words as
+ * a quotation, the note where feedback was left out, and «Ikke kontrollert med en Kontrolltest.»
+ * while the Scoring guide is not checked; the validation and regeneration are
+ * `backend/tests/assessment/test_feedback.py`. */
 const SESSION = "01a1f8ee-33b9-75e6-9502-79db27b37c0e";
 const CSRF = { "X-Requested-With": "olspillet" };
 const copy = nb.assessment.student;
@@ -24,7 +30,7 @@ const VIEWPORTS = [
   { name: "1440 px", width: 1440, height: 900, phone: false },
 ];
 
-const NONE = { items: [], unassessed: [], total: null, total_max: null };
+const NONE = { items: [], unassessed: [], total: null, total_max: null, checked: false };
 const CHOICE = {
   id: "flervalg-forklaring",
   number: 1,
@@ -62,7 +68,7 @@ const LONG = {
   weight: 20,
   points: 15,
   computed: null,
-  ai: { assessed: true, step: 3, top: 4, label: "Utkast: godt" },
+  ai: { assessed: true, step: 3, top: 4, label: "Utkast: godt", feedback: null, feedback_dropped: false },
 };
 const ADAPTED_TEXT = "Utkast: I uke 7 av Klassespillet var du Grossist og bestilte 16 enheter. Forklar hva du la vekt på.";
 const ADAPTED = {
@@ -74,15 +80,36 @@ const ADAPTED = {
   weight: 30,
   points: 7.5,
   computed: null,
-  ai: { assessed: true, step: 1, top: 4, label: "Utkast: svakt" },
+  ai: { assessed: true, step: 1, top: 4, label: "Utkast: svakt", feedback: null, feedback_dropped: false },
 };
-const READY = { state: "ready", items: [CHOICE, TABLE, LONG, ADAPTED], unassessed: [], total: 57.5, total_max: 100 };
+const READY = { state: "ready", items: [CHOICE, TABLE, LONG, ADAPTED], unassessed: [], total: 57.5, total_max: 100, checked: false };
+const QUOTE = "Hvert ledd bestiller på det det ser, ikke på kundenes etterspørsel";
+const AFTER = ", men svaret forklarer ikke kriteriet F5 (Utkast: kriterium 5).";
+const FEEDBACK = {
+  ai_generated: true,
+  text: `Du skriver «${QUOTE}»${AFTER}`,
+  parts: [
+    { kind: "text", text: "Du skriver " },
+    { kind: "quote", text: QUOTE },
+    { kind: "text", text: AFTER },
+  ],
+};
+const WITH_FEEDBACK = {
+  ...READY,
+  items: [
+    CHOICE,
+    TABLE,
+    { ...LONG, ai: { ...LONG.ai, feedback: FEEDBACK } },
+    { ...ADAPTED, ai: { ...ADAPTED.ai, feedback_dropped: true } },
+  ],
+};
 const INCOMPLETE = {
   state: "incomplete",
   items: [CHOICE, TABLE, LONG, { ...ADAPTED, points: null, ai: { assessed: false, step: null, top: 4, label: null } }],
   unassessed: [4],
   total: null,
   total_max: null,
+  checked: false,
 };
 
 /** The Student's page with the api's answer stood in. */
@@ -161,6 +188,39 @@ for (const vp of VIEWPORTS) {
       await expect(page.getByRole("main")).toContainText(copy.failed);
       await expect(page.locator("[data-item], [data-total]")).toHaveCount(0);
       await expectAccessible(page, vp.phone);
+    });
+  });
+}
+
+for (const vp of VIEWPORTS.filter((each) => each.width !== 320)) {
+  test.describe(`feedback, ${vp.name}`, () => {
+    test.use({ viewport: { width: vp.width, height: vp.height } });
+
+    test("feedback quotes the Student's words under the score; a dropped one leaves a note; the unchecked notice; axe passes", async ({ page }) => {
+      await standIn(page, { status: 200, json: WITH_FEEDBACK });
+      await startsWithTheDisclosure(page);
+      await expect(page.locator("[data-unchecked]")).toHaveText(copy.unchecked);
+      const items = page.locator("[data-item]");
+      const feedback = items.nth(2).locator("[data-feedback]");
+      await expect(feedback).toHaveAttribute("data-ai-generated", "true");
+      expect((await feedback.innerText()).startsWith(copy.feedbackPrefix)).toBe(true);
+      await expect(feedback.locator("q[data-quote]")).toHaveText(QUOTE);
+      await expect(feedback).toContainText("kriteriet F5 (Utkast: kriterium 5)");
+      // Under the item's score, not above it.
+      const score = await items.nth(2).locator("[data-score]").boundingBox();
+      const box = await feedback.boundingBox();
+      expect(box!.y).toBeGreaterThan(score!.y);
+      // No feedback on a computed item; the note in place of the left-out one.
+      await expect(items.nth(0).locator("[data-feedback]")).toHaveCount(0);
+      await expect(items.nth(3).locator("[data-feedback]")).toHaveCount(0);
+      await expect(items.nth(3).locator("[data-feedback-dropped]")).toHaveText(copy.feedbackDropped);
+      await expectAccessible(page, vp.phone);
+    });
+
+    test("a checked Scoring guide shows no unchecked notice", async ({ page }) => {
+      await standIn(page, { status: 200, json: { ...WITH_FEEDBACK, checked: true } });
+      await expect(page.locator("[data-item]")).toHaveCount(4);
+      await expect(page.locator("[data-unchecked]")).toHaveCount(0);
     });
   });
 }

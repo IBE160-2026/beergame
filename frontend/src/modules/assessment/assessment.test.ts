@@ -40,9 +40,9 @@ describe("the Student's KI-vurdering (Story 12.2)", () => {
   });
 
   it("gives the AI's step with its label, or the computed result, in words", () => {
-    const ai = { assessed: true, step: 3, top: 4, label: "Godt" };
+    const ai = { assessed: true, step: 3, top: 4, label: "Godt", feedback_dropped: false };
     expect(scoreText({ ai, computed: null })).toBe("KI-vurdering: 3 av 4 (Godt)");
-    expect(scoreText({ ai: { assessed: false, step: null, top: 4, label: null }, computed: null })).toBe(copy.notAssessed);
+    expect(scoreText({ ai: { assessed: false, step: null, top: 4, label: null, feedback_dropped: false }, computed: null })).toBe(copy.notAssessed);
     expect(scoreText({ ai: null, computed: { result: "partly", criteria: [] } })).toBe(copy.computed.partly);
   });
 

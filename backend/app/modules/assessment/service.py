@@ -28,15 +28,25 @@ Story 12.2 (FR-54, AD-6, AD-9, AD-23): the assessment of one Test attempt.
 - Scores are written once; nothing here copies or recomputes the computed scores `tests` stored,
   and no total is stored: `analysis.total_score` makes it when read.
 
+Story 12.3 (FR-54, AD-6, AD-7): written feedback. When the pinned config names prompt
+`assessment/v2` or later, the call's output (`analysis.feedback.AssessmentFeedbackOutput`) also
+holds one to four feedback sentences built from approved template ids, quote spans over the
+scrubbed answer, criterion codes and fact ids. `analysis.feedback.validate_feedback` checks them
+(Epic 9's AI-text validator for the facts, on the item's stored facts set); code renders the text,
+the quotes mapped through the gateway's offset map to the Student's original answer. A rejected
+feedback is asked for once more with a new call; when that one is rejected too (or fails), the
+feedback is left out with the note `dropped` and the first call's score is kept. A config naming
+`assessment/v1` keeps the score-only output of Story 12.2.
+
 No answer text, guide text or score is logged: ids, counts and codes only.
 
 This module imports no feature module: `sessions` and `tests` call it, never the other way round."""
 
 import uuid
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 import structlog
 from pydantic import BaseModel, ConfigDict, Field
@@ -45,7 +55,11 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai import budget as ai_budget
+from app.ai import config as ai_config
 from app.ai import gateway
+from app.analysis import feedback as feedback_rules
+from app.analysis.facts import FactSet
+from app.analysis.narration import NarrationTemplates, citable, fact_lines
 from app.analysis.total import SCALE_TOP
 from app.modules.assessment.models import ai_assessments, ai_item_scores, assessment_switches
 from app.platform import auth, events, jobs
@@ -56,8 +70,10 @@ __all__ = [
     "ASSESS_TASK",
     "DEFAULT_SWITCH",
     "PURPOSE",
+    "FEEDBACK_VERSION",
     "AssessmentOutput",
     "AssessmentRecord",
+    "ItemFeedback",
     "AttemptToAssess",
     "ItemToAssess",
     "PinnedConfig",
@@ -69,6 +85,7 @@ __all__ = [
     "assessment_of",
     "backoff",
     "copy_switch",
+    "mock_feedback",
     "mock_score",
     "pin_switch",
     "pinned_config",
@@ -222,7 +239,9 @@ class ItemToAssess:
     """One long-answer or Adapted item of a closed attempt, as the prompt needs it: the question
     as the Student read it, their answer (None when not answered), the pinned Scoring guide entry
     (title, guide text, criteria as `(code, weight, text)`) and, for an Adapted item, the lines of
-    the facts it cites from its stored facts set (`""` otherwise)."""
+    the facts it cites from its stored facts set (`""` otherwise). Story 12.3: an Adapted item's
+    stored facts set itself (`fact_set`, read by its id, never rebuilt) and the fact ids it was
+    frozen with, which its feedback may cite."""
 
     item_id: str
     question: str
@@ -231,12 +250,16 @@ class ItemToAssess:
     guide_text: str
     criteria: tuple[tuple[str, int, str], ...]
     facts: str = ""
+    fact_set: FactSet | None = None
+    fact_ids: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
 class AttemptToAssess:
     """A Test attempt as `tests` hands it to the assessment: whether it is closed, the pinned
-    versions it was frozen and is scored with, the scale's labels and its items to score."""
+    versions it was frozen and is scored with, the scale's labels and its items to score. Story
+    12.3: the narration templates the Class session pinned, which a feedback sentence about the
+    Student's game uses (None when they cannot be read)."""
 
     attempt_id: uuid.UUID
     user_id: uuid.UUID
@@ -246,6 +269,7 @@ class AttemptToAssess:
     scoring_guide_id: uuid.UUID | None
     scale: tuple[tuple[int, str], ...]
     items: tuple[ItemToAssess, ...]
+    narration_templates: NarrationTemplates | None = None
 
 
 AttemptReader = Callable[[uuid.UUID], Awaitable[AttemptToAssess | None]]
@@ -305,14 +329,30 @@ async def schedule(s: AsyncSession, attempt_id: uuid.UUID, class_session_id: uui
 
 
 @dataclass(frozen=True)
+class ItemFeedback:
+    """An item's stored written feedback (Story 12.3): its text and parts (`{"text": …}` or
+    `{"quote": [start, end]}` over the original answer) with the call it came from, or `dropped`
+    when it was rejected twice and left out."""
+
+    text: str | None
+    parts: tuple[dict[str, Any], ...]
+    llm_call_id: str | None
+    dropped: bool
+
+
+@dataclass(frozen=True)
 class AssessmentRecord:
-    """An attempt's stored assessment: its state, finished runs, why it failed (a code) and the
-    score of each assessed item by id."""
+    """An attempt's stored assessment: its state, finished runs, why it failed (a code), the
+    score of each assessed item by id, and (Story 12.3) the pinned Scoring guide version and model
+    config it was made with and each item's written feedback, when it has any."""
 
     status: Status
     runs: int
     reason: str | None
     scores: dict[str, int]
+    scoring_guide_id: uuid.UUID | None = None
+    model_config_id: uuid.UUID | None = None
+    feedback: dict[str, ItemFeedback] = field(default_factory=dict)
 
 
 async def assessment_of(s: AsyncSession, attempt_id: uuid.UUID) -> AssessmentRecord | None:
@@ -324,16 +364,39 @@ async def assessment_of(s: AsyncSession, attempt_id: uuid.UUID) -> AssessmentRec
     )
     if row is None:
         return None
-    found = await s.execute(
-        select(ai_item_scores.c.item_id, ai_item_scores.c.score).where(
-            ai_item_scores.c.assessment_id == row["id"]
+    found = (
+        await s.execute(
+            select(
+                ai_item_scores.c.item_id,
+                ai_item_scores.c.score,
+                ai_item_scores.c.feedback,
+                ai_item_scores.c.feedback_note,
+            ).where(ai_item_scores.c.assessment_id == row["id"])
         )
-    )
+    ).all()
     return AssessmentRecord(
         status=row["status"],
         runs=row["runs"],
         reason=row["reason"],
-        scores={item_id: score for item_id, score in found.all()},
+        scores={each.item_id: each.score for each in found},
+        scoring_guide_id=row["scoring_guide_id"],
+        model_config_id=row["model_config_id"],
+        feedback={
+            each.item_id: _item_feedback(each.feedback, each.feedback_note)
+            for each in found
+            if each.feedback is not None or each.feedback_note is not None
+        },
+    )
+
+
+def _item_feedback(stored: Any, note: str | None) -> ItemFeedback:
+    if not isinstance(stored, dict):
+        return ItemFeedback(text=None, parts=(), llm_call_id=None, dropped=note == "dropped")
+    return ItemFeedback(
+        text=stored.get("text"),
+        parts=tuple(stored.get("parts") or ()),
+        llm_call_id=stored.get("llm_call_id"),
+        dropped=False,
     )
 
 
@@ -348,30 +411,108 @@ def mock_score(answer: str) -> int:
     return min(SCALE_TOP, 1 + len(answer.split()) // 25)
 
 
-def _inputs(found: AttemptToAssess, item: ItemToAssess) -> gateway.Inputs:
+FEEDBACK_VERSION = 2
+"""The first `assessment` prompt version whose output holds written feedback (Story 12.3)."""
+
+
+def _first_sentence(text: str) -> tuple[int, int]:
+    """The first sentence of `text` (at most `MAX_QUOTE` characters) as a span, edge spaces left
+    out."""
+    start = len(text) - len(text.lstrip())
+    end = min(len(text), start + feedback_rules.MAX_QUOTE)
+    for n in range(start, end):
+        if text[n] in ".?!":
+            end = n + 1
+            break
+    while end > start and text[end - 1].isspace():
+        end -= 1
+    return start, end
+
+
+def mock_feedback(
+    found: AttemptToAssess, item: ItemToAssess
+) -> tuple[feedback_rules.FeedbackSentence, ...]:
+    """The mock provider's deterministic feedback (AD-17): the answer's first sentence quoted with
+    the item's last criterion as not explained, and for an item about the Student's game one
+    sentence on the fact it was frozen with (or the set's first moment)."""
+    start, end = _first_sentence(_quoted(item.answer or ""))
+    code = item.criteria[-1][0] if item.criteria else None
+    sentences = [
+        feedback_rules.FeedbackSentence(
+            template_id="quote-lacks",
+            quote=feedback_rules.Span(start=start, end=end),
+            criterion=code,
+        )
+    ]
+    if item.fact_set is not None and found.narration_templates is not None:
+        facts = citable(item.fact_set)
+        fact_id = next((each for each in item.fact_ids if each in facts), None)
+        if fact_id is None and item.fact_set.seat.moments:
+            fact_id = min(item.fact_set.seat.moments, key=lambda moment: moment.week).id
+        if fact_id is not None:
+            sentences.append(
+                feedback_rules.FeedbackSentence(
+                    template_id="narration-supply-line", fact_ids=(fact_id,)
+                )
+            )
+    return tuple(sentences)
+
+
+def _inputs(found: AttemptToAssess, item: ItemToAssess, *, feedback: bool) -> gateway.Inputs:
+    """The call's inputs: Story 12.2's for a score-only prompt; with `feedback` (prompt v2 on)
+    also the templates a feedback sentence may use, the facts of the item's stored facts set it
+    may cite, and the limits."""
     answer = item.answer or ""
+    values: dict[str, gateway.Scalar] = {
+        "scale": "\n".join(f"{step}: {_quoted(label)}" for step, label in found.scale),
+        "question": _quoted(item.question),
+        "guide": _quoted(f"{item.guide_title}\n{item.guide_text}"),
+        "criteria": "\n".join(
+            f"{code}, {weight}: {_quoted(text)}" for code, weight, text in item.criteria
+        ),
+        "facts": _quoted(item.facts),
+        "answer": _quoted(answer),
+    }
+    mock_answer: BaseModel = AssessmentOutput(score=mock_score(answer))
+    if feedback:
+        templates = found.narration_templates if item.fact_set is not None else None
+        values |= {
+            # The fact the question is about stays as in v1; these are what a sentence may cite.
+            "citable": fact_lines(item.fact_set) if item.fact_set and templates else "",
+            "templates": feedback_rules.template_lines(templates),
+            "max_sentences": feedback_rules.MAX_FEEDBACK_SENTENCES,
+            "max_quote": feedback_rules.MAX_QUOTE,
+        }
+        mock_answer = feedback_rules.AssessmentFeedbackOutput(
+            score=mock_score(answer), feedback=mock_feedback(found, item)
+        )
     return gateway.Inputs(
-        values={
-            "scale": "\n".join(f"{step}: {_quoted(label)}" for step, label in found.scale),
-            "question": _quoted(item.question),
-            "guide": _quoted(f"{item.guide_title}\n{item.guide_text}"),
-            "criteria": "\n".join(
-                f"{code}, {weight}: {_quoted(text)}" for code, weight, text in item.criteria
-            ),
-            "facts": _quoted(item.facts),
-            "answer": _quoted(answer),
-        },
-        caller={"attempt_id": found.attempt_id},
-        mock_answer=AssessmentOutput(score=mock_score(answer)),
+        values=values, caller={"attempt_id": found.attempt_id}, mock_answer=mock_answer
     )
 
 
-async def _score_item(
-    found: AttemptToAssess, item: ItemToAssess, scope: ai_budget.BudgetScope
-) -> tuple[int, uuid.UUID] | None:
-    """One call for one item: its score and call id, or None (never retried here)."""
+@dataclass(frozen=True)
+class _Scored:
+    """One item's score and the call it came from, and with a feedback prompt the stored
+    feedback or the `dropped` note."""
+
+    score: int
+    llm_call_id: uuid.UUID
+    feedback: dict[str, Any] | None = None
+    note: Literal["dropped"] | None = None
+
+
+async def _run(
+    found: AttemptToAssess, item: ItemToAssess, scope: ai_budget.BudgetScope, *, feedback: bool
+) -> gateway.Result[Any] | None:
+    """One call (never retried here): its result, or None for a typed failure or any error."""
+    schema: type[BaseModel] = (
+        feedback_rules.AssessmentFeedbackOutput if feedback else AssessmentOutput
+    )
     try:
-        result = await gateway.run(PURPOSE, scope, _inputs(found, item), AssessmentOutput, None)
+        result = await gateway.run(
+            PURPOSE, scope, _inputs(found, item, feedback=feedback), schema, None
+        )
     except gateway.GatewayError as exc:
         log.warning("assessment_item_not_prepared", attempt_id=str(found.attempt_id), code=exc.code)
         return None
@@ -385,7 +526,72 @@ async def _score_item(
     if isinstance(result, gateway.Failure):
         log.info("assessment_item_failed", attempt_id=str(found.attempt_id), kind=result.kind)
         return None
-    return result.output.score, result.llm_call_ids[-1]
+    return result
+
+
+def _feedback(
+    found: AttemptToAssess, item: ItemToAssess, result: gateway.Result[Any]
+) -> dict[str, Any] | None:
+    """The feedback of a call's output as stored (`{text, ai_generated, llm_call_id, parts}`)
+    when the validator accepts it, else None (its reason logged, never its text)."""
+    output: feedback_rules.AssessmentFeedbackOutput = result.output
+    answer = item.answer or ""
+    offsets = result.offset_maps.get("answer")
+    templates = found.narration_templates if item.fact_set is not None else None
+    if offsets is None:  # pragma: no cover - the answer is always a string value
+        return None
+    verdict = feedback_rules.validate_feedback(
+        output,
+        answer,
+        offsets,
+        [code for code, _, _ in item.criteria],
+        item.fact_set,
+        templates,
+    )
+    if not verdict.accepted:
+        log.info(
+            "assessment_feedback_rejected",
+            attempt_id=str(found.attempt_id),
+            reason=verdict.reason,
+        )
+        return None
+    text, parts = feedback_rules.render_feedback(
+        output,
+        answer,
+        offsets,
+        {code: criterion for code, _, criterion in item.criteria},
+        item.fact_set,
+        templates,
+    )
+    return {
+        "text": text,
+        "ai_generated": True,
+        "llm_call_id": str(result.llm_call_ids[-1]),
+        "parts": parts,
+    }
+
+
+async def _score_item(
+    found: AttemptToAssess, item: ItemToAssess, scope: ai_budget.BudgetScope, *, feedback: bool
+) -> _Scored | None:
+    """One call for one item: its score and call id, or None (the score's call is never retried
+    here). With `feedback`, a rejected feedback is asked for once more with a new call; when that
+    is rejected too or fails, the feedback is left out (`dropped`). The first call's score is
+    kept either way (Story 12.3)."""
+    result = await _run(found, item, scope, feedback=feedback)
+    if result is None:
+        return None
+    score, call_id = result.output.score, result.llm_call_ids[-1]
+    if not feedback:
+        return _Scored(score, call_id)
+    given = _feedback(found, item, result)
+    if given is None:
+        again = await _run(found, item, scope, feedback=True)
+        given = None if again is None else _feedback(found, item, again)
+    if given is None:
+        log.info("assessment_feedback_dropped", attempt_id=str(found.attempt_id))
+        return _Scored(score, call_id, note="dropped")
+    return _Scored(score, call_id, feedback=given)
 
 
 async def _store_score(
@@ -396,6 +602,9 @@ async def _store_score(
     score: int,
     llm_call_id: uuid.UUID | None,
     now: datetime,
+    *,
+    feedback: dict[str, Any] | None = None,
+    note: str | None = None,
 ) -> None:
     async with get_sessionmaker().begin() as s:
         await s.execute(
@@ -410,6 +619,8 @@ async def _store_score(
                 question_set_version=found.question_set_version,
                 model_config_id=model_config_id,
                 created_at=now,
+                feedback=feedback,
+                feedback_note=note,
             )
             .on_conflict_do_nothing(constraint="pk_ai_item_scores")
         )
@@ -550,11 +761,12 @@ async def assess(attempt_id: uuid.UUID) -> str:
         )
     )
     config_id = None if pin is None else pin.model_config_id
+    feedback = await _gives_feedback(config_id)
     for item in found.items:
         if item.item_id in scored:
             continue
         try:
-            await _assess_item(assessment_id, found, item, scope, config_id)
+            await _assess_item(assessment_id, found, item, scope, config_id, feedback=feedback)
         except Exception as exc:  # the type only: the item stays without a score, the run counts
             log.error(
                 "assessment_item_not_stored",
@@ -570,9 +782,12 @@ async def _assess_item(
     item: ItemToAssess,
     scope: ai_budget.BudgetScope | None,
     config_id: uuid.UUID | None,
+    *,
+    feedback: bool,
 ) -> None:
-    """Score one item still without a score: step 0 by code for an empty answer, else one call,
-    and only with a pinned config and the item's Scoring guide entry."""
+    """Score one item still without a score: step 0 by code for an empty answer, else one call
+    (two when its feedback is rejected once), and only with a pinned config and the item's
+    Scoring guide entry."""
     if item.answer is None or not item.answer.strip():
         # Nothing to read: step 0 of the scale, by code, with no call.
         await _store_score(assessment_id, found, config_id, item.item_id, 0, None, auth.utcnow())
@@ -582,9 +797,26 @@ async def _assess_item(
     if not item.guide_text:  # no Scoring guide entry to score against: no call, no score
         log.warning("assessment_item_without_guide", attempt_id=str(found.attempt_id))
         return
-    made = await _score_item(found, item, scope)
+    made = await _score_item(found, item, scope, feedback=feedback)
     if made is not None:
-        score, call_id = made
         await _store_score(
-            assessment_id, found, config_id, item.item_id, score, call_id, auth.utcnow()
+            assessment_id,
+            found,
+            config_id,
+            item.item_id,
+            made.score,
+            made.llm_call_id,
+            auth.utcnow(),
+            feedback=made.feedback,
+            note=made.note,
         )
+
+
+async def _gives_feedback(config_id: uuid.UUID | None) -> bool:
+    """Whether the pinned config names prompt `assessment/v2` or later, whose output holds
+    written feedback (Story 12.3); a config naming v1 keeps the score-only output."""
+    if config_id is None:
+        return False
+    found = await ai_config.get(config_id)
+    version = None if found is None else found.spec.prompts.get(PURPOSE)
+    return version is not None and version >= FEEDBACK_VERSION

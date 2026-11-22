@@ -159,7 +159,7 @@ HEAD_TABLES = (
     | RECLAIM_TABLES
     | ADJUSTMENT_TABLES
 )
-HEAD = "0202"  # 0202 adds the AI assessment (12.2) after 0201 (12.7); 0120-0130 follow main's 0064
+HEAD = "0203"  # 0203 (12.3) and 0202 (12.2) follow 0201 (12.7); 0120-0130 follow main's 0064
 
 
 def reset_schema(url: str) -> None:
@@ -347,6 +347,11 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     # 0111 (Story 9.12): presence, the Students who go on alone and the 48-hour fallback.
     assert "last_seen_at" in columns(url, "debrief_members")
     assert {"fallback_due_at", "fallback_at"} <= columns(url, "debrief_sessions")
+
+    # 0203 (Story 12.3): an item's written feedback, or the note that it was left out.
+    assert {"feedback", "feedback_note"} <= columns(url, "ai_item_scores")
+    command.downgrade(cfg, "0202")
+    assert "feedback" not in columns(url, "ai_item_scores")
 
     # 0202 (Story 12.2): the AI assessment per Test attempt, its item scores, and the model config
     # the Test-deadline lock pins with the switch.

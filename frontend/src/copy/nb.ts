@@ -3275,6 +3275,15 @@ export const nb = {
       itemsTitle: "Oppgavene",
       /** «og» between the last two item numbers. */
       and: "og",
+      /** Story 12.3 (FR-34, UX-DR69): the spine's prefix of an item's written feedback, which quotes the Student's own
+       * answer. */
+      feedbackPrefix: "KI-generert, kan ta feil:",
+      /** Story 12.3: in place of feedback the validator rejected twice; the score stands. [ASSUMPTION] */
+      feedbackDropped:
+        "Den skrevne tilbakemeldingen ble holdt tilbake fordi den ikke kunne kontrolleres mot svaret ditt. KI-vurderingen over står.",
+      /** Story 12.3 (FR-81, AD-27): the spine's line while the Scoring guide is not checked with the model by a Control
+       * test. */
+      unchecked: "Ikke kontrollert med en Kontrolltest.",
     },
   },
 

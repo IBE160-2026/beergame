@@ -10,6 +10,8 @@ import { myTestsKey } from "@/modules/tests/api";
 /** The Student's «KI-vurdering» of their Individual test (Story 12.2). */
 export type MyAssessment = components["schemas"]["MyAssessmentOut"];
 export type AssessedItem = components["schemas"]["AssessedItemOut"];
+/** An AI item's written feedback (Story 12.3): text parts and quotes of the Student's answer. */
+export type ItemFeedback = components["schemas"]["FeedbackOut"];
 
 /** Under the Student's own tests, so the `user` topic (a finished run, a hand-in) reads it again. */
 export const myAssessmentKey = (classSessionId: string) => [...myTestsKey, classSessionId, "assessment"] as const;

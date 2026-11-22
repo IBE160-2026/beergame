@@ -9,7 +9,7 @@ import { HOME_LINK, HOME_PATH } from "@/modules/identity/homes";
 import { PageLink, PageShell } from "@/modules/identity/page-shell";
 import { itemLabel, itemLines } from "@/modules/tests/individual-test";
 
-import { type AssessedItem, type MyAssessment, myAssessmentKey, useMyAssessment } from "./api";
+import { type AssessedItem, type ItemFeedback, type MyAssessment, myAssessmentKey, useMyAssessment } from "./api";
 import { pointsText, scoreText, stateLine, totalText } from "./assessment";
 
 const copy = nb.assessment.student;
@@ -24,6 +24,11 @@ const ITEMS_HEADING_ID = "assessment-items";
  * and its points of its weight, and, when every item has a score, the weighted total. There is no
  * pass or fail and no letter. Every number is the api's (AD-10), through the number formatter.
  * Another Student's or an unknown session shows the permission-denied page.
+ *
+ * Story 12.3 (FR-34, FR-54, FR-81, UX-DR66, UX-DR69): under an AI item's score its written
+ * feedback, «KI-generert, kan ta feil:» first, each quote of the Student's own answer set apart as a
+ * quotation; where the feedback was left out, a note in its place; and while the Scoring guide is
+ * not checked by a Control test, «Ikke kontrollert med en Kontrolltest.» under the disclosure.
  */
 export function AssessmentPage({ classSessionId }: { classSessionId: string }) {
   return (
@@ -55,6 +60,11 @@ function Body({ assessment }: { assessment: MyAssessment }) {
       <p data-disclosure className={`${LINE} font-semibold text-ink`}>
         {copy.disclosure}
       </p>
+      {assessment.items.length > 0 && !assessment.checked ? (
+        <p data-unchecked className={`${LINE} mt-1 text-ink-secondary`}>
+          {copy.unchecked}
+        </p>
+      ) : null}
       {line ? <p className={`${LINE} mt-3 text-ink`}>{line}</p> : null}
       {assessment.items.length > 0 ? (
         <section aria-labelledby={ITEMS_HEADING_ID} className="mt-6 border-t border-axis pt-4">
@@ -101,6 +111,12 @@ function Item({ item }: { item: AssessedItem }) {
       <p data-score className={`${LINE} mt-2 text-ink`}>
         {scoreText(item)}
       </p>
+      {item.ai?.feedback ? <Feedback feedback={item.ai.feedback} /> : null}
+      {item.ai?.feedback_dropped ? (
+        <p data-feedback-dropped className={`${LINE} mt-2 text-ink-secondary`}>
+          {copy.feedbackDropped}
+        </p>
+      ) : null}
       {criteria.length > 0 ? (
         <ul className="mt-2 flex flex-col gap-1">
           {criteria.map((criterion) => (
@@ -112,5 +128,30 @@ function Item({ item }: { item: AssessedItem }) {
         </ul>
       ) : null}
     </li>
+  );
+}
+
+/** An item's written feedback (Story 12.3): the AI prefix, then code-rendered text with each quote
+ * of the Student's own answer as a quotation, cut from their original text by the api. */
+function Feedback({ feedback }: { feedback: ItemFeedback }) {
+  return (
+    <div
+      data-feedback
+      data-ai-generated={feedback.ai_generated ? "true" : undefined}
+      className="mt-2 border-l-2 border-axis pl-3"
+    >
+      <p className={`${LINE} text-ink [overflow-wrap:anywhere]`}>
+        {feedback.ai_generated ? <span className="font-semibold">{copy.feedbackPrefix} </span> : null}
+        {feedback.parts.map((part, index) =>
+          part.kind === "quote" ? (
+            <q key={index} data-quote className="italic [quotes:'«'_'»']">
+              {part.text}
+            </q>
+          ) : (
+            <span key={index}>{part.text}</span>
+          ),
+        )}
+      </p>
+    </div>
   );
 }

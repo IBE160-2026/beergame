@@ -224,16 +224,18 @@ async def test_the_close_defers_one_job_that_scores_each_item_once(klass, monkey
     assert "Utkast: langsvar om forsinkelse" in prompt and "F1, 20: Utkast: kriterium 1" in prompt
     assert "Utkast: tilpasset oppgave om eget spill" not in prompt
     schema = long_request["output_schema"]
-    assert set(schema["properties"]) == {"score"} and schema["properties"]["score"]["maximum"] == 4
+    # One overall score, never one per criterion; from prompt v2 (Story 12.3) the feedback too.
+    assert set(schema["properties"]) == {"score", "feedback"}
+    assert schema["properties"]["score"]["maximum"] == 4
     own_prompt = json.loads(by_answer[OWN])["prompt"]
     own_item = next(i for i in test["items"] if i["id"] == OWN)
     assert own_item["title"] in own_prompt
     assert "Utkast: tilpasset oppgave om eget spill" in own_prompt
     assert "S1, 20: Utkast: kriterium 1" in own_prompt
     facts_block = own_prompt.split("empty when the question is not about their game:")[1]
-    assert facts_block.split("The student's answer")[0].strip()  # the fact line is there
+    assert facts_block.split("Facts from the student's own game")[0].strip()  # its fact line
     long_facts = prompt.split("empty when the question is not about their game:")[1]
-    assert long_facts.split("The student's answer")[0].strip() == ""
+    assert long_facts.split("Facts from the student's own game")[0].strip() == ""
 
     # A repeat run stores nothing and calls nothing; no second job is waiting.
     assert await assessment.assess(attempt_id) == "ready"
@@ -251,6 +253,8 @@ async def test_the_close_defers_one_job_that_scores_each_item_once(klass, monkey
         "step": 0,
         "top": 4,
         "label": "Utkast: mangler",
+        "feedback": None,
+        "feedback_dropped": False,
     }
     assert items[LONG[1]]["points"] == 0 and items[LONG[1]]["computed"] is None
     assert items[OWN]["wording"]["text"] == own_item["title"]
@@ -328,6 +332,7 @@ async def test_with_the_pinned_switch_off_nothing_is_assessed(klass, monkeypatch
         "unassessed": [],
         "total": None,
         "total_max": None,
+        "checked": False,
     }
 
 
