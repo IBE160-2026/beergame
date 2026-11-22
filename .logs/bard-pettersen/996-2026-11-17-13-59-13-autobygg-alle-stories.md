@@ -3438,3 +3438,22 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Kun AI-
 
 ### Åpne punkter
 - Issue #213: beslutninger, ny tabell med persondata og at valget av ordlyd bare er testet mot mocken.
+
+## Story 11.9: Forhåndsvis malene for tilpassede oppgaver med en eksempelstudent (spor 2)
+
+### Oppgave
+Bygge Story 11.9 på `epic-11` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Den visuelle kontrollen gjøres i avslutningen av Epic 11.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-11-9-preview-the-adapted-item-templates-with-a-sample-student.md`.
+- Commit: b0eb586.
+- Siden `/klasseokter/{id}/tilpassede-oppgaver` viser hver mal fylt ut med et fast eksempel (Detaljisten fra et gullspill), merket «Demodata».
+- Tester: backend 3350, Vitest 1071, tsc, `lint:colours`, `check:copy`, bygg, Playwright 78 med axe.
+- Gjennomgang: 17 funn, 6 rettet.
+- Status: done.
+
+### Åpne punkter
+- Issue #214: beslutninger.
