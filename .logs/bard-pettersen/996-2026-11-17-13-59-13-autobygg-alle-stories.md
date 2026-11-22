@@ -2812,3 +2812,23 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Neste b
 
 ### Åpne punkter
 - Issue #178: beslutninger (ny Play guard-sett `placeholder-1`, hvordan etterspørselen trekkes) og oppfølgende gjennomgang anbefalt.
+
+## Story 8.8: Sett inn en KI-spiller i et sete der studenten er borte, som student (spor 1)
+
+### Oppgave
+Bygge Story 8.8 på `epic-8` i spor 1.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Orkestratoren ba om en test for at id-en til faglæreren ikke når studenter. Neste byggeagent startet med en gang, og den visuelle kontrollen gikk samtidig med eget compose-prosjekt.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-8-8-put-an-ai-player-in-an-absent-seat-as-a-student.md`.
+- Commit: ff759ff. Migrasjon 0058.
+- En student med et annet sete kan sette inn en KI-spiller i et fravært sete når innsettingstiden har gått, også under pause. Linja før innsettingstiden, teksten om konsekvensen og «Sett inn KI-spiller for …» på Spill og Hjem; sweepen kunngjør innsettingstiden én gang.
+- Tester: backend 2996, Vitest 873, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 178 av 178. To backend-kjøringer døde fordi Postgres gikk i gjenoppretting under last; nye kjøringer passerte.
+- Gjennomgang: 32 funn, 1 middels og 8 lave rettet.
+- Visuell kontroll (Sonnet, bare rapport, eget compose-prosjekt): 31 skjermbilder i `screenshots/8.8/`, ingen klare feil. Små punkter om tekststørrelse og fullt navn i setelinja er tatt med i lista til slutten av epicen.
+- Status: done.
+
+### Åpne punkter
+- Issue #181: beslutninger og at Postgres krasjet under last.
