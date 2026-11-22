@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { barPercent, fallbackName, hourAxisTop, hourText, hourTotal, msText, shareText } from "./operations";
+import { barPercent, fallbackName, hourAxis, hourAxisTop, hourText, hourTotal, msText, shareText } from "./operations";
 
 const NBSP = " ";
 const GROUP = " ";
@@ -25,6 +25,12 @@ describe("«Drift» figures (Story 15.8)", () => {
     expect(hourAxisTop(hours)).toBe(6);
     expect(hourAxisTop([hour("2026-11-19T09:00:00Z", 0, 0, 0)])).toBe(1);
     expect(hourAxisTop([])).toBe(1);
+    // Round steps of whole counts, at most four, the top at or over the busiest hour.
+    expect(hourAxis(hours)).toEqual({ top: 6, ticks: [0, 2, 4, 6] });
+    expect(hourAxis([])).toEqual({ top: 1, ticks: [0, 1] });
+    expect(hourAxis([hour("2026-11-19T09:00:00Z", 3, 0, 0)])).toEqual({ top: 3, ticks: [0, 1, 2, 3] });
+    expect(hourAxis([hour("2026-11-19T09:00:00Z", 17, 0, 0)])).toEqual({ top: 20, ticks: [0, 5, 10, 15, 20] });
+    expect(hourAxis([hour("2026-11-19T09:00:00Z", 41, 0, 0)])).toEqual({ top: 60, ticks: [0, 20, 40, 60] });
   });
 
   it("draws bars as a share of the axis, never past it", () => {

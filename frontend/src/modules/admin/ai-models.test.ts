@@ -4,12 +4,20 @@ import { nb } from "@/copy/nb";
 import { ApiRequestError } from "@/lib/api/client";
 import { GROUP } from "@/lib/number-format";
 
-import { levelName, modelName, percentText, refusalText, usdText } from "./ai-models";
+import { levelName, modelName, percentText, promptText, refusalText, usdText } from "./ai-models";
 
 const copy = nb.admin.aiCost;
 const NBSP = "\u00a0";
 
 describe("«KI-kostnad» (Story 15.5)", () => {
+  it("names a locked prompt by what it does, its technical id after it", () => {
+    expect(promptText("player_order", 1)).toBe("Ordre fra LLM-spiller, versjon 1 (player_order)");
+    expect(promptText("quiz_explanation", 2)).toBe("Forklaring i Debrief-quizen, versjon 2 (quiz_explanation)");
+    // A purpose the page has no name for keeps its id, once; nothing inherited counts as a name.
+    expect(promptText("new_purpose", 3)).toBe("new_purpose, versjon 3");
+    expect(promptText("toString", 1)).toBe("toString, versjon 1");
+  });
+
   it("shows a stored share in percent by moving the decimal point", () => {
     expect(percentText("0.0125")).toBe(`1,25${NBSP}%`);
     expect(percentText("0.025")).toBe(`2,5${NBSP}%`);

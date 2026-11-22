@@ -50,13 +50,13 @@ describe("«Databasetilkoblinger» (Story 15.9)", () => {
     const failed = budget({
       pooler: { status: "failed", pooler_size: 15, required: 51 },
     });
-    expect(poolerText(failed)).toBe("Pooleren er for liten: DB_POOLER_SIZE er 15, behovet er 51.");
+    expect(poolerText(failed)).toBe("Pooleren er for liten: den har plass til 15 tilkoblinger, behovet er 51.");
     const passed = budget({
       pooler: { status: "passed", pooler_size: 60, required: 51 },
     });
-    expect(poolerText(passed)).toBe("Pooleren rommer en utrulling: DB_POOLER_SIZE er 60, behovet er 51.");
+    expect(poolerText(passed)).toBe("Pooleren rommer en utrulling: den har plass til 60 tilkoblinger, behovet er 51.");
     const unset = poolerText(budget({}));
-    expect(unset).toBe("Pooleren er ikke sjekket: DB_POOLER_SIZE er ikke satt. Behovet er 51.");
+    expect(unset).toBe("Pooleren er ikke sjekket: størrelsen på pooleren er ikke oppgitt. Behovet er 51.");
     expect(unset).not.toContain("rommer");
   });
 });

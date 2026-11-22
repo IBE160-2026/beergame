@@ -48,6 +48,8 @@ class FallbackOut(BaseModel):
 
 class ResponseTimeOut(BaseModel):
     effort_level: str
+    label: str | None = None
+    """The level's Norwegian label from the model config, None when it has none."""
     calls: int
     median_ms: int
     p95_ms: int

@@ -109,8 +109,10 @@ function DailySpendAlert() {
   if (!found?.alerted_at || found.alert_usd === null) return null;
   const text = nb.admin.aiCost.day;
   return (
-    <div className="mb-2 max-w-md">
-      <p className="text-body-phone font-semibold text-ink lg:text-body">{text.homeAlert(dayUsdText(found.alert_usd))}</p>
+    // A notice between two `ink-muted` rules, as the other status lines, so it reads as the alert
+    // it is rather than as text between two links.
+    <div className="mb-3 max-w-md border-y border-ink-muted py-2" data-daily-spend-alert="">
+      <p className="text-body-phone text-ink lg:text-body">{text.homeAlert(dayUsdText(found.alert_usd))}</p>
       <Link href={dailySpendPath(found.day)} standalone>
         {text.homeAlertLink}
       </Link>

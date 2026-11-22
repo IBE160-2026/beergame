@@ -77,7 +77,7 @@ export function UserList({ selfId }: { selfId: string }) {
   const [line, setLine] = useState<RowLine>();
   const [deleting, setDeleting] = useState<string>();
   const [deletedLine, setDeletedLine] = useState<string>();
-  const deletedRef = useRef<HTMLParagraphElement>(null);
+  const deletedRef = useRef<HTMLDivElement>(null);
   const items = users.data?.pages.flatMap((page) => page.items) ?? [];
 
   function press(user: ListedUser, role: AccountRole) {
@@ -170,14 +170,22 @@ export function UserList({ selfId }: { selfId: string }) {
       ) : null}
       {phase === "ready" ? (
         <>
-          <p
+          {/* One polite status region, always there so a new line is announced. After a delete it
+              holds a notice between two rules, and «Ingen treff.» under it when the search now
+              finds no one; both are read out. */}
+          <div
             ref={deletedRef}
             tabIndex={-1}
             role="status"
-            className="mt-6 text-body-phone text-ink outline-none lg:text-body"
+            className="mt-6 flex flex-col gap-4 text-body-phone text-ink outline-none lg:text-body"
           >
-            {deletedLine ?? (items.length === 0 ? copy.noMatches : null)}
-          </p>
+            {deletedLine ? (
+              <p className="max-w-2xl border-y border-ink-muted py-2" data-deleted-line="">
+                {deletedLine}
+              </p>
+            ) : null}
+            {items.length === 0 && (!deletedLine || search) ? <p>{copy.noMatches}</p> : null}
+          </div>
           {items.length > 0 ? (
             <table className="w-full border-collapse text-left text-table-cell tabular-nums lining-nums text-ink @max-[60em]:block lg:text-table-cell-laptop">
               <thead className="@max-[60em]:hidden">

@@ -215,6 +215,8 @@ class SessionFigures:
     calls: int
     levels: list[LevelTimes]
     """Per Effort level of its `player_order` attempts, by name."""
+    config_ids: tuple[uuid.UUID, ...] = ()
+    """The model configs of those attempts, so a reader can name each level by its label."""
 
 
 async def session_figures(class_session_id: uuid.UUID) -> SessionFigures:
@@ -246,12 +248,20 @@ async def session_figures(class_session_id: uuid.UUID) -> SessionFigures:
                 .order_by(llm_calls.c.effort_level)
             )
         ).all()
+        config_ids = (
+            await session.execute(
+                select(llm_calls.c.model_config_id)
+                .where(in_scope, llm_calls.c.purpose == PLAYER_PURPOSE)
+                .distinct()
+            )
+        ).scalars().all()
     return SessionFigures(
         usd=_usd(total[0]),
         calls=total[1],
         levels=[
             LevelTimes(level, count, int(median), int(p95)) for level, count, median, p95 in rows
         ],
+        config_ids=tuple(sorted(config_ids)),
     )
 
 

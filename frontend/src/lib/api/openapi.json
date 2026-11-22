@@ -8576,6 +8576,17 @@
             "title": "Effort Level",
             "type": "string"
           },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
           "median_ms": {
             "title": "Median Ms",
             "type": "integer"

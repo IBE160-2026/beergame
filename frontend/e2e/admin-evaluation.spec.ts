@@ -65,10 +65,14 @@ for (const vp of VIEWPORTS.filter((v) => !v.text200)) {
       await expect(run.getByRole("checkbox", { name: label })).toHaveCount(0);
 
       await row.getByRole("button", { name: copy.sessions.record(label) }).click();
-      await row.getByLabel(copy.agreementForm.agreedBy).fill("Prorektor for utdanning");
-      await row.getByLabel(copy.agreementForm.agreedOn).fill("2026-11-01");
-      await row.getByLabel(copy.agreementForm.controller).fill("Demohøgskolen");
-      await row.getByRole("button", { name: copy.agreementForm.save }).click();
+      // The form opens on a row of its own under the Class session, the table's full width.
+      const form = sessions.locator("tr[data-agreement-form-row]");
+      await expect(form.locator("td")).toHaveAttribute("colspan", "5");
+      await form.getByLabel(copy.agreementForm.agreedBy).fill("Prorektor for utdanning");
+      await form.getByLabel(copy.agreementForm.agreedOn).fill("2026-11-01");
+      await form.getByLabel(copy.agreementForm.controller).fill("Demohøgskolen");
+      await form.getByRole("button", { name: copy.agreementForm.save }).click();
+      await expect(form).toHaveCount(0);
       await expect(row.getByRole("status")).toHaveText(copy.agreementForm.saved(label));
       await expect(row).toContainText(copy.sessions.controller("Demohøgskolen"));
       await expectAccessible(page, vp.phone);

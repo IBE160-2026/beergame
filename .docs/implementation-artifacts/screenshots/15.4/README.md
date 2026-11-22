@@ -5,12 +5,12 @@ Screenshot | what it shows | matches the design?
 - `eksport-avtale-lagret-1280-200pst.png` | Agreement saved, status line in the row (1280-200pst) | matches
 - `eksport-avtale-lagret-1280.png` | Agreement saved, status line in the row (1280) | matches
 - `eksport-avtale-lagret-390.png` | Agreement saved, status line in the row (390) | matches
-- `eksport-avtaleskjema-1280-200pst.png` | Agreement form open in the row (1280-200pst) | judgement: on desktop the form is squeezed into the Handling column of the table
-- `eksport-avtaleskjema-1280.png` | Agreement form open in the row (1280) | judgement: on desktop the form is squeezed into the Handling column of the table
-- `eksport-avtaleskjema-390.png` | Agreement form open in the row (390) | judgement: on desktop the form is squeezed into the Handling column of the table
-- `eksport-avtaleskjema-feil-1280-200pst.png` | Agreement form pressed empty (field errors) (1280-200pst) | matches
-- `eksport-avtaleskjema-feil-1280.png` | Agreement form pressed empty (field errors) (1280) | matches
-- `eksport-avtaleskjema-feil-390.png` | Agreement form pressed empty (field errors) (390) | matches
+- `eksport-avtaleskjema-1280-200pst.png` | Agreement form open on its own full-width row under the Class session (1280-200pst) | matches (UX-rettinger: the form has the row's full width, three fields side by side on desktop)
+- `eksport-avtaleskjema-1280.png` | Agreement form open on its own full-width row under the Class session (1280) | matches (UX-rettinger: the form has the row's full width, three fields side by side on desktop)
+- `eksport-avtaleskjema-390.png` | Agreement form open on its own full-width row under the Class session (390) | matches (UX-rettinger: the form has the row's full width, three fields side by side on desktop)
+- `eksport-avtaleskjema-feil-1280-200pst.png` | Agreement form pressed empty (field errors) (1280-200pst) | matches (form on its own full-width row)
+- `eksport-avtaleskjema-feil-1280.png` | Agreement form pressed empty (field errors) (1280) | matches (form on its own full-width row)
+- `eksport-avtaleskjema-feil-390.png` | Agreement form pressed empty (field errors) (390) | matches (form on its own full-width row)
 - `eksport-eksportert-og-liste-1280-200pst.png` | After the download: done line and the Eksporter list (1280-200pst) | matches
 - `eksport-eksportert-og-liste-1280.png` | After the download: done line and the Eksporter list (1280) | matches
 - `eksport-eksportert-og-liste-390.png` | After the download: done line and the Eksporter list (390) | matches
@@ -28,7 +28,7 @@ Screenshot | what it shows | matches the design?
 - `kjor-eksport-valg-390-utsnitt.png` | Detail crop: Kjør eksport with the checkbox list and key field (390, crop) | matches; one primary button
 - `klasseokt-rad-avtale-lagret-1280-utsnitt.png` | Detail crop: row after saving (1280, crop) | matches
 - `klasseokt-rad-avtale-lagret-390-utsnitt.png` | Detail crop: row after saving (390, crop) | matches
-- `klasseokt-rad-skjema-apent-1280-utsnitt.png` | Detail crop: agreement form, 390 px stacks fields full width (1280, crop) | matches
-- `klasseokt-rad-skjema-apent-390-utsnitt.png` | Detail crop: agreement form, 390 px stacks fields full width (390, crop) | matches
+- `klasseokt-rad-skjema-apent-1280-utsnitt.png` | Detail crop: the row and its full-width agreement form (1280, crop) | matches (UX-rettinger)
+- `klasseokt-rad-skjema-apent-390-utsnitt.png` | Detail crop: the row and its agreement form, fields stacked full width (390, crop) | matches (UX-rettinger)
 - `klasseokt-rad-uten-avtale-1280-utsnitt.png` | Detail crop: row without agreement (1280, crop) | matches
 - `klasseokt-rad-uten-avtale-390-utsnitt.png` | Detail crop: row without agreement (390, crop) | matches

@@ -307,7 +307,10 @@ async def test_the_view_shows_errors_fallback_times_guard_share_and_cost(klass, 
     other = await new_session(klass)
     await _llm_game(session_id, "class")
     await _llm_game(session_id, "lecturer_test")  # a Lecturer's test Game is left out
-    model = (await config.add(config.parse({**seed.MOCK_SPEC, "name": "drift"}))).id
+    timing = {"attempt_timeout_s": 4, "order_time_budget_s": 8}
+    levels = [{**timing, "name": "deep", "label": "Grundig"}, {**timing, "name": "fast"}]
+    spec = {**seed.MOCK_SPEC, "name": "drift", "effort_levels": levels}
+    model = (await config.add(config.parse(spec))).id
     for latency in (400, 100, 300, 200):
         _call(session_id, "player_order", "fast", latency, "0.01000000", model)
     _call(session_id, "player_order", "deep", 1000, "0.10000000", model)
@@ -342,8 +345,9 @@ async def test_the_view_shows_errors_fallback_times_guard_share_and_cost(klass, 
         {"kind": "fallback_provider_error", "orders": 1, "share": "0.1111"},
     ]
     assert body["response_times"] == [
-        {"effort_level": "deep", "calls": 1, "median_ms": 1000, "p95_ms": 1000},
-        {"effort_level": "fast", "calls": 4, "median_ms": 200, "p95_ms": 400},
+        # The level's label from its model config; none for a level the config does not label.
+        {"effort_level": "deep", "label": "Grundig", "calls": 1, "median_ms": 1000, "p95_ms": 1000},
+        {"effort_level": "fast", "label": None, "calls": 4, "median_ms": 200, "p95_ms": 400},
     ]
     assert (body["llm_seats"], body["switched_seats"], body["switched_share"]) == (2, 1, "0.5000")
     assert (body["cost_usd"], body["ai_calls"]) == ("0.64000000", 6)

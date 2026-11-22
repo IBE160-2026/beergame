@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type ReactNode, useState } from "react";
 
 import { ActionError } from "@/components/action-error";
 import { Button } from "@/components/button";
@@ -14,7 +14,15 @@ import { GuardedPage } from "@/modules/identity/home-page";
 import { ADMIN_AI_COST_PATH, HOME_PATH } from "@/modules/identity/homes";
 import { PageShell } from "@/modules/identity/page-shell";
 
-import { levelName, modelName, percentText, refusalText, usdText, FREEZE_SESSIONS_MAX } from "./ai-models";
+import {
+  levelName,
+  modelName,
+  percentText,
+  promptText,
+  refusalText,
+  usdText,
+  FREEZE_SESSIONS_MAX,
+} from "./ai-models";
 import {
   type DailySpend,
   type ModelConfig,
@@ -48,6 +56,19 @@ const ROW = "border-b border-hairline align-baseline @max-[60em]:block @max-[60e
 const BODY = "@max-[60em]:block @max-[60em]:border-t @max-[60em]:border-axis";
 const LEAD = "mt-2 mb-5 max-w-2xl text-body-phone text-ink-secondary lg:text-body";
 const TEXT = "text-body-phone text-ink lg:text-body";
+/** A notice line between two `ink-muted` rules, as the Admin pages' other result and status lines. */
+const NOTICE = "border-y border-ink-muted py-2 text-body-phone text-ink lg:text-body";
+
+/** A figure's cell: right-aligned in the table (tabular figures from the table), labelled and
+ * left-aligned once the row becomes a block. */
+function NumberCell({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <td className="py-3 pr-6 @min-[60em]:text-right @min-[60em]:whitespace-nowrap @max-[60em]:flex @max-[60em]:gap-3 @max-[60em]:py-1 @max-[60em]:pr-0">
+      <span className="w-20 shrink-0 text-ink-secondary @min-[60em]:hidden">{label}</span>
+      <span className="min-w-0 @max-[60em]:[overflow-wrap:anywhere]">{children}</span>
+    </td>
+  );
+}
 
 /**
  * «KI-kostnad» in the Admin-område, its first page (Story 15.5, FR-68, FR-78, UX-DR57): the model
@@ -148,7 +169,7 @@ export function DaySpendView({ found }: { found: DailySpend }) {
           {found.alert_usd === null ? text.noAlert : text.alertLimit(dayUsdText(found.alert_usd))}
         </p>
         {found.passed || found.alerted_at ? (
-          <p className={`${TEXT} font-semibold`}>
+          <p className={`${NOTICE} mt-3 max-w-2xl`} data-day-alert="">
             {text.passed}
             {found.alerted_at ? ` ${text.alerted(formatTime(found.alerted_at))}` : ""}
           </p>
@@ -164,10 +185,10 @@ export function DaySpendView({ found }: { found: DailySpend }) {
                 <th scope="col" className={HEAD}>
                   {columns.session}
                 </th>
-                <th scope="col" className={HEAD}>
+                <th scope="col" className={`${HEAD} text-right`}>
                   {columns.cost}
                 </th>
-                <th scope="col" className={HEAD}>
+                <th scope="col" className={`${HEAD} text-right`}>
                   {columns.calls}
                 </th>
               </tr>
@@ -181,8 +202,8 @@ export function DaySpendView({ found }: { found: DailySpend }) {
                       <span className="block text-ink-secondary [overflow-wrap:anywhere]">{item.institution_name}</span>
                     ) : null}
                   </Cell>
-                  <Cell label={columns.cost}>{dayUsdText(item.usd)}</Cell>
-                  <Cell label={columns.calls}>{formatNumber(item.calls)}</Cell>
+                  <NumberCell label={columns.cost}>{dayUsdText(item.usd)}</NumberCell>
+                  <NumberCell label={columns.calls}>{formatNumber(item.calls)}</NumberCell>
                 </tr>
               ))}
             </tbody>
@@ -420,11 +441,13 @@ function SessionRow({
             <span className="block text-ink-secondary">
               {copy.sessions.lockedModel(held.model_version ?? copy.configs.none, held.endpoint ?? copy.configs.none)}
             </span>
-            <span className="block text-ink-secondary">
-              {copy.sessions.prompts}:{" "}
-              {Object.entries(held.prompt_versions)
-                .map(([purpose, version]) => copy.sessions.promptVersion(purpose, version))
-                .join(", ")}
+            <span className="block text-ink-secondary">{copy.sessions.prompts}:</span>
+            <span className="block text-ink-secondary" data-prompt-versions="">
+              {Object.entries(held.prompt_versions).map(([purpose, version]) => (
+                <span key={purpose} className="block">
+                  {promptText(purpose, version)}
+                </span>
+              ))}
             </span>
           </span>
         ) : (

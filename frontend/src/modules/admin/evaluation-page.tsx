@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import { type FormEvent, Fragment, useEffect, useRef, useState } from "react";
 
 import { ActionError } from "@/components/action-error";
 import { Button } from "@/components/button";
@@ -8,6 +8,7 @@ import { LoadingNote, Skeleton } from "@/components/skeleton";
 import { TextField } from "@/components/text-field";
 import { nb } from "@/copy/nb";
 import { usePageState } from "@/lib/page-state";
+import { cn } from "@/lib/utils";
 import { GuardedPage } from "@/modules/identity/home-page";
 import { ADMIN_EVALUATION_PATH, HOME_PATH } from "@/modules/identity/homes";
 import { PageShell } from "@/modules/identity/page-shell";
@@ -150,50 +151,64 @@ function SessionTable({ items }: { items: EvaluationSession[] }) {
       <tbody className="@max-[60em]:block @max-[60em]:border-t @max-[60em]:border-axis">
         {items.map((item) => {
           const label = sessionLabel(item);
+          const open = editing === item.id;
           return (
-            <tr key={item.id} className="border-b border-hairline align-baseline @max-[60em]:block @max-[60em]:py-3">
-              <Cell label={columns.session}>
-                <span className="font-semibold [overflow-wrap:anywhere]">{label}</span>
-                {item.institution_name ? (
-                  <span className="block text-ink-secondary [overflow-wrap:anywhere]">{item.institution_name}</span>
-                ) : null}
-              </Cell>
-              <Cell label={columns.testDeadline}>
-                {item.test_deadline ? formatDate(item.test_deadline) : copy.sessions.noDate}
-              </Cell>
-              <Cell label={columns.deletion}>
-                {item.deletion_date ? formatDay(item.deletion_date) : copy.sessions.noDate}
-              </Cell>
-              <Cell label={columns.agreement}>
-                {item.agreement ? (
-                  <span className="[overflow-wrap:anywhere]">
-                    {copy.sessions.agreement(item.agreement.agreed_by, formatDay(item.agreement.agreed_on))}
-                    <span className="block text-ink-secondary">
-                      {copy.sessions.controller(item.agreement.controller)}
+            <Fragment key={item.id}>
+              <tr
+                className={cn(
+                  "align-baseline @max-[60em]:block @max-[60em]:py-3",
+                  open ? "@max-[60em]:pb-0" : "border-b border-hairline",
+                )}
+              >
+                <Cell label={columns.session}>
+                  <span className="font-semibold [overflow-wrap:anywhere]">{label}</span>
+                  {item.institution_name ? (
+                    <span className="block text-ink-secondary [overflow-wrap:anywhere]">{item.institution_name}</span>
+                  ) : null}
+                </Cell>
+                <Cell label={columns.testDeadline}>
+                  {item.test_deadline ? formatDate(item.test_deadline) : copy.sessions.noDate}
+                </Cell>
+                <Cell label={columns.deletion}>
+                  {item.deletion_date ? formatDay(item.deletion_date) : copy.sessions.noDate}
+                </Cell>
+                <Cell label={columns.agreement}>
+                  {item.agreement ? (
+                    <span className="[overflow-wrap:anywhere]">
+                      {copy.sessions.agreement(item.agreement.agreed_by, formatDay(item.agreement.agreed_on))}
+                      <span className="block text-ink-secondary">
+                        {copy.sessions.controller(item.agreement.controller)}
+                      </span>
                     </span>
-                  </span>
-                ) : (
-                  copy.sessions.noAgreement
-                )}
-              </Cell>
-              <td className="py-3 @max-[60em]:block @max-[60em]:pt-2 @max-[60em]:pb-0 @min-[60em]:w-[22em]">
-                {editing === item.id ? (
-                  <AgreementForm item={item} onDone={(saved) => close(item, saved)} />
-                ) : (
-                  <Button
-                    id={`agreement-${item.id}`}
-                    className="[overflow-wrap:anywhere] @max-[60em]:w-full @min-[60em]:px-3 @min-[60em]:text-left"
-                    onClick={() => {
-                      setLine(undefined);
-                      setEditing(item.id);
-                    }}
-                  >
-                    {item.agreement ? copy.sessions.change(label) : copy.sessions.record(label)}
-                  </Button>
-                )}
-                <RowMessage line={line?.key === item.id && editing !== item.id ? line : undefined} />
-              </td>
-            </tr>
+                  ) : (
+                    copy.sessions.noAgreement
+                  )}
+                </Cell>
+                <td className="py-3 @max-[60em]:block @max-[60em]:pt-2 @max-[60em]:pb-0 @min-[60em]:w-[22em]">
+                  {open ? null : (
+                    <Button
+                      id={`agreement-${item.id}`}
+                      className="[overflow-wrap:anywhere] @max-[60em]:w-full @min-[60em]:px-3 @min-[60em]:text-left"
+                      onClick={() => {
+                        setLine(undefined);
+                        setEditing(item.id);
+                      }}
+                    >
+                      {item.agreement ? copy.sessions.change(label) : copy.sessions.record(label)}
+                    </Button>
+                  )}
+                  <RowMessage line={line?.key === item.id && !open ? line : undefined} />
+                </td>
+              </tr>
+              {open ? (
+                // The form takes the row's full width under it, not the action column's.
+                <tr className="border-b border-hairline @max-[60em]:block" data-agreement-form-row="">
+                  <td colSpan={5} className="pt-1 pb-6 @max-[60em]:block">
+                    <AgreementForm item={item} onDone={(saved) => close(item, saved)} />
+                  </td>
+                </tr>
+              ) : null}
+            </Fragment>
           );
         })}
       </tbody>
@@ -251,7 +266,13 @@ function AgreementForm({ item, onDone }: { item: EvaluationSession; onDone: (sav
   }
 
   return (
-    <form method="post" noValidate onSubmit={onSubmit} className="flex flex-col gap-4">
+    <form
+      method="post"
+      noValidate
+      onSubmit={onSubmit}
+      aria-label={item.agreement ? copy.sessions.change(sessionLabel(item)) : copy.sessions.record(sessionLabel(item))}
+      className="grid max-w-4xl grid-cols-1 items-start gap-4 @min-[60em]:grid-cols-3 @min-[60em]:gap-x-6"
+    >
       <TextField
         ref={firstRef}
         id={id("agreedBy")}
@@ -281,8 +302,8 @@ function AgreementForm({ item, onDone }: { item: EvaluationSession; onDone: (sav
         error={errors.controller}
         onChange={(event) => change({ controller: event.target.value })}
       />
-      <ActionError message={record.isError ? form.failed : undefined} />
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+      <ActionError message={record.isError ? form.failed : undefined} className="@min-[60em]:col-span-3" />
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 @min-[60em]:col-span-3">
         <Button type="submit" unavailable={record.isPending} className="@max-[60em]:w-full">
           {form.save}
         </Button>

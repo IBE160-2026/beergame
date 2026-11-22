@@ -28,6 +28,14 @@ export function levelName(level: { name: string; label?: string | null }): strin
   return level.label ?? level.name;
 }
 
+/** «Ordre fra LLM-spiller, versjon 1 (player_order)»: a locked prompt named by what it does, its
+ * technical id after it; a purpose the page has no name for shows the id alone. */
+export function promptText(purpose: string, version: number): string {
+  const sessions = copy.sessions;
+  if (!Object.hasOwn(sessions.promptNames, purpose)) return sessions.promptVersionUnnamed(purpose, version);
+  return sessions.promptVersion(sessions.promptNames[purpose], version, purpose);
+}
+
 /** «gpt-x · v1»: how the page names a model config. */
 export function modelName(config: { name: string; model_version: string }): string {
   return `${config.name} · ${config.model_version}`;

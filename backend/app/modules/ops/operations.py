@@ -13,7 +13,7 @@ from decimal import Decimal
 
 from sqlalchemy import func, select
 
-from app.ai import calls
+from app.ai import calls, config
 from app.modules.games import service as games
 from app.modules.ops.models import ERROR_SOURCES, error_events
 from app.modules.ops.operations_schemas import (
@@ -48,6 +48,20 @@ def _usd(value: Decimal) -> str:
 
 def _label(item: sessions.EvaluationSession) -> str:
     return f"{item.class_name} · Klasseøkt {item.number}"
+
+
+async def _level_labels(config_ids: tuple[uuid.UUID, ...]) -> dict[str, str]:
+    """The Norwegian label of each Effort level name in these model configs (the first config
+    that labels a name wins); a level without one is shown by its name."""
+    labels: dict[str, str] = {}
+    for config_id in config_ids:
+        found = await config.get(config_id)
+        if found is None:
+            continue
+        for level in found.spec.effort_levels:
+            if level.label:
+                labels.setdefault(level.name, level.label)
+    return labels
 
 
 def _hour_start(now: datetime) -> datetime:
@@ -126,6 +140,7 @@ async def session_figures(class_session_id: uuid.UUID, now: datetime) -> Operati
         ).all()
     ai = await calls.session_figures(class_session_id)
     played = await games.session_ai_figures(class_session_id)
+    labels = await _level_labels(ai.config_ids)
     by_hour: dict[datetime, dict[str, int]] = {}
     for start, source, count in hourly:
         by_hour.setdefault(start, {})[source] = count
@@ -156,6 +171,7 @@ async def session_figures(class_session_id: uuid.UUID, now: datetime) -> Operati
         response_times=[
             ResponseTimeOut(
                 effort_level=level.effort_level,
+                label=labels.get(level.effort_level),
                 calls=level.calls,
                 median_ms=level.median_ms,
                 p95_ms=level.p95_ms,

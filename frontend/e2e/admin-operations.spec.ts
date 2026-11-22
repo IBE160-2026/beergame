@@ -48,8 +48,8 @@ function busy(id: string, label: string, now: Date) {
       { kind: "fallback_provider_error", orders: 1, share: "0.1111" },
     ],
     response_times: [
-      { effort_level: "deep", calls: 1, median_ms: 1000, p95_ms: 1000 },
-      { effort_level: "fast", calls: 4, median_ms: 200, p95_ms: 400 },
+      { effort_level: "deep", label: "Grundig", calls: 1, median_ms: 1000, p95_ms: 1000 },
+      { effort_level: "fast", label: null, calls: 4, median_ms: 200, p95_ms: 400 },
     ],
     llm_seats: 2,
     switched_seats: 1,
@@ -118,6 +118,11 @@ for (const vp of VIEWPORTS.filter((v) => !v.text200)) {
         await expect(page.getByText(copy.guard.value("50 %", "1", "2"))).toBeVisible();
         await expect(page.getByText(copy.fallback.base("9"))).toBeVisible();
         await expect(page.locator('[data-chart="error-hours"] [data-mark="hour"]')).toHaveCount(24);
+        // The y axis has its round steps from 0, not only its top.
+        expect(await page.locator('[data-axis="error-hours"] [data-tick]').count()).toBeGreaterThan(2);
+        // An Effort level is named by its config's label; one without a label by its name.
+        await expect(page.locator('[data-chart="response-times"]')).toContainText("Grundig");
+        await expect(page.locator('[data-chart="response-times"]')).not.toContainText("deep");
         const fallbacks = page.locator('[data-chart="fallbacks"]');
         await expect(fallbacks).toContainText("Tidsavbrudd");
         await expect(fallbacks).toContainText("22,22 % (2)");
@@ -133,6 +138,7 @@ for (const vp of VIEWPORTS.filter((v) => !v.text200)) {
         const times = page.locator('[data-chart-block="response-times"]');
         await times.getByRole("button", { name: copy.showTable }).click();
         await expect(times.getByRole("row", { name: /fast/ })).toContainText("400 ms");
+        await expect(times.getByRole("row", { name: /Grundig/ })).toContainText(/1\s?000\sms/);
         const fallbackBlock = page.locator('[data-chart-block="fallbacks"]');
         await fallbackBlock.getByRole("button", { name: copy.showTable }).click();
         await expect(fallbackBlock.getByRole("row", { name: /Feil hos leverandøren/ })).toContainText("11,11 %");

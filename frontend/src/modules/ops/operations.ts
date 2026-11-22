@@ -42,6 +42,18 @@ export function hourAxisTop(hours: readonly ErrorHour[]): number {
   return Math.max(1, ...hours.map(hourTotal));
 }
 
+/** The axis steps tried for whole counts, smallest first. */
+const STEPS = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 2500, 5000, 10000];
+
+/** The hour axis: from 0 to a round top at or over the busiest hour, in at most four equal steps
+ * of whole counts (as the Debrief demand band's axis, Story 9.4), each step a tick. */
+export function hourAxis(hours: readonly ErrorHour[]): { top: number; ticks: number[] } {
+  const highest = hourAxisTop(hours);
+  const step = STEPS.find((s) => Math.ceil(highest / s) <= 4) ?? Math.ceil(highest / 4);
+  const count = Math.ceil(highest / step);
+  return { top: count * step, ticks: Array.from({ length: count + 1 }, (_, i) => i * step) };
+}
+
 /** A bar's share of its axis as a CSS percentage, never past 100 %. */
 export function barPercent(value: number, top: number): string {
   if (top <= 0 || value <= 0) return "0%";

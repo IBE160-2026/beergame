@@ -2428,11 +2428,13 @@ export const nb = {
         },
         pooler: {
           passed: (size: string, required: string) =>
-            `Pooleren rommer en utrulling: DB_POOLER_SIZE er ${size}, behovet er ${required}.`,
+            `Pooleren rommer en utrulling: den har plass til ${size} tilkoblinger, behovet er ${required}.`,
           failed: (size: string, required: string) =>
-            `Pooleren er for liten: DB_POOLER_SIZE er ${size}, behovet er ${required}.`,
+            `Pooleren er for liten: den har plass til ${size} tilkoblinger, behovet er ${required}.`,
           notChecked: (required: string) =>
-            `Pooleren er ikke sjekket: DB_POOLER_SIZE er ikke satt. Behovet er ${required}.`,
+            `Pooleren er ikke sjekket: størrelsen på pooleren er ikke oppgitt. Behovet er ${required}.`,
+          // [ASSUMPTION] the setting's name only as secondary detail, for whoever copies the value in.
+          setting: "Størrelsen leses fra innstillingen DB_POOLER_SIZE.",
         },
         need: (budget: string, overlap: string, required: string) =>
           `Behovet er budsjettet ganger to under en utrulling (${budget} × 2 = ${overlap}), pluss én tilkobling for migreringen: ${required}.`,
@@ -2511,7 +2513,17 @@ export const nb = {
         locked: "Låst",
         lockedModel: (version: string, endpoint: string) => `${version}, ${endpoint}`,
         prompts: "Promptversjoner",
-        promptVersion: (purpose: string, version: number) => `${purpose} v${version}`,
+        // [ASSUMPTION] draft: each locked prompt named by what it does, its technical id after it.
+        promptVersion: (name: string, version: number, id: string) => `${name}, versjon ${version} (${id})`,
+        promptVersionUnnamed: (id: string, version: number) => `${id}, versjon ${version}`,
+        promptNames: {
+          player_order: "Ordre fra LLM-spiller",
+          recognition_probe: "Sjekk av om modellen kjenner spillet",
+          debrief_narration: "Fortelling i Debriefen",
+          quiz_explanation: "Forklaring i Debrief-quizen",
+          debrief_follow_up: "Oppfølgingsspørsmål i Debriefen",
+          replay_walkthrough: "Gjennomgang i Replay",
+        } as Record<string, string>,
         lockedNote: "Modellen er fryst i Klasseøkten og kan ikke byttes.",
         choose: (label: string) => `Modell for ${label}`,
         pin: (label: string) => `Fest modellen for ${label}`,

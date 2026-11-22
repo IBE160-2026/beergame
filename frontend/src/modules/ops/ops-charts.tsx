@@ -7,12 +7,13 @@ import { ScrollRegion } from "@/components/scroll-region";
 import { nb } from "@/copy/nb";
 import { formatNumber } from "@/lib/number-format";
 import { cn } from "@/lib/utils";
+import { levelName } from "@/modules/admin/ai-models";
 
 import type { ErrorHour, Operations } from "./api";
 import {
   barPercent,
   fallbackName,
-  hourAxisTop,
+  hourAxis,
   hourText,
   hourTotal,
   msText,
@@ -102,10 +103,12 @@ function Key({ fill, label }: { fill: string; label: string }) {
 }
 
 /** «Feil per time»: one column per hour, the sources stacked (Bokføringskontroll at the bottom),
- * over an `axis` baseline with the busiest hour's count at the top. The columns are `aria-hidden`:
- * the counts in the section's lead and «Vis som tabell» (every hour by source) carry the numbers. */
+ * over an `axis` baseline, with `hairline` gridlines and their counts at round steps up to a top at
+ * or over the busiest hour. The columns are `aria-hidden`: the counts in the section's lead and
+ * «Vis som tabell» (every hour by source) carry the numbers. */
 export function ErrorHoursChart({ hours }: { hours: readonly ErrorHour[] }) {
-  const top = hourAxisTop(hours);
+  const { top, ticks } = hourAxis(hours);
+  const at = (value: number) => barPercent(value, top);
   return (
     <div className="max-w-2xl">
       <p className="flex flex-wrap gap-x-5 gap-y-1 text-label text-ink">
@@ -113,32 +116,56 @@ export function ErrorHoursChart({ hours }: { hours: readonly ErrorHour[] }) {
           <Key key={source} fill={SOURCE_FILL[source]} label={sourceName(source)} />
         ))}
       </p>
-      <div aria-hidden="true" className="mt-3">
-        <div className="flex justify-end border-t border-hairline text-label text-ink-secondary tabular-nums">
-          {formatNumber(top)}
-        </div>
-        <div className="flex h-32 items-stretch gap-px border-b border-axis" data-chart="error-hours">
-          {hours.map((hour) => (
-            <div
-              key={hour.hour}
-              className="flex min-w-0 flex-1 flex-col-reverse"
-              data-mark="hour"
-              data-total={hourTotal(hour)}
+      <div
+        aria-hidden="true"
+        className="mt-4 grid grid-cols-[auto_1fr] gap-x-2 pt-2 text-label text-ink-secondary tabular-nums lining-nums"
+      >
+        <div className="relative h-32" data-axis="error-hours">
+          {/* The widest tick keeps the column wide enough; the ticks themselves sit on the lines. */}
+          <span className="invisible block leading-none">{formatNumber(top)}</span>
+          {ticks.map((tick) => (
+            <span
+              key={tick}
+              className="absolute right-0 translate-y-1/2 leading-none"
+              style={{ bottom: tick === 0 ? "0%" : at(tick) }}
+              data-tick={tick}
             >
-              {SOURCES.map((source) =>
-                hour[source] > 0 ? (
-                  <Fill
-                    key={source}
-                    colour={SOURCE_FILL[source]}
-                    className="block w-full shrink-0"
-                    style={{ height: barPercent(hour[source], top) }}
-                  />
-                ) : null,
-              )}
-            </div>
+              {formatNumber(tick)}
+            </span>
           ))}
         </div>
-        <div className="flex gap-px text-label text-ink-secondary tabular-nums">
+        <div className="relative h-32">
+          {ticks
+            .filter((tick) => tick > 0)
+            .map((tick) => (
+              <div key={tick} className="absolute inset-x-0 border-t border-hairline" style={{ bottom: at(tick) }} />
+            ))}
+          <div className="absolute inset-0 flex items-stretch gap-px" data-chart="error-hours">
+            {hours.map((hour) => (
+              <div
+                key={hour.hour}
+                className="flex min-w-0 flex-1 flex-col-reverse"
+                data-mark="hour"
+                data-total={hourTotal(hour)}
+              >
+                {SOURCES.map((source) =>
+                  hour[source] > 0 ? (
+                    <Fill
+                      key={source}
+                      colour={SOURCE_FILL[source]}
+                      className="block w-full shrink-0"
+                      style={{ height: at(hour[source]) }}
+                    />
+                  ) : null,
+                )}
+              </div>
+            ))}
+          </div>
+          {/* The baseline over the columns' feet, in the same box as the ticks' column. */}
+          <div className="absolute inset-x-0 bottom-0 border-t border-axis" />
+        </div>
+        <div />
+        <div className="flex gap-px">
           {hours.map((hour, index) => (
             <div key={hour.hour} className="min-w-0 flex-1 overflow-visible whitespace-nowrap">
               {index % 6 === 0 || index === hours.length - 1 ? hourText(hour.hour) : ""}
@@ -282,7 +309,9 @@ export function ResponseTimesChart({ found }: { found: Operations }) {
             key={line.effort_level}
             className="grid grid-cols-1 gap-1 sm:grid-cols-[8em_1fr_20em] sm:items-center sm:gap-4"
           >
-            <span className="text-body-phone text-ink lg:text-body">{line.effort_level}</span>
+            <span className="text-body-phone text-ink [overflow-wrap:anywhere] lg:text-body">
+              {levelName({ name: line.effort_level, label: line.label })}
+            </span>
             <Bar
               parts={[
                 { width: barPercent(line.p95_ms, top), colour: P95 },
@@ -323,7 +352,7 @@ export function ResponseTimesTable({ found }: { found: Operations }) {
         {found.response_times.map((line) => (
           <tr key={line.effort_level}>
             <th scope="row" className={cn(CELL, "font-normal")}>
-              {line.effort_level}
+              {levelName({ name: line.effort_level, label: line.label })}
             </th>
             <td className={cn(CELL, NUM)}>{formatNumber(line.calls)}</td>
             <td className={cn(CELL, NUM)}>{msText(line.median_ms)}</td>

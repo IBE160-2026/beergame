@@ -69,6 +69,8 @@ for (const vp of VIEWPORTS.filter((v) => !v.text200)) {
       const line = page.getByRole("status").filter({ hasText: remove.deleted(first) });
       await expect(line).toBeFocused();
       await expect(usersSection(page).locator("tbody tr")).toHaveCount(0);
+      // The search still names the deleted User, and says it finds no one now.
+      await expect(usersSection(page).getByText(list.noMatches)).toBeVisible();
       expect(dialogs).toEqual([]);
       await expectAccessible(page, vp.phone);
 

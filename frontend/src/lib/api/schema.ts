@@ -6844,6 +6844,8 @@ export interface components {
             calls: number;
             /** Effort Level */
             effort_level: string;
+            /** Label */
+            label?: string | null;
             /** Median Ms */
             median_ms: number;
             /** P95 Ms */

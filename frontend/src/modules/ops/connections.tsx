@@ -127,7 +127,8 @@ export function ConnectionBudgetSection() {
               formatNumber(found.budget_total),
               formatNumber(found.overlap_total),
               formatNumber(found.pooler.required),
-            )}
+            )}{" "}
+            {copy.pooler.setting}
           </p>
         </>
       ) : null}
