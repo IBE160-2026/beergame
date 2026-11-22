@@ -525,7 +525,9 @@ export interface paths {
          *     the earlier one when only it changed, `required` once locked), 409 `deadline_passed`
          *     (`passed`). Dates count to the whole minute.
          *
-         *     `effort_level` and `debrief_mode` (FR-16, FR-78), left out, keep their values. With LLM
+         *     `effort_level`, `debrief_mode`, `debrief_release` and `debrief_ai_text` (FR-15, FR-16, FR-42,
+         *     FR-78), left out, keep their values; a changed `debrief_release` or `debrief_ai_text` once
+         *     locked answers 409 `session_locked` too. With LLM
          *     players a changed Effort level the model config does not offer answers 422
          *     `invalid_effort_level` (`{"effort_level": "not_offered"}`); with Rule-based players no level
          *     is in force and a sent one is ignored. Once the Start date has passed, a changed AI mode,
@@ -676,6 +678,56 @@ export interface paths {
          *     "confirmed"}`) once the allocation is confirmed.
          */
         post: operations["redrawAllocation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class-sessions/{session_id}/debrief-quiz": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Session Debrief Quiz
+         * @description The Klasseøkt's «Debrief-quiz» block (Story 9.10, FR-46, AD-12): the Class session's
+         *     Debrief quiz (the version its lock pinned; the latest before), each question with its answer
+         *     key and whether it is taken out, whether the User may take questions out and whether that can
+         *     still change (until the Test deadline). For the Class's owners and Assistant lecturers; 403
+         *     `forbidden` for every other caller.
+         */
+        get: operations["getSessionDebriefQuiz"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class-sessions/{session_id}/debrief-quiz/exclusions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Session Quiz Exclusions
+         * @description «Lagre quizvalg» (Story 9.10, FR-46, AD-23, AD-15): the questions to take out of the Class
+         *     session's Debrief quiz, the whole set; the others are asked. Stored as Class session rows and
+         *     recorded in the audit log; a Student who has not passed answers only the rest on their next
+         *     attempt, and one whose last attempt it now covers is told. No Student is passed by it. 409
+         *     `last_question` when no question would be asked, `test_deadline_passed` after the Class
+         *     session's Test deadline, `class_archived` for an archived Class; 422 `validation_error` for an
+         *     id the quiz does not have; 403 `forbidden` for an Assistant lecturer and every other caller.
+         */
+        put: operations["setSessionQuizExclusions"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -902,6 +954,52 @@ export interface paths {
          *     real counts; a repeat is safe. 403 `forbidden` for anyone but a Lecturer of the Class.
          */
         post: operations["startGames"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class-sessions/{session_id}/students/{student_id}/debrief-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Student Debrief Summary
+         * @description A Student's Explanation and Debrief summary for the Class's owners and Assistant
+         *     lecturers (Story 9.8, FR-47, AD-12), each null while not sent or not finished: the key
+         *     moments, the reflection answers, the completion time and whether it was after the Debrief
+         *     deadline. Story 9.10: the Student's Roster name now (null once they are no longer a Student
+         *     of the Class) and every Debrief quiz attempt with its time and result. 403 `forbidden` for
+         *     every other caller.
+         */
+        get: operations["getStudentDebriefSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class-sessions/{session_id}/students/{student_id}/explanation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Student Explanation
+         * @description A Student's Explanation for the Class's owners and Assistant lecturers (AD-12). 404
+         *     `not_found` when the Student has not sent one; 403 `forbidden` for every other caller.
+         */
+        get: operations["getStudentExplanation"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1549,6 +1647,397 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/debriefs/{debrief_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Debrief
+         * @description The Student's own Debrief session by id. 403 `debrief_not_open`, `debrief_held` or
+         *     `forbidden`, as above.
+         */
+        get: operations["getMyDebrief"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/debriefs/{debrief_id}/explanation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Explanation
+         * @description The Student's own Explanation, `explanation` null before it is sent.
+         */
+        get: operations["getMyExplanation"];
+        put?: never;
+        /**
+         * Send My Explanation
+         * @description «Send Forklaring» (FR-41): stores the Explanation once, as typed, and records the
+         *     `explanation` step. 409 `explanation_exists` when it is sent already (unchanged), 422
+         *     `validation_error` for white space only or more than 5000 characters.
+         */
+        post: operations["sendMyExplanation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/debriefs/{debrief_id}/finish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finish My Debrief
+         * @description «Fullfør Debriefen» (Story 9.8, FR-47, AD-16): stores the Student's Debrief summary once
+         *     (the key moments by fact id, the reflection answers, the facts set they cite and the time)
+         *     and records the `debrief` step with it; a finished Debrief answers its stored summary
+         *     unchanged. 409 `debrief_incomplete` while a reflection question is unanswered or step 4 was
+         *     not read, 409 `test_deadline_passed` after the Student's Test deadline, 403
+         *     `explanation_required` before the Explanation.
+         */
+        post: operations["finishMyDebrief"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/debriefs/{debrief_id}/follow-up": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Follow Up
+         * @description The follow-up field under the reflection questions (Story 9.15, FR-45, FR-15): `off` (not
+         *     shown: the Class session's Debrief AI text is off or no model may answer), `open` or `closed`,
+         *     with the Student's own questions and answers, never another Student's. 403
+         *     `reflection_required` until every reflection question is answered, `explanation_required`
+         *     before the Explanation.
+         */
+        get: operations["getMyFollowUp"];
+        put?: never;
+        /**
+         * Ask Follow Up
+         * @description A follow-up question about the Student's own Game (Story 9.15, FR-45, AD-6, AD-7): one
+         *     model call with the question scrubbed against the Roster, answered with hints that point to
+         *     the Student's own numbers (`answered`, marked by `ai_generated`), a decline for a question
+         *     outside the Game (`declined`), or `unanswered` when no answer could be given (nothing
+         *     stored; ask again). 409 `follow_up_off`, `follow_up_closed` (closed, or the Test deadline has
+         *     passed), 422 `validation_error` (empty, over 500 characters), 429 `rate_limited` with
+         *     `retry_after` seconds, 403 `reflection_required` before the reflection questions are
+         *     answered.
+         */
+        post: operations["askFollowUp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/debriefs/{debrief_id}/join": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Join Debrief
+         * @description «Bli med» (Story 9.11, FR-43): the Student joins the Group debrief of their own game; a
+         *     second join changes nothing. 409 `not_group` on a Personal debrief; 403 `forbidden` for anyone
+         *     whose game it is not. Story 9.12: 409 `group_closed` for a Student who goes on alone, or
+         *     after the 48-hour fallback.
+         */
+        post: operations["joinDebrief"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/debriefs/{debrief_id}/leave": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Leave Debrief
+         * @description «Forlat gruppen» / «Ta en Personlig debrief» (Story 9.12, FR-43): the Student goes on as a
+         *     Personal debrief from the shared step they were on, keeping what they saved; final. The group
+         *     no longer waits for them, and when they were the opener the earliest-joined Student still
+         *     there may move on. Changes nothing once the shared steps are over. 409 `not_group` on a
+         *     Personal debrief; 403 `forbidden` for anyone whose game it is not.
+         */
+        post: operations["leaveDebrief"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/debriefs/{debrief_id}/move-on": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move Debrief On
+         * @description «Gå videre for alle» (Story 9.11, FR-43): the opener moves every joined Student to the next
+         *     step once the current one has been open the minimum wait (configuration). 409 `too_early`
+         *     with `fields.available_at` before then, `not_group` on a Personal debrief; 403 `forbidden`
+         *     for anyone but the opener.
+         */
+        post: operations["moveDebriefOn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/debriefs/{debrief_id}/net-inventory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Net Inventory
+         * @description «Ditt netto lager, hele spillet» (Story 9.3, step 1): the Netto lager of the Student's own
+         *     Seat in every Uke, oldest first. Never demand or another Seat (FR-14).
+         */
+        get: operations["getMyNetInventory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/debriefs/{debrief_id}/quiz": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Quiz
+         * @description Step 5, the Debrief quiz (Story 9.9, FR-46): the version the Class session pinned, the
+         *     questions of the Student's next attempt without the answer key (none once passed; the order
+         *     may change between attempts), the number of attempts, when it was passed and the latest
+         *     attempt's result. 403 `debrief_required` until the Student has finished the Debrief.
+         */
+        get: operations["getMyQuiz"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/debriefs/{debrief_id}/quiz/attempts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit Quiz Attempt
+         * @description An attempt at the Debrief quiz (Story 9.9, FR-46, AD-16): scored by the answer key on the
+         *     server and stored once, with each question's result and, for a wrong answer, the explanation;
+         *     every question right records the `quiz_passed` step. Retries are unlimited until the Test
+         *     deadline. 422 `validation_error` unless every asked question is answered once with one of
+         *     its choices, 409 `quiz_passed` once passed, 409 `test_deadline_passed` after the Student's
+         *     Test deadline, 403 `debrief_required` before the Debrief is finished.
+         */
+        post: operations["submitQuizAttempt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/debriefs/{debrief_id}/reflection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Reflection
+         * @description The reflection questions between steps 3 and 4 (Story 9.6, FR-45): the Class session's
+         *     pinned version, feelings, then evidence, then structure, each with the Student's own answer
+         *     (null until answered); never another Student's (FR-43). 403 `explanation_required` until the
+         *     Explanation is saved.
+         */
+        get: operations["getMyReflection"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/debriefs/{debrief_id}/reflection/{question_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Answer Reflection Question
+         * @description «Fortsett»: stores the Student's answer to one reflection question once, as typed, and
+         *     answers the question with it. The questions are answered in order: any other than the first
+         *     unanswered one is 409 `reflection_out_of_order`; an answered one answers its stored answer
+         *     unchanged. 404 `not_found` for an id not in the pinned version, 422 `validation_error` for
+         *     white space only or more than 2000 characters, 403 `explanation_required` before the
+         *     Explanation.
+         */
+        post: operations["answerReflectionQuestion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/debriefs/{debrief_id}/shared": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Shared Debrief
+         * @description «Delt skjerm: hele kjeden» (Story 9.13, FR-74, AD-21): a Group debrief's shared charts by
+         *     Role, for a Student joined to it: every Role's Uker, Netto lager and cost, Fabrikk first, and
+         *     the chain's cost. Never a name, a user id, an Explanation, an answer or a moment. `locked` with
+         *     no chain data while a joined Student has not sent their Explanation. Anyone not joined to it
+         *     (a Personal debrief, a Student who goes on alone, an id that is not one) gets the same 403
+         *     `forbidden`.
+         */
+        get: operations["getSharedDebrief"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/debriefs/{debrief_id}/steps/{step}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Debrief Step
+         * @description A Debrief step after step 1 (FR-41, FR-43): 403 `explanation_required` until the Student's
+         *     Explanation is saved, checked here and not only in the web app. Step 2 carries `reveal`: the
+         *     heading rendered from the demand series and Kundene, Ordre inn and Din ordre per Uke of the
+         *     Student's own Seat (Story 9.4, FR-44). Step 3 carries `chain`: every Role's Orders and Week
+         *     states, Fabrikk first, with Forsterkning and the first large Order from the stored facts set
+         *     (Story 9.5, FR-44, AD-7). Step 4 carries `moments`: the Student's own moments rendered by
+         *     code from their Seat's stored facts set, whose id is recorded at the first view (Story 9.7,
+         *     FR-44, AD-7); none and `mostly_ai` with fewer than 10 own Orders. Only the caller's own Seat:
+         *     no route serves another Student's moments (FR-43).
+         */
+        get: operations["getDebriefStep"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/debriefs/{debrief_id}/steps/{step}/done": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete Debrief Step
+         * @description «Ferdig med steget» (Story 9.11, FR-43): a joined Student has finished shared step 2 or 3;
+         *     once every joined Student has, the step pointer moves on for all. 403
+         *     `explanation_required` before the Explanation, `forbidden` for a Student who has not joined;
+         *     409 `not_group` on a Personal debrief, `step_not_open` for a step after the pointer's.
+         */
+        post: operations["completeDebriefStep"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/debriefs/{debrief_id}/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Debrief Summary
+         * @description The Student's own Debrief summary (Story 9.8), `summary` null until «Fullfør Debriefen».
+         *     403 `explanation_required` before the Explanation.
+         */
+        get: operations["getMyDebriefSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/events": {
         parameters: {
             query?: never;
@@ -1819,6 +2308,28 @@ export interface paths {
         get: operations["listMyClassSessions"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/class-sessions/{session_id}/debrief": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open My Debrief
+         * @description Opens the Student's Debrief in the Class session (FR-42): the Debrief session of their
+         *     game, created with its step pointer at step 1 if none exists, and answered as it stands.
+         *     403 `debrief_not_open`, `debrief_held` or `forbidden`.
+         */
+        post: operations["openMyDebrief"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2528,6 +3039,28 @@ export interface components {
             label: string | null;
         };
         /**
+         * BillOut
+         * @description The Debrief's extra lines under Kjedens regning (Story 9.8, FR-44, UX-DR36), every number
+         *     from the stored facts set of the Student's own Seat (AD-7). The Role rows and Kjedens kostnad
+         *     over tid are the game result's (`/api/me/games/{id}/result`, Story 6.18).
+         */
+        BillOut: {
+            /** Ai Held Cost */
+            ai_held_cost: string;
+            /** Ai Held Share Percent */
+            ai_held_share_percent: number | null;
+            /** Backorder Cost */
+            backorder_cost: string;
+            /** Backorder Costs Double */
+            backorder_costs_double: boolean;
+            /** Backorder Share Percent */
+            backorder_share_percent: number | null;
+            role: components["schemas"]["Role"];
+            simulated: components["schemas"]["SimulatedOut"] | null;
+            /** Total Cost */
+            total_cost: string;
+        };
+        /**
          * BounceClass
          * @description Why a mail did not reach its address: `hard` the provider calls permanent (the address
          *     does not exist or refuses mail), `soft` every other bounce (a full mailbox, a server down).
@@ -2542,6 +3075,37 @@ export interface components {
          */
         BouncedRegistration: "bounced";
         /**
+         * ChainOut
+         * @description Step 3, the whole chain (Story 9.5, FR-44, UX-DR33, UX-DR34): all four Roles, Fabrikk
+         *     first (upstream first, the order the Ordrestolper rows and the scrubber's reading take), each
+         *     with every logged Uke, oldest first. Every number is the api's (AD-10).
+         */
+        ChainOut: {
+            /** Large Order */
+            large_order: number;
+            /** Last Week */
+            last_week: number;
+            own_role: components["schemas"]["Role"];
+            /** Roles */
+            roles: components["schemas"]["ChainRoleOut"][];
+        };
+        /**
+         * ChainRoleOut
+         * @description One Role of the whole chain: every Uke, and from the stored facts set (Story 9.1, AD-7) its
+         *     Forsterkning and the first Uke with an Order of `large_order` or more.
+         */
+        ChainRoleOut: {
+            /** Amplification */
+            amplification: string | null;
+            /** Capacity */
+            capacity: number | null;
+            /** First Large Order Week */
+            first_large_order_week: number | null;
+            role: components["schemas"]["Role"];
+            /** Weeks */
+            weeks: components["schemas"]["ChainWeekOut"][];
+        };
+        /**
          * ChainWeekCost
          * @description The chain's cost from Uke 1 through `week`, summed over its Roles.
          */
@@ -2552,6 +3116,25 @@ export interface components {
             holding_cost: string;
             /** Total Cost */
             total_cost: string;
+            /** Week */
+            week: number;
+        };
+        /**
+         * ChainWeekOut
+         * @description One Uke of one Role in the whole chain (Story 9.5): its Order and the Week state it saw
+         *     when it ordered (the Decision log's `state_seen`, as the play screen showed it).
+         */
+        ChainWeekOut: {
+            /** Backlog */
+            backlog: number;
+            /** Incoming Order */
+            incoming_order: number;
+            /** Inventory */
+            inventory: number;
+            /** Order */
+            order: number;
+            /** Supply Line */
+            supply_line: number;
             /** Week */
             week: number;
         };
@@ -2776,9 +3359,12 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Debrief Ai Text */
+            debrief_ai_text: boolean;
             /** Debrief Deadline */
             debrief_deadline: string | null;
             debrief_mode: components["schemas"]["DebriefMode"];
+            debrief_release: components["schemas"]["DebriefRelease"];
             /** Effort Level */
             effort_level: string | null;
             effort_level_replaced?: components["schemas"]["ReplacedLevelOut"] | null;
@@ -2857,7 +3443,10 @@ export interface components {
             /** Allocation Method */
             allocation_method?: ("random" | "student_choice") | null;
             dates?: components["schemas"]["DatesIn"] | null;
+            /** Debrief Ai Text */
+            debrief_ai_text?: boolean | null;
             debrief_mode?: components["schemas"]["DebriefMode"] | null;
+            debrief_release?: components["schemas"]["DebriefRelease"] | null;
             /** Effort Level */
             effort_level?: string | null;
             /** Game Settings */
@@ -2981,6 +3570,63 @@ export interface components {
          * @enum {string}
          */
         DebriefMode: "group" | "personal";
+        /**
+         * DebriefOut
+         * @description The Student's Debrief session: its id (the `debrief:<id>` topic, AD-8), the game it
+         *     reviews and the step pointer. Never the demand series, the number of Weeks or another
+         *     Seat's numbers (FR-14): those come with the steps that reveal them, after the Explanation.
+         */
+        DebriefOut: {
+            /**
+             * Class Session Id
+             * Format: uuid
+             */
+            class_session_id: string;
+            /**
+             * Game Id
+             * Format: uuid
+             */
+            game_id: string;
+            /** Game Number */
+            game_number: number | null;
+            group?: components["schemas"]["GroupOut"] | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            role: components["schemas"]["Role"];
+            /** Step */
+            step: number;
+        };
+        /**
+         * DebriefRelease
+         * @description When the Debriefs open (Story 9.2, FR-42): `open`, each Student's once their own Class
+         *     game has finished (the default; it can reveal the Demand pattern to Students still playing),
+         *     or `hold`, every Debrief once all Class games have finished.
+         * @enum {string}
+         */
+        DebriefRelease: "open" | "hold";
+        /**
+         * DebriefStepOut
+         * @description A Debrief step after step 1, reached only with a saved Explanation (FR-41, FR-43). Step 2
+         *     carries the reveal (Story 9.4), step 3 the whole chain (Story 9.5), step 4 the own moments
+         *     (Story 9.7) and the Debrief's lines under Kjedens regning (Story 9.8); step 5, the Debrief quiz,
+         *     has routes of its own (`/quiz`, Story 9.9) and answers the step number only here.
+         */
+        DebriefStepOut: {
+            bill?: components["schemas"]["BillOut"] | null;
+            chain?: components["schemas"]["ChainOut"] | null;
+            /**
+             * Debrief Id
+             * Format: uuid
+             */
+            debrief_id: string;
+            moments?: components["schemas"]["MomentsOut"] | null;
+            reveal?: components["schemas"]["RevealOut"] | null;
+            /** Step */
+            step: number;
+        };
         /**
          * DemandFixed
          * @description A fixed series: `values[w - 1]` is the demand in Week w.
@@ -3176,6 +3822,31 @@ export interface components {
             error: components["schemas"]["ErrorBody"];
         };
         /**
+         * ExplanationIn
+         * @description «Send Forklaring»: the text as typed. It must hold more than white space and at most
+         *     5000 characters (422 `validation_error`).
+         */
+        ExplanationIn: {
+            /** Text */
+            text: string;
+        };
+        /**
+         * ExplanationOut
+         * @description A stored Explanation (FR-41, AD-14): the text as typed, its length in characters and when
+         *     it was saved. Never changed after it is stored.
+         */
+        ExplanationOut: {
+            /** Length */
+            length: number;
+            /**
+             * Saved At
+             * Format: date-time
+             */
+            saved_at: string;
+            /** Text */
+            text: string;
+        };
+        /**
          * FillSeatsIn
          * @description «Sett inn 9 KI-spillere»: the Seats the page or Spillinnsikt listed (Story 8.12).
          */
@@ -3196,6 +3867,52 @@ export interface components {
         /** FinalIn */
         FinalIn: {
             choice: components["schemas"]["Choice"];
+        };
+        /**
+         * FollowUpAnswerOut
+         * @description A follow-up question with its answer (Story 9.15, FR-45, AD-7): `answered` carries the hint
+         *     text code rendered from the model's choice of templates and facts, marked by `ai_generated`;
+         *     `declined` (outside the Game) and `unanswered` (no answer could be given: the call failed or
+         *     its output was rejected) carry none, and the web app shows a fixed line. Only `answered` and
+         *     `declined` are stored; `asked_at` is null for `unanswered`.
+         */
+        FollowUpAnswerOut: {
+            answer?: components["schemas"]["RenderedTextOut"] | null;
+            /** Asked At */
+            asked_at?: string | null;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "answered" | "declined" | "unanswered";
+            /** Question */
+            question: string;
+        };
+        /**
+         * FollowUpIn
+         * @description A follow-up question about the Student's own Game (Story 9.15): as typed. It must hold more
+         *     than white space and at most 500 characters (422 `validation_error`).
+         */
+        FollowUpIn: {
+            /** Question */
+            question: string;
+        };
+        /**
+         * FollowUpOut
+         * @description The follow-up field under the reflection questions (Story 9.15, FR-45, FR-15): `off` when
+         *     the Class session's Debrief AI text is off, no provider may answer, the pinned templates hold
+         *     no hints or the Seat has no fact to point to (the field is not shown); `closed` after the
+         *     Student's Test deadline or once their Individual test has opened; else `open`. `asked` holds
+         *     the Student's own stored questions, oldest first.
+         */
+        FollowUpOut: {
+            /** Asked */
+            asked: components["schemas"]["FollowUpAnswerOut"][];
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "off" | "open" | "closed";
         };
         /**
          * FunnelStageOut
@@ -3463,6 +4180,51 @@ export interface components {
             label: string;
             /** Value */
             value: number;
+        };
+        /**
+         * GroupMemberOut
+         * @description A joined Student of a Group debrief as the other joined Students see them (Story 9.11,
+         *     FR-43): the Roster name now (None once no longer a Student of the Class), whether it is the
+         *     caller, whether their Explanation is sent and whether they have finished the shared step. Never
+         *     the text of their Explanation or answers.
+         */
+        GroupMemberOut: {
+            /** Done */
+            done: boolean;
+            /** Name */
+            name: string | null;
+            /** Sent */
+            sent: boolean;
+            /** You */
+            you: boolean;
+        };
+        /**
+         * GroupOut
+         * @description A Group debrief's shared step pointer (Story 9.11, FR-43): `step` 1 to 3 is shared, 4 means
+         *     each Student works alone from the reflection questions on. `move_on_at` is when the opener may
+         *     move every joined Student on (database time). `members` only for a joined caller, else
+         *     empty. Story 9.12: `opener` is whoever may move on now (the earliest-joined Student still
+         *     there once the opener has gone); `alone` says why the caller goes on as a Personal debrief
+         *     (`left`, `dropout`, `fallback`, `missed`), from shared step `alone_from`; both None
+         *     otherwise.
+         */
+        GroupOut: {
+            /** Alone */
+            alone?: ("left" | "dropout" | "fallback" | "missed") | null;
+            /** Alone From */
+            alone_from?: number | null;
+            /** Joined */
+            joined: boolean;
+            /** Members */
+            members: components["schemas"]["GroupMemberOut"][];
+            /** Move On At */
+            move_on_at: string | null;
+            /** Opener */
+            opener: boolean;
+            /** Step */
+            step: number;
+            /** Step Opened At */
+            step_opened_at: string | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -3879,6 +4641,16 @@ export interface components {
             starts_at: string;
         };
         /**
+         * LargestOrderOut
+         * @description The Student's largest Order and the first Uke they placed it («Din ordre, 24 i Uke 11»).
+         */
+        LargestOrderOut: {
+            /** Order */
+            order: number;
+            /** Week */
+            week: number;
+        };
+        /**
          * LecturerOverviewOut
          * @description The Lærerhjem's «Venter» and «Neste frist» (Story 5.2, UX-DR56): over the User's Classes
          *     that are not archived.
@@ -3982,6 +4754,57 @@ export interface components {
             students: number;
         };
         /**
+         * MomentOut
+         * @description One own moment (Story 9.7, FR-44): its texts rendered by code from the stored facts set,
+         *     the other Roles' numbers that Uke, and `seen`, the Seat's Week as it saw it when it ordered
+         *     (the Decision log's `state_seen`, for «Dette så du»).
+         */
+        MomentOut: {
+            /**
+             * Chosen By
+             * @enum {string}
+             */
+            chosen_by: "pattern" | "order_gap";
+            heading: components["schemas"]["RenderedTextOut"];
+            /** Id */
+            id: string;
+            later: components["schemas"]["RenderedTextOut"];
+            /** Order */
+            order: number;
+            /** Others */
+            others: components["schemas"]["OtherSeenOut"][];
+            /** Patterns */
+            patterns: components["schemas"]["RenderedTextOut"][];
+            reckoning: components["schemas"]["RenderedTextOut"];
+            seen: components["schemas"]["SeatState"];
+            /** Week */
+            week: number;
+        };
+        /**
+         * MomentsOut
+         * @description Step 4, the Student's own moments (Story 9.7, FR-44, UX-DR31), from the facts set stored
+         *     for them (AD-7). With fewer than 10 own Orders the game was played mostly by AI players:
+         *     `mostly_ai`, no heading and no moments; the rest of the Debrief stays open.
+         */
+        MomentsOut: {
+            heading: components["schemas"]["RenderedTextOut"] | null;
+            /** Moments */
+            moments: components["schemas"]["MomentOut"][];
+            /** Mostly Ai */
+            mostly_ai: boolean;
+            narration?: components["schemas"]["RenderedTextOut"] | null;
+            role: components["schemas"]["Role"];
+            /** Student Orders */
+            student_orders: number;
+        };
+        /**
+         * MyExplanationOut
+         * @description The Student's own Explanation in this Debrief, or None before it is sent.
+         */
+        MyExplanationOut: {
+            explanation: components["schemas"]["ExplanationOut"] | null;
+        };
+        /**
          * MyMessageOut
          * @description One Message on the Student's Hjem (Story 7.10): plain text, shown as written.
          */
@@ -4014,6 +4837,13 @@ export interface components {
             items: components["schemas"]["MyMessageOut"][];
         };
         /**
+         * MySummaryOut
+         * @description The Student's own Debrief summary, `summary` None until «Fullfør Debriefen».
+         */
+        MySummaryOut: {
+            summary: components["schemas"]["SummaryOut"] | null;
+        };
+        /**
          * NeighbourNumber
          * @description One number about a neighbouring Seat, labelled with its Role and the Week it refers to.
          */
@@ -4026,6 +4856,26 @@ export interface components {
             role: components["schemas"]["Role"];
             /** Value */
             value: number;
+            /** Week */
+            week: number;
+        };
+        /**
+         * NetInventoryOut
+         * @description «Ditt netto lager, hele spillet» (Story 9.3, step 1): the Student's own Seat only, every
+         *     logged Uke, oldest first. No demand and no other Seat (FR-14, FR-41).
+         */
+        NetInventoryOut: {
+            /** Weeks */
+            weeks: components["schemas"]["NetWeekOut"][];
+        };
+        /**
+         * NetWeekOut
+         * @description One Uke of the Student's own Netto lager (Story 9.3): inventory minus backlog as their
+         *     Seat saw it when ordering that Uke (the Decision log's `state_seen`).
+         */
+        NetWeekOut: {
+            /** Net Inventory */
+            net_inventory: number;
             /** Week */
             week: number;
         };
@@ -4117,6 +4967,21 @@ export interface components {
             position_base: number;
             /** Supply Line Base */
             supply_line_base: number;
+        };
+        /**
+         * OtherSeenOut
+         * @description What another Role saw in the moment's Uke (the facts set's `others_seen`).
+         */
+        OtherSeenOut: {
+            /** Backlog */
+            backlog: number;
+            /** Incoming Order */
+            incoming_order: number;
+            /** Inventory */
+            inventory: number;
+            role: components["schemas"]["Role"];
+            /** Supply Line */
+            supply_line: number;
         };
         /**
          * OverviewAiOut
@@ -4323,6 +5188,169 @@ export interface components {
             /** Name */
             name: string | null;
         };
+        /** QuizAnswerIn */
+        QuizAnswerIn: {
+            /** Choice Id */
+            choice_id: string;
+            /** Question Id */
+            question_id: string;
+        };
+        /**
+         * QuizAttemptIn
+         * @description An attempt: one answer per asked question, in the order shown (422 `validation_error`
+         *     otherwise).
+         */
+        QuizAttemptIn: {
+            /** Answers */
+            answers: components["schemas"]["QuizAnswerIn"][];
+        };
+        /**
+         * QuizAttemptOut
+         * @description A scored attempt (Story 9.9, FR-46): its number from 1, when it was stored, how many of the
+         *     asked questions were right and every question with its result.
+         */
+        QuizAttemptOut: {
+            /** Asked */
+            asked: number;
+            /** Correct */
+            correct: number;
+            /** Number */
+            number: number;
+            /** Passed */
+            passed: boolean;
+            /** Results */
+            results: components["schemas"]["QuizResultOut"][];
+            /**
+             * Submitted At
+             * Format: date-time
+             */
+            submitted_at: string;
+        };
+        /** QuizChoiceOut */
+        QuizChoiceOut: {
+            /** Id */
+            id: string;
+            /** Text */
+            text: string;
+        };
+        /**
+         * QuizExclusionsIn
+         * @description «Lagre quizvalg»: the ids of every question to take out; the others are asked.
+         */
+        QuizExclusionsIn: {
+            /** Excluded */
+            excluded: string[];
+        };
+        /**
+         * QuizOut
+         * @description Step 5, the Debrief quiz (Story 9.9, FR-46, UX-DR37): the version the Class session pinned
+         *     at the lock, whether it is placeholder content (issue #16), the attempts so far and when it was
+         *     passed, the questions of the next attempt (the order may change between attempts; none once
+         *     passed) and the latest attempt's result.
+         */
+        QuizOut: {
+            /** Attempts */
+            attempts: number;
+            last: components["schemas"]["QuizAttemptOut"] | null;
+            /** Passed At */
+            passed_at: string | null;
+            /** Placeholder */
+            placeholder: boolean;
+            /** Questions */
+            questions: components["schemas"]["QuizQuestionOut"][];
+            /** Version */
+            version: number;
+        };
+        /**
+         * QuizQuestionOut
+         * @description A Debrief quiz question as asked (Story 9.9): its prompt and choices in the order shown.
+         *     Never its answer key.
+         */
+        QuizQuestionOut: {
+            /** Choices */
+            choices: components["schemas"]["QuizChoiceOut"][];
+            /** Id */
+            id: string;
+            /** Prompt */
+            prompt: string;
+        };
+        /**
+         * QuizResultOut
+         * @description One question of a scored attempt, in the order shown: the Student's choice, the right one
+         *     and, when the choice was wrong, the explanation (the content's text, then the sentence about
+         *     the Student's own Game rendered by code from the facts set of their Seat, AD-7).
+         */
+        QuizResultOut: {
+            ai_explanation?: components["schemas"]["RenderedTextOut"] | null;
+            /** Choices */
+            choices: components["schemas"]["QuizChoiceOut"][];
+            /** Chosen */
+            chosen: string;
+            /** Correct */
+            correct: boolean;
+            explanation: components["schemas"]["RenderedTextOut"] | null;
+            /** Prompt */
+            prompt: string;
+            /** Question Id */
+            question_id: string;
+            /** Right Choice */
+            right_choice: string;
+        };
+        /**
+         * ReflectionAnswerIn
+         * @description «Fortsett» on a reflection question: the answer as typed. It must hold more than white
+         *     space and at most 2000 characters (422 `validation_error`).
+         */
+        ReflectionAnswerIn: {
+            /** Text */
+            text: string;
+        };
+        /**
+         * ReflectionAnswerOut
+         * @description A stored reflection answer (FR-45, AD-14): as typed, its length in characters and when it
+         *     was saved. Never changed after it is stored.
+         */
+        ReflectionAnswerOut: {
+            /** Length */
+            length: number;
+            /**
+             * Saved At
+             * Format: date-time
+             */
+            saved_at: string;
+            /** Text */
+            text: string;
+        };
+        /**
+         * ReflectionOut
+         * @description The reflection questions between steps 3 and 4 (Story 9.6, FR-45): the version the Class
+         *     session pinned at the lock, its questions in the order asked (feelings, evidence, structure),
+         *     each with the caller's own answer only (FR-43).
+         */
+        ReflectionOut: {
+            /** Questions */
+            questions: components["schemas"]["ReflectionQuestionOut"][];
+            /** Version */
+            version: number;
+        };
+        /**
+         * ReflectionQuestionOut
+         * @description One reflection question (Story 9.6) with the Student's own answer, None until answered.
+         */
+        ReflectionQuestionOut: {
+            answer: components["schemas"]["ReflectionAnswerOut"] | null;
+            /** Hint */
+            hint: string | null;
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "feelings" | "evidence" | "structure";
+            /** Prompt */
+            prompt: string;
+        };
         /**
          * RegistrationOut
          * @description One address on the Roster with its status. `id` names the Roster entry for a reminder to
@@ -4418,6 +5446,23 @@ export interface components {
             valid_days: number;
         };
         /**
+         * RenderedTextOut
+         * @description Text the Debrief shows as written (AD-7): code-rendered text says `ai_generated` false and
+         *     has no `llm_call_id`, and the web app shows it without the «KI-generert, kan ta feil:» prefix,
+         *     which only `ai_generated` turns on.
+         */
+        RenderedTextOut: {
+            /**
+             * Ai Generated
+             * @default false
+             */
+            ai_generated: boolean;
+            /** Llm Call Id */
+            llm_call_id?: string | null;
+            /** Text */
+            text: string;
+        };
+        /**
          * ReplacedLevelOut
          * @description An Effort level of the source the new model config does not offer: its name, and the
          *     source config's Norwegian label (None: show `name`).
@@ -4454,6 +5499,38 @@ export interface components {
         ResetTokenIn: {
             /** Token */
             token: string;
+        };
+        /**
+         * RevealOut
+         * @description Step 2, the reveal of customer demand (Story 9.4, FR-44, UX-DR32): the heading rendered by
+         *     code from the demand series with the pinned sentence templates, and every logged Uke of the
+         *     Student's own Seat, oldest first. Every number is the api's (AD-10).
+         */
+        RevealOut: {
+            /** Heading */
+            heading: string;
+            largest_order: components["schemas"]["LargestOrderOut"] | null;
+            role: components["schemas"]["Role"];
+            /** Template Id */
+            template_id: string;
+            /** Weeks */
+            weeks: components["schemas"]["RevealWeekOut"][];
+        };
+        /**
+         * RevealWeekOut
+         * @description One Uke of the reveal (Story 9.4): what the customers ordered, the Order that reached the
+         *     Student's own Seat (all they saw) and the Order they placed. From the Game's stored demand
+         *     series and the Seat's own Decision log rows.
+         */
+        RevealWeekOut: {
+            /** Demand */
+            demand: number;
+            /** Incoming Order */
+            incoming_order: number;
+            /** Order */
+            order: number;
+            /** Week */
+            week: number;
         };
         /**
          * Role
@@ -4925,6 +6002,117 @@ export interface components {
             warnings: components["schemas"]["SettingWarning"][];
         };
         /**
+         * SharedChainOut
+         * @description The whole chain as the shared screen draws it: four Roles, Fabrikk first, and the chain's
+         *     cost («Kjeden»).
+         */
+        SharedChainOut: {
+            /** Backorder Cost */
+            backorder_cost: string;
+            /** Holding Cost */
+            holding_cost: string;
+            /** Last Week */
+            last_week: number;
+            /** Roles */
+            roles: components["schemas"]["SharedRoleOut"][];
+            /** Total Cost */
+            total_cost: string;
+        };
+        /**
+         * SharedOut
+         * @description «Delt skjerm: hele kjeden» (Story 9.13, FR-74, AD-21): a Group debrief's shared charts by
+         *     Role, for a joined Student's display. Never a name, a user id, an Explanation, a reflection
+         *     answer, a moment or any free text: the schema has no text field at all. `locked` while a joined
+         *     Student has not sent their Explanation, and then `chain` is None (no demand, no chain data,
+         *     FR-43). `step` is the group's shared pointer.
+         */
+        SharedOut: {
+            chain: components["schemas"]["SharedChainOut"] | null;
+            /**
+             * Class Session Id
+             * Format: uuid
+             */
+            class_session_id: string;
+            /**
+             * Debrief Id
+             * Format: uuid
+             */
+            debrief_id: string;
+            /** Game Number */
+            game_number: number | null;
+            /** Locked */
+            locked: boolean;
+            /** Step */
+            step: number;
+        };
+        /**
+         * SharedRoleOut
+         * @description One Role on the shared screen: every Uke, and from the stored facts set (AD-7) its
+         *     Forsterkning and its cost over the whole game, Lager and Restordre apart.
+         */
+        SharedRoleOut: {
+            /** Amplification */
+            amplification: string | null;
+            /** Backorder Cost */
+            backorder_cost: string;
+            /** Holding Cost */
+            holding_cost: string;
+            role: components["schemas"]["Role"];
+            /** Total Cost */
+            total_cost: string;
+            /** Weeks */
+            weeks: components["schemas"]["SharedWeekOut"][];
+        };
+        /**
+         * SharedWeekOut
+         * @description One Uke of one Role on the shared screen (Story 9.13): its Order and the Week state it saw
+         *     when it ordered (the Decision log's `state_seen`), with its Netto lager.
+         */
+        SharedWeekOut: {
+            /** Backlog */
+            backlog: number;
+            /** Incoming Order */
+            incoming_order: number;
+            /** Inventory */
+            inventory: number;
+            /** Net Inventory */
+            net_inventory: number;
+            /** Order */
+            order: number;
+            /** Supply Line */
+            supply_line: number;
+            /** Week */
+            week: number;
+        };
+        /**
+         * SimulatedOut
+         * @description «Simulert, samme kunder» (Story 9.8, FR-44, UX-DR36): the two rows stored in the facts set,
+         *     played with the Rule-based parameter set `params_id` (placeholders, issues #8, #17).
+         */
+        SimulatedOut: {
+            /** Params Id */
+            params_id: string;
+            /** Rows */
+            rows: components["schemas"]["SimulatedRowOut"][];
+        };
+        /**
+         * SimulatedRowOut
+         * @description One «Simulert, samme kunder» row: the chain's cost over the whole simulated Game.
+         */
+        SimulatedRowOut: {
+            /** Backorder Cost */
+            backorder_cost: string;
+            /**
+             * Counts Supply Line
+             * @enum {string}
+             */
+            counts_supply_line: "own" | "all";
+            /** Holding Cost */
+            holding_cost: string;
+            /** Total Cost */
+            total_cost: string;
+        };
+        /**
          * SkippedSeatOut
          * @description A listed Seat the fill left alone, with why: the Takeover's stable refusal code
          *     (`order_exists`, `takeover_exists`, `seat_not_student_held`, `tilrettelegging`,
@@ -4957,6 +6145,22 @@ export interface components {
             status: components["schemas"]["StaffStatus"];
             /** User Id */
             user_id?: string | null;
+        };
+        /**
+         * StaffAttemptOut
+         * @description One of a Student's Debrief quiz attempts as the staff see it (Story 9.10): its number,
+         *     time and whether it passed; never the answers.
+         */
+        StaffAttemptOut: {
+            /** Number */
+            number: number;
+            /** Passed */
+            passed: boolean;
+            /**
+             * Submitted At
+             * Format: date-time
+             */
+            submitted_at: string;
         };
         /**
          * StaffEmailIn
@@ -5003,6 +6207,57 @@ export interface components {
             resume_at: string | null;
         };
         /**
+         * StaffQuizAttemptsOut
+         * @description A Student's Debrief quiz attempts for the Class's staff (Story 9.10, FR-46, FR-47): every
+         *     attempt, oldest first, and when the quiz was passed (None while not).
+         */
+        StaffQuizAttemptsOut: {
+            /** Attempts */
+            attempts: components["schemas"]["StaffAttemptOut"][];
+            /** Passed At */
+            passed_at: string | null;
+        };
+        /**
+         * StaffQuizOut
+         * @description The Debrief quiz of a Class session for its staff (Story 9.10, FR-46, AD-23): the version
+         *     its lock pinned (`pinned` False: the latest, which the lock will pin), the questions in order,
+         *     whether the User may take questions out (`can_exclude`: an owner of a Class that is not
+         *     archived) and whether exclusions can still change (`open`: until the Test deadline).
+         */
+        StaffQuizOut: {
+            /** Can Exclude */
+            can_exclude: boolean;
+            /** Open */
+            open: boolean;
+            /** Pinned */
+            pinned: boolean;
+            /** Placeholder */
+            placeholder: boolean;
+            /** Questions */
+            questions: components["schemas"]["StaffQuizQuestionOut"][];
+            /** Test Deadline */
+            test_deadline: string | null;
+            /** Version */
+            version: number;
+        };
+        /**
+         * StaffQuizQuestionOut
+         * @description A Debrief quiz question for the Class's staff (Story 9.10): with its answer key and
+         *     whether it is taken out of the Class session's quiz.
+         */
+        StaffQuizQuestionOut: {
+            /** Answer */
+            answer: string;
+            /** Choices */
+            choices: components["schemas"]["QuizChoiceOut"][];
+            /** Excluded */
+            excluded: boolean;
+            /** Id */
+            id: string;
+            /** Prompt */
+            prompt: string;
+        };
+        /**
          * StaffRole
          * @description A User's role in one Class (`class_staff.role`). Co-owners (4.9) are owners too: one role,
          *     so they have exactly the owner's rights. An Assistant lecturer (4.9) reads the Class.
@@ -5014,6 +6269,30 @@ export interface components {
          * @enum {string}
          */
         StaffStatus: "active" | "invited" | "expired";
+        /**
+         * StaffSummaryOut
+         * @description A Student's Explanation and Debrief summary for the Class's staff (Story 9.8, FR-47,
+         *     AD-12); each None while not sent or not finished. Story 9.10 adds the Student's Roster name,
+         *     read now and never stored (AD-14; None once they are no longer a Student of the Class), and
+         *     their Debrief quiz attempts.
+         */
+        StaffSummaryOut: {
+            explanation: components["schemas"]["ExplanationOut"] | null;
+            /** Game Id */
+            game_id: string | null;
+            /** Game Number */
+            game_number: number | null;
+            /** Name */
+            name: string | null;
+            quiz: components["schemas"]["StaffQuizAttemptsOut"];
+            role: components["schemas"]["Role"] | null;
+            /**
+             * Student Id
+             * Format: uuid
+             */
+            student_id: string;
+            summary: components["schemas"]["SummaryOut"] | null;
+        };
         /**
          * StartGamesIn
          * @description «Start 12 spill»: the games the page listed (Story 8.10).
@@ -5105,6 +6384,21 @@ export interface components {
          */
         StepOut: {
             /**
+             * Group Open
+             * @default false
+             */
+            group_open: boolean;
+            /**
+             * Held
+             * @default false
+             */
+            held: boolean;
+            /**
+             * Quiz Changed
+             * @default false
+             */
+            quiz_changed: boolean;
+            /**
              * State
              * @enum {string}
              */
@@ -5133,6 +6427,8 @@ export interface components {
              * Format: uuid
              */
             class_session_id: string;
+            /** Debrief */
+            debrief?: ("open" | "not_open" | "held") | null;
             /**
              * Id
              * Format: uuid
@@ -5219,6 +6515,61 @@ export interface components {
             sign: 1 | -1;
             /** Value */
             value: number;
+        };
+        /**
+         * SummaryAnswerOut
+         * @description A reflection answer as the Debrief summary stored it, with its question's prompt.
+         */
+        SummaryAnswerOut: {
+            /** Prompt */
+            prompt: string;
+            /** Question Id */
+            question_id: string;
+            /** Text */
+            text: string;
+        };
+        /**
+         * SummaryMomentOut
+         * @description A key moment of the summary, rendered by code from the cited facts set (AD-7).
+         */
+        SummaryMomentOut: {
+            heading: components["schemas"]["RenderedTextOut"];
+            /** Id */
+            id: string;
+            later: components["schemas"]["RenderedTextOut"];
+            /** Patterns */
+            patterns: components["schemas"]["RenderedTextOut"][];
+            reckoning: components["schemas"]["RenderedTextOut"];
+            /** Week */
+            week: number;
+        };
+        /**
+         * SummaryOut
+         * @description A Student's finished Debrief (Story 9.8, FR-47): the facts set it cites, the key moments,
+         *     the reflection answers in the order asked, when it was finished and whether that was after
+         *     the Student's Debrief deadline (`late`, from the stored time).
+         */
+        SummaryOut: {
+            /**
+             * Fact Set Id
+             * Format: uuid
+             */
+            fact_set_id: string;
+            /**
+             * Finished At
+             * Format: date-time
+             */
+            finished_at: string;
+            /** Late */
+            late: boolean;
+            /** Moments */
+            moments: components["schemas"]["SummaryMomentOut"][];
+            /** Quiz Attempts */
+            quiz_attempts: number;
+            /** Quiz Passed At */
+            quiz_passed_at: string | null;
+            /** Reflection */
+            reflection: components["schemas"]["SummaryAnswerOut"][];
         };
         /**
          * SupplyLineSlot
@@ -7396,6 +8747,117 @@ export interface operations {
             };
         };
     };
+    getSessionDebriefQuiz: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffQuizOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    setSessionQuizExclusions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuizExclusionsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffQuizOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     getClassSessionDemandSeries: {
         parameters: {
             query?: never;
@@ -8066,6 +9528,115 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getStudentDebriefSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                student_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffSummaryOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getStudentExplanation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                student_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExplanationOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -9798,6 +11369,1006 @@ export interface operations {
             };
         };
     };
+    getMyDebrief: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debrief_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DebriefOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getMyExplanation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debrief_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyExplanationOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sendMyExplanation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debrief_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExplanationIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExplanationOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    finishMyDebrief: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debrief_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MySummaryOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getMyFollowUp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debrief_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FollowUpOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    askFollowUp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debrief_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FollowUpIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FollowUpAnswerOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    joinDebrief: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debrief_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DebriefOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    leaveDebrief: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debrief_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DebriefOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    moveDebriefOn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debrief_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DebriefOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getMyNetInventory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debrief_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NetInventoryOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getMyQuiz: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debrief_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuizOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submitQuizAttempt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debrief_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuizAttemptIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuizAttemptOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getMyReflection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debrief_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReflectionOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    answerReflectionQuestion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debrief_id: string;
+                question_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReflectionAnswerIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReflectionQuestionOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getSharedDebrief: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debrief_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SharedOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getDebriefStep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debrief_id: string;
+                step: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DebriefStepOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    completeDebriefStep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debrief_id: string;
+                step: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DebriefOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getMyDebriefSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debrief_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MySummaryOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     streamEvents: {
         parameters: {
             query?: never;
@@ -10432,6 +13003,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    openMyDebrief: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DebriefOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

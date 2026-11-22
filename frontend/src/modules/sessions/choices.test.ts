@@ -27,6 +27,8 @@ function session(changes: Partial<ClassSession> = {}): ClassSession {
     effort_level: "standard",
     effort_levels: LEVELS,
     debrief_mode: "group",
+    debrief_release: "open",
+    debrief_ai_text: true,
     obligatory: false,
     required_share_percent: 80,
     ...changes,
@@ -34,10 +36,11 @@ function session(changes: Partial<ClassSession> = {}): ClassSession {
 }
 
 const MARK = { obligatory: false, requiredShare: "80" };
+const OPEN = { debriefRelease: "open" as const, debriefAiText: true };
 
 describe("choices", () => {
   it("start from the api's values, the default level when none is in force", () => {
-    expect(choicesOf(session())).toEqual({ aiMode: "llm", effortLevel: "standard", debriefMode: "group", ...MARK });
+    expect(choicesOf(session())).toEqual({ aiMode: "llm", effortLevel: "standard", debriefMode: "group", ...OPEN, ...MARK });
     expect(choicesOf(session({ obligatory: true, required_share_percent: 60 }))).toMatchObject({
       obligatory: true,
       requiredShare: "60",
@@ -50,30 +53,50 @@ describe("choices", () => {
   });
 
   it("send a level only with LLM players", () => {
-    const draft = { aiMode: "llm" as const, effortLevel: "careful", debriefMode: "personal" as const, ...MARK };
+    const draft = { aiMode: "llm" as const, effortLevel: "careful", debriefMode: "personal" as const, ...OPEN, ...MARK };
     expect(choicesBody(draft)).toEqual({
       ai_mode: "llm",
       effort_level: "careful",
       debrief_mode: "personal",
+      debrief_release: "open",
+      debrief_ai_text: true,
       obligatory: false,
     });
     expect(choicesBody({ ...draft, aiMode: "rule_based" })).toEqual({
       ai_mode: "rule_based",
       debrief_mode: "personal",
+      debrief_release: "open",
+      debrief_ai_text: true,
       obligatory: false,
     });
     expect(choicesBody({ ...draft, effortLevel: null })).toEqual({
       ai_mode: "llm",
       debrief_mode: "personal",
+      debrief_release: "open",
+      debrief_ai_text: true,
       obligatory: false,
     });
   });
 
+  it("start from and send the Debrief release (Story 9.2)", () => {
+    expect(choicesOf(session({ debrief_release: "hold" })).debriefRelease).toBe("hold");
+    const draft = { ...choicesOf(session()), debriefRelease: "hold" as const };
+    expect(choicesBody(draft).debrief_release).toBe("hold");
+  });
+
+  it("start from and send the Debrief's AI text (Story 9.14)", () => {
+    expect(choicesOf(session({ debrief_ai_text: false })).debriefAiText).toBe(false);
+    const draft = { ...choicesOf(session()), debriefAiText: false };
+    expect(choicesBody(draft).debrief_ai_text).toBe(false);
+  });
+
   it("send the required share only while Obligatorisk is on", () => {
-    const draft = { aiMode: "rule_based" as const, effortLevel: null, debriefMode: "group" as const };
+    const draft = { aiMode: "rule_based" as const, effortLevel: null, debriefMode: "group" as const, ...OPEN };
     expect(choicesBody({ ...draft, obligatory: true, requiredShare: " 75 " })).toEqual({
       ai_mode: "rule_based",
       debrief_mode: "group",
+      debrief_release: "open",
+      debrief_ai_text: true,
       obligatory: true,
       required_share_percent: 75,
     });
@@ -84,7 +107,7 @@ describe("choices", () => {
 
   it("keep the chosen level across a switch of AI mode", () => {
     const item = session();
-    const chosen = { aiMode: "llm" as const, effortLevel: "careful", debriefMode: "group" as const, ...MARK };
+    const chosen = { aiMode: "llm" as const, effortLevel: "careful", debriefMode: "group" as const, ...OPEN, ...MARK };
     const away = withAiMode(chosen, "rule_based", item);
     expect(withAiMode(away, "llm", item).effortLevel).toBe("careful");
     expect(withAiMode({ ...chosen, effortLevel: null }, "llm", item).effortLevel).toBe("standard");

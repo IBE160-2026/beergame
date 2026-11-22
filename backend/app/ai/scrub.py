@@ -1,7 +1,9 @@
 """Scrub personal data from free text before it reaches a provider (AD-6, C-1).
 
 Each whole-word, case-insensitive match of a term (longest terms first, any whitespace between
-its words) becomes `PLACEHOLDER`.
+its words, a Norwegian genitive «s» after it: «Karis») becomes `PLACEHOLDER`. With any term given
+(a Class session, Story 9.15) every e-mail address and every run of `LONG_NUMBER` or more digits
+(a student or phone number) becomes it too, Roster or not: the backstop for what no term names.
 The offset map takes a span over the scrubbed text (what the model saw and may cite) back to
 the original text; a span that touches a placeholder covers the whole original term.
 """
@@ -11,6 +13,13 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 
 PLACEHOLDER = "[REDACTED]"
+
+LONG_NUMBER = 6
+"""The fewest digits in a row scrubbed as a number (a student or phone number); a Week, an Order or
+a cost in a question has fewer."""
+
+_BACKSTOP = (r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+", rf"\d{{{LONG_NUMBER},}}")
+"""E-mail addresses and long digit runs, scrubbed whenever any term is (Story 9.15)."""
 
 
 @dataclass(frozen=True)
@@ -59,9 +68,8 @@ def scrub(text: str, terms: Iterable[str]) -> Scrubbed:
     words = sorted({t.strip() for t in terms if t.strip()}, key=lambda t: (-len(t), t))
     if not words:
         return Scrubbed(text, OffsetMap(len(text), ()))
-    pattern = re.compile(
-        r"(?<!\w)(?:" + "|".join(_pattern(word) for word in words) + r")(?!\w)", re.IGNORECASE
-    )
+    alternatives = [*_BACKSTOP, *(_pattern(word) + "s?" for word in words)]
+    pattern = re.compile(r"(?<!\w)(?:" + "|".join(alternatives) + r")(?!\w)", re.IGNORECASE)
     parts: list[str] = []
     replacements: list[Replacement] = []
     cursor = 0

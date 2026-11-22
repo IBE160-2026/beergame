@@ -98,6 +98,47 @@ async def test_a_heartbeat_comes_when_nothing_else_does():
     await gen.aclose()
 
 
+async def test_each_heartbeat_runs_the_presence_hooks():
+    """Story 9.12: `beat` runs before each heartbeat; `events.heartbeat` runs every registered
+    hook with the User's id, and one that fails neither stops the others nor raises."""
+    beats: list[int] = []
+
+    async def beat() -> None:
+        beats.append(1)
+
+    gen = opened(FakeHub(), heartbeat=0.05, beat=beat)
+    await next_of(gen)
+    assert (await next_of(gen)).event == "heartbeat" and beats == [1]
+    assert (await next_of(gen)).event == "heartbeat" and beats == [1, 1]
+    await gen.aclose()
+
+    seen: list[uuid.UUID] = []
+
+    async def failing(user_id: uuid.UUID) -> None:
+        raise RuntimeError("down")
+
+    async def hook(user_id: uuid.UUID) -> None:
+        seen.append(user_id)
+
+    async def stalled(user_id: uuid.UUID) -> None:
+        await asyncio.sleep(5)
+
+    me = uuid.UUID(ME)
+    saved = platform_events.HEARTBEAT_HOOK_TIMEOUT_S
+    try:
+        platform_events.HEARTBEAT_HOOK_TIMEOUT_S = 0.01
+        platform_events.on_heartbeat(failing)
+        platform_events.on_heartbeat(stalled)
+        platform_events.on_heartbeat(hook)
+        platform_events.on_heartbeat(hook)
+        await asyncio.wait_for(platform_events.heartbeat(me), 1)
+    finally:
+        platform_events.HEARTBEAT_HOOK_TIMEOUT_S = saved
+        for each in (failing, stalled, hook):
+            platform_events._heartbeat_hooks.remove(each)
+    assert seen == [me]
+
+
 async def test_session_events_are_coalesced_per_id():
     loop = asyncio.get_running_loop()
     source = FakeHub()
@@ -404,6 +445,35 @@ async def test_the_stream_sends_ready_then_a_committed_event_of_the_users_own(kl
         assert "event" not in fields
         assert json.loads(fields["data"]) == {"topic": "user", "id": me, "version": None}
     finally:
+        await live.close()
+        await stream.hub.close()
+
+
+async def test_the_real_stream_runs_the_presence_hooks_on_its_heartbeat(klass, monkeypatch):
+    """Story 9.12: `GET /api/events` passes each heartbeat to `events.heartbeat` with the stream's
+    User, and the app registers `debrief.commands.touch` at startup."""
+    from app.modules.debrief import commands as debrief_commands
+
+    monkeypatch.setattr(stream, "hub", Hub())
+    monkeypatch.setattr(stream, "HEARTBEAT_S", 0.1)
+    seen: list[uuid.UUID] = []
+
+    async def hook(user_id: uuid.UUID) -> None:
+        seen.append(user_id)
+
+    async with client() as c:
+        assert (await login(c, LECTURER, PASSWORD)).status_code == 200
+        cookie = "; ".join(f"{k}={v}" for k, v in c.cookies.items())
+    assert debrief_commands.touch in platform_events._heartbeat_hooks
+    platform_events.on_heartbeat(hook)
+    live = AsgiStream(cookie)
+    try:
+        assert (await live.start())["status"] == 200
+        assert (await live.event())["event"] == "ready"
+        assert (await live.event())["event"] == "heartbeat"
+        assert seen == [user_id(LECTURER)]
+    finally:
+        platform_events._heartbeat_hooks.remove(hook)
         await live.close()
         await stream.hub.close()
 

@@ -69,7 +69,12 @@ from app.modules.games.schemas import (
     Purpose,
     SessionRuntime,
 )
-from app.modules.games.service import scope_of, seated_students, student_game
+from app.modules.games.service import (
+    run_finish_hooks,
+    scope_of,
+    seated_students,
+    student_game,
+)
 from app.modules.games.turns import OpenGame, play_of
 from app.modules.games.views import build_seat_state, stored_orders, stored_play
 from app.modules.progress import service as progress
@@ -2799,6 +2804,8 @@ async def finish(session: AsyncSession, game_id: uuid.UUID, state: WeekState) ->
     )
     await repo.set_lifecycle(session, game_id, Lifecycle.FINISHED.value)
     await _record_class_game_step(session, game_id)
+    # Story 9.14: the registered finish hooks (the Debrief defers its narration jobs).
+    await run_finish_hooks(session, game_id)
     log.info("game_finished", game_id=str(game_id))
 
 

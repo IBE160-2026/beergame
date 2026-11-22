@@ -657,7 +657,9 @@ async def save_class_session(
     the earlier one when only it changed, `required` once locked), 409 `deadline_passed`
     (`passed`). Dates count to the whole minute.
 
-    `effort_level` and `debrief_mode` (FR-16, FR-78), left out, keep their values. With LLM
+    `effort_level`, `debrief_mode`, `debrief_release` and `debrief_ai_text` (FR-15, FR-16, FR-42,
+    FR-78), left out, keep their values; a changed `debrief_release` or `debrief_ai_text` once
+    locked answers 409 `session_locked` too. With LLM
     players a changed Effort level the model config does not offer answers 422
     `invalid_effort_level` (`{"effort_level": "not_offered"}`); with Rule-based players no level
     is in force and a sent one is ignored. Once the Start date has passed, a changed AI mode,
@@ -699,6 +701,8 @@ async def save_class_session(
             now=auth.utcnow(),
             effort_level=body.effort_level,
             debrief_mode=body.debrief_mode,
+            debrief_release=body.debrief_release,
+            debrief_ai_text=body.debrief_ai_text,
             dates=body.dates,
             game_settings=body.game_settings,
             obligatory=body.obligatory,

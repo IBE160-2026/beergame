@@ -85,10 +85,10 @@ describe("Hjem's game card (Story 6.1)", () => {
 describe("Stegene's items (Story 6.1, AD-10)", () => {
   it("puts the api's states in words: «pågår», «ferdig» and what opens a later step", () => {
     const items = stepItems([
-      { step: "class_game", state: "done" },
-      { step: "debrief", state: "current" },
-      { step: "replay", state: "locked" },
-      { step: "test", state: "locked" },
+      { step: "class_game", state: "done", held: false, quiz_changed: false, group_open: false },
+      { step: "debrief", state: "current", held: false, quiz_changed: false, group_open: false },
+      { step: "replay", state: "locked", held: false, quiz_changed: false, group_open: false },
+      { step: "test", state: "locked", held: false, quiz_changed: false, group_open: false },
     ]);
     expect(items.map((item) => item.note)).toEqual([
       "ferdig",
@@ -97,6 +97,42 @@ describe("Stegene's items (Story 6.1, AD-10)", () => {
       "Individuell test, åpnes når du har fullført Replay.",
     ]);
     expect(items.map((item) => item.name)).toEqual(["Klassespill", "Debrief", "Replay", "Individuell test"]);
+  });
+
+  it("leads the current Debrief step to the Debrief, and says when it is held (Story 9.2)", () => {
+    const open = stepItems([{ step: "debrief", state: "current", held: false, quiz_changed: false, group_open: false }], "s 1");
+    expect(open[0].href).toBe("/debrief/s%201");
+    const held = stepItems([{ step: "debrief", state: "locked", held: true, quiz_changed: false, group_open: false }], "s1");
+    expect(held[0]).toMatchObject({ state: "locked", note: copy.held.debrief, href: undefined });
+    expect(copy.held.debrief).not.toMatch(/\d/);
+    // Without a session nothing links.
+    expect(stepItems([{ step: "debrief", state: "current", held: false, quiz_changed: false, group_open: false }])[0].href).toBeUndefined();
+  });
+
+  it("leads the current Quiz step to the Debrief's step 5 (Story 9.9); a later step links nowhere", () => {
+    const items = stepItems(
+      [
+        { step: "debrief", state: "done", held: false, quiz_changed: false, group_open: false },
+        { step: "quiz", state: "current", held: false, quiz_changed: false, group_open: false },
+        { step: "replay", state: "locked", held: false, quiz_changed: false, group_open: false },
+      ],
+      "s1",
+    );
+    expect(items.map((item) => item.href)).toEqual([undefined, "/debrief/s1#debrief-quiz", undefined]);
+    expect(stepItems([{ step: "quiz", state: "done", held: false, quiz_changed: false, group_open: false }], "s1")[0].href).toBeUndefined();
+  });
+
+  it("says on the current Quiz step that the Faglærer has changed the quiz (Story 9.10)", () => {
+    const changed = stepItems([{ step: "quiz", state: "current", held: false, quiz_changed: true, group_open: false }], "s1");
+    expect(changed[0]).toMatchObject({ note: copy.quizChanged, href: "/debrief/s1#debrief-quiz" });
+    expect(stepItems([{ step: "quiz", state: "current", held: false, quiz_changed: false, group_open: false }])[0].note).toBe("pågår");
+    expect(copy.quizChanged).not.toMatch(/!/);
+  });
+
+  it("says on the current Debrief step that a Group debrief is under way, and links there (Story 9.11)", () => {
+    const open = stepItems([{ step: "debrief", state: "current", held: false, quiz_changed: false, group_open: true }], "s1");
+    expect(open[0]).toMatchObject({ note: copy.groupOpen, href: "/debrief/s1" });
+    expect(copy.groupOpen).not.toMatch(/!/);
   });
 
   it("has a lock line for every step and no exclamation mark", () => {

@@ -39,6 +39,9 @@ PUBLIC_ROUTES = {
     ("POST", "/api/dev/games/{game_id}/seats/{role}/takeover"),
     # The local dev playout at the Play deadline (Story 8.14), likewise.
     ("POST", "/api/dev/games/{game_id}/playout"),
+    # Story 9.11: the local dev back-dating of a Group debrief step, never in production.
+    ("POST", "/api/dev/debriefs/{debrief_id}/backdate"),
+    ("POST", "/api/dev/games/{game_id}/seats/{seat}/narrate"),
     # The mail provider's events (Story 4.6): admitted by their Svix signature.
     ("POST", "/api/webhooks/resend"),
     # Later stories add theirs here, and only these kinds: webhooks (signature-checked), and dev

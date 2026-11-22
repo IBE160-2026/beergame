@@ -1,6 +1,7 @@
 import type { QueryKey } from "@tanstack/react-query";
 
 import { classesKey, enrolledClassesKey } from "@/modules/classes/api";
+import { debriefsKey } from "@/modules/debrief/api";
 import { classOverviewKey, gameInsightKey, startGamesKey, waitedForSeatsKey } from "@/modules/games/api";
 import { meKey } from "@/modules/identity/api";
 import { myMessagesKey, sentMessagesKey } from "@/modules/messaging/api";
@@ -34,11 +35,15 @@ export function topicKeys(event: ChangeEvent): QueryKey[] {
         ["class-sessions", "seat-choice"],
         ["games", "mine"],
         myMessagesKey,
+        // Story 9.2: a held Debrief released by the sweep opens on the Debrief page too.
+        debriefsKey,
       ];
     // A Class session, for its staff: the Klasseøkt, its allocation block, the Lærerhjem parts of
     // Stories 5.2 and 5.9, the Class page's list of its sessions, its Oversikt (Story 7.1) and its
     // «Meldinger» (Story 7.10), the Studentsides under it (Story 8.9), its «Start spill» page
-    // (Story 8.10) and its «Sett inn KI-spillere» page (Story 8.12).
+    // (Story 8.10) and its «Sett inn KI-spillere» page (Story 8.12). Story 9.10: the Klasseøkt's
+    // «Debrief-quiz» block and the staff's Debrief summaries of its Students
+    // (`["class-sessions", id]`).
     case "session":
       return [
         classSessionKey(event.id),
@@ -46,6 +51,7 @@ export function topicKeys(event: ChangeEvent): QueryKey[] {
         allocationKey(event.id),
         lecturerHomeKey,
         ["class-sessions", "of-class"],
+        ["class-sessions", event.id],
         classOverviewKey(event.id),
         startGamesKey(event.id),
         waitedForSeatsKey(event.id),
@@ -56,6 +62,10 @@ export function topicKeys(event: ChangeEvent): QueryKey[] {
     // staff's Spillinnsikt of it (Story 7.7).
     case "game":
       return [["games", "mine", event.id], enrolledSessionsKey, gameInsightKey(event.id)];
+    // A Debrief session (Story 9.2, AD-21): the Student's Debrief page reads it again. Its id is
+    // the one the Debrief endpoint gave; the web app never builds it from a game id.
+    case "debrief":
+      return [debriefsKey];
     default:
       return [];
   }

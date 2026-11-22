@@ -12,9 +12,11 @@ import { nb } from "@/copy/nb";
 import { ApiRequestError } from "@/lib/api/client";
 import { useAction } from "@/lib/api/mutation";
 import { usePageState } from "@/lib/page-state";
+import { cn } from "@/lib/utils";
 import type { SessionUser } from "@/modules/identity/api";
 import { AccessDenied, GuardedPage } from "@/modules/identity/home-page";
 import { useClass } from "@/modules/classes/api";
+import { QuizExclusionsBlock } from "@/modules/debrief/quiz-exclusions";
 import { classOverviewPath, classPath, classSessionPath, HOME_PATH } from "@/modules/identity/homes";
 import { PageLink, PageShell } from "@/modules/identity/page-shell";
 import { LINK_BUTTON } from "@/modules/classes/roster-entry-forms";
@@ -415,6 +417,8 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
         onShareLeave={() => setShareChecked(true)}
       />
       {saveShown && !item.locked ? saveRow : null}
+      {/* Story 9.10: its own save, since exclusions stay open after the lock until the Test deadline. */}
+      <QuizExclusionsBlock classSessionId={item.id} />
       <TestGameBlock item={item} />
     </>
   );
@@ -423,9 +427,13 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
 /** On a wide screen each segment is as wide as its label, as in mockup 03; on a phone the
  * segments share the row. */
 const CONTENT_SIZED = "lg:[&_label]:flex-none";
+/** Two long options stacked on a phone: each a whole segment of its own, with a gap (Story 9.2). */
+const STACKED_ON_PHONE = "max-sm:[&_label]:ml-0 max-sm:[&_label]:basis-full max-sm:[&_label]:rounded-sm";
 
 /**
- * KI-modus, Debrief-modus and Obligatorisk (Story 5.5, FR-15, FR-16, FR-78, UX-DR48, UX-DR49). The
+ * KI-modus, Debrief-modus with «Når Debriefen åpner» (Story 9.2, FR-42) and the Bryter «KI-tekst i
+ * Debriefen» (Story 9.14, FR-15, FR-44), and Obligatorisk (Story
+ * 5.5, FR-15, FR-16, FR-78, UX-DR48, UX-DR49). The
  * first two are Valgknapper while the session is unlocked and the User may change it; «Innsatsnivå»
  * shows only with LLM players, with the levels the api offers. Locked, or for an Assistant, the
  * values stand as text. Obligatorisk is a Bryter with «Andel uker som kreves» under it while on
@@ -452,6 +460,7 @@ function Choices({
   const scopeId = `${ids}-scope`;
   const reasonId = `${ids}-reason`;
   const debriefHelpId = `${ids}-debrief`;
+  const releaseHelpId = `${ids}-release`;
   const shown = editable ? draft : choicesOf(item);
   const llm = shown.aiMode === "llm";
   const levels = item.effort_levels;
@@ -543,6 +552,60 @@ function Choices({
         <p id={debriefHelpId} className="mt-2 text-body-phone text-ink-secondary">
           {shown.debriefMode === "group" ? c.groupHelp : c.personalHelp}
         </p>
+        {/* Story 9.2 (FR-42, UX-DR12): when the Debriefs open, frozen at the Start date. */}
+        <div className="mt-6">
+          {editable ? (
+            <SegmentedChoice
+              name="debrief-release"
+              className={cn(CONTENT_SIZED, STACKED_ON_PHONE)}
+              legend={c.debriefRelease}
+              options={[
+                { value: "open", label: c.releaseOpen },
+                { value: "hold", label: c.releaseHold },
+              ]}
+              value={draft.debriefRelease}
+              onChange={(debriefRelease) => onChange({ ...draft, debriefRelease })}
+              describedBy={releaseHelpId}
+            />
+          ) : (
+            <div role="group" aria-labelledby={`${ids}-release-title`}>
+              <h3 id={`${ids}-release-title`} className="text-label text-ink">
+                {c.debriefRelease}
+              </h3>
+              <p className="mt-2 text-body-phone text-ink lg:text-body">
+                {shown.debriefRelease === "hold" ? c.releaseHold : c.releaseOpen}
+              </p>
+            </div>
+          )}
+          <p id={releaseHelpId} className="mt-2 text-body-phone text-ink-secondary">
+            {shown.debriefRelease === "hold" ? c.releaseHoldHelp : c.releaseOpenHelp}
+          </p>
+        </div>
+        {/* Story 9.14 (FR-15, FR-44): the Debrief's AI text, a Bryter frozen at the Start date. */}
+        <div role="group" aria-labelledby={`${ids}-ai-text`} className="mt-6" data-debrief-ai-text="">
+          <h3 id={`${ids}-ai-text`} className="text-label text-ink">
+            {c.debriefAiText}
+          </h3>
+          {editable ? (
+            <Switch
+              id={`${ids}-ai-text-switch`}
+              className="mt-1"
+              checked={draft.debriefAiText}
+              onChange={(debriefAiText) => onChange({ ...draft, debriefAiText })}
+              labelledBy={`${ids}-ai-text`}
+              describedBy={`${ids}-ai-text-help`}
+            >
+              {draft.debriefAiText ? c.debriefAiTextOn : c.debriefAiTextOff}
+            </Switch>
+          ) : (
+            <p className="mt-2 text-body-phone text-ink lg:text-body">
+              {shown.debriefAiText ? c.debriefAiTextOn : c.debriefAiTextOff}
+            </p>
+          )}
+          <p id={`${ids}-ai-text-help`} className="mt-2 text-body-phone text-ink-secondary">
+            {shown.debriefAiText ? c.debriefAiTextOnHelp : c.debriefAiTextOffHelp}
+          </p>
+        </div>
       </section>
       <section aria-labelledby={`${ids}-obligatory`} className="min-w-0">
         <h2 id={`${ids}-obligatory`} className="text-label text-ink">

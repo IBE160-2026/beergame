@@ -110,6 +110,8 @@ async def enrolled_sessions(session: AsyncSession, user: authz.Principal) -> lis
             *(_numbered.c[name] for name in DATE_NAMES),
             _numbered.c.locked_at,
             _numbered.c.allocation_method,
+            _numbered.c.debrief_release,
+            _numbered.c.debrief_mode,
             _numbered.c.game_settings,
             _numbered.c.snapshot["settings"].label("snapshot_settings"),
         )
@@ -246,6 +248,8 @@ async def save(
     effort_level: str | None,
     debrief_mode: str,
     dates: dict[str, datetime | None] | None,
+    debrief_release: str | None = None,
+    debrief_ai_text: bool | None = None,
     game_settings: dict[str, Any] | None = None,
     obligatory: bool,
     required_share_percent: int,
@@ -257,6 +261,10 @@ async def save(
         values["game_settings"] = game_settings
     if allocation_method is not None:
         values["allocation_method"] = allocation_method
+    if debrief_release is not None:
+        values["debrief_release"] = debrief_release
+    if debrief_ai_text is not None:
+        values["debrief_ai_text"] = debrief_ai_text
     await session.execute(
         update(class_sessions)
         .where(class_sessions.c.id == session_id)
@@ -272,6 +280,20 @@ async def save(
             **values,
         )
     )
+
+
+async def held_debrief_sessions(session: AsyncSession) -> list[uuid.UUID]:
+    """The locked Class sessions whose Lecturer holds every Debrief until all Class games have
+    finished (Story 9.2), by id: what the sweep's Debrief release judges."""
+    result = await session.execute(
+        select(class_sessions.c.id)
+        .where(
+            class_sessions.c.debrief_release == "hold",
+            class_sessions.c.locked_at.is_not(None),
+        )
+        .order_by(class_sessions.c.id)
+    )
+    return list(result.scalars())
 
 
 async def due_locks(session: AsyncSession, now: datetime) -> list[RowMapping]:

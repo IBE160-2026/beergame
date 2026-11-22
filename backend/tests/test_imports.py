@@ -56,11 +56,14 @@ def test_games_has_no_llm_or_provider_import():
         assert not name.startswith(LLM_IMPORTS), f"{path.name}:{line} imports {name}"
         if name.startswith("app.modules.") and not name.startswith("app.modules.games"):
             # The order source, called when a Week opens, `progress`, where `finish` records the
-            # Class game step (Story 6.18, AD-16), and `sessions.service`, the one source of a
-            # Student's Tilrettelegging factor (Story 8.9, AD-14); nothing else of another module.
+            # Class game step (Story 6.18, AD-16), `content`, whose pinned Detected pattern
+            # definitions the facts sets use (Story 9.1, AD-23; it imports no feature module), and
+            # `sessions.service`, the one source of a Student's Tilrettelegging factor (Story 8.9,
+            # AD-14); nothing else of another module.
             assert name in (
                 "app.modules.players.service",
                 "app.modules.progress.service",
+                "app.modules.content.service",
                 "app.modules.sessions.service",
             ), f"{path.name}:{line} imports {name}"
 
@@ -90,6 +93,24 @@ def test_analysis_is_pure():
         ), f"{path.name}:{line} imports {name}"
 
 
+DEBRIEF_AI = ("app.ai.text", "app.ai.budget", "app.ai.gateway")
+"""What the Debrief may use of `app/ai` (Story 9.14, AD-6, AD-7): the shared AI-text helper with
+its validator and fallback, the budget scope and the gateway's input type."""
+
+
+def test_debrief_never_imports_players_or_an_llm_library():
+    """Story 9.2 (AD-21, AD-7): the Debrief works under any AI mode and with no LLM player, so
+    `modules/debrief` imports nothing of `modules/players`, and Game status only through
+    `games.service`. Story 9.14: its AI text goes through `app.ai.text` only (with the budget
+    scope and the gateway's inputs), never a model library or the gateway's internals."""
+    for path, line, name in imports(APP / "modules" / "debrief"):
+        assert not name.startswith("app.modules.players"), f"{path.name}:{line} imports {name}"
+        allowed = name.startswith(DEBRIEF_AI)
+        assert allowed or not name.startswith(LLM_IMPORTS), f"{path.name}:{line} imports {name}"
+        if name.startswith("app.modules.games"):
+            assert name == "app.modules.games.service", f"{path.name}:{line} imports {name}"
+
+
 def test_the_platform_imports_no_module_and_no_llm_library():
     """`app/platform` (jobs included) names task modules by string only (Story 2.5)."""
     for path, line, name in imports(APP / "platform"):
@@ -105,6 +126,8 @@ AI_PUBLIC = (
     "app.ai.calls",
     # The zero-config seed the api, the workers and `app.sim` run at start (Story 2.12, AD-17).
     "app.ai.seed",
+    # AI text with the caller's validator and code fallback (Story 9.14, AD-7).
+    "app.ai.text",
 )
 AI_TABLES = re.compile(
     r"\b(ai_model_configs|ai_budgets|llm_call|effort_measurements|ai_default_pins)\b"
@@ -211,3 +234,33 @@ def test_classes_reaches_identity_only_through_its_service_and_identity_never_im
         assert not name.startswith("app.modules.classes"), f"{path.name}:{line} imports {name}"
     for path, line, name in imports(APP / "platform"):
         assert not name.startswith("app.modules"), f"{path.name}:{line} imports {name}"
+
+
+def test_only_the_gateway_calls_the_pii_terms():
+    """Story 9.15 (AD-6, C-1): `platform/pii.terms` reads the whole Roster's names, emails and
+    student numbers; only the AI gateway may call it, to scrub free text before it leaves."""
+    callers = set()
+    for path in sorted(APP.rglob("*.py")):
+        if path == APP / "platform" / "pii.py":
+            continue
+        source = path.read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.module == "app.platform.pii":
+                callers.add(path)
+            if isinstance(node, ast.Attribute) and node.attr == "terms":
+                if isinstance(node.value, ast.Name) and node.value.id == "pii":
+                    callers.add(path)
+        if any(name == "app.platform.pii" for _, _, name in imports_of(tree, path)):
+            callers.add(path)
+    assert callers == {APP / "ai" / "gateway.py"}, sorted(str(p) for p in callers)
+
+
+def imports_of(tree: ast.AST, path: Path) -> list[tuple[Path, int, str]]:
+    found = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            found += [(path, node.lineno, alias.name) for alias in node.names]
+        elif isinstance(node, ast.ImportFrom):
+            found += [(path, node.lineno, f"{node.module}.{a.name}") for a in node.names]
+    return found

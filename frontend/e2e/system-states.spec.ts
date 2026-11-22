@@ -38,14 +38,17 @@ const logout = (page: Page) => page.getByRole("banner").getByRole("button", { na
 type Held = Window & { __holdOnline?: boolean };
 
 /** Whether a request from the page reaches the server now. Not an api path, so no count below
- * sees it. */
+ * sees it. Null while the page navigates (an ended session's own request may already send it to
+ * «Logg inn»), so a poll asks again on the new page. */
 const reaches = (page: Page) =>
-  page.evaluate(() =>
-    fetch("/favicon.ico", { cache: "no-store" }).then(
-      () => true,
-      () => false,
-    ),
-  );
+  page
+    .evaluate(() =>
+      fetch("/favicon.ico", { cache: "no-store" }).then(
+        () => true,
+        () => false,
+      ),
+    )
+    .catch(() => null);
 
 /** Take the browser offline, and return once its requests really fail: Chromium applies the
  * emulated network a moment after `setOffline` returns. */

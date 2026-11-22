@@ -175,6 +175,46 @@ async def _turn_reminder_context(
     return await sessions.turn_reminder_mail_context(session, user_id, ref, now)
 
 
+DEBRIEF_RELEASED_KIND = "debrief_released"
+"""`debrief.commands.RELEASED_NOTICE` (Story 9.2), named here for the same reason."""
+
+
+async def _debrief_released_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    return await sessions.debrief_released_mail_context(session, user_id, ref, now)
+
+
+QUIZ_CHANGED_KIND = "quiz_changed"
+"""`debrief.commands.QUIZ_CHANGED_NOTICE` (Story 9.10), named here for the same reason."""
+
+
+async def _quiz_changed_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    return await sessions.quiz_changed_mail_context(session, user_id, ref, now)
+
+
+GROUP_DEBRIEF_OPENED_KIND = "group_debrief_opened"
+"""`debrief.commands.GROUP_OPENED_NOTICE` (Story 9.11), named here for the same reason."""
+
+
+async def _group_debrief_opened_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    return await sessions.group_debrief_opened_mail_context(session, user_id, ref, now)
+
+
+DEBRIEF_FALLBACK_KIND = "debrief_fallback"
+"""`debrief.commands.FALLBACK_NOTICE` (Story 9.12), named here for the same reason."""
+
+
+async def _debrief_fallback_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    return await sessions.debrief_fallback_mail_context(session, user_id, ref, now)
+
+
 MESSAGE_KIND = "message"
 """`messages.MESSAGE_KIND` (Story 7.9), named here for the same reason."""
 
@@ -200,6 +240,17 @@ KINDS: Mapping[str, Delivery] = MappingProxyType(
         # Digest: the game has waited for the Student's Order (Story 8.13, FR-27), gathered with
         # the day's other notices and never sent between 22:00 and 07:00.
         TURN_REMINDER_KIND: Delivery(DIGEST, TURN_REMINDER_KIND, context=_turn_reminder_context),
+        DEBRIEF_RELEASED_KIND: Delivery(
+            DIGEST, DEBRIEF_RELEASED_KIND, context=_debrief_released_context
+        ),
+        QUIZ_CHANGED_KIND: Delivery(DIGEST, QUIZ_CHANGED_KIND, context=_quiz_changed_context),
+        DEBRIEF_FALLBACK_KIND: Delivery(
+            DIGEST, DEBRIEF_FALLBACK_KIND, context=_debrief_fallback_context
+        ),
+        # Immediate: the group is meeting now (Story 9.11); left out once the Student joined.
+        GROUP_DEBRIEF_OPENED_KIND: Delivery(
+            IMMEDIATE, GROUP_DEBRIEF_OPENED_KIND, context=_group_debrief_opened_context
+        ),
         # Immediate: the Start date has passed and the Class games wait for the lock.
         LOCK_REFUSED_KIND: Delivery(IMMEDIATE, LOCK_REFUSED_KIND, context=_lock_refused_context),
         # Immediate: an AI player took a Student's Seat over (Story 8.2, FR-36, AD-9), sent at once
@@ -225,8 +276,11 @@ KINDS: Mapping[str, Delivery] = MappingProxyType(
 notice (Story 5.7, digest), the allocation notice (Story 5.9, digest), the Student choice notice
 (Story 5.17, digest), the refused lock
 (Story 5.11, immediate), the deadline reminder (Story 5.14, digest), the proposed time to play
-(Story 6.19, digest), a staff member's Message (Story 7.9, immediate), the Takeover notice
-(Story 8.2, immediate) and the turn reminder (Story 8.13, digest)."""
+(Story 6.19, digest), the release of held Debriefs (Story 9.2, digest), a changed Debrief
+quiz (Story 9.10, digest), the opened Group debrief (Story 9.11, immediate) and its 48-hour
+fallback to a Personal debrief (Story 9.12, digest), a staff member's Message (Story 7.9,
+immediate), the Takeover notice (Story 8.2, immediate) and the turn reminder (Story 8.13,
+digest)."""
 
 TEST_KINDS: Mapping[str, Delivery] = MappingProxyType(
     {

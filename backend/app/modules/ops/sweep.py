@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 
 import structlog
 
+from app.modules.debrief import service as debrief
 from app.modules.games import commands as games_commands
 from app.modules.games import service as games
 from app.modules.identity import service as identity
@@ -290,6 +291,17 @@ DUE_ACTIONS: tuple[DueAction, ...] = (
     DueAction("games.playout_orders", _stalled_playout_turns, _ensure_playout_order),
     DueAction("games.playout_overdue", _overdue_playouts, _log_overdue_playout),
     DueAction("games.verify_finished", _unchecked_finished_games, _verify_finished),
+    # Story 9.2: release the Debriefs of a held Class session once its last Class game has
+    # finished (by the last Week or the playout), and tell each seated Student (AD-9).
+    DueAction("debrief.release", debrief.due_releases, debrief.release_due),
+    # Story 9.12 (FR-43): a joined Student two minutes without a heartbeat drops out of their
+    # Group debrief, and a Group debrief still on its shared steps 48 hours after the game ended
+    # falls back to a Personal debrief for each Student who has not finished.
+    DueAction("debrief.dropouts", debrief.due_dropouts, debrief.drop_out_due),
+    DueAction("debrief.fallback", debrief.due_fallbacks, debrief.fallback_due),
+    # Story 9.14 (AD-9): defer the narration job of a Seat again when it was lost (no narration
+    # stored ten minutes after its Class game finished).
+    DueAction("debrief.narration", debrief.due_narrations, debrief.narrate_due),
     # Story 5.14: remind every Student of a Play, Debrief or Test deadline 24 hours ahead, once
     # per deadline time (FR-18). The reminders join the next minute's digest claim.
     DueAction(

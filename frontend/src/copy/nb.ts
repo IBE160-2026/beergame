@@ -528,6 +528,17 @@ export const nb = {
         test: "Individuell test, åpnes når du har fullført Replay.",
         report: "Rapport, åpnes når den individuelle testen er vurdert.",
       },
+      /** Story 9.2: the Debrief step while the Faglærer holds every Debrief until all Class games
+       * have finished; never how many remain. [ASSUMPTION] */
+      held: {
+        debrief: "Debrief, åpnes når alle Klassespillene er ferdige.",
+      },
+      /** Story 9.10: the current Quiz step after the Faglærer took out every question the
+       * Student's last attempt got wrong. [ASSUMPTION] */
+      quizChanged: "pågår, quizen er endret",
+      /** Story 9.11: the current Debrief step while a Group debrief of the Student's game is under
+       * way that they have not joined; its link leads there. [ASSUMPTION] */
+      groupOpen: "pågår, Gruppedebriefen er i gang",
       nextDeadline: "Neste frist",
       /** «Spillfrist ti. 8. des.» */
       deadline: (kind: string, day: string) => `${kind} ${day}`,
@@ -1154,6 +1165,20 @@ export const nb = {
       debriefMode: "Debrief-modus",
       group: "Gruppedebrief",
       personal: "Personlig debrief",
+      /** Story 9.2 (FR-42, UX-DR12): when the Debriefs open. [ASSUMPTION] draft copy. */
+      debriefRelease: "Når Debriefen åpner",
+      releaseOpen: "Når eget spill er ferdig",
+      releaseHold: "Når alle spill er ferdige",
+      releaseOpenHelp:
+        "Studentene kan starte Debriefen så snart deres eget spill er ferdig. Da kan de fortelle om etterspørselen til Studenter som fortsatt spiller.",
+      releaseHoldHelp: "Alle Debriefer åpner når det siste Klassespillet er ferdig.",
+      /** Story 9.14 (FR-15, FR-44): the Debrief's AI text, a Bryter. [ASSUMPTION] draft copy. */
+      debriefAiText: "KI-tekst i Debriefen",
+      debriefAiTextOn: "På",
+      debriefAiTextOff: "Av",
+      debriefAiTextOnHelp:
+        "En KI setter sammen en kort tekst om øyeblikkene til hver Student, merket som KI-generert. Tallene regnes alltid ut av koden.",
+      debriefAiTextOffHelp: "Debriefen viser bare tekst som er regnet ut av koden. Ingen tekst går til en KI.",
       obligatory: "Obligatorisk",
       obligatoryYes: "Ja, står i emneplanen",
       // [ASSUMPTION]
@@ -1734,6 +1759,9 @@ export const nb = {
          * the game ended at the Spillfrist. No blame, and never how many Uker the KI-spillere
          * played. */
         playedOut: "Spillet ble avsluttet ved Spillfristen. KI-spillere spilte det ferdig.",
+        /** Story 9.2: the Faglærer holds the Debriefs until all Class games have finished; never
+         * how many remain. [ASSUMPTION] */
+        held: "Debriefen åpner når alle Klassespillene er ferdige.",
       },
       /** Ordrefelt (Story 6.10, DESIGN.md → Ordrefelt, UX-DR20). The label is the spine's; the
        * Veiledet uke line is [ASSUMPTION] draft copy. It never says how many Veiledede uker are
@@ -2147,6 +2175,483 @@ export const nb = {
         months: ["jan.", "feb.", "mar.", "apr.", "mai", "jun.", "jul.", "aug.", "sep.", "okt.", "nov.", "des."],
       },
     },
+  },
+
+  /** The way into the Debrief (Story 9.2, FR-42, `07-debrief.png`): its page, step 1's heading and
+   * the locked and held states. Shown before the Explanation is saved, so held to the pre-Debrief
+   * copy rules (it is not one of POST_DEBRIEF_SECTIONS). «Skriv Forklaringen først» is the spine's;
+   * the rest is [ASSUMPTION] draft copy. */
+  debriefEntry: {
+    /** «Debrief, Spill 17». */
+    title: (number: number | null) => `Debrief, ${gameName(number)}`,
+    /** «Grossist, Spill 17» under the title. */
+    roleGame: (role: string, number: number | null) => `${role}, ${gameName(number)}`,
+    /** «Steg 1 av 5». */
+    stepOf: (step: number, steps: number) => `Steg ${step} av ${steps}`,
+    /** Step 1's heading (EXPERIENCE.md → Debrief sequence); steps 2 to 5 come with their
+     * stories. */
+    firstStep: "Skriv Forklaringen først",
+    /** The page title before the Debrief is open. */
+    locked: "Debrief",
+    notOpen: "Debriefen åpner når Klassespillet ditt er ferdig.",
+    held: "Debriefen åpner når alle Klassespillene er ferdige.",
+    /** Step 1 (Story 9.3, EXPERIENCE.md → Debrief sequence, `07-debrief.png`). The chart title,
+     * prompt, «Send Forklaring», «Vis som tabell» and the failure line are the spine's; the rest
+     * is [ASSUMPTION] draft copy. Before the reveal: no customers, no demand. */
+    explanation: {
+      netTitle: "Ditt netto lager, hele spillet",
+      showTable: "Vis som tabell",
+      /** [ASSUMPTION] */
+      showChart: "Vis som graf",
+      netColumn: "Netto lager",
+      /** [ASSUMPTION] */
+      tableCaption: "Ditt netto lager i hver uke av spillet",
+      /** [ASSUMPTION] */
+      chartSvg: "Graf over ditt netto lager i hver uke av spillet: over null er lager, under null er restordre.",
+      /** «Uke 1» and «Uke 36» at the ends of the x-axis. */
+      week: (week: number) => `Uke ${week}`,
+      prompt: "Hvorfor svingte lageret ditt?",
+      /** [ASSUMPTION] who reads it, under the field. */
+      hint: "Bare du og de som underviser Klassen, kan lese Forklaringen. Den kan ikke endres etter at du har sendt den.",
+      send: "Send Forklaring",
+      /** [ASSUMPTION] beside the field while it is empty. */
+      empty: "Skriv Forklaringen før du sender.",
+      failed: "Det ble ikke lagret. Prøv igjen.",
+      /** [ASSUMPTION] */
+      sentTitle: "Din Forklaring",
+      /** [ASSUMPTION] */
+      sent: "Forklaringen er sendt og lagret slik du skrev den.",
+      /** [ASSUMPTION] a second device had already sent one. */
+      exists: "Forklaringen var allerede sendt. Her er den som er lagret.",
+      /** [ASSUMPTION] a step-1 read failed; «Prøv igjen» beside it. */
+      loadFailed: "Dette steget kunne ikke hentes.",
+    },
+    /** The Group debrief (Story 9.11, FR-43, UX-DR31). The locked line is the spine's pattern
+     * (EXPERIENCE.md → States: «Avsløringen er låst til alle fire har sendt. Ida og Mikkel har sendt,
+     * Jonas skriver.»); the rest is [ASSUMPTION] draft copy. Before the reveal: no customers, no
+     * demand. */
+    group: {
+      title: "Gruppedebrief",
+      /** [ASSUMPTION] for a Student of the game who has not joined. */
+      joinLead: "Gruppedebriefen for spillet ditt er i gang. Dere går gjennom de tre første stegene sammen, hver på sin egen enhet.",
+      join: "Bli med i Gruppedebriefen",
+      /** [ASSUMPTION] a failed join. */
+      joinFailed: "Du ble ikke med. Prøv igjen.",
+      notGroup: "Dette er en personlig debrief.",
+      /** [ASSUMPTION] the time guide while writing, in a Group debrief. */
+      timeGuide: "Sett av omtrent fem minutter til Forklaringen. Gruppen går videre når alle har sendt.",
+      /** «begge», «alle tre», «alle fire»: how many joined Students must send. */
+      everyone: (count: number) => (count === 2 ? "begge" : count === 3 ? "alle tre" : count === 4 ? "alle fire" : `alle ${count}`),
+      /** «Avsløringen er låst til begge har sendt. Du har sendt, Jonas skriver.» */
+      locked: (everyone: string, sent: string, writing: string) =>
+        `Avsløringen er låst til ${everyone} har sendt. ${sent} har sendt, ${writing} skriver.`,
+      /** The viewer in the locked and waiting lines. */
+      you: "du",
+      /** A joined Student no longer on the Roster. */
+      someone: "en som ikke lenger er i Klassen",
+      /** «Ida og Mikkel»: names joined with «og». */
+      and: "og",
+      /** [ASSUMPTION] a Student who has not sent while the group is further on. */
+      behind: (step: number) => `Gruppen er på steg ${step}. Send Forklaringen, så kommer du rett dit.`,
+      /** [ASSUMPTION] finishing a shared step. */
+      done: "Ferdig med steget",
+      /** «Du er ferdig. Venter på Jonas.» */
+      waiting: (names: string) => `Du er ferdig. Venter på ${names}.`,
+      /** [ASSUMPTION] the opener's control and when it is possible. */
+      moveOn: "Gå videre for alle",
+      moveOnAt: (time: string) => `Du kan flytte gruppen videre fra kl. ${time}, også om ikke alle er ferdige.`,
+      tooEarly: (time: string) => `Gruppen kan gå videre fra kl. ${time}.`,
+      failed: "Det ble ikke lagret. Prøv igjen.",
+      /** Polite announcements when the shared step moves. */
+      unlocked: "Alle har sendt. Avsløringen er åpen.",
+      moved: (step: number) => `Gruppen er nå på steg ${step}.`,
+      alone: "Gruppen har gått videre. Herfra svarer hver av dere på egen enhet.",
+      /** [ASSUMPTION] Story 9.12: going on alone, from the join panel. */
+      aloneLead: "Kan ikke gruppen møtes, går du gjennom Debriefen alene. Du kan ikke bli med i gruppen etterpå.",
+      goAlone: "Ta en Personlig debrief",
+      aloneFailed: "Det gikk ikke. Prøv igjen.",
+      /** A join refused because the Student goes on alone (409 `group_closed`). */
+      groupClosed: "Du går gjennom denne Debriefen alene.",
+      /** [ASSUMPTION] leaving the group, with its confirmation in place. */
+      leave: "Forlat gruppen",
+      leaveConfirm: "Du fortsetter alene fra steget du er på, og det du har skrevet, er lagret. Du kan ikke bli med igjen.",
+      cancel: "Avbryt",
+      leaveFailed: "Du er fortsatt i gruppen. Prøv igjen.",
+      /** [ASSUMPTION] why the Student goes on as a Personal debrief, under the step they were on. */
+      aloneLine: {
+        left: "Du går gjennom Debriefen alene, som en Personlig debrief. Det du har skrevet, er lagret.",
+        dropout:
+          "Du var borte fra Gruppedebriefen i mer enn to minutter, så gruppen gikk videre uten deg. Du fortsetter alene, som en Personlig debrief, fra steget du var på.",
+        fallback:
+          "Gruppedebriefen ble ikke ferdig innen 48 timer etter at spillet sluttet. Du fortsetter alene, som en Personlig debrief, fra steget du var på.",
+        missed: "Gruppen har gått gjennom de felles stegene uten deg. Du går gjennom Debriefen alene, som en Personlig debrief.",
+      },
+      /** Story 9.13: the link to the shared screen, for a joined Student (UX-DR35). */
+      sharedScreen: "Delt skjerm: hele kjeden",
+    },
+  },
+
+  /** The Debrief after the reveal (Story 9.4 on, EXPERIENCE.md → Debrief sequence). Reached only
+   * with a saved Explanation (the api gates it), so this is one of the copy check's
+   * POST_DEBRIEF_SECTIONS and may name the exercise; `debriefEntry` above may not. */
+  debrief: {
+    /** The spine's prefix of every AI text in the Debrief (driven only by `ai_generated`, Story
+     * 9.14); code-rendered text never carries it. */
+    aiPrefix: "KI-generert, kan ta feil:",
+    /** Story 9.14: an AI text as shown, «KI-generert, kan ta feil: «…»» (FR-34, UX-DR69). */
+    aiText: (text: string) => `KI-generert, kan ta feil: «${text}»`,
+    /** [ASSUMPTION] under an AI text: the AI may be wrong; every number is the code's (FR-44). */
+    aiNote: "Teksten er satt sammen av en KI fra tallene i spillet ditt, og kan ta feil. Tallene er regnet ut av koden.",
+    /** Step 2, the reveal of customer demand (`07-debrief.png`). Its heading comes from the api,
+     * rendered from the demand series. «Ordre inn: det eneste du så», «Din ordre, 24 i Uke 11», the
+     * table rows and «Øvelsen heter Beer Game.» are the spine's; the rest is [ASSUMPTION] draft. */
+    reveal: {
+      /** The Etterspørselsbånd's key, over the band. */
+      demandKey: "Kundene",
+      incomingKey: "Ordre inn: det eneste du så",
+      orderKey: "Din ordre",
+      /** On the band at its right end. */
+      demandLabel: (demand: string) => `Kundenes etterspørsel: ${demand}`,
+      /** At the Student's largest Order. */
+      largestOrder: (order: string, week: number) => `Din ordre, ${order} i Uke ${week}`,
+      /** [ASSUMPTION] the scroll region's name. */
+      region: "Kundene, ordre inn og din ordre per uke",
+      rows: { demand: "Kundene", incoming: "Ordre inn", order: "Din ordre" },
+      /** [ASSUMPTION] */
+      svg: "Kundenes etterspørsel som et bånd, ordrene som kom inn til deg som en linje og dine ordre som stolper, uke for uke.",
+      /** [ASSUMPTION] */
+      axisSvg: "Antall enheter",
+      swipe: "Sveip for flere uker",
+      named: "Øvelsen heter Beer Game.",
+      /** [ASSUMPTION] what the Seat saw: the Role below it in the chain sent its orders
+       * («ordrene fra Detaljisten»). */
+      saw: (downstream: string) => `Det du så, var ordrene fra ${downstream}, ikke kundene.`,
+      /** The Role, definite, for `saw`. */
+      definite: { retailer: "Detaljisten", wholesaler: "Grossisten", distributor: "Distributøren", factory: "Fabrikken" },
+      /** [ASSUMPTION] the Detaljist saw the customers, one Uke at a time. */
+      sawRetailer: "Du så kundenes ordrer selv, men bare én uke om gangen.",
+      /** [ASSUMPTION] from `07-debrief.png`, without names. */
+      structure: "Nesten alle grupper svinger slik. Struktur gir atferd, derfor spør vi hvorfor og ikke hvem.",
+      /** [ASSUMPTION] the step could not be read; «Prøv igjen» beside it. */
+      loadFailed: "Avsløringen kunne ikke hentes.",
+    },
+    /** Step 3, the whole chain (Story 9.5, `07-debrief.png`, EXPERIENCE.md → Ukeskrubber). The
+     * heading, «Kjeden i Uke 15. Dra i skrubberen for å spole.», «Velg uke», the step buttons,
+     * the reading's form, «Produksjon», «Kundene» and Forsterkning are the spine's; the rest is
+     * [ASSUMPTION] draft copy. */
+    chain: {
+      heading: "Hele kjeden: svingningene vokser oppstrøms og kommer senere",
+      /** By the scrubber, with the chosen Uke. */
+      at: (week: number) => `Kjeden i Uke ${week}. Dra i skrubberen for å spole.`,
+      scrubber: "Velg uke",
+      week: (week: number) => `Uke ${week}`,
+      back: "Én uke tilbake",
+      forward: "Én uke fram",
+      /** The live reading, Fabrikk first: «Uke 15. Fabrikk: restordre 3, ordre 22. …». */
+      reading: (week: number, roles: readonly string[]) => `Uke ${week}. ${roles.join(" ")}`,
+      readingRole: (role: string, held: readonly string[], order: string) =>
+        `${role}: ${[...held, `ordre ${order}`].join(", ")}.`,
+      readingStock: (units: string) => `lager ${units}`,
+      readingBacklog: (units: string) => `restordre ${units}`,
+      /** [ASSUMPTION] the customers' order at the end of the reading. */
+      readingCustomers: (order: string) => `Kundene: ordre ${order}.`,
+      /** Band ends and node numbers. */
+      production: "Produksjon",
+      customers: "Kundene",
+      stock: (units: string) => `Lager ${units}`,
+      backlog: (units: string) => `Restordre ${units}`,
+      /** [ASSUMPTION] the band's key: what the numbers in the gaps are. */
+      bandKey: "Øverst: ordre, som går mot venstre. Over røret: på vei, som går mot høyre.",
+      /** [ASSUMPTION] */
+      bandSvg: "Hele kjeden i den valgte uka: lager og restordre for hver rolle, ordre og varer på vei mellom dem.",
+      /** [ASSUMPTION] a capped Role (FEATURE_CAPACITY, Story 6.22). */
+      capacity: (role: string, units: string) => `${role} kan sende høyst ${units} enheter per uke.`,
+      /** [ASSUMPTION] the Ordrestolper region's name and key. */
+      region: "Ordre per rolle og uke",
+      /** With the api's `large_order` (10). */
+      barsKey: (large: string) =>
+        `Ordre per rolle og uke, som stolpe og som tall i samme kolonne. Rødt punkt: første uke med ordre på ${large} eller mer. Til høyre: Forsterkning.`,
+      amplification: "Forsterkning",
+      /** «(deg)» after the own Role, as in Kjedens regning. */
+      own: "(deg)",
+      /** [ASSUMPTION] no Forsterkning when the customers' demand never varied. */
+      none: "–",
+      /** [ASSUMPTION] Forsterkning as one line of text, Detaljist first. */
+      amplificationLine: (parts: readonly string[]) => `Forsterkning fra kundene og oppover: ${parts.join(", ")}.`,
+      amplificationPart: (role: string, value: string) => `${role} ${value}`,
+      /** [ASSUMPTION] */
+      barsSvg: "Ordrestolper: ordrene til hver rolle uke for uke, Fabrikk øverst, med første store ordre markert.",
+      /** [ASSUMPTION] */
+      barsAxisSvg: "Rollene, Fabrikk øverst",
+      swipe: "Sveip for flere uker",
+      /** [ASSUMPTION] the step could not be read; «Prøv igjen» beside it. */
+      loadFailed: "Kjeden kunne ikke hentes.",
+    },
+    /** «Delt skjerm: hele kjeden» (Story 9.13, FR-74, UX-DR34, UX-DR35, `07-debrief.png`): the
+     * group's charts by Role on one screen in the room. Never a name. The title, «Netto lager»,
+     * «Kostnad, kr» and the direction line are the spine's; the rest is [ASSUMPTION] draft copy. */
+    shared: {
+      title: "Delt skjerm: hele kjeden",
+      /** «Spill 17» under the title. */
+      game: (number: number | null) => gameName(number),
+      /** Where the group is, by the shared step pointer. */
+      step: (step: number, individual: number, steps: number) =>
+        step >= individual
+          ? "Gruppen har gått gjennom de felles stegene. Nå svarer hver på sin egen enhet."
+          : `Gruppen er på steg ${step} av ${steps}. Hver svarer på sin egen enhet.`,
+      /** [ASSUMPTION] while a joined Student has not sent: no names, no counts. */
+      locked: "Avsløringen er låst til alle i gruppen har sendt Forklaringen. Kjeden vises her når den åpner.",
+      /** [ASSUMPTION] polite, when the lock opens on this screen. */
+      unlocked: "Alle har sendt. Kjeden vises nå.",
+      /** By the scrubber, with the chosen Uke. */
+      at: (week: number) => `Kjeden i Uke ${week}.`,
+      /** [ASSUMPTION] who controls the scrubber (UX-DR34). */
+      scrubberNote: "Skrubberen styres bare fra denne skjermen. Hver telefon har sin egen.",
+      netTitle: "Netto lager",
+      costTitle: "Kostnad, kr",
+      /** [ASSUMPTION] */
+      netSvg: (role: string) => `Graf over netto lager for ${role} i hver uke: over null er lager, under null er restordre.`,
+      showTable: "Vis som tabell",
+      showChart: "Vis som graf",
+      /** [ASSUMPTION] the Netto lager table's caption. */
+      netCaption: "Netto lager per rolle og uke",
+      /** [ASSUMPTION] the band's text alternative at the chosen Uke. */
+      bandCaption: (week: number) => `Kjeden i Uke ${week}: lager, restordre, på vei og ordre per rolle`,
+      columns: { role: "Rolle", stock: "Lager", backlog: "Restordre", supplyLine: "På vei", order: "Ordre" },
+      /** Under the charts (`07-debrief.png`). */
+      direction:
+        "Gruppen ser hele kjeden på storskjermen, i samme retning som på telefonen: varene går mot høyre, ordrene mot venstre. Hver student følger sitt eget steg på telefonen.",
+      back: "Tilbake til Debriefen",
+      /** [ASSUMPTION] the screen could not be read; «Prøv igjen» beside it. */
+      loadFailed: "Den delte skjermen kunne ikke hentes.",
+    },
+    /** The reflection questions between steps 3 and 4 (Story 9.6, FR-45, EXPERIENCE.md → Debrief
+     * sequence: not drawn). The questions are content from the api; «Det ble ikke lagret. Prøv
+     * igjen.» is the spine's; the rest is [ASSUMPTION] draft copy. */
+    reflection: {
+      /** [ASSUMPTION] unnumbered: the spine's five steps keep their numbers. */
+      heading: "Spørsmål til ettertanke",
+      /** [ASSUMPTION] «Spørsmål 2 av 3». */
+      counter: (at: number, of: number) => `Spørsmål ${at} av ${of}`,
+      /** [ASSUMPTION] who reads the answers, under the field (FR-58 adds the report's line). */
+      privacy: "Bare du og de som underviser Klassen, kan lese svarene. Et svar kan ikke endres etter at du har gått videre.",
+      /** [ASSUMPTION] */
+      next: "Fortsett",
+      /** [ASSUMPTION] beside the field while it is empty. */
+      empty: "Skriv et svar før du går videre.",
+      failed: "Det ble ikke lagret. Prøv igjen.",
+      /** [ASSUMPTION] a second device answered further already: the page shows where it stands. */
+      outOfOrder: "Dette spørsmålet var allerede besvart. Her er neste.",
+      /** [ASSUMPTION] a second device answered this question first: its stored answer stays. */
+      answeredElsewhere: "Spørsmålet var allerede besvart på en annen enhet. Svaret som er lagret, står over.",
+      /** [ASSUMPTION] over each stored answer. */
+      answered: "Ditt svar",
+      /** [ASSUMPTION] once every question is answered. */
+      done: "Du har svart på alle spørsmålene. Svarene er lagret slik du skrev dem.",
+      /** [ASSUMPTION] the questions could not be read; «Prøv igjen» beside it. */
+      loadFailed: "Spørsmålene kunne ikke hentes.",
+    },
+    /** Follow-up questions about the Student's own Game, under the reflection questions (Story
+     * 9.15, FR-45, UX-DR31). Spine-only surface: all [ASSUMPTION] draft. */
+    followUp: {
+      /** [ASSUMPTION] */
+      heading: "Spør om spillet ditt",
+      /** [ASSUMPTION] what an answer is, before the field. */
+      intro: "Lurer du på noe om spillet ditt? Du får hint om hvor du kan se, ikke svar.",
+      /** [ASSUMPTION] the field's label. */
+      label: "Spørsmålet ditt",
+      /** [ASSUMPTION] under the field: who reads it, and the KI. */
+      privacy: "Spørsmålet sendes til en KI, med navn og e-postadresser fjernet. Det lagres sammen med svaret.",
+      /** [ASSUMPTION] */
+      send: "Spør",
+      /** [ASSUMPTION] while the answer is on its way. */
+      sending: "Venter på svar …",
+      /** [ASSUMPTION] beside the button while the field is empty. */
+      empty: "Skriv et spørsmål først.",
+      /** [ASSUMPTION] over each earlier question. */
+      asked: "Du spurte",
+      /** [ASSUMPTION] a question outside the Game: the fixed line, never the KI's words. */
+      declined: "Det spørsmålet handler ikke om spillet ditt. Spør om ukene, bestillingene eller kostnadene dine.",
+      /** [ASSUMPTION] no answer could be given; the question stays in the field. */
+      unanswered: "Det kom ikke noe svar denne gangen. Spørsmålet står igjen i feltet, så du kan prøve igjen eller gå videre.",
+      /** [ASSUMPTION] too many questions (from this account or this network): the wait, in whole
+       * minutes. */
+      rateLimited: (minutes: number) =>
+        minutes <= 1
+          ? "Det er sendt mange spørsmål på kort tid. Vent ett minutt før du spør igjen."
+          : `Det er sendt mange spørsmål på kort tid. Vent ${minutes} minutter før du spør igjen.`,
+      /** [ASSUMPTION] the field is gone: the Individual test has opened or the Testfrist passed. */
+      closed: "Spørsmål om spillet er stengt nå.",
+      /** [ASSUMPTION] */
+      failed: "Spørsmålet ble ikke sendt. Prøv igjen.",
+      /** [ASSUMPTION] the list could not be read; «Prøv igjen» beside it. */
+      loadFailed: "Spørsmålene dine kunne ikke hentes.",
+    },
+    /** Step 4, the own moments (Story 9.7, `07-debrief.png`). The heading and each moment's
+     * sentences come from the api, rendered by code from the facts. «Dette så du», «Dette regnet
+     * du», «Dette kostet det senere» and «Dette så de andre i Uke N» are the spine's; the rest is
+     * [ASSUMPTION] draft. */
+    moments: {
+      /** [ASSUMPTION] the step's heading with no moments (mostly AI players). */
+      heading: "Dine øyeblikk",
+      /** [ASSUMPTION] fewer than 10 own Orders (FR-44). */
+      mostlyAi:
+        "Klassespillet ditt ble spilt mest av KI-spillere, så her er ingen øyeblikk fra din egen plass. Dine egne øyeblikk finner du i Replay.",
+      /** [ASSUMPTION] under it: steps 2 and 3 hold for this Student too. */
+      mostlyAiChain: "Kundene og hele kjeden over gjelder spillet ditt som for alle andre.",
+      /** [ASSUMPTION] «Øyeblikk 1 av 3», the heading focus moves to. */
+      counter: (at: number, of: number) => `Øyeblikk ${at} av ${of}`,
+      /** [ASSUMPTION] the paging buttons. */
+      previous: "Forrige øyeblikk",
+      next: "Neste øyeblikk",
+      /** [ASSUMPTION] the paging group's name. */
+      paging: "Bla mellom øyeblikkene",
+      saw: "Dette så du",
+      reckoned: "Dette regnet du",
+      later: "Dette kostet det senere",
+      others: (week: number) => `Dette så de andre i Uke ${week}`,
+      /** [ASSUMPTION] the others table's role column. */
+      role: "Rolle",
+      /** [ASSUMPTION] the pattern block's label. */
+      pattern: "Mønster i uka",
+      /** [ASSUMPTION] the Graf over tabell region's name for the moment's Uke. */
+      region: (week: number) => `Graf og tabell fram til Uke ${week}`,
+      /** [ASSUMPTION] the own Explanation beside the data (FR-44, FR-41). */
+      explanation: "Din Forklaring",
+      /** [ASSUMPTION] */
+      explanationNote: "Det du skrev før avsløringen, slik du sendte den.",
+      /** [ASSUMPTION] the moments could not be read; «Prøv igjen» beside it. */
+      loadFailed: "Øyeblikkene kunne ikke hentes.",
+      /** [ASSUMPTION] Story 9.14: the label of the line that ties the moments together. */
+      narration: "Øyeblikkene sammen",
+    },
+    /** The end of step 4: Kjedens regning with the Debrief's rows and lines, and «Fullfør
+     * Debriefen» (Story 9.8, UX-DR36, EXPERIENCE.md → Debrief). «Simulert, samme kunder», the
+     * restordre line and «Simulert viser sammenhengen, ikke en fasit.» are the spine's (with «du»
+     * for the viewer's name); the rest is [ASSUMPTION] draft copy. */
+    bill: {
+      simulated: "Simulert, samme kunder",
+      simulatedOwn: "Bare du teller på vei",
+      simulatedAll: "Alle fire teller på vei",
+      simulatedNote: "Simulert viser sammenhengen, ikke en fasit.",
+      /** [ASSUMPTION] how the simulated rows were played. */
+      simulatedRule:
+        "Samme kunder og samme kjede, spilt med én fast regel for alle fire roller. En rolle som teller på vei, regner med det den har bestilt og ikke fått ennå.",
+      shareDouble: (percent: number) => `Restordre er ${percent} % av kjedens regning, fordi den koster dobbelt.`,
+      /** [ASSUMPTION] when backlog does not cost twice inventory. */
+      share: (percent: number) => `Restordre er ${percent} % av kjedens regning.`,
+      /** [ASSUMPTION] the AI-held share (FR-44), under Kjedens regning. */
+      aiShare: (percent: number, kroner: string) =>
+        `${percent} % av kjedens regning, ${kroner}, kom i uker der en KI-spiller hadde et sete.`,
+      /** [ASSUMPTION] */
+      finish: "Fullfør Debriefen",
+      /** [ASSUMPTION] above the button. */
+      finishHint: "Når du fullfører, lagres Debriefen din. Du kan lese alt igjen etterpå, men ingenting kan endres.",
+      /** [ASSUMPTION] once finished, with «ti. 24. nov. kl. 10:00». */
+      finished: (when: string) => `Debriefen er fullført ${when}. Du kan lese alt igjen, men ingenting kan endres.`,
+      /** [ASSUMPTION] 409 `debrief_incomplete`. */
+      incomplete: "Svar på alle spørsmålene og les øyeblikkene før du fullfører.",
+      /** [ASSUMPTION] 409 `test_deadline_passed`. */
+      deadlinePassed: "Testfristen er passert, så Debriefen kan ikke fullføres lenger.",
+      failed: "Det ble ikke lagret. Prøv igjen.",
+      /** [ASSUMPTION] the bill could not be read; «Prøv igjen» beside it. */
+      loadFailed: "Kjedens regning kunne ikke hentes.",
+      /** [ASSUMPTION] whether the Debrief is finished could not be read; «Prøv igjen» beside it. */
+      summaryFailed: "Det kunne ikke hentes om Debriefen er fullført.",
+    },
+    /** A Student's Explanation and Debrief summary for the Class's staff (Story 9.8, FR-47),
+     * reached from Spillinnsikt. All [ASSUMPTION] draft copy. */
+    staffSummary: {
+      title: "Debrief-sammendrag",
+      crumb: "Debrief-sammendrag",
+      explanation: "Forklaring",
+      noExplanation: "Studenten har ikke sendt Forklaringen ennå.",
+      sentAt: (when: string) => `Sendt ${when}.`,
+      summary: "Debriefen",
+      notFinished: "Studenten har ikke fullført Debriefen ennå.",
+      finishedAt: (when: string) => `Fullført ${when}.`,
+      late: "Det var etter Debrief-fristen.",
+      moments: "Øyeblikk",
+      noMoments: "Ingen egne øyeblikk: Klassespillet ble spilt mest av KI-spillere.",
+      reflection: "Spørsmål til ettertanke",
+      noStudent: "Studenten har ikke noe Klassespill i denne Klasseøkten.",
+      /** Story 9.10: the Student's name is read from the Roster now; gone once removed. [ASSUMPTION] */
+      removed: "Studenten er ikke lenger i Klassen.",
+      /** Story 9.10 (FR-46, FR-47): the Student's Debrief quiz attempts. [ASSUMPTION] */
+      quiz: "Debrief-quiz",
+      noAttempts: "Studenten har ikke tatt quizen ennå.",
+      attempts: (n: number) => (n === 1 ? "1 forsøk." : `${n} forsøk.`),
+      passedAt: (when: string) => `Bestått ${when}.`,
+      notPassed: "Ikke bestått ennå.",
+      /** One attempt: «Forsøk 2, to. 26. nov. kl. 14:15: bestått». */
+      attempt: (n: number, when: string, passed: boolean) =>
+        `Forsøk ${n}, ${when}: ${passed ? "bestått" : "ikke bestått"}`,
+    },
+    /** Story 9.10 (FR-46, UX-DR12): the Klasseøkt's «Debrief-quiz» block, where the Faglærer takes
+     * a question out. Draft copy, [ASSUMPTION]. */
+    quizExclusions: {
+      heading: "Debrief-quiz",
+      help: "Et spørsmål du tar ut, stilles ikke i studentenes neste forsøk. Gjelder alle studentene i denne Klasseøkten fram til Testfristen. Ingen blir bestått av endringen, og en student som har bestått, forblir bestått.",
+      /** Before the lock: the version the lock will pin. */
+      latest: "Quizen låses ved startdatoen. Til da vises den nyeste versjonen.",
+      placeholder: "Spørsmålene er foreløpige og byttes ut før kurset tar dem i bruk.",
+      /** «Spørsmål 1 av 3». */
+      questionOf: (n: number, total: number) => `Spørsmål ${n} av ${total}`,
+      answer: (text: string) => `Riktig svar: ${text}`,
+      /** The Bryter's state text. */
+      included: "Med i quizen",
+      excluded: "Tatt ut",
+      save: "Lagre quizvalg",
+      saving: "Lagrer …",
+      saved: "Quizvalgene er lagret.",
+      /** Read-only reasons. */
+      assistant: "Bare Faglærerne i Klassen kan ta ut spørsmål.",
+      closed: "Testfristen er passert, så quizvalgene kan ikke endres lenger.",
+      /** Refusals beside «Lagre quizvalg». */
+      lastQuestion: "Minst ett spørsmål må være med i quizen.",
+      deadlinePassed: "Testfristen er passert, så quizvalgene kan ikke endres lenger.",
+      archived: "Klassen er arkivert, så quizvalgene kan ikke endres.",
+      failed: "Quizvalgene ble ikke lagret. Prøv igjen.",
+      loadFailed: "Debrief-quizen kunne ikke hentes.",
+    },
+    /** Step 5, the Debrief quiz (Story 9.9, FR-46, UX-DR37). «Debrief-quiz» is the spine's; the
+     * rest is [ASSUMPTION] draft copy. The marks on each row are `quizChoice`'s. */
+    quiz: {
+      heading: "Debrief-quiz",
+      intro:
+        "Velg ett svar på hvert spørsmål. Du kan prøve så mange ganger du vil fram til Testfristen. Quizen teller ikke på noen karakter.",
+      /** While the quiz content is a placeholder (issue #16). */
+      placeholder: "Spørsmålene er foreløpige og byttes ut før kurset tar dem i bruk.",
+      /** Over the questions of an attempt. */
+      attempt: (n: number) => `Forsøk ${n}`,
+      /** «Spørsmål 1 av 3», before each question. */
+      questionOf: (n: number, total: number) => `Spørsmål ${n} av ${total}`,
+      send: "Send svarene",
+      /** Beside «Send svarene» while a question has no choice. */
+      unanswered: "Velg et svar på hvert spørsmål før du sender.",
+      /** «Forsøk 2: 2 av 3 riktige.» The result summary, focused after a send. */
+      result: (attempt: number, correct: number, asked: number) => `Forsøk ${attempt}: ${correct} av ${asked} riktige.`,
+      retryHint: "Les forklaringene og prøv igjen. Spørsmålene kan komme i en annen rekkefølge.",
+      retry: "Prøv igjen",
+      passed: (attempts: number) =>
+        attempts === 1
+          ? "Alle svarene er riktige. Quizen er bestått på første forsøk."
+          : `Alle svarene er riktige. Quizen er bestått etter ${attempts} forsøk.`,
+      /** 409 `test_deadline_passed`. */
+      deadlinePassed: "Testfristen er passert, så svarene kan ikke sendes lenger.",
+      /** 409 `quiz_passed`: another device passed it first. */
+      alreadyPassed: "Quizen er allerede bestått.",
+      failed: "Svarene ble ikke sendt. Prøv igjen.",
+      /** The quiz could not be read; «Prøv igjen» beside it. */
+      loadFailed: "Quizen kunne ikke hentes.",
+    },
+  },
+
+  /** Quizvalg's marks on a scored question (UX-DR37): in text, never by colour alone. The spine's
+   * words. */
+  quizChoice: {
+    wrong: "Ditt svar, ikke riktig",
+    right: "Riktig",
   },
 
   /** The Oversikt of a Class session (Story 7.1, FR-39, UX-DR40). The headline form, «Oppdatert»,

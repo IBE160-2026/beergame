@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
@@ -42,6 +43,12 @@ describe("copy check", () => {
   it("allows «Beer Game» and «bullwhip» after the Debrief, but no other breach", () => {
     expect(checkText("bullwhip-effekten i Beer Game", { preDebrief: false })).toEqual([]);
     expect(checkText("Fasit!", { preDebrief: false })).toEqual(["exclamation", "fasit"]);
+  });
+
+  it("allows the spine's «Simulert» line word for word and no other «fasit»", () => {
+    expect(checkText("Simulert viser sammenhengen, ikke en fasit.")).toEqual([]);
+    expect(checkText("Simulert viser sammenhengen, ikke en fasit")).toEqual(["fasit"]);
+    expect(checkText("Simulert viser sammenhengen, ikke en fasit. Men en fasit likevel.")).toEqual(["fasit"]);
   });
 
   it("reads string values but not keys, imports or comments, and knows each string's section", () => {
@@ -172,6 +179,14 @@ describe("copy check", () => {
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }
+  });
+
+  it("lets only the post-reveal `debrief` section of nb.ts name the exercise (Story 9.4)", () => {
+    const file = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "src", "copy", "nb.ts");
+    const named = stringsFromSource(fs.readFileSync(file, "utf8"), file).filter((s) => /beer[\s-]*game/i.test(s.text));
+    expect(named.map((s) => [s.text, s.section])).toEqual([["Øvelsen heter Beer Game.", "debrief"]]);
+    // The same string in the pre-reveal Debrief section would fail the check.
+    expect(checkText("Øvelsen heter Beer Game.", { preDebrief: true })).toEqual(["beer-game"]);
   });
 
   it("finds a breach in a mail template and in nb.ts of a repo", () => {

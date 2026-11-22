@@ -7,14 +7,17 @@ Push invalidates, pull reads. The stream sends:
 - the default `message` event with data `{topic, id, version}` for each event the User's scope
   allows, and nothing else of the change;
 - `heartbeat` every `HEARTBEAT_S`, so the web app can tell quiet from stale (`EventSource` never
-  sees SSE comments, so FastAPI's own pings do not do it).
+  sees SSE comments, so FastAPI's own pings do not do it). Each heartbeat first runs the presence
+  hooks modules register with `events.on_heartbeat` (Story 9.12), each in a short database session
+  of its own.
 
 The scope is resolved on connect and again on each `user:<id>` event for the User; if the User is
 then deactivated (or the session is older than the User's session version) the stream ends. A
 staff member's stream also resolves it again on the first event of a `game:` or `session:` id
 outside it, once per id until the next resolve, so a Class session or Class game created after
 the stream connected (by a co-owner, say) is followed: one database read per new id per stream,
-never one per event.
+never one per event. Every stream does the same for a `debrief:` id outside it (Story 9.11): a
+Debrief session is created after the stream connected, when the first Student of the game opens it.
 `session:<id>` is sent at most once per `COALESCE_S` per id. The stream holds no database session
 between those reads, and ends after a random 600 to 780 s so the browser reconnects before the
 host's 15-minute request limit.
@@ -33,6 +36,7 @@ from sqlalchemy import union
 
 from app.platform import auth, authz
 from app.platform.db import get_sessionmaker
+from app.platform.events import heartbeat as presence
 from app.platform.events.hub import ENDED, Event, Hub, hub
 
 HEARTBEAT_S = 15.0
@@ -51,7 +55,10 @@ class Scope:
     games: frozenset[str]
     sessions: frozenset[str]
     staff: bool = field(default=False, compare=False)
-    """Whether the User is staff of a Class: only then can a new id come into the scope."""
+    """Whether the User is staff of a Class: only then can a new `game:` or `session:` id come
+    into the scope."""
+    debriefs: frozenset[str] = frozenset()
+    """Story 9.11: the Debrief sessions of the User's own Class games (`authz.debriefs_of`)."""
 
 
 async def resolve_scope(user_id: uuid.UUID) -> Scope:
@@ -62,10 +69,12 @@ async def resolve_scope(user_id: uuid.UUID) -> Scope:
         )
         sessions = await s.scalars(authz.class_sessions_staffed_by(user_id))
         staff = (await s.scalar(authz.classes_visible_to(user_id).limit(1))) is not None
+        debriefs = await s.scalars(authz.debriefs_of(user_id))
         return Scope(
             frozenset(str(g) for g in games.all()),
             frozenset(str(x) for x in sessions.all()),
             staff,
+            frozenset(str(d) for d in debriefs.all()),
         )
 
 
@@ -81,7 +90,9 @@ def allows(user_id: str, scope: Scope, event: Event) -> bool:
         return event.id in scope.games
     if event.topic == "session":
         return event.id in scope.sessions
-    return False  # `debrief:` gets its scope with the Debrief (Epic 9)
+    if event.topic == "debrief":
+        return event.id in scope.debriefs
+    return False
 
 
 async def events(
@@ -93,8 +104,10 @@ async def events(
     heartbeat: float | None = None,
     coalesce: float | None = None,
     lifetime: float | None = None,
+    beat: Callable[[], Awaitable[None]] | None = None,
 ) -> AsyncIterator[ServerSentEvent]:
-    """The stream's events for `user_id`, read from `source`."""
+    """The stream's events for `user_id`, read from `source`. `beat()` runs on each heartbeat
+    (Story 9.12: the presence hooks, `events.heartbeat`); it must not raise."""
     heartbeat = HEARTBEAT_S if heartbeat is None else heartbeat
     coalesce = COALESCE_S if coalesce is None else coalesce
     lifetime = random.uniform(*LIFETIME_S) if lifetime is None else lifetime
@@ -120,6 +133,8 @@ async def events(
                 return
             if now >= next_beat:
                 next_beat = now + heartbeat
+                if beat is not None:
+                    await beat()
                 yield ServerSentEvent(event="heartbeat", raw_data="")
                 continue
             due = min([end, next_beat, *(last_session[s] + coalesce for s in pending)])
@@ -137,10 +152,8 @@ async def events(
                 # A Class session the User no longer staffs sends nothing more, not even a
                 # coalesced event already waiting for its window.
                 pending = {sid: e for sid, e in pending.items() if sid in scope.sessions}
-            if (
-                not allows(user_id, scope, event)
-                and scope.staff
-                and event.topic in ("game", "session")
+            if not allows(user_id, scope, event) and (
+                (scope.staff and event.topic in ("game", "session")) or event.topic == "debrief"
             ):
                 key = (event.topic, event.id)
                 if key not in unknown:
@@ -178,5 +191,11 @@ async def stream_events(
     async def still_active() -> bool:
         return await authz.load_principal(user.id, version) is not None
 
-    async for item in events(str(user.id), hub, lambda: resolve_scope(user.id), still_active):
+    async for item in events(
+        str(user.id),
+        hub,
+        lambda: resolve_scope(user.id),
+        still_active,
+        beat=lambda: presence(user.id),
+    ):
         yield item

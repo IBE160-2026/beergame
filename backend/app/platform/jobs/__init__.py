@@ -49,7 +49,12 @@ MAIL = "mail"
 SWEEP = "sweep"
 QUEUES = (AI_ORDERS, LLM_BATCH, MAIL, SWEEP)
 
-TASK_MODULES = ("app.modules.players.jobs", "app.modules.messaging.jobs", "app.modules.ops.jobs")
+TASK_MODULES = (
+    "app.modules.players.jobs",
+    "app.modules.messaging.jobs",
+    "app.modules.ops.jobs",
+    "app.modules.debrief.jobs",
+)
 """The modules that register tasks on `app`; a worker imports them before it runs."""
 
 app = procrastinate.App(connector=procrastinate.PsycopgConnector())

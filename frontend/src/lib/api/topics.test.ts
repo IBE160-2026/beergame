@@ -2,6 +2,7 @@ import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
 
 import { classesKey, enrolledClassesKey } from "@/modules/classes/api";
+import { debriefsKey, sessionQuizKey, staffSummaryKey } from "@/modules/debrief/api";
 import {
   classOverviewKey,
   gameInsightKey,
@@ -100,6 +101,14 @@ describe("topicKeys", () => {
     ]);
   });
 
+  it("maps session:<id> to its Debrief quiz block and its Students' Debrief summaries (Story 9.10)", () => {
+    const keys = [sessionQuizKey("s1"), sessionQuizKey("s2"), staffSummaryKey("s1", "u1"), staffSummaryKey("s2", "u1")];
+    expect(invalidated({ topic: "session", id: "s1", version: null }, keys)).toEqual([
+      sessionQuizKey("s1"),
+      staffSummaryKey("s1", "u1"),
+    ]);
+  });
+
   it("maps game:<id> to that game and what hangs under it, the play envelope too, Hjem and its Spillinnsikt", () => {
     expect(invalidated({ topic: "game", id: "g1", version: 4 }, ALL)).toEqual([
       enrolledSessionsKey,
@@ -110,8 +119,13 @@ describe("topicKeys", () => {
     ]);
   });
 
+  it("maps a Debrief to the Debrief queries (Story 9.2)", () => {
+    expect(topicKeys({ topic: "debrief", id: "d1", version: null })).toEqual([debriefsKey]);
+    expect(topicKeys({ topic: "user", id: "u1", version: null })).toContainEqual(debriefsKey);
+  });
+
   it("maps an unknown topic to nothing", () => {
-    expect(topicKeys({ topic: "debrief", id: "d1", version: null })).toEqual([]);
+    expect(topicKeys({ topic: "replay", id: "r1", version: null })).toEqual([]);
   });
 });
 

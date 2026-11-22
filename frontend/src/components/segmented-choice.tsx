@@ -18,7 +18,8 @@ export type SegmentedOption<T extends string> = {
  * a screen reader reads «1 av 2». Each radio covers its whole segment (transparent), so the tap
  * target is the segment (44 px at least); the focus ring is drawn on the segment. An unavailable
  * option keeps its focus (UX-DR8) but never becomes the choice. Four options stand 2 + 2 on a
- * phone, never 3 + 1.
+ * phone, never 3 + 1. Segments that wrap onto a new line (long labels on a phone) keep a gap
+ * between the lines instead of touching.
  */
 export function SegmentedChoice<T extends string>({
   name,
@@ -53,7 +54,7 @@ export function SegmentedChoice<T extends string>({
       >
         {legend}
       </legend>
-      <div className={cn(inline ? "inline-flex" : "flex flex-wrap", quad && "max-sm:grid max-sm:grid-cols-2")}>
+      <div className={cn(inline ? "inline-flex" : "flex flex-wrap gap-y-2", quad && "max-sm:grid max-sm:grid-cols-2 max-sm:gap-y-0")}>
         {options.map((option, i) => (
           <label
             key={option.value}

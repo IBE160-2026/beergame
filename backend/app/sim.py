@@ -46,6 +46,12 @@ Subcommands:
                    are given.
   log             print the Decision log: one row per Week and Seat with what the Seat saw,
                    its Order, the Week's cost, who decided and the Rule-based reference Order.
+  facts            print the facts set of each Seat of a finished simulation Game as JSON
+                   (Story 9.1, FR-44, AD-7): `{role: {"patterns_version", "facts"}}` in chain
+                   order, built now with `games.facts.compute` from the Decision log and the
+                   latest Detected pattern definitions, and not stored, so a new version of the
+                   definitions can be reviewed on simulated Games before any Student sees it.
+                   Exit 1 when refused (`not_simulation` for any other purpose).
   run              play a batch of simulation Games from a JSON batch file (`seed`, `games`,
                    `seats`, optional `settings`, `demand`, `rule_based_params`, and for `llm`
                    Seats `model_config` and `effort_level`; Game i uses demand seed
@@ -173,6 +179,7 @@ from app.engine import (
 from app.engine.demand import SEED_MAX, new_seed, series
 from app.engine.scripted import REGISTRY
 from app.modules.games import commands as game_commands
+from app.modules.games import facts as game_facts
 from app.modules.games import service as game_service
 from app.platform import db
 from app.platform.config import get_settings
@@ -738,6 +745,35 @@ async def _print_log(game_id: str) -> int:
 
 def _log(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     return _run(_print_log(args.game_id))
+
+
+async def _print_facts(game_id: str) -> int:
+    try:
+        game = await game_service.get_game(game_id)
+        if game is None:
+            raise game_service.ViewError("game_not_found", f"no Game {game_id!r}", 404)
+        if game.purpose != "simulation":
+            raise game_service.ViewError(
+                "not_simulation", "facts are printed for simulation Games only", 409
+            )
+        printed = {}
+        for seat in game.seats:
+            version, built = await game_facts.compute(game_id, seat.id)
+            printed[seat.role] = {
+                "patterns_version": version,
+                "facts": built.model_dump(mode="json"),
+            }
+    except (game_service.ViewError, DBAPIError) as exc:
+        _report(exc)
+        return 1
+    finally:
+        await db.dispose()
+    print(json.dumps(printed, indent=2, ensure_ascii=False))
+    return 0
+
+
+def _facts(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    return _run(_print_facts(args.game_id))
 
 
 class ConfigIdError(ValueError):
@@ -1511,6 +1547,11 @@ def build_parser() -> argparse.ArgumentParser:
     log = commands.add_parser("log", help="print the Decision log, one row per Week and Seat")
     log.add_argument("game_id")
     log.set_defaults(handler=_log, command_parser=log)
+    facts = commands.add_parser(
+        "facts", help="print the facts set of each Seat of a finished simulation Game as JSON"
+    )
+    facts.add_argument("game_id")
+    facts.set_defaults(handler=_facts, command_parser=facts)
     batch = commands.add_parser(
         "run", help="play a batch of simulation Games to the end and summarise them"
     )

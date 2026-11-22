@@ -96,7 +96,7 @@ async def test_staff_read_every_week_of_every_role_as_stored(klass):
         kind, name = held[seat["role"]]
         assert seat["holder"] == ("student" if kind == "student" else "ai")
         assert seat["name"] == (name if kind == "student" else None)
-        assert seat["links"] == []  # no provider is registered in Epic 7
+        assert seat["links"] == []  # the Debrief's links come once the game has finished
     values, placed, clock = stored(game_id), orders(game_id), clock_of(game_id)
     [(guided_weeks,)] = rows(
         "SELECT (settings->>'guided_weeks')::int FROM games WHERE id = %s", game_id
@@ -290,11 +290,11 @@ async def test_every_reason_and_fallback_shows_its_mark_and_links_reach_student_
     assert (large[student], large[first_ai]) == (3, None)
     assert [(w["holder"], w["name"]) for w in by_role[student]] == [("student", student_name)] * 6
     assert next(s for s in body["seats"] if s["role"] == student)["holder"] == "ai"
-    # Links reach only the Student-held Seats.
+    # Links reach only the Student-held Seats (the Debrief's own are left out here).
     for seat in body["seats"]:
         expected = (
             [{"kind": "explanation", "href": f"/x/{seat['role']}"}]
             if seat["holder"] == "student"
             else []
         )
-        assert seat["links"] == expected
+        assert [link for link in seat["links"] if link["href"].startswith("/x/")] == expected

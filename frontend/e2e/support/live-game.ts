@@ -27,14 +27,22 @@ export async function liveClassGame(
     aiMode = "llm",
     width = 360,
     gameSettings = {},
+    debriefMode,
   }: {
     aiMode?: "llm" | "rule_based";
+    /** The Class session's Debrief mode; left out, the session's default (Story 9.14). */
+    debriefMode?: "group" | "personal";
     width?: number;
     /** More Game settings for the Class session, over `guided_weeks: 0` (Story 6.18: a short game). */
     gameSettings?: Record<string, unknown>;
   } = {},
 ): Promise<LiveGame> {
-  const locked = await lockedClassGames(browser, lecturerSession, count, { aiMode, width, gameSettings });
+  const locked = await lockedClassGames(browser, lecturerSession, count, {
+    aiMode,
+    width,
+    gameSettings,
+    debriefMode,
+  });
   const { sessionId, students } = locked;
   // Each Student's Starting task, the Students side by side (each answers its own Seat's items).
   const gameIds = new Set<string>();
@@ -76,7 +84,13 @@ export async function lockedClassGames(
     aiMode = "llm",
     width = 360,
     gameSettings = {},
-  }: { aiMode?: "llm" | "rule_based"; width?: number; gameSettings?: Record<string, unknown> } = {},
+    debriefMode,
+  }: {
+    aiMode?: "llm" | "rule_based";
+    width?: number;
+    gameSettings?: Record<string, unknown>;
+    debriefMode?: "group" | "personal";
+  } = {},
 ): Promise<LockedGames> {
   const lecturer = await lecturerPage(browser, lecturerSession, { width: 1280, height: 800 });
   try {
@@ -120,6 +134,7 @@ export async function lockedClassGames(
     const saved = await lecturer.request.put(`/api/class-sessions/${sessionId}`, {
       data: {
         ai_mode: aiMode,
+        ...(debriefMode ? { debrief_mode: debriefMode } : {}),
         dates: { start_at, play_deadline, debrief_deadline, test_deadline },
         game_settings: { guided_weeks: 0, ...gameSettings },
       },

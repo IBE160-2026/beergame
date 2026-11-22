@@ -71,7 +71,31 @@ PRE_SESSION_TABLES = (
 )
 TIME_PROPOSAL_TABLES = {"time_proposals", "time_acceptances"}
 """The tables of revision 0049 (Story 6.19)."""
-SUMMARY_TABLES = {"game_summaries"}
+FACT_SET_TABLES = {"fact_sets"}
+"""The table of revision 0101 (Story 9.1)."""
+DEBRIEF_TABLES = {"debrief_sessions", "debrief_releases"}
+"""The tables of revision 0102 (Story 9.2)."""
+EXPLANATION_TABLES = {"debrief_explanations"}
+"""The table of revision 0103 (Story 9.3)."""
+REFLECTION_TABLES = {"debrief_reflection_answers"}
+"""The table of revision 0105 (Story 9.6)."""
+MOMENT_TABLES = {"debrief_fact_sets"}
+"""The table of revision 0106 (Story 9.7)."""
+SUMMARY_TABLES = {"debrief_summaries"}
+"""The table of revision 0107 (Story 9.8)."""
+QUIZ_TABLES = {"quiz_attempts"}
+"""The table of revision 0108 (Story 9.9)."""
+EXCLUSION_TABLES = {"quiz_exclusions"}
+"""The table of revision 0109 (Story 9.10)."""
+GROUP_TABLES = {"debrief_members", "debrief_step_marks"}
+"""The tables of revision 0110 (Story 9.11)."""
+ALONE_TABLES = {"debrief_alone"}
+"""The table of revision 0111 (Story 9.12)."""
+NARRATION_TABLES = {"debrief_ai_texts"}
+"""The table of revision 0112 (Story 9.14)."""
+FOLLOW_UP_TABLES = {"debrief_follow_ups", "debrief_follow_up_closures"}
+"""The tables of revision 0113 (Story 9.15)."""
+GAME_SUMMARY_TABLES = {"game_summaries"}
 """The tables of revision 0051 (Story 7.1)."""
 MESSAGE_TABLES = {"messages", "message_recipients"}
 """The tables of revision 0052 (Story 7.9)."""
@@ -85,7 +109,19 @@ HEAD_TABLES = (
     | {"progress_steps"}
     | STARTING_TASK_TABLES
     | TIME_PROPOSAL_TABLES
+    | FACT_SET_TABLES
+    | DEBRIEF_TABLES
+    | EXPLANATION_TABLES
+    | REFLECTION_TABLES
+    | MOMENT_TABLES
     | SUMMARY_TABLES
+    | QUIZ_TABLES
+    | EXCLUSION_TABLES
+    | GROUP_TABLES
+    | ALONE_TABLES
+    | NARRATION_TABLES
+    | FOLLOW_UP_TABLES
+    | GAME_SUMMARY_TABLES
     | MESSAGE_TABLES
     | RECLAIM_TABLES
     | ADJUSTMENT_TABLES
@@ -199,7 +235,9 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     steps = constraints(url, "progress_steps")
     assert "UNIQUE (user_id, class_session_id, step)" in steps["uq_progress_steps_step"]
     # 0046 (Story 6.3): version 1 of the Starting task is stored, and no record can change.
-    [(version, body)] = rows(url, "SELECT version, body FROM content_records")
+    [(version, body)] = rows(
+        url, "SELECT version, body FROM content_records WHERE kind = 'starting_task'"
+    )
     assert version == 1 and [item["id"] for item in body["items"]][-1] == "position"
     with pytest.raises(psycopg.errors.RestrictViolation):
         rows(url, "UPDATE content_records SET version = 2 RETURNING version")
@@ -227,10 +265,141 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     assert definition(url, "seat_reclaims_pkey") == "PRIMARY KEY (seat_id)"
     command.downgrade(cfg, "0054")
     assert RECLAIM_TABLES.isdisjoint(tables(url))
+    # Epic 8's revisions follow Epic 9's (0053's down_revision is 0113 since the merge of main).
+    command.downgrade(cfg, "0113")
+    assert "takeover_due_at" not in columns(url, "seat_turns")
+
+    # 0101 (Story 9.1): version 1 of the Detected patterns; a facts set is never changed.
+    [(patterns,)] = rows(url, "SELECT body FROM content_records WHERE kind = 'detected_patterns'")
+    assert [p["id"] for p in patterns["patterns"]][0] == "surge-after-shortage"
+    assert "UNIQUE (game_id, seat_id)" in constraints(url, "fact_sets")["uq_fact_sets_game_seat"]
+    assert function_names(url, "fact_sets_immutable")
+
+    # 0102 (Story 9.2): one Debrief session per Game, its step 1 to 5; the hold choice.
+    debriefs = constraints(url, "debrief_sessions")
+    assert "UNIQUE (game_id)" in debriefs["uq_debrief_sessions_game"]
+    assert "step >= 1" in debriefs["ck_debrief_sessions_step"]
+    assert "'hold'" in definition(url, "ck_class_sessions_debrief_release")
+
+    # 0103 (Story 9.3): one Explanation per Student per Class session, never changed.
+    explained = constraints(url, "debrief_explanations")
+    assert "char_length(text)" in explained["ck_debrief_explanations_length"]
+    assert function_names(url, "debrief_explanations_immutable")
+
+    # 0104 (Story 9.4): version 1 of the sentence templates, every demand heading variant.
+    [(templates,)] = rows(url, "SELECT body FROM content_records WHERE kind = 'sentence_templates'")
+    assert "demand-step" in [t["id"] for t in templates["templates"]]
+
+    # 0105 (Story 9.6): version 1 of the reflection questions; an answer is never changed.
+    [(questions,)] = rows(
+        url, "SELECT body FROM content_records WHERE kind = 'reflection_questions'"
+    )
+    assert [q["kind"] for q in questions["questions"]] == ["feelings", "evidence", "structure"]
+    answers = constraints(url, "debrief_reflection_answers")
+    assert "char_length(text)" in answers["ck_debrief_reflection_answers_length"]
+    assert function_names(url, "debrief_reflection_answers_immutable")
+
+    # 0106 (Story 9.7): version 1 of the moment templates; the cited facts set never changes.
+    [(moments,)] = rows(url, "SELECT body FROM content_records WHERE kind = 'moment_templates'")
+    assert "moments-heading" in [t["id"] for t in moments["templates"]]
+    assert function_names(url, "debrief_fact_sets_immutable")
+
+    # 0107 (Story 9.8): a Student's Debrief summary, stored once and never changed.
+    assert function_names(url, "debrief_summaries_immutable")
+    assert {"moment_ids", "reflection", "finished_at"} <= columns(url, "debrief_summaries")
+
+    # 0108 (Story 9.9): version 1 of the Debrief quiz, marked placeholder; attempts never change.
+    [(quiz,)] = rows(url, "SELECT body FROM content_records WHERE kind = 'debrief_quiz'")
+    assert quiz["placeholder"] is True and len(quiz["questions"]) == 3
+    assert function_names(url, "quiz_attempts_immutable")
+    assert {"answers", "passed", "quiz_version", "number"} <= columns(url, "quiz_attempts")
+
+    # 0109 (Story 9.10): a Class session's quiz exclusions, as rows of their own.
+    assert {"question_id", "quiz_version", "excluded_at"} <= columns(url, "quiz_exclusions")
+
+    # 0110 (Story 9.11): a shared Debrief session, its joined Students and their step marks.
+    assert {"shared", "opener_id", "step_opened_at"} <= columns(url, "debrief_sessions")
+
+    # 0111 (Story 9.12): presence, the Students who go on alone and the 48-hour fallback.
+    assert "last_seen_at" in columns(url, "debrief_members")
+    assert {"fallback_due_at", "fallback_at"} <= columns(url, "debrief_sessions")
+
+    # 0113 (Story 9.15): version 2 of the narration templates with the hints, the follow-up
+    # questions (stored once) and their closures.
+    versions = "SELECT version, body FROM content_records WHERE kind = 'narration_templates'"
+    found_versions = dict(rows(url, versions + " ORDER BY version"))
+    assert sorted(found_versions) == [1, 2]
+    assert "hint-row" in [t["id"] for t in found_versions[2]["templates"]]
+    assert {"question", "outcome", "answer", "llm_call_id", "fact_set_id"} <= columns(
+        url, "debrief_follow_ups"
+    )
+    assert function_names(url, "debrief_follow_ups_immutable")
+    command.downgrade(cfg, "0112")
+    assert FOLLOW_UP_TABLES.isdisjoint(tables(url))
+    assert not function_names(url, "debrief_follow_ups_immutable")
+
+    # 0112 (Story 9.14): the narration templates, the AI-text switch and the stored AI texts.
+    assert "debrief_ai_text" in columns(url, "class_sessions")
+    found = "SELECT body FROM content_records WHERE kind = 'narration_templates'"
+    [(narration,)] = rows(url, found)
+    assert "narration-orders" in [t["id"] for t in narration["templates"]]
+
+    command.downgrade(cfg, "0111")
+    assert NARRATION_TABLES.isdisjoint(tables(url))
+    assert not function_names(url, "debrief_ai_texts_immutable")
+    assert "debrief_ai_text" not in columns(url, "class_sessions")
+    assert "narration_templates" not in definition(url, "ck_content_records_kind")
+    gone = "SELECT count(*) FROM content_records WHERE kind = 'narration_templates'"
+    assert rows(url, gone) == [(0,)]
+    command.downgrade(cfg, "0110")
+    assert ALONE_TABLES.isdisjoint(tables(url))
+    assert "last_seen_at" not in columns(url, "debrief_members")
+    assert "fallback_at" not in columns(url, "debrief_sessions")
+    command.downgrade(cfg, "0109")
+    assert GROUP_TABLES.isdisjoint(tables(url))
+    assert "shared" not in columns(url, "debrief_sessions")
+    command.downgrade(cfg, "0108")
+    assert EXCLUSION_TABLES.isdisjoint(tables(url))
+    command.downgrade(cfg, "0107")
+    assert QUIZ_TABLES.isdisjoint(tables(url))
+    assert not function_names(url, "quiz_attempts_immutable")
+    assert "debrief_quiz" not in definition(url, "ck_content_records_kind")
+    assert rows(url, "SELECT count(*) FROM content_records WHERE kind = 'debrief_quiz'") == [(0,)]
+    command.downgrade(cfg, "0106")
+    assert SUMMARY_TABLES.isdisjoint(tables(url))
+    assert not function_names(url, "debrief_summaries_immutable")
+    command.downgrade(cfg, "0105")
+    assert MOMENT_TABLES.isdisjoint(tables(url))
+    assert not function_names(url, "debrief_fact_sets_immutable")
+    assert "moment_templates" not in definition(url, "ck_content_records_kind")
+    gone = "SELECT count(*) FROM content_records WHERE kind = 'moment_templates'"
+    assert rows(url, gone) == [(0,)]
+    command.downgrade(cfg, "0104")
+    assert REFLECTION_TABLES.isdisjoint(tables(url))
+    assert not function_names(url, "debrief_reflection_answers_immutable")
+    assert "reflection_questions" not in definition(url, "ck_content_records_kind")
+    left = "SELECT count(*) FROM content_records WHERE kind = 'reflection_questions'"
+    assert rows(url, left) == [(0,)]
+    command.downgrade(cfg, "0103")
+    assert rows(url, "SELECT count(*) FROM content_records WHERE kind = 'sentence_templates'") == [
+        (0,)
+    ]
+    assert "sentence_templates" not in definition(url, "ck_content_records_kind")
+    command.downgrade(cfg, "0102")
+    assert EXPLANATION_TABLES.isdisjoint(tables(url))
+    assert not function_names(url, "debrief_explanations_immutable")
+    command.downgrade(cfg, "0101")
+    assert DEBRIEF_TABLES.isdisjoint(tables(url))
+    assert "debrief_release" not in columns(url, "class_sessions")
+    command.downgrade(cfg, "0052")
+    assert FACT_SET_TABLES.isdisjoint(tables(url))
+    assert not function_names(url, "fact_sets_immutable")
+    assert rows(url, "SELECT DISTINCT kind FROM content_records") == [("starting_task",)]
+    assert "detected_patterns" not in definition(url, "ck_content_records_kind")
     command.downgrade(cfg, "0051")
     assert MESSAGE_TABLES.isdisjoint(tables(url))
     command.downgrade(cfg, "0050")
-    assert SUMMARY_TABLES.isdisjoint(tables(url))
+    assert GAME_SUMMARY_TABLES.isdisjoint(tables(url))
     command.downgrade(cfg, "0049")
     assert "= (game_number IS NULL)" in definition(url, "ck_games_class_session")
     command.downgrade(cfg, "0048")

@@ -4,7 +4,9 @@ Used with no provider key in `local`, `test` and `ci`, never in `production`. It
 the caller's mock answer (for a player Order, the stored Rule-based reference Order) as JSON,
 or else with a fixed answer built from the output schema, so the same inputs always give the
 same output. Tests script misbehaviour with `script(...)`: each step is used by one attempt;
-`outage()` makes every attempt fail until it ends.
+`outage()` makes every attempt fail until it ends; `outage_here()` (Story 9.15) only the attempts
+made in the calling task, so the local dev narration's outage never fails a Student's follow-up
+answered at the same time by the same api process.
 """
 
 import asyncio
@@ -12,6 +14,7 @@ import json
 from collections import deque
 from collections.abc import Iterator
 from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import Any
 
 from pydantic import BaseModel
@@ -32,6 +35,8 @@ again without using up an attempt)."""
 _steps: deque[str] = deque()
 _down = False
 """Set by `outage()`: every attempt fails as a provider error."""
+_down_here: ContextVar[bool] = ContextVar("mock_down_here", default=False)
+"""Set by `outage_here()`: every attempt of this task (and the tasks it starts) fails."""
 
 last_model_settings: dict[str, Any] | None = None
 """The model settings (seed, temperature) the last mock attempt received, for tests."""
@@ -60,6 +65,16 @@ def outage() -> Iterator[None]:
         yield
     finally:
         _down = before
+
+
+@contextmanager
+def outage_here() -> Iterator[None]:
+    """As `outage()`, for the attempts made in the calling task only."""
+    token = _down_here.set(True)
+    try:
+        yield
+    finally:
+        _down_here.reset(token)
 
 
 def _resolve(schema: dict[str, Any], node: dict[str, Any]) -> dict[str, Any]:
@@ -118,7 +133,7 @@ def model(mock_answer: Any, output_schema: type[BaseModel], model_name: str) -> 
     async def respond(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
         global last_model_settings
         last_model_settings = dict(info.model_settings or {})
-        step = ERROR if _down else _steps.popleft() if _steps else None
+        step = ERROR if _down or _down_here.get() else _steps.popleft() if _steps else None
         if step == TIMEOUT:
             await asyncio.Event().wait()  # never set: only the gateway's timeout ends it
         if step == ERROR:

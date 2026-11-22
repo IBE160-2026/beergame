@@ -1,6 +1,7 @@
 import type { StegeneItem } from "@/components/stegene";
 import { nb } from "@/copy/nb";
 import { formatNumber } from "@/lib/number-format";
+import { DEBRIEF_PATH } from "@/modules/identity/homes";
 import type { EnrolledSession } from "@/modules/sessions/api";
 import { osloDayAndTime } from "@/modules/sessions/dates";
 import { roleName } from "@/modules/sessions/sessions";
@@ -28,14 +29,36 @@ export function holderText(seat: TableSeat): string {
 }
 
 /** Stegene's items in words, from the states the api computed (AD-10): the web app decides
- * nothing about which step is open. */
-export function stepItems(steps: EnrolledSession["steps"]): StegeneItem[] {
-  return (steps ?? []).map(({ step, state }) => ({
+ * nothing about which step is open. A Debrief step held until every Class game has finished says
+ * so (Story 9.2); the current Debrief step leads to the Debrief of `sessionId`, the current Quiz
+ * step to its step 5, the Debrief quiz (Story 9.9), and says when the Faglærer has changed the quiz
+ * (Story 9.10). A current Debrief step says when a Group debrief the Student can join is under way
+ * (Story 9.11); its link is the way in. */
+export function stepItems(steps: EnrolledSession["steps"], sessionId?: string): StegeneItem[] {
+  return (steps ?? []).map(({ step, state, held, quiz_changed, group_open }) => ({
     key: step,
     name: copy.stepNames[step],
     state,
-    note: state === "current" ? copy.current : state === "done" ? copy.done : copy.locked[step],
+    note:
+      state === "current"
+        ? quiz_changed && step === "quiz"
+          ? copy.quizChanged
+          : group_open && step === "debrief"
+            ? copy.groupOpen
+            : copy.current
+        : state === "done"
+          ? copy.done
+          : held && step === "debrief"
+            ? copy.held.debrief
+            : copy.locked[step],
+    href: state === "current" && sessionId ? stepHref(step, sessionId) : undefined,
   }));
+}
+
+function stepHref(step: EnrolledSession["steps"][number]["step"], sessionId: string): string | undefined {
+  if (step === "debrief") return DEBRIEF_PATH(sessionId);
+  if (step === "quiz") return `${DEBRIEF_PATH(sessionId)}#debrief-quiz`;
+  return undefined;
 }
 
 const DATE_OF = {

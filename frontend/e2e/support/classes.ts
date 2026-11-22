@@ -53,6 +53,9 @@ export async function freshLecturerWithAddress(
   browser: Browser,
   text200 = false,
 ): Promise<{ page: Page; address: string }> {
+  // One mail through the worker: on a loaded machine its queue can hold it for most of the
+  // default 30 s, so the test gets at least 90 s (the Epic 9 close-out saw it time out).
+  test.info().setTimeout(Math.max(test.info().timeout, 90_000));
   const { session, address } = await invitedLecturer(browser, test.info().project.use.baseURL);
   const viewport = page.viewportSize();
   const own = await lecturerPage(browser, session, { width: viewport!.width, height: viewport!.height, text200 });

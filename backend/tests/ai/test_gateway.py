@@ -343,7 +343,11 @@ async def test_a_call_stops_when_its_attempts_spend_the_budget(ai_db, template):
 
 async def test_free_text_is_scrubbed_before_it_is_sent_or_stored(ai_db, template, monkeypatch):
     scope = await scope_for()
-    monkeypatch.setattr(pii, "terms", lambda scope: ["Ola Nordmann"])
+
+    async def terms(scope):
+        return ["Ola Nordmann"]
+
+    monkeypatch.setattr(pii, "terms", terms)
     note = "ola nordmann asked for more"
     with mock.script('{"order": 3} Ola Nordmann'):
         await call(scope, inputs(values={"stock": 1, "note": note}))
