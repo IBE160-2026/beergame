@@ -3324,3 +3324,22 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den vis
 
 ### Åpne punkter
 - Issue #207: beslutninger og sømmen mot Epic 12.
+
+## Story 11.5: Svar på interaktive oppgaver med tabell og tall (spor 2)
+
+### Oppgave
+Bygge Story 11.5 på `epic-11` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den visuelle kontrollen gjøres i avslutningen av Epic 11.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-11-5-answer-table-and-number-interactive-items.md`.
+- Commit: b077c4e. Migrasjon 0124 (spørsmålssett v2).
+- Tabelloppgaver med tastaturtabell (`ValueTable`) og talloppgaver, kodede kriterier (celle, balanse, flyt) og ren poengfunksjon `score_interactive`.
+- Tester: backend 3272, Vitest 1069, tsc, `lint:colours`, `check:copy`, bygg, Playwright 113 med axe og 200 % tekst.
+- Gjennomgang: 40 funn, 10 rettet.
+- Status: done.
+
+### Åpne punkter
+- Issue #208: beslutninger; oppgavene er plassholdere til Issue #16.
