@@ -1,4 +1,5 @@
-"""What the Replay walkthrough answers (Story 10.7, FR-50, AD-7, AD-10).
+"""What the Replay walkthrough answers (Story 10.7, FR-50, AD-7, AD-10), and the another-round
+question after it (Story 10.8).
 
 Numbers and code-rendered text only; the web app computes nothing. `pending` carries no data:
 the page shows «Gjennomgangen lages.» until the line is worded or the wait limit has passed."""
@@ -7,7 +8,7 @@ import uuid
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, StrictBool
 
 from app.engine import Role
 
@@ -90,3 +91,20 @@ class ReplayWalkthroughOut(BaseModel):
     of own Orders, and at least three Replay moments."""
     moments: list[WalkthroughMomentOut] = []
     narration: WalkthroughTextOut | None = None
+
+
+class AnotherRoundOut(BaseModel):
+    """Whether the Student would have wanted to play another round (Story 10.8, FR-50, SM-10):
+    their own answer, None until they give one. Never anyone else's."""
+
+    model_config = _FROZEN
+
+    answer: bool | None
+
+
+class AnotherRoundIn(BaseModel):
+    """«Send svar» on «Ville du spilt en runde til?»: yes or no."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    answer: StrictBool

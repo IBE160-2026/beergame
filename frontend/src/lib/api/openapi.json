@@ -445,6 +445,42 @@
         "title": "AllocationStudentOut",
         "type": "object"
       },
+      "AnotherRoundIn": {
+        "additionalProperties": false,
+        "description": "«Send svar» on «Ville du spilt en runde til?»: yes or no.",
+        "properties": {
+          "answer": {
+            "title": "Answer",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "answer"
+        ],
+        "title": "AnotherRoundIn",
+        "type": "object"
+      },
+      "AnotherRoundOut": {
+        "description": "Whether the Student would have wanted to play another round (Story 10.8, FR-50, SM-10):\ntheir own answer, None until they give one. Never anyone else's.",
+        "properties": {
+          "answer": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answer"
+          }
+        },
+        "required": [
+          "answer"
+        ],
+        "title": "AnotherRoundOut",
+        "type": "object"
+      },
       "AnswerIn": {
         "additionalProperties": false,
         "properties": {
@@ -641,6 +677,51 @@
           "label"
         ],
         "title": "AuditTarget",
+        "type": "object"
+      },
+      "Believability": {
+        "description": "The believability question of one Game for the Student who reads it (Story 10.8, FR-70):\nwhether they are asked, and their own answer once given. Never anyone else's.",
+        "properties": {
+          "offered": {
+            "title": "Offered",
+            "type": "boolean"
+          },
+          "rating": {
+            "anyOf": [
+              {
+                "maximum": 5.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rating"
+          }
+        },
+        "required": [
+          "offered",
+          "rating"
+        ],
+        "title": "Believability",
+        "type": "object"
+      },
+      "BelievabilityIn": {
+        "additionalProperties": false,
+        "description": "«Send svar» on the believability question: 1 (not believable) to 5 (very believable).",
+        "properties": {
+          "rating": {
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Rating",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "rating"
+        ],
+        "title": "BelievabilityIn",
         "type": "object"
       },
       "BillOut": {
@@ -16922,6 +17003,304 @@
           }
         },
         "summary": "Get My Game",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/me/games/{game_id}/another-round": {
+      "get": {
+        "description": "«Ville du spilt en runde til?» after the Replay-gjennomgang (Story 10.8, FR-50): the\nStudent's own answer, null until given. 409 `replay_closed` or `replay_not_finished`; 403\n`forbidden` for any Game that is not the User's own Replay (FR-5, AD-12).",
+        "operationId": "getMyAnotherRound",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnotherRoundOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get My Another Round",
+        "tags": [
+          "replay"
+        ]
+      },
+      "post": {
+        "description": "«Send svar» on «Ville du spilt en runde til?» (Story 10.8, FR-50, SM-10): stored once per\nStudent and Class session. 409 `already_answered` (the first answer stands), `replay_closed`\nor `replay_not_finished`; 403 `forbidden` for any Game that is not the User's own Replay.",
+        "operationId": "answerMyAnotherRound",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnotherRoundIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnotherRoundOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Answer My Another Round",
+        "tags": [
+          "replay"
+        ]
+      }
+    },
+    "/api/me/games/{game_id}/believability": {
+      "get": {
+        "description": "The believability question of the Student's own game (Story 10.8, FR-70): `offered` once\na Class game with an AI-held Seat, or a Replay, has finished (never a Game closed at the Test\ndeadline), and the Student's own answer. Only the Student who gave an answer reads it; any\nother game answers 403 `forbidden` (FR-5, AD-12).",
+        "operationId": "getMyBelievability",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Believability"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get My Believability",
+        "tags": [
+          "sessions"
+        ]
+      },
+      "post": {
+        "description": "«Send svar» on how believable the AI players' ordering felt (Story 10.8, FR-70, AD-15):\nstored once per Student and Game with the Game's purpose and AI mode. 409 `already_answered`\n(the first answer stands) or `not_offered`; 422 outside 1 to 5. Any other game answers 403\n`forbidden` (FR-5).",
+        "operationId": "rateMyBelievability",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BelievabilityIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Believability"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Rate My Believability",
         "tags": [
           "sessions"
         ]

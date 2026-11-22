@@ -62,3 +62,15 @@ game, against three AI players, under the Class session's Replay scenario.
   answer is `pending` with `retry_after_seconds`; after it the code line shows unmarked. No sweep
   re-enqueues a lost job: the wait limit covers it. Production setup of a model config:
   `python -m app.ai.cli config edit <id> --prompt replay_walkthrough=1`, then measure and pin.
+
+## The questions after the walkthrough (Story 10.8)
+
+- `GET`/`POST /api/me/games/{game_id}/another-round` (`replay.questions`): «Ville du spilt en runde
+  til?», `{answer: bool | null}`, stored once per Student and Class session in
+  `replay_another_round` (201; a second answer `409 already_answered`, the first stands). Only the
+  Replay's own Student (403 `forbidden` for anyone else); `409 replay_closed` and
+  `replay_not_finished` as the walkthrough. No event, no name, no staff reader (Epic 14 reports).
+- The believability question beside it is stored by `games` (`games.service.rate_believability`,
+  table `believability_ratings`) and served from `sessions/routes.py` (`GET`/`POST
+  /api/me/games/{id}/believability`, own game through `_own_locked_game`): a finished Replay
+  always asks it.

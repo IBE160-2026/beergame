@@ -10,7 +10,14 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StrictInt
 
 from app.engine import GameSettings, ReplayTemplate
 from app.engine.settings import Role
-from app.modules.games.service import GameResult, GameStatus, Lifecycle, SeatMark, SeatState
+from app.modules.games.service import (
+    Believability,
+    GameResult,
+    GameStatus,
+    Lifecycle,
+    SeatMark,
+    SeatState,
+)
 
 
 class AiMode(StrEnum):
@@ -496,6 +503,18 @@ class PlayTurnOut(BaseModel):
 GameResultOut = GameResult
 """«Spillet er ferdig» (Story 6.18): the finished game's cost per Role (Detaljist to Fabrikk),
 the chain's, and the chain's running cost per Uke. Roles, never names; no demand."""
+
+BelievabilityOut = Believability
+"""The believability question of the Student's own game (Story 10.8, FR-70): whether they are
+asked and their own answer, never anyone else's."""
+
+
+class BelievabilityIn(BaseModel):
+    """«Send svar» on the believability question: 1 (not believable) to 5 (very believable)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rating: StrictInt = Field(ge=1, le=5)
 
 
 class ProposalPersonOut(BaseModel):

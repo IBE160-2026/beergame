@@ -2194,6 +2194,64 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/games/{game_id}/another-round": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Another Round
+         * @description «Ville du spilt en runde til?» after the Replay-gjennomgang (Story 10.8, FR-50): the
+         *     Student's own answer, null until given. 409 `replay_closed` or `replay_not_finished`; 403
+         *     `forbidden` for any Game that is not the User's own Replay (FR-5, AD-12).
+         */
+        get: operations["getMyAnotherRound"];
+        put?: never;
+        /**
+         * Answer My Another Round
+         * @description «Send svar» on «Ville du spilt en runde til?» (Story 10.8, FR-50, SM-10): stored once per
+         *     Student and Class session. 409 `already_answered` (the first answer stands), `replay_closed`
+         *     or `replay_not_finished`; 403 `forbidden` for any Game that is not the User's own Replay.
+         */
+        post: operations["answerMyAnotherRound"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/games/{game_id}/believability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Believability
+         * @description The believability question of the Student's own game (Story 10.8, FR-70): `offered` once
+         *     a Class game with an AI-held Seat, or a Replay, has finished (never a Game closed at the Test
+         *     deadline), and the Student's own answer. Only the Student who gave an answer reads it; any
+         *     other game answers 403 `forbidden` (FR-5, AD-12).
+         */
+        get: operations["getMyBelievability"];
+        put?: never;
+        /**
+         * Rate My Believability
+         * @description «Send svar» on how believable the AI players' ordering felt (Story 10.8, FR-70, AD-15):
+         *     stored once per Student and Game with the Game's purpose and AI mode. 409 `already_answered`
+         *     (the first answer stands) or `not_offered`; 422 outside 1 to 5. Any other game answers 403
+         *     `forbidden` (FR-5).
+         */
+        post: operations["rateMyBelievability"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me/games/{game_id}/play": {
         parameters: {
             query?: never;
@@ -2696,6 +2754,23 @@ export interface components {
              */
             user_id: string;
         };
+        /**
+         * AnotherRoundIn
+         * @description «Send svar» on «Ville du spilt en runde til?»: yes or no.
+         */
+        AnotherRoundIn: {
+            /** Answer */
+            answer: boolean;
+        };
+        /**
+         * AnotherRoundOut
+         * @description Whether the Student would have wanted to play another round (Story 10.8, FR-50, SM-10):
+         *     their own answer, None until they give one. Never anyone else's.
+         */
+        AnotherRoundOut: {
+            /** Answer */
+            answer: boolean | null;
+        };
         /** AnswerIn */
         AnswerIn: {
             /** Answer */
@@ -2769,6 +2844,25 @@ export interface components {
             key: string;
             /** Label */
             label: string | null;
+        };
+        /**
+         * Believability
+         * @description The believability question of one Game for the Student who reads it (Story 10.8, FR-70):
+         *     whether they are asked, and their own answer once given. Never anyone else's.
+         */
+        Believability: {
+            /** Offered */
+            offered: boolean;
+            /** Rating */
+            rating: number | null;
+        };
+        /**
+         * BelievabilityIn
+         * @description «Send svar» on the believability question: 1 (not believable) to 5 (very believable).
+         */
+        BelievabilityIn: {
+            /** Rating */
+            rating: number;
         };
         /**
          * BillOut
@@ -12236,6 +12330,237 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getMyAnotherRound: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnotherRoundOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    answerMyAnotherRound: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnotherRoundIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnotherRoundOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getMyBelievability: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Believability"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rateMyBelievability: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BelievabilityIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Believability"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

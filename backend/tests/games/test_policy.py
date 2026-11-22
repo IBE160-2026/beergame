@@ -134,3 +134,14 @@ def test_only_the_replay_is_closed_at_the_test_deadline_and_never_played_out():
     assert not set(purposes_with("closes_at_test_deadline")) & set(
         purposes_with("play_deadline_playout")
     )
+
+
+def test_students_rate_the_ai_players_of_class_games_with_one_and_of_every_replay():
+    """Story 10.8 (FR-70, AD-13): a Class game asks when an AI player held some Seat, the Replay
+    always (three AI players); a Lecturer's test Game and a simulation never."""
+    assert {purpose.value: row.believability for purpose, row in POLICIES.items()} == {
+        "simulation": "never",
+        "class": "ai_held",
+        "lecturer_test": "never",
+        "replay": "always",
+    }

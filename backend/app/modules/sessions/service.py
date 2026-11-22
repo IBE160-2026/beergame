@@ -1981,6 +1981,39 @@ async def student_result_of(user: authz.Principal, game_id: str) -> GameResultOu
     return result
 
 
+BelievabilityRefused = games_service.BelievabilityRefused
+
+
+async def _own_game_id(user: authz.Principal, game_id: str) -> uuid.UUID | None:
+    async with get_sessionmaker()() as s:
+        own = await _own_locked_game(s, user, game_id)
+    return None if own is None else own[0].game_id
+
+
+async def student_believability_of(
+    user: authz.Principal, game_id: str
+) -> games_service.Believability | None:
+    """The believability question of the Student's own game (Story 10.8, FR-70), under
+    `student_game_of`'s checks (None for every other id alike): whether they are asked and their
+    own answer. Only ever the reader's own answer."""
+    own = await _own_game_id(user, game_id)
+    if own is None:
+        return None
+    return await games_service.believability(own, user.id)
+
+
+async def rate_own_believability(
+    user: authz.Principal, game_id: str, rating: int
+) -> games_service.Believability | None:
+    """Store the Student's believability answer for their own game once (Story 10.8, FR-70),
+    under `student_game_of`'s checks (None for every other id alike). Raises
+    `games_service.BelievabilityRefused` (`not_offered`, `already_answered`)."""
+    own = await _own_game_id(user, game_id)
+    if own is None:
+        return None
+    return await games_service.rate_believability(own, user.id, rating)
+
+
 class ViewRefused(Exception):
     """A view of a Guided Week the api refuses (Story 6.10), with the command's code:
     `week_not_open`, `week_not_guided`, `game_not_started`, `game_finished`, `seat_not_student`

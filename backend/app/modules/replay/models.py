@@ -1,4 +1,4 @@
-"""The tables owned by `modules/replay` (Stories 10.3 and 10.7, FR-48, FR-50).
+"""The tables owned by `modules/replay` (Stories 10.3, 10.7 and 10.8, FR-48, FR-50).
 
 `replays` names each Student's one Replay in a Class session: the `replay` Game made for them.
 The Game itself, its Seats and its Weeks are `games` tables, written only by `games.commands`.
@@ -88,4 +88,21 @@ replay_walkthroughs = Table(
         "narration_ai_generated = (narration_llm_call_id IS NOT NULL)",
         name="ck_replay_walkthroughs_marking",
     ),
+)
+
+replay_another_round = Table(
+    "replay_another_round",
+    metadata,
+    # Story 10.8 (FR-50, SM-10): whether the Student would have wanted to play another round,
+    # asked after their Replay-gjennomgang; one answer per Student and Class session, written once
+    # (a trigger refuses updates). No name; only the Student who gave it reads it back.
+    Column("user_id", Uuid, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column(
+        "class_session_id",
+        Uuid,
+        ForeignKey("class_sessions.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column("answer", Boolean, nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
 )

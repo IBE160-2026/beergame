@@ -1,5 +1,6 @@
 """The Student's Replay (Story 10.3, FR-48): `POST /api/me/class-sessions/{session_id}/replay`;
-its walkthrough (Story 10.7, FR-50): `GET /api/me/games/{game_id}/walkthrough`.
+its walkthrough (Story 10.7, FR-50): `GET /api/me/games/{game_id}/walkthrough`; the
+another-round question after it (Story 10.8): `GET`/`POST /api/me/games/{game_id}/another-round`.
 
 A Class session that is not one of the User's own locked sessions, one that does not exist and an
 id that is not one all answer the same 403 `forbidden` (FR-5); so does a Game that is not the
@@ -13,8 +14,8 @@ from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 
 from app.modules.games import service as games_service
-from app.modules.replay import service, walkthrough
-from app.modules.replay.schemas import ReplayWalkthroughOut
+from app.modules.replay import questions, service, walkthrough
+from app.modules.replay.schemas import AnotherRoundIn, AnotherRoundOut, ReplayWalkthroughOut
 from app.platform import authz
 from app.platform.errors import documented, error_response
 
@@ -95,3 +96,51 @@ async def get_my_replay_walkthrough(
     if found is None:
         raise authz.Forbidden
     return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.get(
+    "/me/games/{game_id}/another-round",
+    response_model=AnotherRoundOut,
+    responses=documented(401, 403, 409),
+    operation_id="getMyAnotherRound",
+)
+async def get_my_another_round(
+    game_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("games.read_own"))],
+) -> Response:
+    """«Ville du spilt en runde til?» after the Replay-gjennomgang (Story 10.8, FR-50): the
+    Student's own answer, null until given. 409 `replay_closed` or `replay_not_finished`; 403
+    `forbidden` for any Game that is not the User's own Replay (FR-5, AD-12)."""
+    try:
+        found = await questions.another_round(user, game_id)
+    except walkthrough.Unavailable as refused:
+        return error_response(409, refused.code, UNAVAILABLE[refused.code])
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.post(
+    "/me/games/{game_id}/another-round",
+    status_code=201,
+    response_model=AnotherRoundOut,
+    responses=documented(401, 403, 409, 422),
+    operation_id="answerMyAnotherRound",
+)
+async def answer_my_another_round(
+    game_id: str,
+    body: AnotherRoundIn,
+    user: Annotated[authz.Principal, Depends(authz.require("games.read_own"))],
+) -> Response:
+    """«Send svar» on «Ville du spilt en runde til?» (Story 10.8, FR-50, SM-10): stored once per
+    Student and Class session. 409 `already_answered` (the first answer stands), `replay_closed`
+    or `replay_not_finished`; 403 `forbidden` for any Game that is not the User's own Replay."""
+    try:
+        found = await questions.answer_another_round(user, game_id, body.answer)
+    except walkthrough.Unavailable as refused:
+        return error_response(409, refused.code, UNAVAILABLE[refused.code])
+    except questions.AlreadyAnswered:
+        return error_response(409, "already_answered", "You have answered already.")
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"), status_code=201)

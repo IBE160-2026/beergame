@@ -33,6 +33,8 @@ from app.modules.sessions.schemas import (
     AllocationConfirmIn,
     AllocationMoveIn,
     AllocationOut,
+    BelievabilityIn,
+    BelievabilityOut,
     ClassOverviewOut,
     ClassSessionListOut,
     ClassSessionOut,
@@ -861,6 +863,57 @@ async def get_my_game_result(
     if found is None:
         raise authz.Forbidden
     return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.get(
+    "/me/games/{game_id}/believability",
+    response_model=BelievabilityOut,
+    responses=documented(401, 403),
+    operation_id="getMyBelievability",
+)
+async def get_my_believability(
+    game_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("games.read_own"))],
+) -> Response:
+    """The believability question of the Student's own game (Story 10.8, FR-70): `offered` once
+    a Class game with an AI-held Seat, or a Replay, has finished (never a Game closed at the Test
+    deadline), and the Student's own answer. Only the Student who gave an answer reads it; any
+    other game answers 403 `forbidden` (FR-5, AD-12)."""
+    found = await service.student_believability_of(user, game_id)
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+BELIEVABILITY_REFUSED = {
+    "not_offered": "This game does not ask how believable the AI players were.",
+    "already_answered": "You have answered already.",
+}
+
+
+@router.post(
+    "/me/games/{game_id}/believability",
+    status_code=201,
+    response_model=BelievabilityOut,
+    responses=documented(401, 403, 409, 422),
+    operation_id="rateMyBelievability",
+)
+async def rate_my_believability(
+    game_id: str,
+    body: BelievabilityIn,
+    user: Annotated[authz.Principal, Depends(authz.require("games.read_own"))],
+) -> Response:
+    """«Send svar» on how believable the AI players' ordering felt (Story 10.8, FR-70, AD-15):
+    stored once per Student and Game with the Game's purpose and AI mode. 409 `already_answered`
+    (the first answer stands) or `not_offered`; 422 outside 1 to 5. Any other game answers 403
+    `forbidden` (FR-5)."""
+    try:
+        found = await service.rate_own_believability(user, game_id, body.rating)
+    except service.BelievabilityRefused as refused:
+        return error_response(409, refused.code, BELIEVABILITY_REFUSED[refused.code])
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"), status_code=201)
 
 
 @router.post(

@@ -14,6 +14,7 @@ import { classSessionPath, DEBRIEF_PATH, HOME_PATH } from "@/modules/identity/ho
 import { classSessionKey } from "@/modules/sessions/api";
 
 import type { GameResult, MyGame } from "./api";
+import { BelievabilityBlock } from "./believability";
 import { roleGameText } from "./home";
 import { gameEnd } from "./result";
 
@@ -53,7 +54,8 @@ export function GameEndHeading({ game }: { game: MyGame }) {
  * Game (Story 6.20) has no Debrief: its button leads back to the Klasseøkt instead, and the heading
  * reads «Testspill». While the Faglærer holds the Debriefs until every Class game has finished
  * (`debrief: "held"`, Story 9.2) the button gives way to that line and a Lenke to Hjem, where
- * Stegene says the same; the release's `user` event brings the button back without reload.
+ * Stegene says the same; the release's `user` event brings the button back without reload. Below
+ * it, once, the optional believability question when an AI player held a Seat (Story 10.8).
  */
 export function GameEnd({ game, result, note }: { game: MyGame; result: GameResult; note?: ReactNode }) {
   const model = gameEnd(result, game.role);
@@ -99,6 +101,8 @@ export function GameEnd({ game, result, note }: { game: MyGame; result: GameResu
           )}
         </div>
       )}
+      {/* Story 10.8 (FR-70): once, below «Gå til Debrief», when an AI player held a Seat. */}
+      {game.test_game ? null : <BelievabilityBlock gameId={game.id} titled />}
     </div>
   );
 }

@@ -74,6 +74,23 @@ const PENDING = { game_id: GAME_ID, role: "wholesaler", state: "pending", retry_
 
 async function open(page: Page, answers: object[], status = 200) {
   await loginByApi(page, "student");
+  // Story 10.8: the two optional questions, as a finished Replay asks them; answers are stored.
+  let rating: number | null = null;
+  let round: boolean | null = null;
+  await page.route(`**/api/me/games/${GAME_ID}/believability`, (route) => {
+    if (route.request().method() === "POST") {
+      rating = (route.request().postDataJSON() as { rating: number }).rating;
+      return route.fulfill({ status: 201, json: { offered: true, rating } });
+    }
+    return route.fulfill({ json: { offered: true, rating } });
+  });
+  await page.route(`**/api/me/games/${GAME_ID}/another-round`, (route) => {
+    if (route.request().method() === "POST") {
+      round = (route.request().postDataJSON() as { answer: boolean }).answer;
+      return route.fulfill({ status: 201, json: { answer: round } });
+    }
+    return route.fulfill({ json: { answer: round } });
+  });
   let calls = 0;
   await page.route(`**/api/me/games/${GAME_ID}/walkthrough`, (route) => {
     const json = answers[Math.min(calls, answers.length - 1)]!;
@@ -100,6 +117,7 @@ for (const vp of VIEWPORTS) {
       await expect(main.locator("[data-walkthrough-pending] [data-skeleton]")).toBeVisible();
       await expect(main.locator("[data-walkthrough-total]")).toHaveCount(0);
       await expect(main.locator("svg")).toHaveCount(0);
+      await expect(main.locator("[data-replay-questions]")).toHaveCount(0);
       await expectAccessible(page, vp.phone);
       await expectReflow(page, vp.phone);
     });
@@ -123,6 +141,10 @@ for (const vp of VIEWPORTS) {
       await expect(narration).toContainText(nb.debrief.aiNote);
       await expect(main.locator("[data-walkthrough-moment]")).toHaveCount(2);
       await expect(main.getByRole("button", { name: /bedre|best/i })).toHaveCount(0);
+      // Story 10.8: two optional questions follow the walkthrough.
+      const questions = main.getByRole("region", { name: nb.replay.questions.title });
+      await expect(questions.getByRole("group", { name: nb.believability.legend }).getByRole("radio")).toHaveCount(5);
+      await expect(questions.getByRole("group", { name: nb.replay.questions.anotherRound }).getByRole("radio")).toHaveCount(2);
       await expectAccessible(page, vp.phone);
       await expectReflow(page, vp.phone);
     });
@@ -148,6 +170,25 @@ test("the pending page reads again after the api's wait and shows the walkthroug
   await expect(main.getByText(copy.pending)).toBeVisible();
   await expect(main.locator("[data-walkthrough-ready]")).toBeVisible({ timeout: 5000 });
   expect(calls()).toBeGreaterThanOrEqual(2);
+});
+
+test("both optional questions are answered, by keyboard and by pointer, each once", async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 740 });
+  await open(page, [ready(false)]);
+  const questions = page.getByRole("main").getByRole("region", { name: nb.replay.questions.title });
+  const scale = questions.getByRole("group", { name: nb.believability.legend });
+  await scale.getByRole("radio", { name: "5", exact: true }).focus();
+  await page.keyboard.press("Space");
+  await expect(scale.getByRole("radio", { name: "5", exact: true })).toHaveAccessibleDescription(nb.believability.high);
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Enter");
+  await expect(questions.locator("[data-believability-saved]")).toHaveText(nb.believability.saved(5));
+  const round = questions.getByRole("group", { name: nb.replay.questions.anotherRound });
+  await round.getByRole("radio", { name: nb.replay.questions.no }).check();
+  await questions.getByRole("button", { name: nb.replay.questions.send }).click();
+  await expect(questions.locator("[data-another-round-saved]")).toHaveText(nb.replay.questions.saved(false));
+  await expect(questions.getByRole("radio")).toHaveCount(0);
+  await expectAccessible(page, true);
 });
 
 test("«Vis som tabell» swaps the chart for every Uke of both runs, and back", async ({ page }) => {

@@ -33,7 +33,9 @@ from app.modules.games.insight import (
 )
 from app.modules.games.marks import seat_mark
 from app.modules.games.policy import GamePolicy, PurposeNotSupportedError, policy, purposes_with
+from app.modules.games.ratings import BelievabilityRefused, believability, rate_believability
 from app.modules.games.schemas import (
+    Believability,
     DecidedBy,
     DecisionLogRow,
     EndReason,
@@ -73,6 +75,10 @@ from app.modules.games.views import (
 from app.platform.db import get_sessionmaker
 
 __all__ = [
+    "Believability",
+    "BelievabilityRefused",
+    "believability",
+    "rate_believability",
     "GameInsight",
     "InsightLink",
     "InsightLinkProvider",

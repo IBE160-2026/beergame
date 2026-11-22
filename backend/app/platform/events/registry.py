@@ -160,6 +160,10 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # A Student's walkthrough stored at their first ready view (Story 10.7): no event, the
         # viewing page has it and no other reader sees it.
         "replay.record_walkthrough": frozenset(),
+        # A Student's answer after their Replay-gjennomgang (Story 10.8, FR-50): whether they would
+        # have played another round. No event: the page that sent it has it, and no other reader
+        # may see it. (The believability answer is no `games.commands` command and emits none.)
+        "replay.answer_another_round": frozenset(),
     }
 )
 """`<module>.<command>` -> topics. Commands on a Game the Lecturer overview lists will add

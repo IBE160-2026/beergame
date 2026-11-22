@@ -2708,6 +2708,17 @@ export const nb = {
       toReplay: "Til Replay",
       loadFailed: "Gjennomgangen kunne ikke hentes.",
     },
+    /** The two optional questions after the walkthrough (Story 10.8, FR-50, FR-70); the
+     * believability one is `nb.believability`. [ASSUMPTION] draft copy (open-assumptions.md). */
+    questions: {
+      title: "Frivillige spørsmål",
+      anotherRound: "Ville du spilt en runde til?",
+      yes: "Ja",
+      no: "Nei",
+      send: "Send svar",
+      saved: (yes: boolean) => (yes ? "Takk. Du svarte ja." : "Takk. Du svarte nei."),
+      failed: "Svaret ble ikke sendt. Prøv igjen.",
+    },
   },
 
   /** Quizvalg's marks on a scored question (UX-DR37): in text, never by colour alone. The spine's
@@ -2715,6 +2726,22 @@ export const nb = {
   quizChoice: {
     wrong: "Ditt svar, ikke riktig",
     right: "Riktig",
+  },
+
+  /** The believability question (Story 10.8, FR-70, UX-DR76): on «Spillet er ferdig» after a
+   * Class game with an AI player, and after the Replay-gjennomgang. Optional, never blocking; the
+   * answer is never shown to staff beside a name. Every line is [ASSUMPTION] draft copy
+   * (open-assumptions.md). */
+  believability: {
+    title: "Et frivillig spørsmål",
+    legend: "Hvor troverdige var KI-spillernes ordrer?",
+    /** The end points of the five-point scale, in words. */
+    low: "1: ikke troverdige",
+    high: "5: svært troverdige",
+    note: "Frivillig. Faglærerne ser aldri svaret ditt med navnet ditt.",
+    send: "Send svar",
+    saved: (rating: number) => `Takk. Du svarte ${rating} av 5.`,
+    failed: "Svaret ble ikke sendt. Prøv igjen.",
   },
 
   /** The Oversikt of a Class session (Story 7.1, FR-39, UX-DR40). The headline form, «Oppdatert»,

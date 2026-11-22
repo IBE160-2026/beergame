@@ -103,6 +103,8 @@ REPLAY_TABLES = {"replays"}
 """The tables of revision 0116 (Story 10.3)."""
 WALKTHROUGH_TABLES = {"replay_narrations", "replay_walkthroughs"}
 """The tables of revision 0118 (Story 10.7)."""
+RATING_TABLES = {"believability_ratings", "replay_another_round"}
+"""The tables of revision 0119 (Story 10.8)."""
 HEAD_TABLES = (
     PRE_SESSION_TABLES
     | SESSION_TABLES
@@ -125,8 +127,9 @@ HEAD_TABLES = (
     | MESSAGE_TABLES
     | REPLAY_TABLES
     | WALKTHROUGH_TABLES
+    | RATING_TABLES
 )
-HEAD = "0118"  # 0118 stores the Replay walkthrough (Story 10.7)
+HEAD = "0119"  # 0119 stores the answers after the game (Story 10.8)
 
 
 def reset_schema(url: str) -> None:
@@ -315,6 +318,16 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     # 0111 (Story 9.12): presence, the Students who go on alone and the 48-hour fallback.
     assert "last_seen_at" in columns(url, "debrief_members")
     assert {"fallback_due_at", "fallback_at"} <= columns(url, "debrief_sessions")
+
+    # 0119 (Story 10.8): a believability answer per Student and Game (1 to 5), an another-round
+    # answer per Student and Class session, each stored once.
+    assert "<= 5" in definition(url, "ck_believability_ratings_rating")
+    assert {"purpose", "ai_mode", "rating"} <= columns(url, "believability_ratings")
+    assert function_names(url, "believability_ratings_immutable")
+    assert function_names(url, "replay_another_round_immutable")
+    command.downgrade(cfg, "0118")
+    assert RATING_TABLES.isdisjoint(tables(url))
+    assert not function_names(url, "replay_another_round_immutable")
 
     # 0118 (Story 10.7): the Replay walkthrough's line and record, each stored once.
     assert {"replay_fact_set_id", "compared_fact_set_id"} <= columns(url, "replay_walkthroughs")

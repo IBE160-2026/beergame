@@ -620,3 +620,18 @@ class TableStatus(BaseModel):
     due_times: tuple[datetime, ...] = ()
     """The stored AI deadlines of the Seats that have not ordered in the open Week, earliest
     first: when an AI player's Order is due (the only due times before Epic 8)."""
+
+
+BELIEVABILITY_SCALE = (1, 5)
+"""The five-point scale of the believability question (Story 10.8, FR-70): 1 to 5."""
+
+
+class Believability(BaseModel):
+    """The believability question of one Game for the Student who reads it (Story 10.8, FR-70):
+    whether they are asked, and their own answer once given. Never anyone else's."""
+
+    offered: bool
+    """Whether the question is asked: the Game finished (not closed at the Test deadline) and its
+    policy's `believability` holds (an AI player held some Seat, or always)."""
+    rating: Annotated[int, Field(ge=BELIEVABILITY_SCALE[0], le=BELIEVABILITY_SCALE[1])] | None
+    """The Student's own answer, 1 to 5; None until they answer."""

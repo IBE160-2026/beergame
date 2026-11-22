@@ -13,6 +13,7 @@ import { PageLink, PageShell } from "@/modules/identity/page-shell";
 import { roleName } from "@/modules/sessions/sessions";
 
 import { useWalkthrough, type Walkthrough, type WalkthroughMoment, walkthroughKey } from "./api";
+import { ReplayQuestions } from "./questions";
 import { ReplayClosed } from "./replay-closed";
 import { unlikeReasons, walkthroughTotals, walkthroughView } from "./walkthrough";
 import { CHART_LINES, WalkthroughChart } from "./walkthrough-chart";
@@ -31,6 +32,7 @@ const LABEL = "text-label text-ink";
  * after the api's wait. A Class game played mostly by AI players is not set beside it, and the
  * page says why. A Replay closed at the Testfrist keeps Story 10.6's message; anyone else's
  * Replay shows the access-denied page. No ranking or praise (UX-DR72). Every number is the api's.
+ * Once ready, two optional questions follow (Story 10.8): believability and another round.
  */
 export function WalkthroughPage({ gameId }: { gameId: string }) {
   return (
@@ -141,6 +143,8 @@ function Ready({ data }: { data: Walkthrough }) {
         </p>
       )}
       <Moments data={data} />
+      {/* Story 10.8: two optional questions follow the walkthrough once it has shown. */}
+      <ReplayQuestions gameId={data.game_id} />
     </div>
   );
 }
