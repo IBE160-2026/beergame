@@ -195,7 +195,7 @@ development_status:
   epic-10: in-progress
   10-1-get-a-default-replay-scenario-that-differs-per-student: done
   10-2-set-the-replay-scenario-freely: done
-  10-3-start-the-replay-after-passing-the-debrief-quiz: backlog
+  10-3-start-the-replay-after-passing-the-debrief-quiz: in-progress
   10-4-play-the-replay-with-the-projection-line: backlog
   10-5-finish-the-replay-and-unlock-the-next-step: backlog
   10-6-close-unfinished-replays-at-the-test-deadline: backlog
