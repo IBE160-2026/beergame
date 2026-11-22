@@ -33,7 +33,7 @@ from tests.classes.test_roster_upload import clock, klass
 from tests.classes.test_staff import call, put_staff
 from tests.classes.test_student_registration import emitted
 from tests.debrief.test_debrief import LOCKED, finish, home, open_, refused
-from tests.games.helpers import play_week
+from tests.games.helpers import open_turns, play_week
 from tests.messaging.helpers import rows
 from tests.sessions.test_lock import _empty
 from tests.sessions.test_open_games import confirmed
@@ -74,6 +74,18 @@ they get moments."""
 
 async def play_own_week(game_id: str, user: uuid.UUID, order: int) -> None:
     """The open Uke with the Student's own Order (`decided_by = student`), the rest Rule-based."""
+    found = await open_turns(game_id)
+    if found is not None:  # an ordinary Uke, read in one query
+        week, _ = found
+        [(role,)] = rows(
+            "SELECT s.role FROM seats s JOIN seat_occupancy o ON o.seat_id = s.id "
+            "WHERE s.game_id = %s AND o.user_id = %s ORDER BY o.id DESC LIMIT 1",
+            game_id,
+            user,
+        )
+        await game_commands.place_order(game_id, role, week, order, "student", actor=user)
+        await play_week(game_id)
+        return
     game = await games.get_game(game_id)
     seat = next(s for s in game.seats if s.user_id == str(user))
     week = (await games.seat_state(game_id, seat.id)).week
@@ -113,6 +125,7 @@ def holds_no_reveal(body: object, own_role: str) -> None:
     assert not any(role in text for role in others), text
 
 
+@pytest.mark.long
 async def test_step_one_the_one_send_the_gate_and_the_readers(klass, emitted):
     session_id, game_id, debrief, game_of, me = await played(klass)
     role = debrief["role"]

@@ -8,9 +8,16 @@ from typing import Any, Literal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StrictInt
 
-from app.engine import GameSettings
+from app.engine import GameSettings, ReplayTemplate
 from app.engine.settings import Role
-from app.modules.games.service import GameResult, GameStatus, Lifecycle, SeatMark, SeatState
+from app.modules.games.service import (
+    Believability,
+    GameResult,
+    GameStatus,
+    Lifecycle,
+    SeatMark,
+    SeatState,
+)
 
 
 class AiMode(StrEnum):
@@ -86,6 +93,20 @@ class SettingsCheckIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     game_settings: dict[str, Any]
+
+
+ReplayScenario = Literal["default", "own"]
+"""The Replay scenario choice of a Class session (Stories 10.1 and 10.2)."""
+
+
+class ReplayScenarioCheckIn(BaseModel):
+    """A draft of an own Replay scenario to judge without saving (Story 10.2): the editable
+    template fields, as typed. The chain, capacity and Information visibility are the Class
+    session's."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    replay_template: dict[str, Any]
 
 
 class SettingsCheckOut(BaseModel):
@@ -204,6 +225,18 @@ class ClassSessionOut(BaseModel):
     debrief_ai_text: bool
     """Story 9.14: whether the Debrief shows AI text (narration, quiz lines); off, it is
     code-only and no Debrief call reaches the AI gateway."""
+    replay_scenario: ReplayScenario
+    """Stories 10.1 and 10.2 (FR-49): the Replay scenario choice, the default or an own one."""
+    replay_template: ReplayTemplate
+    """The Replay scenario in force: before the lock the own template, or the default derived from
+    the current Game settings; after it the template the lock pinned. Its ranged values are drawn
+    per Student; staff see the ranges, no Student surface shows them."""
+    replay_default: ReplayTemplate
+    """Story 10.2: the default scenario derived from the current Game settings, which the screen
+    describes while the Lecturer switches back to it before saving."""
+    replay_warnings: list[SettingWarning]
+    """Story 10.2 (FR-49): the changes of an own scenario that probably make the Replay easier
+    than the Class game (`replay_*` codes); empty for the default. They never block a save."""
     inactivity_limit_hours: int
     """«Ventetid før KI tar over» in whole hours, never under 20 (Story 5.7, FR-36)."""
     obligatory: bool
@@ -383,6 +416,12 @@ class ClassSessionSaveIn(BaseModel):
     allocation_method: AllocationMethod | None = None
     """Story 5.17: `student_choice` opens the Students' choice of a Class game and a Seat; left
     out, the method stays."""
+    replay_scenario: ReplayScenario | None = None
+    """Story 10.2: `default` or `own`; left out, the choice stays. Frozen at the Start date."""
+    replay_template: dict[str, Any] | None = None
+    """Story 10.2: the own scenario's editable template fields, as typed (whole numbers or
+    `{minimum, maximum}`, the demand as `step`/`random`/`fixed` with a `spread`, costs as decimal
+    strings). Left out with `own`, the stored own template stays."""
 
 
 class NextDeadline(BaseModel):
@@ -470,6 +509,10 @@ class GameRulesOut(BaseModel):
 
 GamePlayStatus = Literal["not_ready", "ready", "running", "finished"]
 
+EndReasonOut = Literal["test_deadline"]
+"""Story 10.6: why a `finished` Game ended without its last Week; `test_deadline`, a Replay
+closed at the Student's Test deadline, not finished and not played out."""
+
 
 class PlayTurnOut(BaseModel):
     """The Student's own turn in the open Week (Story 6.10): whether it is a Guided Week, the
@@ -484,6 +527,18 @@ class PlayTurnOut(BaseModel):
 GameResultOut = GameResult
 """«Spillet er ferdig» (Story 6.18): the finished game's cost per Role (Detaljist to Fabrikk),
 the chain's, and the chain's running cost per Uke. Roles, never names; no demand."""
+
+BelievabilityOut = Believability
+"""The believability question of the Student's own game (Story 10.8, FR-70): whether they are
+asked and their own answer, never anyone else's."""
+
+
+class BelievabilityIn(BaseModel):
+    """«Send svar» on the believability question: 1 (not believable) to 5 (very believable)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rating: StrictInt = Field(ge=1, le=5)
 
 
 class ProposalPersonOut(BaseModel):
@@ -562,6 +617,9 @@ class StudentGameOut(BaseModel):
     role: Role
     test_game: bool = False
     """Story 6.20: a Lecturer's test Game, reached from and leading back to the Klasseøkt."""
+    replay: bool = False
+    """Story 10.4: the Student's Replay, with no number, its own rules (`rules`) and no Debrief,
+    reached from Hjem's Replay block and Stegene."""
     class_session_id: uuid.UUID
     seats: list[TableSeatOut]
     briefing_first: bool
@@ -571,6 +629,9 @@ class StudentGameOut(BaseModel):
     status: GamePlayStatus
     """Story 6.5: `not_ready` before the lock has given the Game its snapshot, `ready` to start,
     `running` (also while it plays out), or `finished`."""
+    end_reason: EndReasonOut | None = None
+    """Story 10.6: with `finished`, `test_deadline` when the Replay was closed at the Testfrist
+    without its last Week: it is not finished, and it has no result (`/result` answers 409)."""
     week: int | None
     """The open Week while `running`, else None. Never the number of Weeks (FR-14)."""
     server_now: AwareDatetime
@@ -643,6 +704,10 @@ class PlayOut(BaseModel):
     earliest stored AI deadline, Takeover due time or insert time of a Seat that has not ordered,
     while it lies after `server_now`; None while nothing is due. The web app reads the envelope
     again then."""
+    projection: bool = False
+    """Story 10.4 (UX-DR19): whether Graf over tabell draws the projection of Netto lager, from
+    `games.policy`: on only for the Replay. The value itself is display arithmetic in the web app
+    from `seat_state` (AD-10)."""
 
 
 StegeneStep = Literal["class_game", "debrief", "quiz", "replay", "test", "report"]
@@ -665,6 +730,37 @@ class StepOut(BaseModel):
     group_open: bool = False
     """Story 9.11: the current Debrief step, while a Group debrief of the Student's game is under
     way that they have not joined; Stegene says so and its link leads there to join."""
+    closed: bool = False
+    """Story 10.3: the current Replay step after the Student's Test deadline with no Replay
+    started: it is not done, and it can no longer start (FR-18). Story 10.6: also once a started
+    Replay was closed at the Testfrist unfinished (the Replay's `end_reason` says so)."""
+
+
+class ReplayGameOut(BaseModel):
+    """The Student's started Replay on Hjem (Story 10.3, FR-48, FR-34): its Role and Seats, every
+    AI player as `ai` (named «KI-spiller») from the first view, and where it stands. Never the
+    number of Weeks, the demand or the scenario (FR-49)."""
+
+    id: uuid.UUID
+    role: Role
+    status: GamePlayStatus
+    end_reason: EndReasonOut | None = None
+    """Story 10.6: `test_deadline` once the Replay was closed at the Testfrist unfinished."""
+    week: int | None
+    """The open Week while `running`, else None."""
+    seats: list[TableSeatOut]
+    server_now: AwareDatetime
+    """The database clock when the Replay was read: the Seats' waits count from it."""
+
+
+class StudentReplayOut(BaseModel):
+    """The Replay on Hjem (Story 10.3): only once the Student has passed the Debrief quiz."""
+
+    can_start: bool
+    """«Start Replay» shows: no Replay yet, or one stored but not started, and the Student's Test
+    deadline has not passed."""
+    game: ReplayGameOut | None
+    """The Student's Replay once started; None before."""
 
 
 class OwnAdjustmentOut(BaseModel):
@@ -710,6 +806,8 @@ class EnrolledSessionOut(BaseModel):
     done is `locked`; with one, the first step not done is `current`."""
     adjustment: OwnAdjustmentOut | None = None
     """Story 8.9: the Student's own Tilrettelegging, None without one (FR-17)."""
+    replay: StudentReplayOut | None = None
+    """Story 10.3: the Replay, once the Student has passed the Debrief quiz; None before."""
 
 
 class EnrolledSessionListOut(BaseModel):
@@ -1218,7 +1316,12 @@ class GameInsightOut(BaseModel):
     class_name: str
     session_number: int
     game_number: int | None
+    replay: bool = False
+    """A Student's Replay (Story 10.5, FR-34): no game number; the page labels it «Replay»."""
     status: GameStatus
+    end_reason: EndReasonOut | None = None
+    """Story 10.6: `test_deadline` on a Replay closed at the Test deadline (`status` is then
+    `finished`, but it did not finish); None else."""
     version: int
     weeks_total: int | None
     """The number of Weeks in the Game's snapshot; None before it has one."""

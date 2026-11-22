@@ -133,6 +133,9 @@ class Settings(BaseSettings):
     follow_up_rate_limit_per_ip: int = Field(300, ge=1)
     follow_up_rate_limit_window_minutes: int = Field(10, ge=1)
     follow_up_deadline_seconds: int = Field(20, ge=1, le=120)
+    # The Replay walkthrough (Story 10.7, FR-50, UX-DR64). PLACEHOLDER (under one minute): how
+    # long after the Replay finished its page waits for the AI line before it shows the code's.
+    replay_walkthrough_wait_seconds: int = Field(45, ge=1, le=600)
     # Messages from staff to Students (Story 7.9, FR-40). PLACEHOLDER: the most characters a
     # Message may hold; a longer one is refused with `message_too_long` and this limit.
     message_max_length: int = Field(2000, ge=1, le=20000)

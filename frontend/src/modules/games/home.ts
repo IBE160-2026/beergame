@@ -11,9 +11,14 @@ const copy = nb.homes.student;
 type StudentGame = NonNullable<EnrolledSession["game"]>;
 type TableSeat = StudentGame["seats"][number];
 
-/** «Spill 17 · Du er Grossist». */
-export function gameTitle(game: StudentGame): string {
-  return copy.game(game.number, roleName(game.role));
+/** «Spill 17 · Du er Grossist»; «Replay · Du er Grossist» for the Replay (Story 10.4). */
+export function gameTitle(game: Pick<StudentGame, "number" | "role" | "replay" | "test_game">): string {
+  return game.replay ? copy.replay.title(roleName(game.role)) : copy.game(game.number, roleName(game.role));
+}
+
+/** «Grossist, Spill 17» under the Uke on the play screen; «Grossist, Replay» for the Replay. */
+export function roleGameText(game: Pick<StudentGame, "number" | "role" | "replay" | "test_game">): string {
+  return game.replay ? nb.games.play.roleReplay(roleName(game.role)) : nb.games.play.roleGame(roleName(game.role), game.number);
 }
 
 /** A Seat's holder in words (FR-22, FR-34, UX-DR69): the Student's name («Sara (deg)» on the
@@ -33,9 +38,18 @@ export function holderText(seat: TableSeat): string {
  * so (Story 9.2); the current Debrief step leads to the Debrief of `sessionId`, the current Quiz
  * step to its step 5, the Debrief quiz (Story 9.9), and says when the Faglærer has changed the quiz
  * (Story 9.10). A current Debrief step says when a Group debrief the Student can join is under way
- * (Story 9.11); its link is the way in. */
-export function stepItems(steps: EnrolledSession["steps"], sessionId?: string): StegeneItem[] {
-  return (steps ?? []).map(({ step, state, held, quiz_changed, group_open }) => ({
+ * (Story 9.11); its link is the way in. A current Replay step says when the Testfrist has passed
+ * with no Replay started (Story 10.3), or that a started one was closed there unfinished (Story
+ * 10.6), and while the Replay runs «Fortsett Replay, Uke 9.» (Story
+ * 10.4, UX-DR64), from the api's `replay` (AD-10); the way there is the Replay block's button just
+ * above, so the step itself is no second Lenke. */
+export function stepItems(
+  steps: EnrolledSession["steps"],
+  sessionId?: string,
+  replay?: EnrolledSession["replay"],
+): StegeneItem[] {
+  const running = replay?.game?.status === "running" && replay.game.week != null ? replay.game : null;
+  return (steps ?? []).map(({ step, state, held, quiz_changed, group_open, closed }) => ({
     key: step,
     name: copy.stepNames[step],
     state,
@@ -45,7 +59,14 @@ export function stepItems(steps: EnrolledSession["steps"], sessionId?: string): 
           ? copy.quizChanged
           : group_open && step === "debrief"
             ? copy.groupOpen
-            : copy.current
+            : closed && step === "replay"
+              ? // Story 10.6: a Replay started and closed at the Testfrist, or none started.
+                replay?.game
+                ? copy.replayClosedUnfinished
+                : copy.replayClosed
+              : running && step === "replay"
+                ? copy.replayResume(running.week!)
+                : copy.current
         : state === "done"
           ? copy.done
           : held && step === "debrief"

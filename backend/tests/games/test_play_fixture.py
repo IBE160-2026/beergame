@@ -208,3 +208,87 @@ def preview_golden() -> list[dict]:
 def test_the_preview_fixture_is_the_engines_golden_games():
     stored = json.loads(PREVIEW_GOLDEN.read_text(encoding="utf-8"))
     assert stored == preview_golden()
+
+
+# The projection's check (Story 10.4, AD-10, UX-DR19): `orderProjection` in
+# `frontend/src/lib/preview.ts` is tested in Vitest against these engine values. For every Seat and
+# Week of three golden-trace games (Classic delays, 3/3/3 and 1/1/1, so horizons 4, 6 and 2), the
+# fields the play envelope carries, the Order the trace placed, the delay horizon from the settings
+# and Netto lager at nå + horizon if the incoming order holds and every Order is shipped in full:
+# Netto lager now, plus every supply-line slot due by then and what upstream still owes, plus the
+# Order, less the horizon's incoming orders. One object per line; to regenerate, write
+# `projection_golden()` as a list with one `json.dumps(item)` per line.
+PROJECTION_GOLDEN = FIXTURES / "projection-golden.json"
+PROJECTION_TRACES = (
+    "classic-step-pass-through.json",
+    "delays-3-3-3-backlog.json",
+    "delays-1-1-1-backlog.json",
+)
+
+
+def projection_golden() -> list[dict]:
+    found = []
+    for name in PROJECTION_TRACES:
+        golden = json.loads((GOLDEN / name).read_text(encoding="utf-8"))
+        settings = GameSettings.model_validate(golden["settings"])
+        states = [initial_state(settings)]
+        for orders in golden["orders"]:
+            states.append(advance(settings, states[-1], orders))
+        placed = golden["orders"]
+        for role in settings.roles:
+            goods = (
+                settings.production_delay if role == settings.roles[-1] else settings.shipping_delay
+            )
+            horizon = settings.order_delay + goods
+            for week in range(1, len(placed) + 1):
+                now = build_seat_state(settings, states[:week], placed[: week - 1], role)
+                order = placed[week - 1][role]
+                due = [
+                    slot for slot in now.supply_line_slots if slot.arrival_week <= week + horizon
+                ]
+                assert len(due) == len(now.supply_line_slots)  # all of it is due within the horizon
+                found.append(
+                    {
+                        "trace": name,
+                        "role": role,
+                        "state": {
+                            "week": now.week,
+                            "incoming_order": now.incoming_order,
+                            "net_inventory": now.net_inventory,
+                            "position": now.position,
+                            "preview": now.preview.model_dump(mode="json"),
+                        },
+                        "order": order,
+                        "horizon": horizon,
+                        "projection": now.net_inventory
+                        + sum(slot.quantity for slot in due)
+                        + now.overdue
+                        + order
+                        - horizon * now.incoming_order,
+                    }
+                )
+    return found
+
+
+def test_the_projection_fixture_is_the_engines_golden_games():
+    stored = json.loads(PROJECTION_GOLDEN.read_text(encoding="utf-8"))
+    assert stored == projection_golden()
+    assert {item["horizon"] for item in stored} == {2, 4, 6}
+
+
+# A Replay with shorter delays (Story 10.4): the same Grossist, Orders and demand on 1/1/1 delays,
+# in Uke `SHORT_WEEK`, as the play envelope of a Replay (the projection on, three AI players). The
+# browser test checks the dot stands at nå + 2 and the sentence says «om to uker».
+SHORT = GameSettings(order_delay=1, shipping_delay=1, production_delay=1)
+PLAY_REPLAY_SHORT = FIXTURES / "play-replay-short.json"
+SHORT_WEEK = 9
+
+
+def test_the_short_delay_replay_envelope_is_the_engines_week():
+    stored = json.loads(PLAY_REPLAY_SHORT.read_text(encoding="utf-8"))
+    settings, states, orders = _game_until(SHORT_WEEK, SHORT)
+    state = build_seat_state(settings, states, orders, "wholesaler")
+    envelope = PlayOut.model_validate(stored)
+    assert envelope.seat_state == state and envelope.projection is True
+    assert state.preview.order_arrival_week - state.week == 2
+    assert {seat.holder for seat in envelope.table_status.seats if not seat.mine} == {"ai"}

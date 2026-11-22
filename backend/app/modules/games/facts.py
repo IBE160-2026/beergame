@@ -92,7 +92,8 @@ async def _finished(game_id: str) -> tuple[uuid.UUID, Mapping[str, Any], list[An
         game = await repo.get_game(session, game_uuid) if game_uuid else None
         if game is None or game_uuid is None:
             raise ViewError("game_not_found", f"no Game {game_id!r}", 404)
-        if game["lifecycle"] != Lifecycle.FINISHED:
+        # A Game `close` ended at the Test deadline (Story 10.6) is not finished either.
+        if game["lifecycle"] != Lifecycle.FINISHED or game["end_reason"] is not None:
             raise ViewError("game_not_finished", "only a finished Game has facts", 409)
         seats = await repo.seats_with_occupant(session, game_uuid)
     return game_uuid, game, seats

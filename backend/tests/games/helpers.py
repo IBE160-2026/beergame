@@ -8,6 +8,7 @@ from pathlib import Path
 
 import psycopg
 from psycopg import sql
+from sqlalchemy import text
 
 from app.platform import events
 from tests.conftest import RUN_TMP, kept_connection, libpq_dsn
@@ -41,9 +42,19 @@ def tamper(url: str, sql: str, params: tuple = ()) -> None:
 async def play_week(game_id: str) -> object:
     """Complete the open Week: in a Guided Week every Student Seat views it (its Order was
     placed when the Week opened); otherwise place every missing Order (the stored reference
-    Order). Returns the last `OrderPlaced`, or None when only views were needed."""
+    Order). Returns the last `OrderPlaced`, or None when only views were needed.
+
+    An ordinary Week is read in one query (`open_turns`): the service reads each Seat's turn
+    with every stored Week state, which made the reads cost as much as the Orders."""
     from app.modules.games import commands, service
 
+    found = await open_turns(game_id)
+    if found is not None:
+        week, turns = found
+        placed = None
+        for role, reference in turns:
+            placed = await commands.place_order(game_id, role, week, reference, "rule_based")
+        return placed
     game = await service.get_game(game_id)
     placed = None
     week = (await service.seat_state(game_id, game.seats[0].id)).week
@@ -60,6 +71,37 @@ async def play_week(game_id: str) -> object:
             game_id, seat.role, week, turn.rule_based_reference_order, "rule_based"
         )
     return placed
+
+
+_OPEN_TURNS = text(
+    "SELECT g.purpose, g.settings, t.week, s.role, t.ordered_at, t.rule_based_reference_order "
+    "FROM games g JOIN seat_turns t ON t.game_id = g.id JOIN seats s ON s.id = t.seat_id "
+    "WHERE g.id = :game AND t.week = (SELECT max(week) FROM seat_turns WHERE game_id = :game)"
+)
+
+
+async def open_turns(game_id: str) -> tuple[int, list[tuple[str, int]]] | None:
+    """The newest opened Week of an ordinary (not Guided) Week and the Seats still to order
+    there in chain order, each with its reference Order; None for a Guided Week, which the
+    service's reads handle (views need the occupant)."""
+    from app.engine import ROLES, GameSettings
+    from app.modules.games import rules
+    from app.modules.games.policy import policy
+    from app.platform.db import get_sessionmaker
+
+    async with get_sessionmaker()() as session:
+        found = (await session.execute(_OPEN_TURNS, {"game": uuid.UUID(game_id)})).all()
+    if not found:
+        return None
+    purpose, settings, week = found[0].purpose, found[0].settings, found[0].week
+    if rules.guided_week(policy(purpose), GameSettings.model_validate(settings), week):
+        return None
+    missing = sorted(
+        (ROLES.index(row.role), row.role, row.rule_based_reference_order)
+        for row in found
+        if row.ordered_at is None
+    )
+    return week, [(role, reference) for _, role, reference in missing]
 
 
 async def play_to_end(game_id: str) -> None:

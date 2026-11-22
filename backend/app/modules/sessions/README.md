@@ -119,6 +119,21 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
   `SessionRuntime.pins["debrief_ai_text"] = {enabled, model_config_id, effort_level}`
   (`debrief_ai_text_pin`): on only with the switch on and a model config on the session, whose
   row it marks referenced. The narration templates are pinned too (`narration_templates`).
+- `class_sessions.replay_scenario` (migration 0114, Story 10.1, FR-49): the Replay scenario
+  choice, only `default` so far (Story 10.2 adds an own one). No template is stored: the
+  Klasseøkt (`ClassSessionOut.replay_template`, through `service.replay_template(row)`) reads the
+  template `engine.default_replay_template` derives from the current Game settings, so an edit
+  before the Start date never leaves a stale one. The lock pins it as
+  `SessionRuntime.pins["replay_template"]` (`replay_template_pin`, the template as JSON); once
+  locked the Klasseøkt reads that pin, and it is the only template a Replay reads. Not copied by
+  «Lag fra tidligere» yet (Story 10.2).
+- Replay Information visibility (Story 10.9, cut list, FR-83): an own template's
+  `info_visibility` is its own, editable in `replay_template` while `FEATURE_INFO_VISIBILITY` is
+  on and kept as stored otherwise (a new view while off is `info_visibility` `feature_disabled`
+  in `invalid_replay_scenario`). A new view against the Class games warns
+  `replay_neighbour_visible` (`{"view": side}`), only while the flag is on. A copy takes it only
+  while the flag is on. The Replay's snapshot carries it; `seat_state`, the LLM prompt and the
+  Decision log read it as for any Game, behind the same flag at read (AD-17).
 
 ## AI mode, Effort level and Debrief mode (Story 5.5)
 

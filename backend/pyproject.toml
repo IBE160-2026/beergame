@@ -54,7 +54,9 @@ pythonpath = ["."]
 # One worker per CPU, at most 12, each with databases of its own (tests/conftest.py).
 # `-n0` runs in one process, the fastest way to run a single file.
 addopts = "-n auto --maxprocesses=12 --dist worksteal"
-markers = ["long: a long test outside `tests/`, run early in its worker (tests/conftest.py)"]
+# `long` deals a test to the head of a worker's slice, as the files directly under `tests/`
+# (`tests/conftest.py`, `pytest_collection_modifyitems`): it must not start last.
+markers = ["long: a test of several seconds, run early so no worker runs it alone at the end"]
 
 [tool.coverage.run]
 branch = true

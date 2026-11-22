@@ -23,6 +23,7 @@ const game = (over: Partial<MyGame> = {}): MyGame => ({
   number: 17,
   role: "wholesaler",
   test_game: false,
+  replay: false,
   class_session_id: "s",
   seats: [
     {

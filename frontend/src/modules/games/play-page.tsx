@@ -11,13 +11,15 @@ import { clearDraft, clearDrafts, loadDraft, saveDraft } from "@/lib/drafts";
 import { formatNumber } from "@/lib/number-format";
 import { usePageState } from "@/lib/page-state";
 import { cn } from "@/lib/utils";
-import { orderPreview } from "@/lib/preview";
+import { orderPreview, orderProjection } from "@/lib/preview";
 import type { SessionUser } from "@/modules/identity/api";
 import { AccessDenied, GuardedPage } from "@/modules/identity/home-page";
 import { classSessionPath, HOME_LINK, HOME_PATH, rulesPath } from "@/modules/identity/homes";
 import { PageLink, PageShell } from "@/modules/identity/page-shell";
+import { closedReplay } from "@/modules/replay/replay";
+import { ReplayClosed } from "@/modules/replay/replay-closed";
+import { ReplayEnd } from "@/modules/replay/replay-end";
 import { classSessionKey } from "@/modules/sessions/api";
-import { roleName } from "@/modules/sessions/sessions";
 
 import { AllRowsView } from "./all-rows-view";
 import {
@@ -36,10 +38,10 @@ import { ChainBandView } from "./chain-band-view";
 import { CostPanel } from "./cost-panel-view";
 import { isCapped } from "./briefing";
 import { GameAction } from "./game-action";
-import { GameEnd, GameEndHeading } from "./game-end";
+import { endTitle, GameEnd, GameEndHeading } from "./game-end";
 import { OrderField } from "./order-field";
 import { lastOrder, parseOrder } from "./order-input";
-import { gameTitle } from "./home";
+import { gameTitle, roleGameText } from "./home";
 import { ownSeatTakenOver, useServerNow, waitedFor } from "./seat-status";
 import { InRoomLine } from "./in-room-view";
 import { PauseControl, PauseLine } from "./pause-view";
@@ -89,8 +91,10 @@ function PlayView({ gameId, user, updatedAt }: { gameId: string; user: SessionUs
   // The envelope is asked for only while the game runs; its wait follows the game's.
   const envelope = usePlay(gameId, running);
   const play = usePageState(envelope, playKey(gameId));
+  // Story 10.6: a Replay closed at the Testfrist is `finished` without a result: its own screen.
+  const closed = closedReplay(game);
   // Story 6.18: a finished game shows «Spillet er ferdig» from its result.
-  const finished = game?.status === "finished";
+  const finished = game?.status === "finished" && !closed;
   const resultQuery = useGameResult(gameId, finished);
   const ended = usePageState(resultQuery, resultKey(gameId));
   // A game that stopped running between the two reads: read the game again, which then shows
@@ -127,13 +131,13 @@ function PlayView({ gameId, user, updatedAt }: { gameId: string; user: SessionUs
         game
           ? running
             ? copy.week(shown?.seat_state.week ?? game.week!)
-            : finished
-              ? copy.end.title
+            : finished || closed
+              ? endTitle(game)
               : gameTitle(game)
           : undefined
       }
       header={
-        game && result ? (
+        game && (result || closed) ? (
           <GameEndHeading game={game} />
         ) : game && shown ? (
           // Kept while Alle rader is open, so its button can take focus back on «Lukk».
@@ -154,8 +158,15 @@ function PlayView({ gameId, user, updatedAt }: { gameId: string; user: SessionUs
       {game ? (
         shown ? (
           <Running game={game} envelope={shown} userId={user.id} allRows={allRows} />
+        ) : closed ? (
+          <ReplayClosed />
         ) : result ? (
-          <GameEnd game={game} result={result} />
+          // Story 10.5: a Replay ends on its own screen, never the Class game's Debrief line.
+          game.replay ? (
+            <ReplayEnd game={game} result={result} />
+          ) : (
+            <GameEnd game={game} result={result} />
+          )
         ) : running || finished ? null : (
           <NotRunning game={game} />
         )
@@ -228,7 +239,7 @@ function Topplinje({
         <h1 id={WEEK_HEADING} tabIndex={-1} className="text-title-phone text-ink outline-none lg:text-title-page">
           {copy.week(state.week)}
         </h1>
-        <p className={`${LINE} mt-1 text-ink-secondary`}>{copy.roleGame(roleName(game.role), game.number)}</p>
+        <p className={`${LINE} mt-1 text-ink-secondary`}>{roleGameText(game)}</p>
       </div>
       <button
         type="button"
@@ -305,12 +316,15 @@ function Running({
   const nowOrder = turn.guided ? (turn.order ?? undefined) : undefined;
   // Story 8.6: while the Pausevalg is open its confirm is the primary, so «Bekreft ordre» steps back.
   const [pausing, setPausing] = useState(false);
+  // Story 10.4 (UX-DR19, AD-10): where the policy turns it on (the Replay), the projection with the
+  // Order on screen: the placed one, a Veiledet uke's fixed one, or the valid typed one.
+  const projection = envelope.projection ? orderProjection(state, preview?.order ?? nowOrder ?? null) : undefined;
   return (
     <>
       {allRows.open ? (
         <AllRowsView
           state={state}
-          subtitle={copy.roleGame(roleName(game.role), game.number)}
+          subtitle={roleGameText(game)}
           nowOrder={nowOrder}
           typed={preview ?? undefined}
           at={allRows.open}
@@ -323,12 +337,13 @@ function Running({
         {summary && movedFrom !== undefined ? summary.spoken : ""}
       </p>
       {/* Hidden, not gone, while Alle rader is open (`useAllRows`). */}
-      <div hidden={allRows.open !== null}>
-        {/* Two columns while the Kjedebånd side gets at least 30rem beside the fixed right column;
-            with larger text they stack, so neither side is squeezed until it clips (Epic 8
-            close-out, from the 8.6 visual check at 200 % text). */}
-        <div className="mt-6 lg:flex lg:flex-wrap lg:items-start lg:gap-12">
-          <div className="min-w-0 lg:flex-[1_1_30rem]">
+      {/* Two columns by the content's width in rem (a container query), not the viewport's: at
+          200 % text the right column would take most of the row and clip the chart, so the page
+          reflows to one column there (WCAG 1.4.4, 1.4.10). 52rem and 68rem are just under the content's
+          width at 1024 and 1280 px with default text and a scrollbar. */}
+      <div hidden={allRows.open !== null} className="@container">
+        <div className="mt-6 @min-[52rem]:grid @min-[52rem]:grid-cols-[minmax(0,1fr)_18rem] @min-[52rem]:gap-12 @min-[68rem]:grid-cols-[minmax(0,1fr)_24rem]">
+          <div className="min-w-0">
             {/* Reading and focus order: Topplinje, Kjedebånd, Graf over tabell, the rest (FR-73). */}
             <ChainBandView
               state={state}
@@ -346,6 +361,7 @@ function Running({
               skipMove={skip}
               onMoving={setMoving}
               capped={isCapped(game.role, game.rules)}
+              projection={projection}
             />
           </div>
           <div className="lg:w-[18rem] lg:shrink-0 xl:w-[24rem]">
@@ -493,7 +509,7 @@ function useDroppedDraft(state: PlayEnvelope["seat_state"], text: string, editab
 export const ORDER_SUBMIT_TIMEOUT_MS = 10_000;
 
 /** What the last send left to say, for the Uke it was sent in (Story 6.13). */
-type SendOutcome = { week: number; value: number; kind: "checking" | "failed" | "weekGone" | "seatGone" };
+type SendOutcome = { week: number; value: number; kind: "checking" | "failed" | "weekGone" | "seatGone" | "deadlineGone" };
 
 /** Rejects with `network_error` when `promise` has not settled after `ms`. */
 function within<T>(promise: Promise<T>, ms: number): Promise<T> {
@@ -607,6 +623,13 @@ function useSendOrder(gameId: string, week: number, userId: string, field: strin
             setOutcome({ week: ordered, value, kind: "seatGone" });
             return;
           }
+          // Story 10.6: a Replay past the Testfrist takes no Order; the game is read again, which
+          // shows the closed Replay once the sweep has closed it.
+          if (code === "test_deadline_passed") {
+            setOutcome({ week: ordered, value, kind: "deadlineGone" });
+            void queryClient.invalidateQueries({ queryKey: myGameKey(gameId), exact: true });
+            return;
+          }
           // The api answers `order_exists` before `week_not_open`, but the history is still read:
           // a `week_not_open` may hide an Order a second device placed with this value.
           const there = await stored(ordered, value);
@@ -625,19 +648,22 @@ function useSendOrder(gameId: string, week: number, userId: string, field: strin
 
 /** The words the order area shows for a send's outcome in Uke `week`. */
 function outcomeProps(outcome: SendOutcome | null, week: number) {
-  if (!outcome) return { checking: false, failure: null, retry: false };
+  if (!outcome) return { checking: false, failure: null, retry: false, closed: false };
   const value = formatNumber(outcome.value);
   const here = outcome.week === week;
   switch (outcome.kind) {
     case "checking":
-      return { checking: here, failure: null, retry: false };
+      return { checking: here, failure: null, retry: false, closed: false };
     case "failed":
-      return { checking: false, failure: here ? copy.order.failed : null, retry: here };
+      return { checking: false, failure: here ? copy.order.failed : null, retry: here, closed: false };
     case "weekGone":
       // Read in whichever Uke the screen moved on to.
-      return { checking: false, failure: copy.order.weekGone(outcome.week, value), retry: false };
+      return { checking: false, failure: copy.order.weekGone(outcome.week, value), retry: false, closed: false };
     case "seatGone":
-      return { checking: false, failure: here ? copy.order.seatGone(value) : null, retry: false };
+      return { checking: false, failure: here ? copy.order.seatGone(value) : null, retry: false, closed: false };
+    case "deadlineGone":
+      // The Replay takes no more Orders: the button stays unavailable until the closed Replay shows.
+      return { checking: false, failure: copy.order.deadlineGone(value), retry: false, closed: true };
   }
 }
 
@@ -690,8 +716,9 @@ function useRefetchAt(gameId: string, envelope: PlayEnvelope) {
   }, [queryClient, gameId, due, from]);
 }
 
-/** The play screen's way out: «Regler før første ordre» and «Til Hjem» for a Class game; for a
- * Lecturer's test Game, which has neither a briefing nor Hjem, «Tilbake til Klasseøkta» (6.20). */
+/** The play screen's way out: «Regler før første ordre» and «Til Hjem» for a Class game, «Til
+ * Hjem» alone for the Replay (10.4); for a Lecturer's test Game, which has neither a briefing nor
+ * Hjem, «Tilbake til Klasseøkta» (6.20). */
 function BackLinks({ game }: { game: MyGame }) {
   const queryClient = useQueryClient();
   if (game.test_game) {
@@ -710,7 +737,8 @@ function BackLinks({ game }: { game: MyGame }) {
   }
   return (
     <>
-      <PageLink href={rulesPath(game.id)}>{nb.games.briefing.title}</PageLink>
+      {/* The Replay (Story 10.4) has no briefing of its own: the Class game's is about playing together. */}
+      {game.replay ? null : <PageLink href={rulesPath(game.id)}>{nb.games.briefing.title}</PageLink>}
       <PageLink href={HOME_PATH.home}>{HOME_LINK.home}</PageLink>
     </>
   );

@@ -9,6 +9,7 @@ import { costAxisTop } from "@/components/charts/scales";
 import { type FieldSize, type FixedLayout, fixedCell, type GraphField, GraphOverTable } from "@/components/graph-over-table";
 import { nb } from "@/copy/nb";
 import { formatNumber } from "@/lib/number-format";
+import type { Projection } from "@/lib/preview";
 import { cn } from "@/lib/utils";
 
 import type { SeatState } from "./api";
@@ -65,9 +66,36 @@ function columnClass(column: Column) {
   return cn(!column.phone && "hidden lg:table-cell", column.when === "future" && "bg-future-tint");
 }
 
+type ProjectionPoint = { week: number; x: number; value: number };
+
+/**
+ * The projection's line over the drawn columns (Story 10.4, UX-DR19): from Netto lager at nå to
+ * its value at nå + horizon, at the centres of those columns. A horizon past the last drawn column
+ * (the axis stops at nå + 4) keeps the same straight line up to that column, `clipped`, so no dot
+ * stands where the axis ends. Null when no column right of nå is drawn.
+ */
+export function projectionPoints(
+  size: Pick<FieldSize, "columns" | "xs">,
+  net: number,
+  projection: Projection,
+): { points: ProjectionPoint[]; clipped: boolean } | null {
+  const now = size.columns.findIndex((column) => column.when === "now");
+  if (now < 0) return null;
+  const nowWeek = size.columns[now]!.week;
+  const start = { week: nowWeek, x: size.xs[now]!, value: net };
+  const at = size.columns.findIndex((column) => column.week === projection.week);
+  if (at >= 0) return { points: [start, { week: projection.week, x: size.xs[at]!, value: projection.value }], clipped: false };
+  const last = size.columns.length - 1;
+  const edge = size.columns[last]!.week;
+  if (edge <= nowWeek || projection.horizon <= 0) return null;
+  const share = (edge - nowWeek) / projection.horizon;
+  return { points: [start, { week: edge, x: size.xs[last]!, value: net + share * (projection.value - net) }], clipped: true };
+}
+
 /** The two graph fields over the table (Story 6.7, UX-DR16): Netto lager with the Posisjon line,
- * then Kost per uke. Each draws the Uker of its columns up to nå, from the api's values. */
-function graphFields(state: SeatState, series: GraphSeries): GraphField[] {
+ * then Kost per uke. Each draws the Uker of its columns up to nå, from the api's values; with
+ * `projection` (the Replay, Story 10.4) the dashed projection runs on from nå. */
+function graphFields(state: SeatState, series: GraphSeries, projection?: Projection): GraphField[] {
   const byWeek = new Map(series.weeks.map((week) => [week.week, week]));
   const drawn = (size: FieldSize) =>
     size.columns.flatMap((column, i) => {
@@ -84,7 +112,8 @@ function graphFields(state: SeatState, series: GraphSeries): GraphField[] {
       heightEm: NET_HEIGHT_EM,
       render: (size) => {
         const points = drawn(size);
-        const scale = netScale({ height: size.height, fontSize: size.fontSize, points });
+        const ahead = projection ? projectionPoints(size, state.net_inventory, projection) : null;
+        const scale = netScale({ height: size.height, fontSize: size.fontSize, points, projection: ahead?.points });
         return {
           plot: (
             <NetGraph
@@ -97,6 +126,8 @@ function graphFields(state: SeatState, series: GraphSeries): GraphField[] {
               netLabel={graphCopy.netLabel(state.net_inventory, formatNumber(Math.abs(state.net_inventory)))}
               positionLabel={graphCopy.positionLabel(formatNumber(state.position))}
               nowLabel={graphCopy.now}
+              projection={ahead?.points}
+              projectionClipped={ahead?.clipped}
             />
           ),
           axis: (
@@ -187,8 +218,12 @@ export function WeekTable({
   allRows = false,
   capped = false,
   label,
+  projection,
 }: {
   state: SeatState;
+  /** The Replay's projection (Story 10.4, UX-DR19): the dashed line over the graph and its
+   * sentence under the table. Only a play envelope with `projection` passes it. */
+  projection?: Projection;
   fixed?: FixedLayout;
   /** An Order already placed at nå (a Veiledet uke's fixed Order), written in Din ordre. */
   nowOrder?: number;
@@ -216,11 +251,11 @@ export function WeekTable({
   const weekCol = cn(WEEK_COL, wide && WEEK_COL_WIDE);
   const weekCell = fixedCell(fixed, "week");
   const labelCell = fixedCell(fixed, "label");
-  return (
+  const table = (
     <GraphOverTable
       label={label ?? copy.region}
       columns={columns}
-      fields={graphFields(state, series)}
+      fields={graphFields(state, series, projection)}
       fixed={fixed}
       labelledBy={labelledBy}
       swipe={copy.swipe}
@@ -277,6 +312,40 @@ export function WeekTable({
         </tr>
       ))}
     />
+  );
+  if (!projection) return table;
+  return (
+    <>
+      {table}
+      <ProjectionSentence projection={projection} />
+    </>
+  );
+}
+
+/**
+ * The projection's sentence (Story 10.4, UX-DR19, NFR-6): the dashed line's text alternative, read
+ * as text (the graph is `aria-hidden`) and wrapped to the page width under the table. A short
+ * dashed rule before it ties it to the line by stroke, not by colour alone. Its sum keeps to one
+ * line (non-breaking spaces in `nb.ts`, Story 10.6); only on a line narrower than the sum itself
+ * (200 % text at 320 px) does `overflow-wrap` break it, so the page never scrolls sideways.
+ */
+export function ProjectionSentence({ projection }: { projection: Projection }) {
+  const text = graphCopy.projection(
+    projection.horizon,
+    formatNumber(projection.position),
+    projection.order === null ? null : formatNumber(projection.order),
+    formatNumber(projection.horizon),
+    formatNumber(projection.incoming),
+    formatNumber(projection.value),
+  );
+  return (
+    <p
+      data-projection-sentence=""
+      className="mt-2 max-w-prose px-[calc(var(--spacing-gutter-phone)-var(--spacing-gutter-phone-chart))] text-body-phone text-ink-secondary [overflow-wrap:anywhere] lg:px-0 lg:text-body"
+    >
+      <span aria-hidden="true" className="mr-2 inline-block w-[1.6em] border-t-2 border-dashed border-projection align-middle" />
+      {text}
+    </p>
   );
 }
 

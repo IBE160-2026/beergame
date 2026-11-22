@@ -176,7 +176,8 @@ async def chain_result(game_id: str) -> GameResult:
         game = await repo.get_game(session, game_uuid) if game_uuid else None
         if game is None:
             raise ViewError("game_not_found", f"no Game {game_id!r}", 404)
-        if game["lifecycle"] != Lifecycle.FINISHED:
+        # A Game `close` ended at the Test deadline (Story 10.6) is not finished either.
+        if game["lifecycle"] != Lifecycle.FINISHED or game["end_reason"] is not None:
             raise ViewError("game_not_finished", "the Game has not finished", 409)
         opened = await _opened(session, game["id"])
         orders = await stored_orders(session, game["id"])

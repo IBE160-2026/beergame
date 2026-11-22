@@ -88,6 +88,7 @@ export function saveClassSession(
   dates: DatesIn,
   gameSettings?: SettingsDraftBody,
   inactivityLimitHours?: number,
+  replay?: ReplayScenarioBody,
 ) {
   return request(() =>
     api.PUT("/api/class-sessions/{session_id}", {
@@ -97,6 +98,7 @@ export function saveClassSession(
         dates,
         ...(gameSettings ? { game_settings: gameSettings } : {}),
         ...(inactivityLimitHours !== undefined ? { inactivity_limit_hours: inactivityLimitHours } : {}),
+        ...(replay ?? {}),
       },
     }),
   );
@@ -127,6 +129,24 @@ export function removeLabHour(sessionId: string, labHourId: string) {
   return request(() =>
     api.DELETE("/api/class-sessions/{session_id}/lab-hours/{lab_hour_id}", {
       params: { path: { session_id: sessionId, lab_hour_id: labHourId } },
+    }),
+  );
+}
+
+/** The Replay scenario as «Lagre Klasseøkt» sends it (Story 10.2): the choice, and for an own one
+ * its template fields as typed. */
+export type ReplayScenarioBody = {
+  replay_scenario: "default" | "own";
+  replay_template?: SettingsDraftBody;
+};
+
+/** What the api says of a draft of an own Replay scenario as a field is left (Story 10.2): errors
+ * and the warnings of changes that probably make the Replay easier. Nothing is stored. */
+export function checkReplayScenario(id: string, template: SettingsDraftBody) {
+  return request(() =>
+    api.POST("/api/class-sessions/{session_id}/replay-scenario-check", {
+      params: { path: { session_id: id } },
+      body: { replay_template: template },
     }),
   );
 }

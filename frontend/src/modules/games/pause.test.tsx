@@ -126,6 +126,7 @@ describe("the Oversikt with a paused game", () => {
       roles: [],
       can_pause: false,
       can_adjust: false,
+      replay: false,
       can_start: false,
       can_mark_in_room: false,
       waited_for: [],

@@ -4,7 +4,7 @@ import { nb } from "../src/copy/nb";
 import { formatNumber } from "../src/lib/number-format";
 import result from "../src/modules/games/fixtures/result-classic.json";
 import { loginByApi } from "./support/auth";
-import { expectAccessible, test } from "./support/classes";
+import { expectAccessible, expectReflow, test } from "./support/classes";
 import { liveClassGame, orderByApi } from "./support/live-game";
 import { GAME_ID } from "./support/play";
 
@@ -29,9 +29,24 @@ const SESSION_ID = "01a1aaaa-0000-7000-8000-000000000001";
 
 async function openFinished(
   page: Page,
-  { failFirst = false, debrief = "open" }: { failFirst?: boolean; debrief?: "open" | "held" } = {},
+  {
+    failFirst = false,
+    debrief = "open",
+    believability,
+  }: { failFirst?: boolean; debrief?: "open" | "held"; believability?: { offered: boolean; rating: number | null } } = {},
 ) {
   await loginByApi(page, "student");
+  if (believability) {
+    // Story 10.8: the question as the api offers it; a sent answer is stored as given.
+    let stored = believability;
+    await page.route(`**/api/me/games/${GAME_ID}/believability`, async (route) => {
+      if (route.request().method() === "POST") {
+        stored = { offered: true, rating: (route.request().postDataJSON() as { rating: number }).rating };
+        return route.fulfill({ status: 201, json: stored });
+      }
+      return route.fulfill({ json: stored });
+    });
+  }
   await page.route(`**/api/me/games/${GAME_ID}`, (route) =>
     route.fulfill({
       json: {
@@ -65,6 +80,10 @@ async function openFinished(
   }
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(copy.end.title);
 }
+
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+});
 
 test("a failed read of the result shows the page-error line, and «Prøv igjen» shows the screen", async ({ page }) => {
   await openFinished(page, { failFirst: true });
@@ -123,8 +142,62 @@ for (const viewport of [
       await chart.getByRole("button", { name: chain.showChart }).click();
       await expect(chart.locator("svg[data-chart=cost-area]")).toBeVisible();
     });
+
+    test("an AI player held a Seat: the optional believability question below «Gå til Debrief», by keyboard; axe passes", async ({ page }) => {
+      await openFinished(page, { believability: { offered: true, rating: null } });
+      const main = page.getByRole("main");
+      const block = main.getByRole("region", { name: nb.believability.title });
+      await expect(block).toBeVisible();
+      // Below the one primary, which stays the only one.
+      const below = await main.evaluate(
+        (root, [button, title]) => {
+          const text = root.textContent ?? "";
+          return text.indexOf(button!) < text.indexOf(title!);
+        },
+        [copy.end.toDebrief, nb.believability.title],
+      );
+      expect(below).toBe(true);
+      await expect(primaries(page)).toHaveCount(1);
+      // A labelled radio group of five, each at least 44 px, the end points in words.
+      const group = block.getByRole("group", { name: nb.believability.legend });
+      const radios = group.getByRole("radio");
+      await expect(radios).toHaveCount(5);
+      for (const label of await group.locator("label").all()) {
+        const box = (await label.boundingBox())!;
+        expect(box.width).toBeGreaterThanOrEqual(44);
+        expect(box.height).toBeGreaterThanOrEqual(44);
+      }
+      // In words under the ends (the hidden copies describe options 1 and 5).
+      await expect(block.getByText(nb.believability.low, { exact: true }).first()).toBeVisible();
+      await expect(block.getByText(nb.believability.high, { exact: true }).first()).toBeVisible();
+      await expect(group.getByRole("radio", { name: "1", exact: true })).toHaveAccessibleDescription(nb.believability.low);
+      await expectAccessible(page, viewport.phone);
+      await expectReflow(page, viewport.phone);
+      // Keyboard only: focus 3, the arrow moves to 4, then «Send svar».
+      await group.getByRole("radio", { name: "3", exact: true }).focus();
+      await page.keyboard.press("Space");
+      await page.keyboard.press("ArrowRight");
+      await expect(group.getByRole("radio", { name: "4", exact: true })).toBeChecked();
+      await page.keyboard.press("Tab");
+      await expect(block.getByRole("button", { name: nb.believability.send })).toBeFocused();
+      await page.keyboard.press("Enter");
+      await expect(block.getByRole("status")).toHaveText(nb.believability.saved(4));
+      await expect(block.getByRole("status")).toBeFocused();
+      await expect(block.getByRole("radio")).toHaveCount(0);
+    });
   });
 }
+
+test("no AI player, or the question answered: nothing asked again", async ({ page }) => {
+  await openFinished(page, { believability: { offered: false, rating: null } });
+  await expect(page.locator("[data-chain-total]")).toBeVisible();
+  await expect(page.getByText(nb.believability.legend)).toHaveCount(0);
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+  await openFinished(page, { believability: { offered: true, rating: 2 } });
+  const block = page.getByRole("main").getByRole("region", { name: nb.believability.title });
+  await expect(block.getByRole("status")).toHaveText(nb.believability.saved(2));
+  await expect(block.getByRole("radio")).toHaveCount(0);
+});
 
 test("held Debriefs: the line says they open when all Class games are finished, with no button", async ({ page }) => {
   await openFinished(page, { debrief: "held" });
@@ -157,6 +230,19 @@ test("live: the last Order ends the game on «Spillet er ferdig», and Hjem show
     await expect(page.locator("[data-chain-total]")).toHaveText(/\d,\d\d/);
     await expect(page.locator("[data-chain-bill] tbody tr[data-own]")).toHaveCount(1);
     await expect(page.locator("[data-chain-cost-table], [data-chain-cost-chart] svg")).toHaveCount(1);
+
+    // Story 10.8: three Rule-based players held Seats, so the api asks; the answer is stored once.
+    const block = page.getByRole("main").getByRole("region", { name: nb.believability.title });
+    await block.getByRole("radio", { name: "4", exact: true }).check();
+    await block.getByRole("button", { name: nb.believability.send }).click();
+    await expect(block.getByRole("status")).toHaveText(nb.believability.saved(4));
+    const again = await me.context.request.post(`/api/me/games/${game.gameId}/believability`, {
+      data: { rating: 2 },
+      headers: { "X-Requested-With": "olspillet" },
+    });
+    expect(again.status()).toBe(409);
+    await page.reload();
+    await expect(block.getByRole("status")).toHaveText(nb.believability.saved(4));
 
     await page.goto("/hjem");
     await expect(page.getByRole("main").getByText(nb.homes.student.finished, { exact: true })).toBeVisible();

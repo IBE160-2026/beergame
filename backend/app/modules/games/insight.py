@@ -155,6 +155,9 @@ class GameInsight:
     markable: bool = False
     """Story 8.11 (FR-36): «I rommet» applies to the Game now: it runs (also paused) and its
     policy has inactivity Takeover."""
+    end_reason: str | None = None
+    """Story 10.6: why a `finished` Game ended without its last Week (`test_deadline`); else
+    None."""
 
 
 def _in_force(history: Sequence[Mapping[str, Any]], week: int) -> Mapping[str, Any] | None:
@@ -304,6 +307,7 @@ async def game_insight(session: AsyncSession, game_id: uuid.UUID) -> GameInsight
         in_room_minutes=game["in_room_minutes"],
         in_room_until=game["in_room_until"],
         markable=game["lifecycle"] == Lifecycle.RUNNING and game_policy.inactivity_takeover,
+        end_reason=game["end_reason"],
     )
 
 

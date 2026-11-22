@@ -95,6 +95,9 @@ export const seatChoicePath = (id: string) => `${classSessionPath(id)}/velg-sete
 export const gamePath = (id: string) => `/spill/${encodeURIComponent(id)}`;
 export const rulesPath = (id: string) => `${gamePath(id)}/regler`;
 export const startingTaskPath = (id: string) => `${gamePath(id)}/startoppgave`;
+/** The Replay-gjennomgang of a finished Replay (Story 10.7 builds the page; Story 10.5's
+ * «Gå til gjennomgangen» leads there). */
+export const walkthroughPath = (id: string) => `${gamePath(id)}/gjennomgang`;
 
 /** The Student's Debrief in a Class session (Story 9.2): where «Gå til Debrief» on «Spillet er
  * ferdig» and Stegene's Debrief step lead. One Debrief per Student and Class session. */

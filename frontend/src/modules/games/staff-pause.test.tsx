@@ -110,6 +110,7 @@ describe("the Students' line after a Lecturer's Pause", () => {
 function insight(over: Partial<GameInsight>): GameInsight {
   return {
     game_id: "g1",
+    replay: false,
     class_session_id: "s1",
     class_id: "c1",
     class_name: "Klasse",

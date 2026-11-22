@@ -167,6 +167,27 @@ async def _run_set_snapshot() -> str:
     return game_id
 
 
+async def _started_replay() -> str:
+    """A started Replay: its snapshot at creation, one Student, three Rule-based players."""
+    from tests.games.test_set_snapshot import snapshot
+
+    game_id = await commands.create("replay", snapshot=snapshot(), class_session_id=uuid.uuid7())
+    await commands.assign_seat(game_id, "retailer", "student", user_id=uuid.uuid7())
+    for role in ("wholesaler", "distributor", "factory"):
+        await commands.assign_seat(game_id, role, "rule_based")
+    await commands.start(game_id)
+    return game_id
+
+
+async def _run_close() -> str:
+    """A started Replay closed at the Test deadline (Story 10.6): the caller has judged the
+    deadline (no `due`), and the Student hears of it. The setup emits seven events (create 1,
+    four Seats 4, start 2)."""
+    game_id = await _started_replay()
+    assert await commands.close(game_id, "test_deadline")
+    return game_id
+
+
 TOMORROW = "SELECT now() + interval '1 day'"
 """A time to propose, read from the database clock (Issue #63)."""
 
@@ -411,6 +432,7 @@ RUNNERS = {
     "end_in_room": _run_end_in_room,
     "playout": _run_playout,
     "ensure_playout_order": _run_ensure_playout_order,
+    "close": _run_close,
 }
 """How to run each command once; a command added without a runner fails the test below."""
 
@@ -449,6 +471,7 @@ CLASS_SETUP_EVENTS = {
     # create 2, two Student Seats 2 each, snapshot 4, start 4: the playout and its Weeks after it.
     "playout": 14,
     "ensure_playout_order": 14,
+    "close": 7,
 }
 """Runners on a Class game, and how many events their setup emits before the command's own."""
 
@@ -483,6 +506,7 @@ def test_every_command_is_exported_and_registered():
             "end_in_room",
             "playout",
             "ensure_playout_order",
+            "close",
         }
         == set(RUNNERS)
     )
@@ -562,6 +586,14 @@ async def test_each_command_locks_bumps_and_notifies_in_one_transaction(games_db
         assert await commands._advance_once(game_id)
         assert len(commits) == 1
         assert_locked_bump_notify(statements)
+        game_id = await _started_replay()
+        statements.clear()
+        commits.clear()
+        assert await commands.close(game_id, "test_deadline")
+        assert len(commits) == 1
+        assert_locked_bump_notify(statements)
+        assert any(s.startswith("UPDATE games SET lifecycle") for s in statements)
+        assert not any("game_weeks" in s for s in statements if s.startswith("INSERT"))
     finally:
         event.remove(sync_engine, "before_cursor_execute", record)
         event.remove(sync_engine, "commit", commit)

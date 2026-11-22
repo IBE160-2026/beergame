@@ -17,6 +17,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.engine.scenario import ReplayTemplate, replay_template_admits
 from app.engine.settings import GameSettings
 
 _FROZEN = ConfigDict(frozen=True, extra="forbid")
@@ -51,8 +52,13 @@ class PlayGuardParams(BaseModel):
     large_distance: _Count
     """On settings the band was not calibrated for: what counts as a large deviation from the
     Rule-based reference (replaces `lower_distance`; the upper limit is not applied)."""
-    calibrated_profiles: Annotated[dict[str, GameSettings], Field(min_length=1)]
-    """The Game settings the band was calibrated for, by name; `demand_seed` is ignored."""
+    calibrated_profiles: Annotated[
+        dict[str, Annotated[GameSettings | ReplayTemplate, Field(union_mode="left_to_right")]],
+        Field(min_length=1),
+    ]
+    """The Game settings the band was calibrated for, by name; `demand_seed` is ignored. A
+    profile is one `GameSettings`, or a `ReplayTemplate` whose every draw counts (Story 10.1:
+    `replay_default`, the default Replay scenario of the Classic settings)."""
 
 
 def parse_params(text: str, set_id: str) -> PlayGuardParams:
@@ -103,10 +109,13 @@ class GuardResult(BaseModel):
 
 
 def is_calibrated(settings: GameSettings, params: PlayGuardParams) -> bool:
-    """Whether `settings` are one of the set's calibrated profiles (the demand seed aside)."""
+    """Whether `settings` are one of the set's calibrated profiles (the demand seed aside): equal
+    to a `GameSettings` profile, or one draw of a `ReplayTemplate` profile."""
     wanted = settings.model_dump(exclude={"demand_seed"})
     return any(
-        profile.model_dump(exclude={"demand_seed"}) == wanted
+        replay_template_admits(profile, settings)
+        if isinstance(profile, ReplayTemplate)
+        else profile.model_dump(exclude={"demand_seed"}) == wanted
         for profile in params.calibrated_profiles.values()
     )
 

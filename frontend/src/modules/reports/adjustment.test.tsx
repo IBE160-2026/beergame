@@ -97,6 +97,7 @@ describe("Spillstyring's Tilrettelegging line", () => {
   });
   const insight = (extra: boolean): GameInsight => ({
     game_id: "g1",
+    replay: false,
     class_session_id: "s1",
     class_id: "c1",
     class_name: "Klasse",

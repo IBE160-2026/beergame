@@ -36,6 +36,15 @@ class Lifecycle(StrEnum):
     FINISHED = "finished"
 
 
+class EndReason(StrEnum):
+    """Why a Game ended without its last Week (Story 10.6, AD-2): `games.commands.close` sets it
+    with `lifecycle = finished`. A Game that ends through `finish` has none. A closed Game is not
+    finished for anything that reads a finished Game's results."""
+
+    TEST_DEADLINE = "test_deadline"
+    """Closed at its Students' Test deadline, not played out (FR-18, AD-13)."""
+
+
 class GameStatus(StrEnum):
     """A Game's status as staff see it (FR-39), from `games.rules.game_status` only (AD-2);
     `paused` from Story 8.6 (FR-89)."""
@@ -192,6 +201,8 @@ class GameOverview(BaseModel):
     """The Class session of a Class game (Story 5.9), with its `game_number` in it."""
     game_number: int | None = None
     seats: tuple[SeatOverview, ...]
+    end_reason: EndReason | None = None
+    """Story 10.6: set on a Game `close` ended (`finished` without its last Week); None else."""
 
 
 _Count = Annotated[int, Field(strict=True, ge=0)]
@@ -680,3 +691,18 @@ class TableStatus(BaseModel):
     """The Pause line (Story 8.6); None when there is none to show."""
     in_room: TableInRoom | None = None
     """The «I rommet» line (Story 8.11); None while the game is not marked or not running."""
+
+
+BELIEVABILITY_SCALE = (1, 5)
+"""The five-point scale of the believability question (Story 10.8, FR-70): 1 to 5."""
+
+
+class Believability(BaseModel):
+    """The believability question of one Game for the Student who reads it (Story 10.8, FR-70):
+    whether they are asked, and their own answer once given. Never anyone else's."""
+
+    offered: bool
+    """Whether the question is asked: the Game finished (not closed at the Test deadline) and its
+    policy's `believability` holds (an AI player held some Seat, or always)."""
+    rating: Annotated[int, Field(ge=BELIEVABILITY_SCALE[0], le=BELIEVABILITY_SCALE[1])] | None
+    """The Student's own answer, 1 to 5; None until they answer."""

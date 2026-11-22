@@ -95,7 +95,10 @@ async def test_the_envelope_is_the_own_seat_in_the_open_week_for_every_role(klas
             "table_status",
             "server_now",
             "next_change_at",
+            "projection",
         }
+        # The projection is the Replay's alone (Story 10.4, UX-DR19).
+        assert body["projection"] is False
         assert body["turn"] == {"guided": False, "order": None, "viewed": False}
         state = body["seat_state"]
         # The Seat's own state in the open Week, exactly as the one read model builds it.

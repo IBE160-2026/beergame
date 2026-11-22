@@ -1,0 +1,78 @@
+{
+  "id": "placeholder-1",
+  "version": 1,
+  "verified": false,
+  "source": "placeholder-1: placeholder-0 with the default Replay scenario (Story 10.1) as a calibrated profile; round values chosen only so a Rule-based-like LLM player stays in the band and an erratic or near-optimal one leaves it; not calibrated in the prototype; distance measure, window, minimum Weeks, both limits and the large deviation pending issue #20",
+  "distance": "absolute_units",
+  "window_weeks": 8,
+  "minimum_weeks": 8,
+  "lower_distance": 4,
+  "lower_share": "0.95",
+  "upper_margin": "0.05",
+  "large_distance": 16,
+  "calibrated_profiles": {
+    "classic": {
+      "schema_version": 1,
+      "roles": [
+        "retailer",
+        "wholesaler",
+        "distributor",
+        "factory"
+      ],
+      "starting_inventory": 12,
+      "starting_backlog": 0,
+      "supply_line": 4,
+      "order_delay": 2,
+      "shipping_delay": 2,
+      "production_delay": 2,
+      "demand": {
+        "start": 4,
+        "new_level": 8,
+        "change_week": 5,
+        "kind": "step"
+      },
+      "holding_cost": "0.50",
+      "backorder_cost": "1.00",
+      "weeks": 36,
+      "guided_weeks": 4,
+      "max_order": 999
+    },
+    "replay_default": {
+      "schema_version": 1,
+      "roles": [
+        "retailer",
+        "wholesaler",
+        "distributor",
+        "factory"
+      ],
+      "starting_inventory": 12,
+      "starting_backlog": 0,
+      "supply_line": 4,
+      "order_delay": 2,
+      "shipping_delay": 2,
+      "production_delay": 2,
+      "demand": {
+        "kind": "step",
+        "start": 4,
+        "new_level": 8,
+        "change_week": {
+          "minimum": 5,
+          "maximum": 12
+        },
+        "spread": 2
+      },
+      "holding_cost": "0.50",
+      "backorder_cost": "1.00",
+      "weeks": {
+        "minimum": 30,
+        "maximum": 40
+      },
+      "guided_weeks": 0,
+      "max_order": 999,
+      "info_visibility": {
+        "upstream": false,
+        "downstream": false
+      }
+    }
+  }
+}

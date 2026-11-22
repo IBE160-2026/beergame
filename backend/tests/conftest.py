@@ -330,29 +330,24 @@ def pytest_configure(config: pytest.Config) -> None:
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     """The files directly under `tests/` hold the long tests (whole simulated batches, the
-    migration walk, programs run as processes), as do the tests marked `long` (the 100-game
-    tests); they must run early, or one worker is still
+    migration walk, programs run as processes); they must run early, or one worker is still
     running them after the others have finished. pytest-xdist's `worksteal` hands each worker one
     contiguous slice of this order (slice `i` holds `remaining // (workers - i)` items) and lets
-    the others steal from a slice's end. So the long tests are dealt round-robin to the head of
-    every slice, each followed by its share of the short ones, which even the workers out. The
+    the others steal from a slice's end. So the long tests (and those marked `long` elsewhere)
+    are dealt round-robin to the head of every slice, each followed by its share of the short
+    ones, which even the workers out. The
     migration tests stay together at the head of the first slice: run side by side, their
     schema rebuilds slowed each other several times over. Every worker computes the same order.
     Without workers the long tests simply come first. Each group keeps its collected order."""
-    top = [item for item in items if item.path.parent.name == "tests"]
+    top = [
+        item
+        for item in items
+        if item.path.parent.name == "tests" or item.get_closest_marker("long") is not None
+    ]
     migrations = [item for item in top if item.path.name == "test_migrations.py"]
-    # Story 8.14 close-out: a test elsewhere marked `long` (the 100-game NFR tests) runs early too.
-    marked = [
-        item
-        for item in items
-        if item.path.parent.name != "tests" and item.get_closest_marker("long") is not None
-    ]
-    long = [item for item in top if item.path.name != "test_migrations.py"] + marked
-    short = [
-        item
-        for item in items
-        if item.path.parent.name != "tests" and item.get_closest_marker("long") is None
-    ]
+    long = [item for item in top if item.path.name != "test_migrations.py"]
+    chosen = {id(item) for item in top}
+    short = [item for item in items if id(item) not in chosen]
     workers = int(os.environ.get("PYTEST_XDIST_WORKER_COUNT", "0"))
     if workers < 2:
         items[:] = migrations + long + short

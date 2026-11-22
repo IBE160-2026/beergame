@@ -95,7 +95,19 @@ describe("NetGraph", () => {
 
   it("draws no projection in the Klassespill, and one only when asked (Epic 10)", () => {
     expect(net()).not.toContain("projection");
-    expect(net({ projection: [{ x: 52, value: -20 }, { x: 94, value: -5 }] })).toContain('data-mark="projection"');
+    const projection = [
+      { week: 11, x: 52, value: -20 },
+      { week: 15, x: 136, value: -5 },
+    ];
+    const drawn = net({ projection });
+    expect(drawn).toContain('data-mark="projection" data-weeks="11 15" data-x="52 136"');
+    // Dashed, ending in a hollow dot (UX-DR19): never by colour alone.
+    expect(drawn).toContain('stroke-dasharray="5 4"');
+    expect(drawn).toMatch(/<circle data-projection-end="" cx="136"[^>]*fill="#FFFFFF"/i);
+    // Clipped at the axis edge (a horizon past nå + 4, Story 10.4): the line, but no dot.
+    const clipped = net({ projection, projectionClipped: true });
+    expect(clipped).toContain('data-mark="projection"');
+    expect(clipped).not.toContain("data-projection-end");
   });
 
   it("at mini scale (Spillkort, Story 6.17) draws the Netto lager line, its dot and «Nå» only", () => {
@@ -334,6 +346,18 @@ describe("Ditt netto lager, hele spillet (Story 9.3)", () => {
     expect(html).toContain('stroke-dasharray="3 3"');
     expect(html).toContain(">-80</text>");
     expect(renderToStaticMarkup(<NetOverGame {...props} marker={99} />)).not.toContain('data-mark="marker"');
+  });
+
+  it("draws a second run on the same Uke axis as a thin grey line, its values in the scale (Story 10.7)", () => {
+    const replay = points.slice(0, 30);
+    const html = renderToStaticMarkup(<NetOverGame {...props} points={replay} compare={points.map((p) => ({ ...p, net: p.net - 70 }))} />);
+    expect(html).toContain('data-mark="compare"');
+    expect(html).toContain(`data-weeks="${replay.map((p) => p.week).join(" ")}"`);
+    expect(html).toMatch(/data-mark="compare"[^>]*stroke="#[0-9a-f]+"[^>]*stroke-width="1.5"/i);
+    // The axis runs to the longer run's last Uke, and the scale holds the lower line.
+    expect(html).toContain(">Uke 36</text>");
+    expect(html).toContain(">-80</text>");
+    expect(renderToStaticMarkup(<NetOverGame {...props} />)).not.toContain('data-mark="compare"');
   });
 });
 

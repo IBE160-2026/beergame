@@ -427,12 +427,13 @@ def _holder(kind: str | None) -> Literal["student", "ai", "free"]:
 async def game_insight(user: authz.Principal, game_id: uuid.UUID) -> GameInsightOut | None:
     """Spillinnsikt (Story 7.7, FR-62): one Game week by week for the staff of its Class, through
     the `games.insight` policy and the Class staff scope; None, one answer, for a Game that does not
-    exist, one the Lecturer overview does not list (a test or simulation Game, AD-13) and one of
-    another Class (FR-5, NFR-7). Students' names are resolved now (AD-12, AD-14); a fixed number of
-    queries whatever the game's length."""
+    exist, one whose policy keeps it off Spillinnsikt (a test or simulation Game, AD-13) and one of
+    another Class (FR-5, NFR-7). A Student's Replay opens like a Class game, marked `replay` (Story
+    10.5, FR-34). Students' names are resolved now (AD-12, AD-14); a fixed number of queries
+    whatever the game's length."""
     async with get_sessionmaker()() as s:
         head = await games_service.class_game_head(s, game_id)
-        if head is None or head.class_session_id is None or not head.listed:
+        if head is None or head.class_session_id is None or not head.insight:
             return None
         row = await repo.session_row(s, head.class_session_id)
     if row is None:
@@ -509,7 +510,9 @@ async def game_insight(user: authz.Principal, game_id: uuid.UUID) -> GameInsight
         class_name=found.name,
         session_number=number,
         game_number=insight.game_number,
+        replay=head.replay,
         status=insight.status,
+        end_reason=insight.end_reason,
         version=insight.version,
         weeks_total=insight.weeks_total,
         demand=[DemandWeekOut(week=week, demand=demand) for week, demand in insight.demand],

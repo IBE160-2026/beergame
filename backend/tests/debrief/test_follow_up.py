@@ -56,6 +56,7 @@ def calls() -> list[tuple]:
     )
 
 
+@pytest.mark.long
 async def test_a_student_asks_bounded_follow_up_questions(klass, emitted, monkeypatch):
     await seed.ensure_zero_config()  # the default mock config names the follow-up's prompt
     session_id, game_id, debrief, game_of, me = await played(klass)

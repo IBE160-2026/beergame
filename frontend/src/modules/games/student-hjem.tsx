@@ -16,6 +16,8 @@ import { gamePath, rulesPath, seatChoicePath } from "@/modules/identity/homes";
 import { MyMessages } from "@/modules/messaging/my-messages";
 import { type EnrolledSession, enrolledSessionsKey, useEnrolledSessions } from "@/modules/sessions/api";
 import { ownLines } from "@/modules/reports/adjustment";
+import { ReplayBlock } from "@/modules/replay/replay-block";
+import { wantsReplayPrimary } from "@/modules/replay/replay";
 import { homeLine } from "@/modules/sessions/seat-choice";
 
 import { GameAction } from "./game-action";
@@ -110,6 +112,9 @@ export function StudentHjem() {
   const listed = items.flatMap((item) => all.filter((session) => session.class_id === item.id));
   const primaryGame =
     listed.find((session) => (session.game ? wantsPrimary(session.game) : false))?.id ?? null;
+  // Story 10.3: «Start Replay» is the primary only when no game action is.
+  const primaryReplay =
+    primaryGame === null ? (listed.find((session) => wantsReplayPrimary(session.replay))?.id ?? null) : null;
   return (
     <>
       <ul className="mt-8 flex max-w-md flex-col border-t border-hairline">
@@ -129,6 +134,7 @@ export function StudentHjem() {
                     session={session}
                     labelled={own.length > 1}
                     primary={session.id === primaryGame && proposing.size === 0}
+                    replayPrimary={session.id === primaryReplay && proposing.size === 0}
                     onProposing={(open) =>
                       setProposing((was) => {
                         if (was.has(session.id) === open) return was;
@@ -157,11 +163,13 @@ function SessionBlock({
   session,
   labelled,
   primary,
+  replayPrimary,
   onProposing,
 }: {
   session: EnrolledSession;
   labelled: boolean;
   primary: boolean;
+  replayPrimary: boolean;
   onProposing: (open: boolean) => void;
 }) {
   const game = session.game ?? null;
@@ -181,7 +189,9 @@ function SessionBlock({
       ) : (
         <BeforeStart session={session} />
       )}
-      <Stegene title={copy.steps} titleId={`steps-${session.id}`} items={stepItems(session.steps, session.id)} />
+      {/* Story 10.3: the Replay, once the Debrief quiz is passed. */}
+      {session.replay ? <ReplayBlock replay={session.replay} sessionId={session.id} primary={replayPrimary} /> : null}
+      <Stegene title={copy.steps} titleId={`steps-${session.id}`} items={stepItems(session.steps, session.id, session.replay)} />
       {/* The Student's own Tilrettelegging (Story 8.9): only they read it. */}
       {ownLines(session.adjustment).length > 0 ? (
         <div className="mt-3 flex flex-col gap-1 text-body-phone text-ink-secondary lg:text-body" data-own-adjustment="">

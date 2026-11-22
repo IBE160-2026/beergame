@@ -25,6 +25,7 @@ from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 
 from app.modules.games.schemas import (
     DecidedBy,
+    EndReason,
     Fallback,
     GameStatus,
     Lifecycle,
@@ -142,6 +143,9 @@ games = Table(
     # `games.commands.playout`, kept after `finish`, so «Spillet er ferdig» says it ended at the
     # Spillfrist and a person's command answers `play_deadline_passed`.
     Column("played_out_at", DateTime(timezone=True), nullable=True),
+    # Story 10.6: why a Game ended without its last Week (`games.commands.close`); NULL on every
+    # other Game, also one that finished through `finish`.
+    Column("end_reason", Text, nullable=True),
     CheckConstraint(_in("purpose", Purpose), name="ck_games_purpose"),
     CheckConstraint(IN_ROOM_TOGETHER, name="ck_games_in_room"),
     CheckConstraint(
@@ -158,6 +162,10 @@ games = Table(
         name="ck_games_agreed_time_reached",
     ),
     CheckConstraint(_in("lifecycle", Lifecycle), name="ck_games_lifecycle"),
+    CheckConstraint(_in("end_reason", EndReason), name="ck_games_end_reason"),
+    CheckConstraint(
+        "end_reason IS NULL OR lifecycle = 'finished'", name="ck_games_end_reason_finished"
+    ),
     CheckConstraint("version >= 0", name="ck_games_version"),
     CheckConstraint(SNAPSHOT_TOGETHER, name="ck_games_snapshot"),
     # A game number needs its Class session; a test Game has the session and no number (6.20).
@@ -459,3 +467,25 @@ game_summaries = Table(
 """The Lecturer overview's read model (AD-25, Story 7.1): one row per Game, rewritten by
 `games.commands` in the transaction of every change (`overview.refresh`). The only source of a
 Game's status for lists and overviews. Never a name or an email (AD-14)."""
+
+believability_ratings = Table(
+    "believability_ratings",
+    metadata,
+    Column("game_id", Uuid, ForeignKey("games.id", ondelete="CASCADE"), primary_key=True),
+    # The Student who answered: the id only, never a name (AD-14). No foreign key, as in
+    # `seat_occupancy`: `games` keeps ids of Users, not rows of theirs.
+    Column("user_id", Uuid, primary_key=True),
+    # Copied from the Game, so a report reads this table alone: why the Game exists and the AI
+    # mode of the Class session it froze (`session_runtime.ai_mode`).
+    Column("purpose", Text, nullable=False),
+    Column("ai_mode", Text, nullable=False),
+    Column("rating", SmallInteger, nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    CheckConstraint("rating BETWEEN 1 AND 5", name="ck_believability_ratings_rating"),
+    CheckConstraint(_in("purpose", Purpose), name="ck_believability_ratings_purpose"),
+    CheckConstraint("ai_mode IN ('llm', 'rule_based')", name="ck_believability_ratings_ai_mode"),
+)
+"""How believable a Student found the AI players' ordering in a Game (Story 10.8, FR-70): one
+answer per Student and Game on a five-point scale, written once by
+`games.service.rate_believability` (a trigger refuses UPDATE). Never shown beside a name; only
+the Student who gave it reads it back, and Epic 14 aggregates it per AI mode."""

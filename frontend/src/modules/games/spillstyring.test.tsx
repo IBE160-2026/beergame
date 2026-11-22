@@ -37,6 +37,7 @@ const seat = (over: Partial<InsightSeat>): InsightSeat => ({
 function insight(status: GameInsight["status"], seats: InsightSeat[]): GameInsight {
   return {
     game_id: "g1",
+    replay: false,
     class_session_id: "s1",
     class_id: "c1",
     class_name: "Klasse",

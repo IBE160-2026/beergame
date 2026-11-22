@@ -235,6 +235,14 @@ async def _log_overdue_playout(item: object, now: datetime) -> bool:
     return True
 
 
+async def _close_at_test_deadline(game_id: object, now: datetime) -> bool:
+    """Close one unfinished Game at its Test deadline (Story 10.6): `games.commands.close`, which
+    judges the deadline again at `now` under the Game row lock and does nothing to a Game already
+    finished, so a repeat or a late item is harmless."""
+    assert isinstance(game_id, str)
+    return await games_commands.close(game_id, games.EndReason.TEST_DEADLINE, due=now)
+
+
 DUE_ACTIONS: tuple[DueAction, ...] = (
     # The first due action (Story 3.5): claim due notices into mails and defer their `mail` jobs.
     DueAction("messaging.mail", messaging.due_items, messaging.claim),  # type: ignore[arg-type]
@@ -291,6 +299,11 @@ DUE_ACTIONS: tuple[DueAction, ...] = (
     DueAction("games.playout_orders", _stalled_playout_turns, _ensure_playout_order),
     DueAction("games.playout_overdue", _overdue_playouts, _log_overdue_playout),
     DueAction("games.verify_finished", _unchecked_finished_games, _verify_finished),
+    # Story 10.6 (FR-18, AD-13): close each unfinished Replay once its Student's Test deadline has
+    # passed (`effective_test_deadline`), never played out; one Game per transaction.
+    DueAction(
+        "games.close_at_test_deadline", games.due_test_deadline_closes, _close_at_test_deadline
+    ),
     # Story 9.2: release the Debriefs of a held Class session once its last Class game has
     # finished (by the last Week or the playout), and tell each seated Student (AD-9).
     DueAction("debrief.release", debrief.due_releases, debrief.release_due),

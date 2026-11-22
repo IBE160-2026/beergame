@@ -61,7 +61,7 @@ async def test_create_freezes_the_snapshot(games_db):
         "rule_based_params_version": 1,
         "model_config_id": None,
         "effort_level": None,
-        "play_guard_params": "placeholder-0",
+        "play_guard_params": "placeholder-1",
         "play_guard_params_version": 1,
         # Frozen by a Class session's lock only (Story 5.11).
         "inactivity_limit_hours": None,
@@ -227,7 +227,7 @@ async def test_an_invalid_parameter_set_stores_nothing(games_db, monkeypatch):
     assert counts(games_db) == (0, 0, 0)
 
 
-@pytest.mark.parametrize("purpose", ["replay", "makeup", "party"])
+@pytest.mark.parametrize("purpose", ["makeup", "party"])
 async def test_purposes_without_a_policy_cannot_be_created_yet(games_db, purpose):
     with pytest.raises(commands.CommandError) as caught:
         await commands.create(purpose, GameSettings(), seed=1)

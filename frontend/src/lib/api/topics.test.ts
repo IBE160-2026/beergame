@@ -15,6 +15,7 @@ import {
 import { meKey } from "@/modules/identity/api";
 import { messageFormKey, myMessagesKey, sentMessagesKey } from "@/modules/messaging/api";
 import { studentPageKey } from "@/modules/reports/api";
+import { walkthroughKey } from "@/modules/replay/api";
 import {
   allocationKey,
   classSessionKey,
@@ -82,6 +83,10 @@ describe("topicKeys", () => {
       myGameKey("g2"),
       myMessagesKey,
     ]);
+  });
+
+  it("reads a waiting Replay-gjennomgang again on user:<id>, when its line is stored (Story 10.7)", () => {
+    expect(invalidated({ topic: "user", id: "u1", version: null }, [walkthroughKey("g1")])).toEqual([walkthroughKey("g1")]);
   });
 
   it("maps session:<id> to that Klasseøkt, its allocation, the Lærerhjem, the Class's session list, its Oversikt and «Meldinger»", () => {

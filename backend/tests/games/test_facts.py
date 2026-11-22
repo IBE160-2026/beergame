@@ -312,6 +312,7 @@ async def test_the_takeover_golden_facts(games_db):
     assert 0 < sets["retailer"].facts.chain.ai_held_share < 1
 
 
+@pytest.mark.long
 async def test_the_fully_rule_based_golden_facts(games_db):
     game_id = await classic_game(TEST_DATABASE_URL)
     sets = await stored_sets(game_id)

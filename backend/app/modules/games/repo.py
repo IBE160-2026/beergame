@@ -11,6 +11,7 @@ from sqlalchemy.dialects.postgresql import distinct_on, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.games.models import (
+    believability_ratings,
     fact_sets,
     game_checks,
     game_summaries,
@@ -401,8 +402,27 @@ async def class_session_seat_ids(
     return list(result.mappings())
 
 
-async def set_lifecycle(session: AsyncSession, game_id: uuid.UUID, lifecycle: str) -> None:
-    await session.execute(update(games).where(games.c.id == game_id).values(lifecycle=lifecycle))
+async def set_lifecycle(
+    session: AsyncSession, game_id: uuid.UUID, lifecycle: str, *, end_reason: str | None = None
+) -> None:
+    await session.execute(
+        update(games)
+        .where(games.c.id == game_id)
+        .values(lifecycle=lifecycle, end_reason=end_reason)
+    )
+
+
+async def unfinished_games(session: AsyncSession, purposes: Collection[str]) -> list[RowMapping]:
+    """The id and Class session of every Game of `purposes` that has not finished, oldest first
+    (Story 10.6): what the sweep's close at the Test deadline looks through."""
+    if not purposes:
+        return []
+    result = await session.execute(
+        select(games.c.id, games.c.class_session_id)
+        .where(games.c.purpose.in_(list(purposes)), games.c.lifecycle != "finished")
+        .order_by(games.c.id)
+    )
+    return list(result.mappings())
 
 
 async def set_started(session: AsyncSession, game_id: uuid.UUID, actor: uuid.UUID | None) -> Any:
@@ -1183,9 +1203,12 @@ async def insert_game_check(session: AsyncSession, values: dict[str, Any]) -> Ro
 
 
 async def finished_game_ids(session: AsyncSession) -> list[uuid.UUID]:
-    """The id of every finished Game, oldest first (ids are UUIDv7)."""
+    """The id of every finished Game, oldest first (ids are UUIDv7); a Game `close` ended has no
+    last Week to check and is not one (Story 10.6)."""
     result = await session.execute(
-        select(games.c.id).where(games.c.lifecycle == "finished").order_by(games.c.id)
+        select(games.c.id)
+        .where(games.c.lifecycle == "finished", games.c.end_reason.is_(None))
+        .order_by(games.c.id)
     )
     return list(result.scalars())
 
@@ -1194,11 +1217,16 @@ async def unchecked_finished_game_ids(
     session: AsyncSession, limit: int, exclude: Collection[uuid.UUID] = ()
 ) -> list[uuid.UUID]:
     """At most `limit` finished Games that have no `game_checks` row yet, oldest first (Story
-    6.18): what the sweep's finished-game check still has to verify, but those in `exclude`."""
+    6.18): what the sweep's finished-game check still has to verify, but those in `exclude`. A
+    Game `close` ended (Story 10.6) is not finished and is never checked."""
     query = (
         select(games.c.id)
         .select_from(games.outerjoin(game_checks, game_checks.c.game_id == games.c.id))
-        .where(games.c.lifecycle == "finished", game_checks.c.id.is_(None))
+        .where(
+            games.c.lifecycle == "finished",
+            games.c.end_reason.is_(None),
+            game_checks.c.id.is_(None),
+        )
     )
     if exclude:
         query = query.where(games.c.id.not_in(list(exclude)))
@@ -1555,6 +1583,8 @@ async def finished_student_seats(
         )
         .where(
             games.c.class_session_id.is_not(None),
+            # Class games only: a finished Replay or test Game has no Debrief (Story 10.5).
+            _listed(),
             game_weeks.c.created_at > finished_after,
             game_weeks.c.created_at <= finished_before,
             held,
@@ -1627,3 +1657,50 @@ async def cost_parts_of(session: AsyncSession, game_ids: Collection[uuid.UUID]) 
         return []
     result = await session.execute(_COST_PARTS, {"ids": list(game_ids)})
     return list(result.mappings())
+
+
+async def ai_held_some_seat(session: AsyncSession, game_id: uuid.UUID) -> bool:
+    """Whether an AI player (LLM or Rule-based) placed some Order of the Game: the Decision log
+    says who held each Seat in each Week (AD-15)."""
+    found = await session.scalar(
+        select(
+            select(seat_weeks.c.id)
+            .where(
+                seat_weeks.c.game_id == game_id,
+                seat_weeks.c.occupant_kind.in_(("llm", "rule_based")),
+            )
+            .exists()
+        )
+    )
+    return bool(found)
+
+
+async def believability_rating(
+    session: AsyncSession, game_id: uuid.UUID, user_id: uuid.UUID
+) -> int | None:
+    """The Student's own believability answer for the Game, or None (Story 10.8)."""
+    return await session.scalar(
+        select(believability_ratings.c.rating).where(
+            believability_ratings.c.game_id == game_id,
+            believability_ratings.c.user_id == user_id,
+        )
+    )
+
+
+async def insert_believability_rating(
+    session: AsyncSession,
+    game_id: uuid.UUID,
+    user_id: uuid.UUID,
+    purpose: str,
+    ai_mode: str,
+    rating: int,
+) -> bool:
+    """Store the Student's answer once; False, storing nothing, when they have one already (a
+    second answer at the same moment waits on the key and then finds the first)."""
+    result = await session.execute(
+        insert(believability_ratings)
+        .values(game_id=game_id, user_id=user_id, purpose=purpose, ai_mode=ai_mode, rating=rating)
+        .on_conflict_do_nothing(index_elements=["game_id", "user_id"])
+        .returning(believability_ratings.c.rating)
+    )
+    return result.first() is not None

@@ -20,6 +20,12 @@ export function seatsUpstreamFirst(insight: Pick<GameInsight, "seats">): Insight
 }
 
 /** Who holds a Seat or held it in a Week: the Student's name, «KI-spiller», or «Ledig». */
+/** The status word in Spillinnsikt's header: the api's `status`, except a Replay closed at the
+ * Testfrist, which is `finished` without having finished (Story 10.6). */
+export function statusText(insight: Pick<GameInsight, "status" | "end_reason">): string {
+  return insight.end_reason === "test_deadline" ? copy.closedAtTestDeadline : copy.status[insight.status];
+}
+
 export function holderText(holder: Pick<InsightSeat, "holder" | "name">): string {
   if (holder.holder === "ai") return copy.aiPlayer;
   if (holder.holder === "free") return copy.freeSeat;
@@ -39,10 +45,14 @@ export function seatMarkText(seat: Pick<InsightSeat, "holder" | "mark"> & { mark
   return seat.holder === "ai" && seat.mark ? markWords(seat.mark, seat.mark_by) : null;
 }
 
-/** The words of a Student Seat's links, or the line that none exists yet; nothing for the others. */
-export function linkTexts(seat: InsightSeat): { kind: string; text: string; href: string }[] | string | null {
+/** The words of a Student Seat's links, or the line that none exists yet; nothing for the others.
+ * A Replay (Story 10.5) has no Explanation or Debrief of its own: no line while it has no link. */
+export function linkTexts(
+  seat: InsightSeat,
+  replay = false,
+): { kind: string; text: string; href: string }[] | string | null {
   if (seat.holder !== "student") return null;
-  if (seat.links.length === 0) return copy.noLinks;
+  if (seat.links.length === 0) return replay ? null : copy.noLinks;
   return seat.links.map((link) => ({ kind: link.kind, text: copy.links[link.kind] ?? copy.otherLink, href: link.href }));
 }
 

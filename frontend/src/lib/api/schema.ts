@@ -561,6 +561,19 @@ export interface paths {
          *     `FEATURE_STUDENT_CHOICE` is off, 409 `session_locked` once locked and 409
          *     `allocation_confirmed` (`{"allocation_method": "confirmed"}`) once an allocation is confirmed:
          *     Student choice is final once saved.
+         *
+         *     `replay_scenario` (Story 10.2, FR-49), left out, keeps the Replay scenario: `default`, or
+         *     `own` with `replay_template`, the own scenario's editable fields (`starting_inventory`,
+         *     `starting_backlog`, `supply_line`, the three delays, `weeks`, `guided_weeks`, `max_order` as
+         *     whole numbers or `{minimum, maximum}`; `holding_cost`, `backorder_cost`; `demand` as `step`
+         *     with a ranged `change_week`, `random` or `fixed`, each with a `spread`; `info_visibility`
+         *     as in the Game settings, the Replay's own, Story 10.9), laid over the Class game's exact
+         *     settings (Information visibility: over a stored own template's). A template the engine
+         *     refuses answers 422 `invalid_replay_scenario` with `fields` as `invalid_settings`; while
+         *     `FEATURE_INFO_VISIBILITY` is off a view switched on there names `info_visibility`
+         *     `feature_disabled`; `own` with no template sent or stored names
+         *     `replay_template` `required`. Once locked, a changed scenario answers 409 `session_locked`
+         *     (`{"replay_scenario": "locked"}`).
          */
         put: operations["saveClassSession"];
         post?: never;
@@ -904,6 +917,29 @@ export interface paths {
         get: operations["getWallAggregates"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class-sessions/{session_id}/replay-scenario-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check Replay Scenario
+         * @description The engine's errors on a draft of an own Replay scenario and the warnings of changes that
+         *     probably make the Replay easier than the Class game (`replay_*` codes), as the Lecturer
+         *     leaves a field (Story 10.2, FR-12, FR-49). Stores nothing. Once locked it answers 409
+         *     `session_locked`.
+         */
+        post: operations["checkReplayScenario"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2336,6 +2372,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/class-sessions/{session_id}/replay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start My Replay
+         * @description «Start Replay» (Story 10.3, FR-48): the Student's one Replay in the Class session, made in
+         *     the Role of their own game against three AI players and started at once; 201 with the new
+         *     Game, 200 with the one they have already (also when two starts run at once). 403
+         *     `quiz_required` before the Debrief quiz is passed, 409 `test_deadline_passed` after the
+         *     Student's Test deadline, 403 `forbidden` for any session that is not theirs (FR-5).
+         */
+        post: operations["startMyReplay"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me/class-sessions/{session_id}/seat-choice": {
         parameters: {
             query?: never;
@@ -2384,6 +2444,64 @@ export interface paths {
         get: operations["getMyGame"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/games/{game_id}/another-round": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Another Round
+         * @description «Ville du spilt en runde til?» after the Replay-gjennomgang (Story 10.8, FR-50): the
+         *     Student's own answer, null until given. 409 `replay_closed` or `replay_not_finished`; 403
+         *     `forbidden` for any Game that is not the User's own Replay (FR-5, AD-12).
+         */
+        get: operations["getMyAnotherRound"];
+        put?: never;
+        /**
+         * Answer My Another Round
+         * @description «Send svar» on «Ville du spilt en runde til?» (Story 10.8, FR-50, SM-10): stored once per
+         *     Student and Class session. 409 `already_answered` (the first answer stands), `replay_closed`
+         *     or `replay_not_finished`; 403 `forbidden` for any Game that is not the User's own Replay.
+         */
+        post: operations["answerMyAnotherRound"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/games/{game_id}/believability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Believability
+         * @description The believability question of the Student's own game (Story 10.8, FR-70): `offered` once
+         *     a Class game with an AI-held Seat, or a Replay, has finished (never a Game closed at the Test
+         *     deadline), and the Student's own answer. Only the Student who gave an answer reads it; any
+         *     other game answers 403 `forbidden` (FR-5, AD-12).
+         */
+        get: operations["getMyBelievability"];
+        put?: never;
+        /**
+         * Rate My Believability
+         * @description «Send svar» on how believable the AI players' ordering felt (Story 10.8, FR-70, AD-15):
+         *     stored once per Student and Game with the Game's purpose and AI mode. 409 `already_answered`
+         *     (the first answer stands) or `not_offered`; 422 outside 1 to 5. Any other game answers 403
+         *     `forbidden` (FR-5).
+         */
+        post: operations["rateMyBelievability"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2640,6 +2758,30 @@ export interface paths {
          *     any other game, or a Seat the Student no longer holds, answers 403 `forbidden` (FR-5).
          */
         post: operations["acceptMyGameTime"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/games/{game_id}/walkthrough": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Replay Walkthrough
+         * @description The Replay-gjennomgang (Story 10.7, FR-50, AD-7): the Student's finished Replay beside
+         *     their own Class game, every number from the two Games' stored Week rows and facts sets.
+         *     `pending` while the line is being worded (`retry_after_seconds`); 409 `replay_closed` for a
+         *     Replay closed at the Test deadline (Story 10.6) and `replay_not_finished` before its end;
+         *     403 `forbidden` for any Game that is not the User's own Replay (FR-5, AD-12).
+         */
+        get: operations["getMyReplayWalkthrough"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2964,6 +3106,23 @@ export interface components {
              */
             user_id: string;
         };
+        /**
+         * AnotherRoundIn
+         * @description «Send svar» on «Ville du spilt en runde til?»: yes or no.
+         */
+        AnotherRoundIn: {
+            /** Answer */
+            answer: boolean;
+        };
+        /**
+         * AnotherRoundOut
+         * @description Whether the Student would have wanted to play another round (Story 10.8, FR-50, SM-10):
+         *     their own answer, None until they give one. Never anyone else's.
+         */
+        AnotherRoundOut: {
+            /** Answer */
+            answer: boolean | null;
+        };
         /** AnswerIn */
         AnswerIn: {
             /** Answer */
@@ -3037,6 +3196,25 @@ export interface components {
             key: string;
             /** Label */
             label: string | null;
+        };
+        /**
+         * Believability
+         * @description The believability question of one Game for the Student who reads it (Story 10.8, FR-70):
+         *     whether they are asked, and their own answer once given. Never anyone else's.
+         */
+        Believability: {
+            /** Offered */
+            offered: boolean;
+            /** Rating */
+            rating: number | null;
+        };
+        /**
+         * BelievabilityIn
+         * @description «Send svar» on the believability question: 1 (not believable) to 5 (very believable).
+         */
+        BelievabilityIn: {
+            /** Rating */
+            rating: number;
         };
         /**
          * BillOut
@@ -3412,6 +3590,15 @@ export interface components {
             play_time_warning: boolean;
             /** Provider Unavailable */
             provider_unavailable: boolean;
+            replay_default: components["schemas"]["ReplayTemplate"];
+            /**
+             * Replay Scenario
+             * @enum {string}
+             */
+            replay_scenario: "default" | "own";
+            replay_template: components["schemas"]["ReplayTemplate"];
+            /** Replay Warnings */
+            replay_warnings: components["schemas"]["SettingWarning"][];
             /** Required Share Percent */
             required_share_percent: number;
             /** Saved At */
@@ -3457,6 +3644,12 @@ export interface components {
             inactivity_limit_hours?: number | null;
             /** Obligatory */
             obligatory?: boolean | null;
+            /** Replay Scenario */
+            replay_scenario?: ("default" | "own") | null;
+            /** Replay Template */
+            replay_template?: {
+                [key: string]: unknown;
+            } | null;
             /** Required Share Percent */
             required_share_percent?: number | null;
         };
@@ -3791,6 +3984,7 @@ export interface components {
             obligatory: boolean;
             /** Play Deadline */
             play_deadline: string | null;
+            replay?: components["schemas"]["StudentReplayOut"] | null;
             /**
              * Seat Choice Open
              * @default false
@@ -3968,6 +4162,8 @@ export interface components {
             class_session_id: string;
             /** Demand */
             demand: components["schemas"]["DemandWeekOut"][];
+            /** End Reason */
+            end_reason?: "test_deadline" | null;
             /**
              * Game Id
              * Format: uuid
@@ -3986,6 +4182,11 @@ export interface components {
             pause?: components["schemas"]["InsightPauseOut"] | null;
             /** Play Deadline */
             play_deadline?: string | null;
+            /**
+             * Replay
+             * @default false
+             */
+            replay: boolean;
             /** Roles */
             roles: components["schemas"]["InsightRoleOut"][];
             /** Seats */
@@ -4443,6 +4644,16 @@ export interface components {
             id: string;
             /** Name */
             name: string;
+        };
+        /**
+         * IntRange
+         * @description Every whole number from `minimum` to `maximum`, both included; one is drawn per seed.
+         */
+        IntRange: {
+            /** Maximum */
+            maximum: number;
+            /** Minimum */
+            minimum: number;
         };
         /**
          * InvitationBounce
@@ -5156,6 +5367,11 @@ export interface components {
         PlayOut: {
             /** Next Change At */
             next_change_at: string | null;
+            /**
+             * Projection
+             * @default false
+             */
+            projection: boolean;
             seat_state: components["schemas"]["SeatState"];
             /**
              * Server Now
@@ -5474,6 +5690,203 @@ export interface components {
             label: string | null;
             /** Name */
             name: string;
+        };
+        /**
+         * ReplayFixed
+         * @description Each Week's value of `values` as the level, the last one held for Weeks beyond the series,
+         *     with variation of `spread` each Week. Resolves to a `fixed` series of the drawn length.
+         */
+        ReplayFixed: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "fixed";
+            /** Spread */
+            spread: number;
+            /** Values */
+            values: number[];
+        };
+        /**
+         * ReplayGameOut
+         * @description The Student's started Replay on Hjem (Story 10.3, FR-48, FR-34): its Role and Seats, every
+         *     AI player as `ai` (named «KI-spiller») from the first view, and where it stands. Never the
+         *     number of Weeks, the demand or the scenario (FR-49).
+         */
+        ReplayGameOut: {
+            /** End Reason */
+            end_reason?: "test_deadline" | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            role: components["schemas"]["Role"];
+            /** Seats */
+            seats: components["schemas"]["TableSeatOut"][];
+            /**
+             * Server Now
+             * Format: date-time
+             */
+            server_now: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "not_ready" | "ready" | "running" | "finished";
+            /** Week */
+            week: number | null;
+        };
+        /**
+         * ReplayRandom
+         * @description Demand around `mean` with variation of `spread` each Week (a `random` pattern).
+         */
+        ReplayRandom: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "random";
+            /** Mean */
+            mean: number;
+            /** Spread */
+            spread: number;
+        };
+        /**
+         * ReplayScenarioCheckIn
+         * @description A draft of an own Replay scenario to judge without saving (Story 10.2): the editable
+         *     template fields, as typed. The chain, capacity and Information visibility are the Class
+         *     session's.
+         */
+        ReplayScenarioCheckIn: {
+            /** Replay Template */
+            replay_template: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * ReplayStartOut
+         * @description The Student's Replay Game: the one this request made (201) or the one they had (200).
+         */
+        ReplayStartOut: {
+            /**
+             * Game Id
+             * Format: uuid
+             */
+            game_id: string;
+        };
+        /**
+         * ReplayStep
+         * @description `start` until the change Week, then `new_level`, with variation of `spread` each Week.
+         *     Spread 0 resolves to a `step` pattern, any other to `step+noise`.
+         */
+        ReplayStep: {
+            /** Change Week */
+            change_week: number | components["schemas"]["IntRange"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "step";
+            /** New Level */
+            new_level: number;
+            /** Spread */
+            spread: number;
+            /** Start */
+            start: number;
+        };
+        /**
+         * ReplayTemplate
+         * @description A Replay scenario: every `GameSettings` field (the demand seed aside, which is the
+         *     Student's), whole numbers fixed or ranged.
+         */
+        ReplayTemplate: {
+            /** Backorder Cost */
+            backorder_cost: string;
+            /** Capacity */
+            capacity?: {
+                [key: string]: number;
+            } | null;
+            /** Demand */
+            demand: components["schemas"]["ReplayStep"] | components["schemas"]["ReplayRandom"] | components["schemas"]["ReplayFixed"];
+            /** Guided Weeks */
+            guided_weeks: number | components["schemas"]["IntRange"];
+            /** Holding Cost */
+            holding_cost: string;
+            /**
+             * @default {
+             *       "downstream": false,
+             *       "upstream": false
+             *     }
+             */
+            info_visibility: components["schemas"]["InfoVisibility"];
+            /** Max Order */
+            max_order: number | components["schemas"]["IntRange"];
+            /** Order Delay */
+            order_delay: number | components["schemas"]["IntRange"];
+            /** Production Delay */
+            production_delay: number | components["schemas"]["IntRange"];
+            /**
+             * Roles
+             * @default [
+             *       "retailer",
+             *       "wholesaler",
+             *       "distributor",
+             *       "factory"
+             *     ]
+             */
+            roles: components["schemas"]["Role"][];
+            /**
+             * Schema Version
+             * @default 1
+             * @constant
+             */
+            schema_version: 1;
+            /** Shipping Delay */
+            shipping_delay: number | components["schemas"]["IntRange"];
+            /** Starting Backlog */
+            starting_backlog: number | components["schemas"]["IntRange"];
+            /** Starting Inventory */
+            starting_inventory: number | components["schemas"]["IntRange"];
+            /** Supply Line */
+            supply_line: number | components["schemas"]["IntRange"];
+            /** Weeks */
+            weeks: number | components["schemas"]["IntRange"];
+        };
+        /**
+         * ReplayWalkthroughOut
+         * @description `GET /api/me/games/{game_id}/walkthrough`. `pending`: the line is still being worded;
+         *     only `retry_after_seconds` (the rest of the wait limit) is set. `ready`: the Replay run, the
+         *     Class game beside it (None when that game was played mostly by AI players, `mostly_ai`), the
+         *     moments shown and the line fixed at the Student's first ready view.
+         */
+        ReplayWalkthroughOut: {
+            class_game?: components["schemas"]["WalkthroughClassGameOut"] | null;
+            /**
+             * Game Id
+             * Format: uuid
+             */
+            game_id: string;
+            /**
+             * Moments
+             * @default []
+             */
+            moments: components["schemas"]["WalkthroughMomentOut"][];
+            /**
+             * Mostly Ai
+             * @default false
+             */
+            mostly_ai: boolean;
+            narration?: components["schemas"]["WalkthroughTextOut"] | null;
+            replay?: components["schemas"]["WalkthroughRunOut"] | null;
+            /** Retry After Seconds */
+            retry_after_seconds?: number | null;
+            role: components["schemas"]["Role"];
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "pending" | "ready";
         };
         /**
          * ResetCheckOut
@@ -6386,6 +6799,11 @@ export interface components {
          */
         StepOut: {
             /**
+             * Closed
+             * @default false
+             */
+            closed: boolean;
+            /**
              * Group Open
              * @default false
              */
@@ -6431,6 +6849,8 @@ export interface components {
             class_session_id: string;
             /** Debrief */
             debrief?: ("open" | "not_open" | "held") | null;
+            /** End Reason */
+            end_reason?: "test_deadline" | null;
             /**
              * Id
              * Format: uuid
@@ -6450,6 +6870,11 @@ export interface components {
              * @default false
              */
             played_out: boolean;
+            /**
+             * Replay
+             * @default false
+             */
+            replay: boolean;
             role: components["schemas"]["Role"];
             rules: components["schemas"]["GameRulesOut"];
             seat_state: components["schemas"]["SeatState"] | null;
@@ -6505,6 +6930,15 @@ export interface components {
              * Format: uuid
              */
             user_id: string;
+        };
+        /**
+         * StudentReplayOut
+         * @description The Replay on Hjem (Story 10.3): only once the Student has passed the Debrief quiz.
+         */
+        StudentReplayOut: {
+            /** Can Start */
+            can_start: boolean;
+            game: components["schemas"]["ReplayGameOut"] | null;
         };
         /**
          * SumTermOut
@@ -6883,6 +7317,81 @@ export interface components {
              * Format: date-time
              */
             since: string;
+        };
+        /**
+         * WalkthroughClassGameOut
+         * @description The Student's own Class game, compared with: its number too («Spill 17»).
+         */
+        WalkthroughClassGameOut: {
+            /** Game Number */
+            game_number: number | null;
+            /** Total Cost */
+            total_cost: string;
+            /** Weeks */
+            weeks: components["schemas"]["WalkthroughWeekOut"][];
+        };
+        /**
+         * WalkthroughMomentOut
+         * @description One own moment of the Replay, rendered by code from its facts set (`analysis.moments`):
+         *     the heading, «Dette regnet du», «Dette kostet det senere» and the pattern (or gap)
+         *     sentences with the mechanism.
+         */
+        WalkthroughMomentOut: {
+            /** Heading */
+            heading: string;
+            /** Id */
+            id: string;
+            /** Later */
+            later: string;
+            /** Order */
+            order: number;
+            /** Patterns */
+            patterns: string[];
+            /** Reckoning */
+            reckoning: string;
+            /** Week */
+            week: number;
+        };
+        /**
+         * WalkthroughRunOut
+         * @description One run of the Student's Seat: every Uke, and its Totalkostnad (the last Uke's running
+         *     sum, the facts set's own Total cost of the Role).
+         */
+        WalkthroughRunOut: {
+            /** Total Cost */
+            total_cost: string;
+            /** Weeks */
+            weeks: components["schemas"]["WalkthroughWeekOut"][];
+        };
+        /**
+         * WalkthroughTextOut
+         * @description The line that ties the moments together (AD-7): `ai_generated` alone decides the
+         *     «KI-generert, kan ta feil:» marking.
+         */
+        WalkthroughTextOut: {
+            /**
+             * Ai Generated
+             * @default false
+             */
+            ai_generated: boolean;
+            /** Llm Call Id */
+            llm_call_id?: string | null;
+            /** Text */
+            text: string;
+        };
+        /**
+         * WalkthroughWeekOut
+         * @description One Uke of a run, as the Seat saw it when it ordered (its Decision log row).
+         */
+        WalkthroughWeekOut: {
+            /** Net Inventory */
+            net_inventory: number;
+            /** Order */
+            order: number;
+            /** Total Cost */
+            total_cost: string;
+            /** Week */
+            week: number;
         };
         /**
          * WallAggregatesOut
@@ -9368,6 +9877,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    checkReplayScenario: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplayScenarioCheckIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsCheckOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -13060,6 +13631,73 @@ export interface operations {
             };
         };
     };
+    startMyReplay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplayStartOut"];
+                };
+            };
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplayStartOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     getSeatChoice: {
         parameters: {
             query?: never;
@@ -13216,6 +13854,237 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getMyAnotherRound: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnotherRoundOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    answerMyAnotherRound: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnotherRoundIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnotherRoundOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getMyBelievability: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Believability"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rateMyBelievability: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BelievabilityIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Believability"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -13828,6 +14697,73 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getMyReplayWalkthrough: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplayWalkthroughOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
