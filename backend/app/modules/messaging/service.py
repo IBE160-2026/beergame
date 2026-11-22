@@ -488,3 +488,11 @@ async def simulate_bounce(address: str, bounce_class: str, now: datetime) -> uui
     }
     await receive_webhook(body, headers, now)
     return row["id"]
+
+
+# Story 15.2 (FR-76, AD-14): what `messaging` holds of a Student goes in the one erasure routine.
+identity.register_erasure_step(
+    "messaging",
+    {"messages", "message_recipients", "notices", "mail_deliveries"},
+    repo.erase_user,
+)

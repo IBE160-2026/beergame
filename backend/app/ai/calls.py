@@ -9,11 +9,27 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import func, literal, or_, select, update
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.budget import BudgetScope
 from app.ai.db import transaction
-from app.ai.models import llm_calls
+from app.ai.models import budgets, default_pins, effort_measurements, llm_calls, model_configs
+
+CALL_TABLE = llm_calls.name
+"""The call table's name, for the personal-data registry (Story 15.2): only `app/ai` spells it."""
+
+TABLES_WITHOUT_PERSONAL_DATA = {
+    budgets.name: "Budgets per scope.",
+    default_pins.name: "Pinned model configs.",
+    model_configs.name: "Model configs.",
+    effort_measurements.name: "Simulation measurements.",
+}
+"""The `app/ai` tables that hold no personal data, for the registry (Story 15.2, AD-14)."""
+
+EMPTY_REQUEST = literal({}, JSONB)
+"""The request body of a call whose body was cleared (Story 15.2)."""
 
 
 @dataclass(frozen=True)
@@ -152,3 +168,19 @@ async def game_attempts(game_ids: Sequence[str]) -> list[GameAttempt]:
             )
         ).all()
     return [GameAttempt(*row) for row in rows]
+
+
+async def clear_bodies_of_user(session: AsyncSession, user_id: uuid.UUID) -> int:
+    """Story 15.2 (FR-76, AD-14): empty the scrubbed request and the response of every call made
+    for the User, in the caller's transaction: those whose `caller_ref` names them (a Debrief
+    follow-up question quotes the Student's own text). The row stays, with its cost, tokens and
+    outcome, so cost sums do not change. Idempotent; returns how many rows held a body."""
+    result = await session.execute(
+        update(llm_calls)
+        .where(
+            llm_calls.c.caller_ref["user_id"].astext == str(user_id),
+            or_(llm_calls.c.request != EMPTY_REQUEST, llm_calls.c.response.is_not(None)),
+        )
+        .values(request=EMPTY_REQUEST, response=None)
+    )
+    return result.rowcount or 0

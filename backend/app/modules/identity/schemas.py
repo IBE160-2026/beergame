@@ -199,6 +199,50 @@ class RoleIn(BaseModel):
     role: AccountRole
 
 
+ROLES_KEEP_ONE_ACTIVE = frozenset({AccountRole.admin.value})
+"""Roles at least one active User always holds: the product is never left without an Admin
+(revoke, deactivation and erasure alike)."""
+
+DELETE_REFERENCE_MAX_LENGTH = 200
+"""The longest reference to an Institution's instruction (Story 15.2)."""
+
+
+class InvalidDeleteReference(ValueError):
+    """`code`: reference_empty | reference_too_long | reference_invalid."""
+
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
+
+
+def delete_reference(value: str) -> str:
+    """The stored form of the reference to the Institution's instruction (Story 15.2, FR-76):
+    trimmed, inner whitespace collapsed. Refuses an empty one, one over 200 characters, and one
+    holding `@` or a control character: it lands in the audit row, which never holds an address
+    (`platform/audit`). The service refuses one that holds the User's name."""
+    value = " ".join(value.split())
+    if not value:
+        raise InvalidDeleteReference("reference_empty")
+    if len(value) > DELETE_REFERENCE_MAX_LENGTH:
+        raise InvalidDeleteReference("reference_too_long")
+    if "@" in value or any(not ch.isprintable() for ch in value):
+        raise InvalidDeleteReference("reference_invalid")
+    return value
+
+
+class UserDeleteIn(BaseModel):
+    """The Admin's deletion of a User (Story 15.2): the reference to the Institution's
+    instruction, checked by `delete_reference`; a bad one answers `fields.reference`."""
+
+    reference: str = Field(max_length=4 * DELETE_REFERENCE_MAX_LENGTH)
+
+
+class UserDeletedOut(BaseModel):
+    """The erased User's id (Story 15.2): the row is gone from every list."""
+
+    id: uuid.UUID
+
+
 class InvitationStatus(StrEnum):
     """An Invitation as the Admin's list states it (Story 3.10). Expiry is read from `expires_at`
     against the api's clock; a voided Invitation that was never accepted reads as expired."""

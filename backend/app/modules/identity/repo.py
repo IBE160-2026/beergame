@@ -300,7 +300,7 @@ async def list_users(
         users.c.email,
         users.c.is_active,
         roles.label("roles"),
-    )
+    ).where(users.c.deleted_at.is_(None))  # an erased User is no one to list (Story 15.2)
     if search:
         pattern = _like_pattern(search)
         query = query.where(
@@ -357,6 +357,61 @@ async def set_active(
 ) -> None:
     await session.execute(
         update(users).where(users.c.id == user_id).values(is_active=is_active, updated_at=now)
+    )
+
+
+ERASED_NAME = "Slettet bruker"
+"""The name of an erased User (Story 15.2): no person's."""
+
+
+def erased_email(user_id: uuid.UUID) -> str:
+    """The unique placeholder address of an erased User; the `.invalid` domain never resolves."""
+    return f"slettet-{user_id.hex}@slettet.invalid"
+
+
+async def erase_user_rows(session: AsyncSession, user_id: uuid.UUID, address: str) -> None:
+    """Story 15.2 (FR-76, AD-14): delete every identity row of the User or their `address` (roles,
+    reset links, Invitations, Roster entries, the staged Roster rows that hold the address, the
+    requests for lecturer access) and anonymise the `users` row in place. Idempotent."""
+    await session.execute(delete(user_roles).where(user_roles.c.user_id == user_id))
+    await session.execute(delete(password_resets).where(password_resets.c.user_id == user_id))
+    # A staged Roster row is the only place a student number is stored (`platform/pii`): the row
+    # that holds the address goes whole, with whatever else of the person it holds.
+    await session.execute(
+        delete(roster_upload_rows).where(
+            text(
+                "EXISTS (SELECT 1 FROM jsonb_array_elements_text(roster_upload_rows.cells) AS cell "
+                "WHERE lower(btrim(cell)) = :address)"
+            ).bindparams(address=address)
+        )
+    )
+    # The Roster entries go with their Invitations (`roster_entry_id` cascades).
+    await session.execute(
+        delete(roster_entries).where(
+            or_(roster_entries.c.user_id == user_id, roster_entries.c.email == address)
+        )
+    )
+    await session.execute(delete(invitations).where(invitations.c.email == address))
+    await session.execute(delete(access_requests).where(access_requests.c.email == address))
+    await session.execute(
+        update(users)
+        .where(users.c.id == user_id)
+        .values(
+            name=ERASED_NAME,
+            email=erased_email(user_id),
+            password_hash=None,
+            is_active=False,
+            session_version=users.c.session_version + 1,
+        )
+    )
+
+
+async def mark_erased(session: AsyncSession, user_id: uuid.UUID, now: datetime) -> None:
+    """Set `deleted_at` once: a repeat keeps the first time. Times come from the api's clock."""
+    await session.execute(
+        update(users)
+        .where(users.c.id == user_id)
+        .values(deleted_at=func.coalesce(users.c.deleted_at, now), updated_at=now)
     )
 
 

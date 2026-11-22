@@ -581,3 +581,10 @@ async def save_adjustment(session: AsyncSession, **values: Any) -> None:
             },
         )
     )
+
+
+async def delete_adjustments_of(session: AsyncSession, user_id: uuid.UUID) -> None:
+    """Drop the Student's Tilrettelegging in every Class session (Story 15.2, FR-76)."""
+    await session.execute(
+        delete(student_adjustments).where(student_adjustments.c.user_id == user_id)
+    )

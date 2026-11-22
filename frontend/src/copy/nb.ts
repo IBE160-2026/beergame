@@ -2151,6 +2151,8 @@ export const nb = {
         "role.revoked": "Rolle fjernet",
         "user.deactivated": "Bruker deaktivert",
         "user.reactivated": "Bruker aktivert igjen",
+        // [ASSUMPTION] Story 15.2.
+        "user.deleted": "Bruker slettet",
         "institution.created": "Institusjon opprettet",
         "institution.renamed": "Institusjon fikk nytt navn",
         // Story 3.13.
@@ -2173,6 +2175,8 @@ export const nb = {
         old_name: "Gammelt navn",
         new_name: "Nytt navn",
         voided_invitation_ids: "Lenker gjort ugyldige",
+        // [ASSUMPTION] Story 15.2: the reference to the Institution's instruction.
+        reference: "Referanse",
       } as Record<string, string>,
       values: {
         roles: { lecturer: "Faglærer", admin: "Admin" } as Record<string, string>,
@@ -2288,6 +2292,26 @@ export const nb = {
         reactivatedLine: (name: string) => `${name} er aktiv igjen.`,
         deactivateSelf: "Du kan ikke deaktivere deg selv.",
         statusFailed: "Statusen ble ikke endret. Prøv igjen.",
+        /** Deleting a User on the Institution's instruction (Story 15.2, FR-76, UX-DR9): the
+         * button states the consequence and deletes on one press. The blocked and last-Admin
+         * sentences are the role buttons' own; the rest is [ASSUMPTION] Story 15.2. */
+        delete: {
+          open: (name: string) => `Slett ${name}`,
+          close: "Ikke slett",
+          reference: "Referanse til Institusjonens instruks",
+          hint: "Saksnummer eller dato. Ikke navn eller e-post: referansen lagres i revisjonsloggen.",
+          submit: (name: string) =>
+            `Slett ${name} for godt. Navn, e-post og tekstene ${name} skrev slettes, og spillene viser bare rollen.`,
+          deleted: (name: string) => `${name} er slettet.`,
+          self: "Du kan ikke slette deg selv.",
+          errors: {
+            reference_empty: "Skriv referansen til Institusjonens instruks.",
+            reference_too_long: "Referansen kan ha høyst 200 tegn.",
+            reference_invalid: "Referansen kan ikke inneholde @ eller kontrolltegn.",
+            reference_names_user: "Referansen kan ikke inneholde navnet eller e-posten til brukeren.",
+          } as Record<string, string>,
+          failed: "Brukeren ble ikke slettet. Prøv igjen.",
+        },
       },
       /** The Invitations sent, newest first, and resending one (Story 3.10, FR-1, FR-3).
        * [ASSUMPTION] Story 3.10, including the renewal-request line the epic asks this story to

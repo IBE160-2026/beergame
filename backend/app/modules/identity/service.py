@@ -19,8 +19,9 @@ import structlog
 from sqlalchemy import RowMapping
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.identity import repo, roster_file
+from app.modules.identity import erasure, repo, roster_file
 from app.modules.identity.schemas import (
+    ROLES_KEEP_ONE_ACTIVE,
     ROSTER_PREVIEW_ROWS,
     AccessRequestListOut,
     AccessRequestOut,
@@ -902,8 +903,6 @@ ROLE_GRANTED = "role.granted"
 """The audit action of a role the Admin grants (FR-3)."""
 ROLE_REVOKED = "role.revoked"
 """The audit action of a role the Admin revokes (FR-3)."""
-ROLES_KEEP_ONE_ACTIVE = frozenset({AccountRole.admin.value})
-"""Roles at least one active User always holds: the product is never left without an Admin."""
 
 RevokeBlocker = Callable[[AsyncSession, uuid.UUID], Awaitable[int]]
 """Asked inside the revoke transaction: how many Classes the User owns that keep the role. Epic 4
@@ -971,7 +970,7 @@ async def grant_role(
     role = AccountRole(role)
     async with get_sessionmaker().begin() as s:
         user = await repo.lock_user(s, user_id)
-        if user is None:
+        if user is None or user["deleted_at"] is not None:
             return RoleRefused("not_found")
         if await repo.grant_role(s, user_id, role.value):
             await audit.record(
@@ -1000,7 +999,7 @@ async def revoke_role(
         # pass the count below.
         await repo.lock_role(s, role.value)
         user = await repo.lock_user(s, user_id)
-        if user is None:
+        if user is None or user["deleted_at"] is not None:
             return RoleRefused("not_found")
         roles = await repo.roles_of(s, user_id)
         if role.value not in set(roles):
@@ -1055,7 +1054,7 @@ async def deactivate_user(
         for role in sorted(ROLES_KEEP_ONE_ACTIVE):
             await repo.lock_role(s, role)
         user = await repo.lock_user(s, user_id)
-        if user is None:
+        if user is None or user["deleted_at"] is not None:
             return StatusRefused("not_found")
         roles = await repo.roles_of(s, user_id)
         if not user["is_active"]:
@@ -1092,7 +1091,7 @@ async def reactivate_user(
     Sessions from before the deactivation stay ended."""
     async with get_sessionmaker().begin() as s:
         user = await repo.lock_user(s, user_id)
-        if user is None:
+        if user is None or user["deleted_at"] is not None:
             return StatusRefused("not_found")
         roles = await repo.roles_of(s, user_id)
         if user["is_active"]:
@@ -1103,6 +1102,31 @@ async def reactivate_user(
         user = await repo.user_by_id(s, user_id)
     log.info("user_reactivated", user_id=str(user_id), action=USER_REACTIVATED)
     return _list_item(user, roles)
+
+
+# Erasing Users (Story 15.2, FR-76, AD-14): the routine lives in `identity.erasure`; the modules
+# that own the rest of a User's data register their part through these names at import.
+
+register_erasure_preparation = erasure.register_erasure_preparation
+register_aggregate_writer = erasure.register_aggregate_writer
+register_erasure_step = erasure.register_erasure_step
+register_object_eraser = erasure.register_object_eraser
+erase_user = erasure.erase_user
+DeleteRefused = erasure.DeleteRefused
+
+
+async def delete_user(
+    actor: uuid.UUID, user_id: uuid.UUID, reference: str, *, now: datetime
+) -> bool | erasure.DeleteRefused:
+    """Erase the User on the Institution's instruction (`erasure.delete_user`); a User who owns
+    Classes is refused by the same blockers as a revoke of the Lecturer role (FR-2)."""
+    return await erasure.delete_user(
+        actor,
+        user_id,
+        reference,
+        now=now,
+        blockers=list(_REVOKE_BLOCKERS.get(AccountRole.lecturer.value, ())),
+    )
 
 
 # The Invitation list and resending (Story 3.10, FR-1, FR-3).

@@ -29,6 +29,7 @@ from app.modules.identity.schemas import (
     InstitutionIn,
     InstitutionListOut,
     InstitutionOut,
+    InvalidDeleteReference,
     InvalidInstitutionName,
     InvitationCheckOut,
     InvitationIn,
@@ -43,9 +44,12 @@ from app.modules.identity.schemas import (
     ResetTokenIn,
     RoleIn,
     SessionOut,
+    UserDeletedOut,
+    UserDeleteIn,
     UserListItem,
     UserListOut,
     UserOut,
+    delete_reference,
 )
 from app.platform import auth, authz, ratelimit
 from app.platform.errors import documented, error_response
@@ -449,6 +453,53 @@ async def reactivate_user(
 ) -> Response:
     """Reactivate a User: they log in again with the same password and roles (FR-3)."""
     return _status_answer(await service.reactivate_user(user.id, user_id, now=auth.utcnow()))
+
+
+DELETE_REFUSALS = {
+    "not_found": (404, "No such User."),
+    "last_admin": (409, "The product would be left without an active Admin."),
+    "role_revoke_blocked": (409, "The User owns Classes; add another Lecturer or archive them."),
+}
+
+
+@admin_router.post(
+    "/users/{user_id}/delete",
+    response_model=UserDeletedOut,
+    responses=documented(401, 403, 404, 409, 422),
+    operation_id="deleteUser",
+)
+async def delete_user(
+    user_id: uuid.UUID,
+    body: UserDeleteIn,
+    user: Annotated[UserOut, Depends(authz.require("users.manage"))],
+) -> Response:
+    """Erase a User on the Institution's instruction (Story 15.2, FR-76, AD-14): a Seat they hold
+    in a running Class game goes to an AI player first, then the User is anonymised in place and
+    their personal data deleted; their Games keep the Seat by Role. `reference` names the
+    instruction and is audited; it may not hold `@` or the User's name (422 `fields.reference`
+    `reference_empty`, `reference_too_long`, `reference_invalid`, `reference_names_user`).
+    Refused 409 `last_admin` for oneself or the last active Admin and `role_revoke_blocked`
+    (`fields.classes`) for a User who owns Classes. Repeating it on an erased User finishes any
+    part left undone and answers the same."""
+    try:
+        reference = delete_reference(body.reference)
+    except InvalidDeleteReference as error:
+        return error_response(
+            422, "invalid_request", "The reference is not valid.", {"reference": error.code}
+        )
+    outcome = await service.delete_user(user.id, user_id, reference, now=auth.utcnow())
+    if isinstance(outcome, service.DeleteRefused):
+        if outcome.code == "reference_names_user":
+            return error_response(
+                422,
+                "invalid_request",
+                "The reference names the User.",
+                {"reference": "reference_names_user"},
+            )
+        status, message = DELETE_REFUSALS[outcome.code]
+        fields = {"classes": outcome.classes} if outcome.code == "role_revoke_blocked" else None
+        return error_response(status, outcome.code, message, fields)
+    return JSONResponse(UserDeletedOut(id=user_id).model_dump(mode="json"))
 
 
 @admin_router.get(

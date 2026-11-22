@@ -5,6 +5,9 @@ import { ApiRequestError } from "@/lib/api/client";
 import type { ListedUser } from "./api";
 import {
   changedLine,
+  deleteReference,
+  deleteReferenceError,
+  deleteRefusal,
   firstName,
   refusalLine,
   roleButtonLabel,
@@ -83,5 +86,29 @@ describe("the User list's words", () => {
     expect(statusRefusalLine(new ApiRequestError(404, "not_found"), bard(), "u2")).toBe(
       "Statusen ble ikke endret. Prøv igjen.",
     );
+  });
+
+  it("checks the reference to the Institution's instruction before it is sent (Story 15.2)", () => {
+    expect(deleteReference("  Sak   2026/14 ")).toBe("Sak 2026/14");
+    expect(deleteReferenceError("   ")).toBe("Skriv referansen til Institusjonens instruks.");
+    expect(deleteReferenceError("x".repeat(201))).toBe("Referansen kan ha høyst 200 tegn.");
+    expect(deleteReferenceError("fra ola@uni.no")).toBe("Referansen kan ikke inneholde @ eller kontrolltegn.");
+    expect(deleteReferenceError("Sak\u0007 7")).toBe("Referansen kan ikke inneholde @ eller kontrolltegn.");
+    expect(deleteReferenceError("Sak 2026/14")).toBeUndefined();
+  });
+
+  it("words a refused deletion beside the field or on the row", () => {
+    const named = new ApiRequestError(422, "invalid_request", { reference: "reference_names_user" });
+    expect(deleteRefusal(named, bard(), "u2")).toEqual({
+      field: "Referansen kan ikke inneholde navnet eller e-posten til brukeren.",
+    });
+    const owner = new ApiRequestError(409, "role_revoke_blocked", { classes: 2 });
+    expect(deleteRefusal(owner, bard(), "u2")).toEqual({
+      line: "Bård eier 2 Klasser. Legg til en annen Faglærer eller arkiver Klassene først.",
+    });
+    const lastAdmin = new ApiRequestError(409, "last_admin");
+    expect(deleteRefusal(lastAdmin, bard(), "u1")).toEqual({ line: "Du kan ikke slette deg selv." });
+    expect(deleteRefusal(lastAdmin, bard(), "u2").line).toContain("eneste aktive Admin");
+    expect(deleteRefusal(new Error("net"), bard(), "u2")).toEqual({ line: "Brukeren ble ikke slettet. Prøv igjen." });
   });
 });

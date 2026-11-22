@@ -614,8 +614,11 @@ async def finished(
     assert again.status_code == 200 and again.json() == done.json()
     assert (await call(me, "GET", f"{path}/summary")).json() == done.json()
     assert emitted == []
+    # (Only the erasure of Story 15.2 may empty its reflection, and change nothing else.)
     with pytest.raises(psycopg.errors.RestrictViolation):
-        execute("UPDATE debrief_summaries SET reflection = '[]'")
+        execute("UPDATE debrief_summaries SET reflection = '[]', moment_ids = '[\"x\"]'")
+    with pytest.raises(psycopg.errors.RestrictViolation):
+        execute('UPDATE debrief_summaries SET reflection = \'[{"text": "endret"}]\'')
     for step in (2, 3, 4):
         assert (await call(me, "GET", f"{path}/steps/{step}")).status_code == 200
 

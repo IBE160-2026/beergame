@@ -71,6 +71,7 @@ def can_take_over(
     guided: bool,
     seat: Mapping[str, object] | None = None,
     peer_seated: bool = False,
+    erasing: bool = False,
 ) -> str | None:
     """The one eligibility check of a Takeover (FR-36, FR-37, AD-2, AD-13): None when `actor` may
     hand the Seat of `turn` to an AI player at `now`, else the stable refusal code.
@@ -91,14 +92,21 @@ def can_take_over(
     The `peer` actor (Story 8.8, FR-89) is a Student who must hold another Seat of the same Game
     (`peer_seated`, else `seat_not_yours`); a Pause is no condition. The Seat must not have
     ordered, and its stored `insert_allowed_at` must be set and lie at or before `now`, else
-    `insert_not_allowed_yet`. Pure: no I/O, no clock."""
+    `insert_not_allowed_yet`.
+
+    `erasing` (Story 15.2, FR-76, the `system` actor only) is the one added case: the system may
+    take over at once a Student-held Seat whose User is being deleted, whatever its wait times,
+    an Order already placed or a Pause; a Seat that has ordered goes from the next Week, as a
+    staff Takeover's does. Pure: no I/O, no clock."""
     if actor not in ("system", "staff", "peer"):
         raise ValueError(f"unknown Takeover actor {actor!r}")
+    if erasing and actor != "system":
+        raise ValueError("only the system takes a Seat over for an erasure")
     if game["lifecycle"] != Lifecycle.RUNNING:
         return "game_not_running"
     if not policy(str(game["purpose"])).inactivity_takeover:
         return "takeover_not_allowed"
-    if actor == "system" and is_paused(game):
+    if actor == "system" and not erasing and is_paused(game):
         return "game_paused"
     if actor == "peer" and not peer_seated:
         return "seat_not_yours"
@@ -106,7 +114,7 @@ def can_take_over(
         return "takeover_exists" if seat["reason"] in TAKEOVER_REASONS else "seat_not_student_held"
     if turn is None or turn["occupant_kind"] != OccupantKind.STUDENT:
         return "seat_not_student_held"
-    if actor == "staff":
+    if actor == "staff" or erasing:
         return None
     if has_ordered(turn, guided=guided):
         return "order_exists"

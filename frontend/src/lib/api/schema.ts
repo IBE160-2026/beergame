@@ -225,6 +225,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/users/{user_id}/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete User
+         * @description Erase a User on the Institution's instruction (Story 15.2, FR-76, AD-14): a Seat they hold
+         *     in a running Class game goes to an AI player first, then the User is anonymised in place and
+         *     their personal data deleted; their Games keep the Seat by Role. `reference` names the
+         *     instruction and is audited; it may not hold `@` or the User's name (422 `fields.reference`
+         *     `reference_empty`, `reference_too_long`, `reference_invalid`, `reference_names_user`).
+         *     Refused 409 `last_admin` for oneself or the last active Admin and `role_revoke_blocked`
+         *     (`fields.classes`) for a User who owns Classes. Repeating it on an erased User finishes any
+         *     part left undone and answers the same.
+         */
+        post: operations["deleteUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/users/{user_id}/reactivate": {
         parameters: {
             query?: never;
@@ -7166,6 +7193,26 @@ export interface components {
             upload_id: string;
         };
         /**
+         * UserDeleteIn
+         * @description The Admin's deletion of a User (Story 15.2): the reference to the Institution's
+         *     instruction, checked by `delete_reference`; a bad one answers `fields.reference`.
+         */
+        UserDeleteIn: {
+            /** Reference */
+            reference: string;
+        };
+        /**
+         * UserDeletedOut
+         * @description The erased User's id (Story 15.2): the row is gone from every list.
+         */
+        UserDeletedOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+        };
+        /**
          * UserListItem
          * @description One User on «Brukere og roller» (Story 3.9).
          */
@@ -8126,6 +8173,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserListItem"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    deleteUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserDeleteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserDeletedOut"];
                 };
             };
             /** @description Unauthorized */

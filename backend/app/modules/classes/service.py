@@ -958,3 +958,5 @@ identity.register_class_label(label_of_class)
 identity.register_acceptance_handler(identity.InvitationKind.assistant, join_as_assistant)
 identity.register_class_lock(lock_class_for_acceptance)
 identity.register_session_roles(assistant_session_role)
+# Story 15.2 (FR-76): an erased User leaves every Class's staff.
+identity.register_erasure_step("classes", {"class_staff"}, repo.delete_staff_rows_of)

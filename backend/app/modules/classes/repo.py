@@ -235,3 +235,8 @@ async def is_assistant_anywhere(session: AsyncSession, user_id: uuid.UUID) -> bo
         .limit(1)
     )
     return result.first() is not None
+
+
+async def delete_staff_rows_of(session: AsyncSession, user_id: uuid.UUID) -> None:
+    """Story 15.2 (FR-76): an erased User is no Lecturer or Assistant lecturer of any Class."""
+    await session.execute(delete(class_staff).where(class_staff.c.user_id == user_id))

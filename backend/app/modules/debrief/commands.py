@@ -29,8 +29,8 @@ from datetime import datetime, timedelta
 from typing import Any
 
 import structlog
-from sqlalchemy import func, select, update
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import delete, func, literal, select, update
+from sqlalchemy.dialects.postgresql import JSONB, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.debrief.models import (
@@ -1290,3 +1290,36 @@ async def close_follow_up(user_id: uuid.UUID, class_session_id: uuid.UUID) -> bo
     if closed is not None:
         log.info("debrief_follow_up_closed", class_session_id=str(class_session_id))
     return closed is not None
+
+
+ERASED_TABLES = frozenset(
+    {
+        "debrief_explanations",
+        "debrief_reflection_answers",
+        "debrief_follow_ups",
+        "debrief_summaries",
+    }
+)
+"""The Debrief tables whose text of a Student the erasure deletes (Story 15.2)."""
+
+
+async def erase_user_text(session: AsyncSession, user_id: uuid.UUID) -> None:
+    """In the erasure's transaction (Story 15.2, FR-76, AD-14): delete the free text the Student
+    wrote, their Forklaring, reflection answers and follow-up questions with the AI answers that
+    quote them, and empty the reflection their Debrief summaries copied. Every count stays: the
+    summary row, the quiz attempts and the step marks keep the anonymous User's id. Idempotent."""
+    await session.execute(
+        delete(debrief_explanations).where(debrief_explanations.c.user_id == user_id)
+    )
+    await session.execute(
+        delete(debrief_reflection_answers).where(debrief_reflection_answers.c.user_id == user_id)
+    )
+    await session.execute(delete(debrief_follow_ups).where(debrief_follow_ups.c.user_id == user_id))
+    await session.execute(
+        update(debrief_summaries)
+        .where(
+            debrief_summaries.c.user_id == user_id,
+            debrief_summaries.c.reflection != literal([], JSONB),
+        )
+        .values(reflection=literal([], JSONB))
+    )

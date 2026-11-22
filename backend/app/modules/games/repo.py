@@ -913,6 +913,49 @@ async def delete_reclaim(session: AsyncSession, seat_id: uuid.UUID) -> None:
     await session.execute(delete(seat_reclaims).where(seat_reclaims.c.seat_id == seat_id))
 
 
+async def delete_reclaims_of(session: AsyncSession, game_id: uuid.UUID, user_id: uuid.UUID) -> None:
+    """Drop the Student's queued Reclaims in the Game (Story 15.2): an erased User never takes a
+    Seat back."""
+    await session.execute(
+        delete(seat_reclaims).where(
+            seat_reclaims.c.game_id == game_id, seat_reclaims.c.user_id == user_id
+        )
+    )
+
+
+async def erasure_seats_of(
+    session: AsyncSession, user_id: uuid.UUID
+) -> list[tuple[uuid.UUID, uuid.UUID]]:
+    """`(game_id, seat_id)`, by Game and Seat, of every Seat of a running Game that the Student
+    holds now (its latest occupancy row is theirs) or has a Reclaim of queued (Story 15.2)."""
+    latest = _latest_occupancy(
+        seat_occupancy.c.seat_id.in_(
+            select(seat_occupancy.c.seat_id).where(seat_occupancy.c.user_id == user_id)
+        )
+    )
+    result = await session.execute(
+        select(seats.c.game_id, seats.c.id)
+        .select_from(
+            latest.join(seats, seats.c.id == latest.c.seat_id).join(
+                games, games.c.id == seats.c.game_id
+            )
+        )
+        .where(
+            latest.c.user_id == user_id,
+            latest.c.occupant_kind == "student",
+            games.c.lifecycle == "running",
+        )
+    )
+    found = {(row.game_id, row.id) for row in result}
+    queued = await session.execute(
+        select(seat_reclaims.c.game_id, seat_reclaims.c.seat_id).where(
+            seat_reclaims.c.user_id == user_id
+        )
+    )
+    found |= {(row.game_id, row.seat_id) for row in queued}
+    return sorted(found)
+
+
 async def delete_reclaims(session: AsyncSession, game_id: uuid.UUID) -> None:
     """Drop every queued Reclaim of the Game (it finished: no Week opens again)."""
     await session.execute(delete(seat_reclaims).where(seat_reclaims.c.game_id == game_id))

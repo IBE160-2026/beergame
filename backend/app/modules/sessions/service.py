@@ -90,7 +90,7 @@ import structlog
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.ai import budget, config
+from app.ai import budget, calls, config
 from app.engine import (
     RULES_VERSION,
     GameSettings,
@@ -5275,3 +5275,25 @@ async def _copy_notes(
             label = spec.label if spec else None
         replaced = ReplacedLevelOut(name=replaced_name, label=label)
     return copied, replaced
+
+
+# Erasing a User (Story 15.2, FR-76, AD-2, AD-14): `sessions` joins the Class games, the
+# Tilrettelegging it owns and the AI call bodies to the one erasure routine of `identity`.
+
+
+async def _hand_over_seats(user_id: uuid.UUID, now: datetime) -> None:
+    """Before the erasure's transaction: the User's running Seats go to AI players."""
+    await games_service.hand_over_seats_of(user_id)
+
+
+async def _erase_session_data(s: AsyncSession, user_id: uuid.UUID) -> None:
+    """In the erasure's transaction: the Student's Tilrettelegging, and the bodies of the AI calls
+    made for them (a follow-up question quotes their own text)."""
+    await repo.delete_adjustments_of(s, user_id)
+    await calls.clear_bodies_of_user(s, user_id)
+
+
+identity.register_erasure_preparation("games", {"seat_reclaims"}, _hand_over_seats)
+identity.register_erasure_step(
+    "sessions", {"student_adjustments", calls.CALL_TABLE}, _erase_session_data
+)

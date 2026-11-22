@@ -172,6 +172,44 @@ function replaceUser(queryClient: ReturnType<typeof useQueryClient>, updated: Li
   );
 }
 
+/** Take the User's row out of every cached list. */
+function dropUser(queryClient: ReturnType<typeof useQueryClient>, userId: string) {
+  queryClient.setQueriesData<InfiniteData<UserPage>>({ queryKey: ["admin", "users"] }, (data) =>
+    data
+      ? {
+          ...data,
+          pages: data.pages.map((page) => ({ ...page, items: page.items.filter((item) => item.id !== userId) })),
+        }
+      : data,
+  );
+}
+
+export type UserDeletion = { user: ListedUser; reference: string };
+
+/** Delete a User on the Institution's instruction (Story 15.2, FR-76): one press, no dialog. The
+ * row leaves every cached list at once, and the Invitation list reads again, since the User's
+ * Invitations went with them; a refusal reads the User list again. The caller words the
+ * refusals. */
+export function useDeleteUser() {
+  const queryClient = useQueryClient();
+  return useMutation<unknown, unknown, UserDeletion>({
+    mutationFn: ({ user, reference }) =>
+      request(() =>
+        api.POST("/api/admin/users/{user_id}/delete", {
+          params: { path: { user_id: user.id } },
+          body: { reference },
+        }),
+      ),
+    networkMode: "always",
+    retry: false,
+    onSuccess: (_, { user }) => {
+      dropUser(queryClient, user.id);
+      void queryClient.invalidateQueries({ queryKey: invitationsKey });
+    },
+    onError: () => void queryClient.invalidateQueries({ queryKey: ["admin", "users"] }),
+  });
+}
+
 /** Deactivate or reactivate a User (Story 3.10). The answer replaces the User's row in place;
  * a refusal reads the list again. A deactivation voids the User's open Invitations, so the
  * Invitation list reads again too. The caller words the refusals. */

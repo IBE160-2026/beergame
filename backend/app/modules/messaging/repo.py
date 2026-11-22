@@ -4,11 +4,11 @@ import uuid
 from collections.abc import Sequence
 from datetime import datetime
 
-from sqlalchemy import RowMapping, and_, any_, or_, select, text, update
+from sqlalchemy import RowMapping, and_, any_, delete, or_, select, text, update
 from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.messaging.models import mail_deliveries
+from app.modules.messaging.models import mail_deliveries, message_recipients, messages
 from app.platform.notify import notices
 
 
@@ -204,3 +204,17 @@ async def deliveries_for_refs(
         .ext(distinct_on(notices.c.ref))
     )
     return {row["ref"]: row for row in result.mappings()}
+
+
+async def erase_user(session: AsyncSession, user_id: uuid.UUID) -> None:
+    """Story 15.2 (FR-76, AD-14): delete the Messages written to the Student alone, their place
+    among the recipients of the others, their notices and their mail deliveries. Messages to a
+    Class game or the whole session stay for the others. Idempotent."""
+    await session.execute(
+        delete(messages).where(
+            messages.c.recipient_kind == "student", messages.c.recipient_user_id == user_id
+        )
+    )
+    await session.execute(delete(message_recipients).where(message_recipients.c.user_id == user_id))
+    await session.execute(delete(notices).where(notices.c.user_id == user_id))
+    await session.execute(delete(mail_deliveries).where(mail_deliveries.c.user_id == user_id))

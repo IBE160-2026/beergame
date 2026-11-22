@@ -369,6 +369,36 @@ async def announce(game_id: str) -> None:
             await events.emit(session, "session", str(game["class_session_id"]))
 
 
+async def hand_over_seats_of(user_id: uuid.UUID) -> list[str]:
+    """Before a User is erased (Story 15.2, FR-76, AD-2, AD-5): every Seat of a running Game they
+    hold, or have a Reclaim of queued, goes through `commands.takeover` with `erasing`, which
+    drops the Reclaims and hands a held Seat to an AI player, so no group waits for a deleted
+    Student. Idempotent; returns the occupancy row ids written."""
+    # Imported here: `commands` imports this module.
+    from app.modules.games import commands
+
+    async with get_sessionmaker().begin() as session:
+        found = await repo.erasure_seats_of(session, user_id)
+    written = []
+    for game_id, seat_id in found:
+        try:
+            occupancy = await commands.takeover(
+                str(game_id), str(seat_id), actor="system", erasing=user_id
+            )
+        except commands.CommandError as error:
+            # The Game went to its playout or away since the read: nothing is left to hand over.
+            if error.code not in ERASURE_GONE:
+                raise
+            continue
+        if occupancy is not None:
+            written.append(occupancy)
+    return written
+
+
+ERASURE_GONE = frozenset({"play_deadline_passed", "game_not_found", "seat_not_found"})
+"""Refusals `takeover` raises before its erasure skips, when the Game is playing out or gone."""
+
+
 async def open_takeover_due(game_id: uuid.UUID, role: str) -> datetime | None:
     """The stored `takeover_due_at` of the Seat with `role` in the Game's open Week; None without
     one. Read for the local dev route that runs a Takeover at its due time (Story 8.3)."""

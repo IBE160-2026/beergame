@@ -131,6 +131,7 @@ from app.modules.debrief.schemas import (
     SummaryOut,
 )
 from app.modules.games import service as games
+from app.modules.identity import service as identity
 from app.modules.progress import service as progress
 from app.modules.sessions import service as sessions
 from app.platform import authz
@@ -1597,3 +1598,7 @@ async def fallback_due(debrief_id: object, now: datetime) -> bool:
     """The sweep's act: `debrief.commands.open_personal_fallback` for one Debrief session id."""
     assert isinstance(debrief_id, str)
     return await commands.open_personal_fallback(uuid.UUID(debrief_id))
+
+
+# Story 15.2 (FR-76, AD-14): the Student's Debrief text goes in the one erasure routine.
+identity.register_erasure_step("debrief", commands.ERASED_TABLES, commands.erase_user_text)

@@ -1892,7 +1892,8 @@ async def takeover(
     actor_user_id: uuid.UUID | str | None = None,
     now: datetime | None = None,
     only_waited_for: bool = False,
-) -> str:
+    erasing: uuid.UUID | None = None,
+) -> str | None:
     """Hand the Student-held `seat` (a Role or a Seat id) to an AI player (Stories 8.2 and 8.5,
     FR-36, FR-37, AD-2, AD-5). `actor` `system` is the sweep's automatic Takeover after the
     Inactivity limit; `staff` is a Lecturer or Assistant lecturer, `actor_user_id`, pressing
@@ -1930,8 +1931,17 @@ async def takeover(
     the same lock it takes only a Seat the game waits for now (`rules.waited_for`) and refuses 409
     `game_paused` on a paused Game, `order_exists` when the Seat has ordered since, `not_waited_for`
     when its wait has not started, and `tilrettelegging` when its Student has a Tilrettelegging
-    time factor (Story 8.9): such a Seat is left to the per-Seat action. Returns the occupancy row
-    id."""
+    time factor (Story 8.9): such a Seat is left to the per-Seat action.
+
+    `erasing` (Story 15.2, FR-76, actor `system` only) is the User being erased: under the same
+    lock their queued Reclaims of the Game go first, so no Week opening hands them a Seat back;
+    then `rules.can_take_over` lets the Takeover act at once, whatever the wait times, a Pause or
+    an Order placed (a Seat that has ordered goes from the next Week). The reason stays
+    `takeover_inactivity` with no `actor_user_id`, and the Student being erased gets no notice.
+    A refusal in `ERASURE_SKIPS` leaves nothing to hand over: it returns None, with the Reclaims
+    dropped. Returns the occupancy row id."""
+    if erasing is not None and actor != "system":
+        raise ValueError("only the system takes a Seat over for an erasure")
     game_uuid = _game_uuid(game_id)
     person = _actor(actor_user_id) if actor in ("staff", "peer") else None
     if actor in ("staff", "peer") and person is None:
@@ -1942,6 +1952,8 @@ async def takeover(
             raise CommandError("game_not_found", f"no Game {game_id!r}", 404)
         seat_rows = await repo.seats_with_occupant(session, game_uuid)
         row = _seat_row(seat_rows, seat)
+        if erasing is not None:
+            await repo.delete_reclaims_of(session, game_uuid, erasing)
         _check_not_played_out(game)
         # Story 8.8: a Student puts an AI player in only from another Seat of the same Game that
         # they hold now.
@@ -1962,8 +1974,18 @@ async def takeover(
             )
         at = now if now is not None else await repo.clock_now(session)
         refused = rules.can_take_over(
-            game, turn, actor, at, guided=guided, seat=row, peer_seated=peer_seated
+            game,
+            turn,
+            actor,
+            at,
+            guided=guided,
+            seat=row,
+            peer_seated=peer_seated,
+            erasing=erasing is not None,
         )
+        if erasing is not None and refused in ERASURE_SKIPS:
+            log.info("erasure_takeover_skipped", game_id=game_id, error_code=refused)
+            return None
         if refused == "takeover_exists":
             raise CommandError(
                 refused, "an AI player has taken the Seat over already", 409, _acted(row)
@@ -1977,6 +1999,9 @@ async def takeover(
         ordered = rules.has_ordered(turn, guided=guided)
         if ordered and week >= GameSettings.model_validate(game["settings"]).weeks:
             # The Seat has ordered the last Week: no Week is left for an AI player to take.
+            if erasing is not None:
+                log.info("erasure_takeover_skipped", game_id=game_id, error_code="order_exists")
+                return None
             raise CommandError("order_exists", "the Seat has ordered the last Week", 409)
         from_week = week + 1 if ordered else week
         occupant = await _takeover_occupant(session, game, row["id"])
@@ -2019,7 +2044,11 @@ async def takeover(
         await _commit_change(session, game_uuid)
         told = set(seated_students(await repo.seats_with_occupant(session, game_uuid)))
         if student is not None:
-            told.add(student)
+            # The Student being erased is told nothing: the others get the usual notice.
+            if erasing is not None:
+                told.discard(student)
+            else:
+                told.add(student)
         for each in sorted(told, key=str):
             await events.emit(session, "user", str(each))
             await notify.enqueue(
@@ -2040,6 +2069,20 @@ async def takeover(
     )
     await _settle(game_id)
     return str(occupancy_id)
+
+
+ERASURE_SKIPS = frozenset(
+    {
+        "game_not_running",
+        "takeover_not_allowed",
+        "takeover_exists",
+        "seat_not_student_held",
+        "order_exists",
+    }
+)
+"""Refusals of an erasure's Takeover that leave nothing to hand over (Story 15.2): the Game
+stopped or is an own round with no Takeover, the Seat is no longer the Student's, or it ordered
+the Game's last Week."""
 
 
 async def _check_waited_for(

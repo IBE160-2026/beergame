@@ -135,7 +135,7 @@ HEAD_TABLES = (
     | RECLAIM_TABLES
     | ADJUSTMENT_TABLES
 )
-HEAD = "0064"  # 0064 adds the agreed Pause time to the Oversikt summaries (Story 8.7)
+HEAD = "0065"  # 0065 marks erased Users (Story 15.2)
 
 
 def reset_schema(url: str) -> None:
@@ -268,6 +268,20 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     sent = constraints(url, "messages")
     assert "UNIQUE (key)" in sent["messages_key_key"]
     assert "'class_session'" in sent["ck_messages_recipient_kind"]
+
+    # 0065 (Story 15.2): when a User was erased; a Debrief summary takes the one update that
+    # empties its reflection, and its downgrade makes the summary immutable again.
+    assert "deleted_at" in columns(url, "users")
+    [(summary,)] = rows(
+        url, "SELECT prosrc FROM pg_proc WHERE proname = 'debrief_summaries_immutable'"
+    )
+    assert "reflection" in summary
+    command.downgrade(cfg, "0064")
+    assert "deleted_at" not in columns(url, "users")
+    [(summary,)] = rows(
+        url, "SELECT prosrc FROM pg_proc WHERE proname = 'debrief_summaries_immutable'"
+    )
+    assert "reflection" not in summary
 
     # 0064 (Story 8.7, Epic 8 close-out): the agreed Pause time on the summaries.
     assert "resume_at" in columns(url, "game_summaries")
