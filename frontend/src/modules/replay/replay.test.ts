@@ -43,7 +43,7 @@ describe("the Replay on Hjem (Story 10.3)", () => {
 
   it("says in Stegene's Replay step to go on at the open Uke while it runs (Story 10.4)", () => {
     const steps = [
-      { step: "replay" as const, state: "current" as const, held: false, quiz_changed: false, group_open: false, closed: false },
+      { step: "replay" as const, state: "current" as const, held: false, quiz_changed: false, group_open: false, closed: false, corrected: false },
     ];
     const [running] = stepItems(steps, "s1", { ...STARTED, game: { ...STARTED.game!, week: 9 } });
     expect(running.note).toBe("Fortsett Replay, Uke 9.");
@@ -76,6 +76,7 @@ describe("the Replay on Hjem (Story 10.3)", () => {
         quiz_changed: false,
         group_open: false,
         closed: true,
+        corrected: false,
       },
     ]);
     expect(replay.note).toBe(nb.homes.student.replayClosed);
@@ -87,6 +88,7 @@ describe("the Replay on Hjem (Story 10.3)", () => {
         quiz_changed: false,
         group_open: false,
         closed: false,
+        corrected: false,
       },
     ]);
     expect(open.note).toBe(nb.homes.student.current);
@@ -106,7 +108,7 @@ describe("the Replay on Hjem (Story 10.3)", () => {
     expect(closedReplay(null)).toBe(false);
     // Stegene: a started Replay closed there reads so; none started, as before.
     const steps = [
-      { step: "replay" as const, state: "current" as const, held: false, quiz_changed: false, group_open: false, closed: true },
+      { step: "replay" as const, state: "current" as const, held: false, quiz_changed: false, group_open: false, closed: true, corrected: false },
     ];
     expect(stepItems(steps, "s1", closed)[0]!.note).toBe(nb.homes.student.replayClosedUnfinished);
     expect(stepItems(steps, "s1", { can_start: false, game: null })[0]!.note).toBe(nb.homes.student.replayClosed);

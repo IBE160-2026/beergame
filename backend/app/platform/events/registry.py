@@ -146,6 +146,9 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # A step a Student has done (Story 6.1, AD-16): their Hjem and Stegene read it again, and
         # so does the Class session's overview. A step already recorded emits nothing.
         "progress.record_step": frozenset({"session", "user"}),
+        # A Lecturer corrected a step of a Student's Completion status (Story 13.3, AD-16): the
+        # open Studentside and the Student's Hjem read it again. It records no step event.
+        "reports.correct_completion": frozenset({"session", "user"}),
         # A Debrief session opened (Story 9.2, AD-21): created at step 1, its row locked;
         # opening one that exists emits nothing. A Group debrief's first open (Story 9.11) tells
         # the game's other Students, each `group_debrief_opened` notice emitting `user`.

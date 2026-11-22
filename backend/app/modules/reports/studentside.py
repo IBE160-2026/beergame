@@ -15,13 +15,16 @@ import uuid
 
 from app.analysis.participation import TimedOrder, participation
 from app.modules.assessment import service as assessment
+from app.modules.classes import service as classes
 from app.modules.debrief import service as debrief
 from app.modules.games import service as games
+from app.modules.progress import service as progress
 from app.modules.replay import service as replay
 from app.modules.reports import service
 from app.modules.reports.schemas import (
     CompletionOut,
     CompletionStepOut,
+    CorrectionOut,
     ParticipationOut,
     RecordAssessmentOut,
     RecordDebriefOut,
@@ -36,13 +39,16 @@ from app.modules.tests import service as tests
 from app.platform import authz
 from app.platform.db import get_sessionmaker
 
-__all__ = ["READ", "student_record"]
+__all__ = ["CORRECT", "READ", "student_record"]
 
 READ = "student_page.read"
 """The Class action of the Studentside's record (Story 13.2): owners and Assistant lecturers."""
 
+CORRECT = "completion.correct"
+"""The Class action of «Lagre retting» (Story 13.3): the Class's owners only."""
 
-def _completion(found, adjusted: bool) -> CompletionOut:
+
+def _completion(found, adjusted: bool, corrections: dict[str, CorrectionOut]) -> CompletionOut:
     return CompletionOut(
         obligatory=found.obligatory,
         requirement_met=found.requirement_met,
@@ -57,6 +63,7 @@ def _completion(found, adjusted: bool) -> CompletionOut:
                 recorded_at=step.recorded_at,
                 done=step.done,
                 corrected=step.corrected,
+                correction=corrections.get(step.step) if step.corrected else None,
             )
             for step in found.steps
         ],
@@ -80,8 +87,29 @@ async def student_record(
     if staffed is None:
         return None
     can_manage = await sessions.class_staff_may(user, class_session_id, "class_sessions.manage")
+    may_correct = await sessions.class_staff_may(user, class_session_id, CORRECT)
     game_out = participation_out = replay_out = None
     async with get_sessionmaker()() as s:
+        latest = {
+            each.step: each
+            for each in await progress.corrections(
+                s, class_session_id=class_session_id, user_id=user_id
+            )
+        }
+        named = await classes.actor_names(
+            s,
+            staffed.class_id,
+            sorted({each.actor_user_id for each in latest.values() if each.actor_user_id}, key=str),
+        )
+        corrections = {
+            step: CorrectionOut(
+                done=each.done,
+                reason=each.reason,
+                at=each.at,
+                by=named.get(each.actor_user_id) if each.actor_user_id else None,
+            )
+            for step, each in latest.items()
+        }
         adjustment = await sessions.get_adjustment(s, class_session_id, user_id)
         switch = await assessment.switch_of(s, class_session_id)
         game = await games.student_game(s, user_id, class_session_id)
@@ -126,11 +154,19 @@ async def student_record(
         user_id=user_id,
         name=reached.name,
         can_manage=can_manage,
+        can_correct=(
+            may_correct
+            and not staffed.archived
+            and completion is not None
+            and completion.obligatory
+        ),
         completion=(
             None
             if completion is None
             else _completion(
-                completion, adjustment is not None and adjustment.share_percent is not None
+                completion,
+                adjustment is not None and adjustment.share_percent is not None,
+                corrections,
             )
         ),
         participation=participation_out,

@@ -119,6 +119,8 @@ SITTING_TABLES = {"test_sittings"}
 """The tables of revision 0129 (Story 11.12)."""
 EXTENSION_TABLES = {"student_deadline_extensions"}
 """The table of revision 0130 (Story 11.13)."""
+CORRECTION_TABLES = {"completion_corrections"}
+"""The table of revision 0301 (Story 13.3)."""
 RECLAIM_TABLES = {"seat_reclaims"}
 """The table of revision 0055 (Story 8.4)."""
 ADJUSTMENT_TABLES = {"student_adjustments"}
@@ -153,10 +155,11 @@ HEAD_TABLES = (
     | PREPARED_TABLES
     | SITTING_TABLES
     | EXTENSION_TABLES
+    | CORRECTION_TABLES
     | RECLAIM_TABLES
     | ADJUSTMENT_TABLES
 )
-HEAD = "0130"  # 0130 adds one Student's own Test deadline (11.13); 0120-0130 follow main's 0064
+HEAD = "0301"  # 0301 adds Completion corrections (13.3); 0120-0130 follow main's 0064
 
 
 def reset_schema(url: str) -> None:
@@ -344,6 +347,19 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     # 0111 (Story 9.12): presence, the Students who go on alone and the 48-hour fallback.
     assert "last_seen_at" in columns(url, "debrief_members")
     assert {"fallback_due_at", "fallback_at"} <= columns(url, "debrief_sessions")
+
+    # 0301 (Story 13.3): a Lecturer's corrections of a Completion step, never changed.
+    assert {"step", "done", "reason", "actor_user_id", "at"} <= columns(
+        url, "completion_corrections"
+    )
+    assert (
+        "btrim(reason)"
+        in constraints(url, "completion_corrections")["ck_completion_corrections_reason"]
+    )
+    assert function_names(url, "completion_corrections_immutable")
+    command.downgrade(cfg, "0130")
+    assert CORRECTION_TABLES.isdisjoint(tables(url))
+    assert not function_names(url, "completion_corrections_immutable")
 
     # 0130 (Story 11.13): one Student's own Test deadline, and a reminder row may name a Student.
     assert {"test_deadline", "debrief_deadline", "updated_by"} <= columns(
@@ -935,6 +951,7 @@ def test_the_check_constraints_list_exactly_the_enum_values(test_database):
 
     from app.ai import budget as ai_budget
     from app.ai import models as ai_models
+    from app.analysis.completion import COMPLETION_STEPS
     from app.modules.classes.schemas import StaffRole
     from app.modules.content.models import Kind
     from app.modules.games import schemas
@@ -963,6 +980,7 @@ def test_the_check_constraints_list_exactly_the_enum_values(test_database):
         "ck_mail_deliveries_delivery_state": set(mail_models.DELIVERY_STATES),
         "ck_mail_deliveries_bounce_class": set(mail_models.BOUNCE_CLASSES),
         "ck_progress_steps_step": {step.value for step in Step},
+        "ck_completion_corrections_step": set(COMPLETION_STEPS),
         "ck_content_records_kind": {kind.value for kind in Kind},
         "ck_starting_task_answers_kind": {c.value for c in Choice} | {PLAYED_BEFORE},
     }

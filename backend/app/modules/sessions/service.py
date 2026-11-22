@@ -1637,15 +1637,17 @@ STEGENE_COMPLETION: dict[str, str] = {
 
 def _with_counts(steps: list[StepOut], status: CompletionStatus | None) -> list[StepOut]:
     """Story 13.1: each step of the requirement says whether it counts, from the Completion
-    status; without one (not obligatory, no game yet) `counts` stays None."""
+    status; without one (not obligatory, no game yet) `counts` stays None. Story 13.3: and
+    whether a Lecturer's correction decided it."""
     if status is None:
         return steps
-    return [
-        step.model_copy(update={"counts": status.step(STEGENE_COMPLETION[step.step]).done})
-        if step.step in STEGENE_COMPLETION
-        else step
-        for step in steps
-    ]
+    found = []
+    for step in steps:
+        if step.step in STEGENE_COMPLETION:
+            judged = status.step(STEGENE_COMPLETION[step.step])
+            step = step.model_copy(update={"counts": judged.done, "corrected": judged.corrected})
+        found.append(step)
+    return found
 
 
 def _requirement_met(status: CompletionStatus | None) -> bool | None:

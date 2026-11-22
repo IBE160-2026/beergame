@@ -1,24 +1,51 @@
-"""The api shapes of `modules/reports` (Story 13.2: the Studentside's record)."""
+"""The api shapes of `modules/reports` (Story 13.2: the Studentside's record; Story 13.3: a
+correction of a Completion step)."""
 
 import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, StrictBool
 
 CompletionStepName = Literal["class_game", "debrief", "quiz_passed", "replay", "test_submitted"]
+
+
+class CorrectionOut(BaseModel):
+    """The correction of a step that applies, the latest (Story 13.3): the status it set, the
+    Lecturer's reason, when, and who made it by their name now (None when the name is no longer
+    known in the Class). For the staff of the Class only; never served to a Student."""
+
+    done: bool
+    reason: str
+    at: datetime
+    by: str | None
 
 
 class CompletionStepOut(BaseModel):
     """One step of the «Fullføring» block: whether its step event is recorded and when, whether it
     counts as done after the share, the minimums and any correction, and whether a correction
-    decided it (Story 13.1)."""
+    decided it (Story 13.1), with that correction (Story 13.3)."""
 
     step: CompletionStepName
     recorded: bool
     recorded_at: datetime | None
     done: bool
     corrected: bool
+    correction: CorrectionOut | None = None
+
+
+REASON_MAX_LENGTH = 1000
+"""The longest «Begrunnelse», in characters after trimming [ASSUMPTION]."""
+
+
+class CorrectionIn(BaseModel):
+    """«Lagre retting» (Story 13.3, FR-17): the step, its new status and the required reason."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    step: CompletionStepName
+    done: StrictBool
+    reason: str
 
 
 class CompletionOut(BaseModel):
@@ -122,6 +149,9 @@ class StudentRecordOut(BaseModel):
     user_id: uuid.UUID
     name: str
     can_manage: bool
+    can_correct: bool = False
+    """Story 13.3: the reader may correct a step («Rett Klassespill»): a Lecturer of the Class,
+    the Class session obligatory and the Class not archived."""
     completion: CompletionOut | None
     participation: ParticipationOut | None
     game: RecordGameOut | None

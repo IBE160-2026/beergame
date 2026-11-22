@@ -1187,6 +1187,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/class-sessions/{session_id}/students/{user_id}/corrections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Correct Completion
+         * @description «Lagre retting» (Story 13.3, FR-17, FR-3, AD-15, AD-16): a Lecturer of the Class sets one
+         *     step of the Student's Completion status to done or not done, with a required reason. A new
+         *     row every time; the latest per step applies. Recorded in the audit log; the Studentside and
+         *     the Student's Hjem read it again. It records no step event. Answers the Studentside's record.
+         *     422 `invalid_correction` with `fields.reason` `required` or `too_long`; 409 `not_obligatory`
+         *     for a Class session that is not obligatory, 409 `class_archived`; 403 `forbidden` for an
+         *     Assistant lecturer and anyone else as `getStudentRecord`.
+         */
+        post: operations["correctCompletion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/class-sessions/{session_id}/students/{user_id}/deadline": {
         parameters: {
             query?: never;
@@ -4033,11 +4059,12 @@ export interface components {
          * CompletionStepOut
          * @description One step of the «Fullføring» block: whether its step event is recorded and when, whether it
          *     counts as done after the share, the minimums and any correction, and whether a correction
-         *     decided it (Story 13.1).
+         *     decided it (Story 13.1), with that correction (Story 13.3).
          */
         CompletionStepOut: {
             /** Corrected */
             corrected: boolean;
+            correction?: components["schemas"]["CorrectionOut"] | null;
             /** Done */
             done: boolean;
             /** Recorded */
@@ -4110,6 +4137,40 @@ export interface components {
             number: number;
             /** Start At */
             start_at: string | null;
+        };
+        /**
+         * CorrectionIn
+         * @description «Lagre retting» (Story 13.3, FR-17): the step, its new status and the required reason.
+         */
+        CorrectionIn: {
+            /** Done */
+            done: boolean;
+            /** Reason */
+            reason: string;
+            /**
+             * Step
+             * @enum {string}
+             */
+            step: "class_game" | "debrief" | "quiz_passed" | "replay" | "test_submitted";
+        };
+        /**
+         * CorrectionOut
+         * @description The correction of a step that applies, the latest (Story 13.3): the status it set, the
+         *     Lecturer's reason, when, and who made it by their name now (None when the name is no longer
+         *     known in the Class). For the staff of the Class only; never served to a Student.
+         */
+        CorrectionOut: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** By */
+            by: string | null;
+            /** Done */
+            done: boolean;
+            /** Reason */
+            reason: string;
         };
         /**
          * CostLine
@@ -7589,6 +7650,11 @@ export interface components {
              * @default false
              */
             closed: boolean;
+            /**
+             * Corrected
+             * @default false
+             */
+            corrected: boolean;
             /** Counts */
             counts?: boolean | null;
             /**
@@ -7765,6 +7831,11 @@ export interface components {
          */
         StudentRecordOut: {
             assessment: components["schemas"]["RecordAssessmentOut"];
+            /**
+             * Can Correct
+             * @default false
+             */
+            can_correct: boolean;
             /** Can Manage */
             can_manage: boolean;
             /**
@@ -11512,6 +11583,69 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StudentPageOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    correctCompletion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CorrectionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentRecordOut"];
                 };
             };
             /** @description Unauthorized */

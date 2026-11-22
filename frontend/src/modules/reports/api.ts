@@ -75,3 +75,17 @@ export function saveAdjustment(sessionId: string, userId: string, body: Adjustme
     }),
   );
 }
+
+export type CorrectionIn = components["schemas"]["CorrectionIn"];
+
+/** «Lagre retting» (Story 13.3): a new correction of one step; answers the Studentside's record as
+ * it now stands. 422 `invalid_correction` names the reason in `fields.reason` (`required`,
+ * `too_long`); 409 `not_obligatory` or `class_archived`. */
+export function correctCompletion(sessionId: string, userId: string, body: CorrectionIn) {
+  return request(() =>
+    api.POST("/api/class-sessions/{session_id}/students/{user_id}/corrections", {
+      params: { path: { session_id: sessionId, user_id: userId } },
+      body,
+    }),
+  );
+}

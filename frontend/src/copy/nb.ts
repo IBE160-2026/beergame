@@ -567,6 +567,9 @@ export const nb = {
         debrief: "ferdig, men Forklaringen er for kort",
         test: "levert, men en del mangler svar",
       } as Partial<Record<string, string>>,
+      /** Story 13.3 (FR-17, UX-DR54): a step whose status a Faglærer corrected, marked so; the
+       * Student never sees the reason. [ASSUMPTION] draft copy. */
+      corrected: (counts: boolean) => (counts ? "gjort, rettet av faglærer" : "ikke gjort, rettet av faglærer"),
       /** Story 13.1 (FR-17): one line under Stegene in an Obligatorisk Klasseøkt, from the
        * Completion status. Neutral, so it stays true after the Testfrist. [ASSUMPTION] */
       requirement: {
@@ -3844,6 +3847,29 @@ export const nb = {
       varied: (count: number) => `De ${count} egne bestillingene etter de veiledede ukene hadde ulike antall.`,
       tooFew: "For få egne bestillinger etter de veiledede ukene til å si om de var like.",
       noOrders: "Ingen egne bestillinger.",
+      /** Story 13.3 (UX-DR54, EXPERIENCE.md → Fullføringsretting): the correction of a step. The
+       * spine's strings; the legend, the refusals, the failure and the fallback name are
+       * [ASSUMPTION]. */
+      correct: (step: string) => `Rett ${step}`,
+      doneChoice: "Gjort",
+      notDoneChoice: "Ikke gjort",
+      statusLegend: "Status",
+      reasonLabel: "Begrunnelse",
+      reasonError: "Skriv en begrunnelse.",
+      reasonTooLong: "Begrunnelsen kan være på høyst 1000 tegn.",
+      logged: "Rettingen logges med navnet ditt, tidspunktet og begrunnelsen.",
+      save: "Lagre retting",
+      cancel: "Avbryt",
+      /** «Gjort, rettet av Bård 12. des.» (the day ends in its own full stop). */
+      corrected: (done: boolean, by: string, day: string) => `${done ? "Gjort" : "Ikke gjort"}, rettet av ${by} ${day}`,
+      /** The corrector's name when it is no longer known in the Class. */
+      someone: "en faglærer",
+      refusals: {
+        invalid_correction: "Sjekk begrunnelsen.",
+        not_obligatory: "Klasseøkta er ikke obligatorisk, så det er ingenting å rette.",
+        class_archived: "Klassen er arkivert, så ingenting kan rettes.",
+      } as Record<string, string>,
+      failed: "Rettingen ble ikke lagret. Prøv igjen.",
     },
     /** The record blocks of the Studentside (Story 13.2, FR-63). All [ASSUMPTION] draft copy. */
     record: {

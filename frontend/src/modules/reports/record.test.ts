@@ -52,6 +52,24 @@ describe("the «Fullføring» block (Story 13.2, UX-DR54)", () => {
     expect(rows[1]!.lines).toEqual(["Registrert lø. 12. des."]);
   });
 
+  it("reads a corrected step as «Gjort, rettet av …» with the reason, and no not-counted line (Story 13.3)", () => {
+    const rows = completionRows(
+      completion({
+        steps: completion().steps.map((s) =>
+          s.step === "debrief"
+            ? { ...s, done: true, corrected: true, correction: { done: true, reason: "Syk i uke 3.", at: AT, by: "Bård Pettersen" } }
+            : s.step === "replay"
+              ? { ...s, done: false, corrected: true, correction: { done: false, reason: "Ikke fullført.", at: AT, by: null } }
+              : s,
+        ),
+      }),
+    );
+    expect(rows[1]).toMatchObject({ status: "Gjort, rettet av Bård Pettersen 12. des.", corrected: true, reason: "Syk i uke 3." });
+    expect(rows[1]!.lines).toEqual(["Registrert lø. 12. des."]);
+    expect(rows[3]).toMatchObject({ status: "Ikke gjort, rettet av en faglærer 12. des.", reason: "Ikke fullført." });
+    expect(rows[0]).toMatchObject({ status: "gjort", corrected: false, reason: null });
+  });
+
   it("puts the share lines on the Klassespill row, the requirement only when obligatory", () => {
     expect(shareLines(completion())).toEqual([
       "Bestilte i 70 % av ukene. Kravet er 80 %.",

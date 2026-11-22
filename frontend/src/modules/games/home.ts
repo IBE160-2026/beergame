@@ -43,19 +43,23 @@ export function holderText(seat: TableSeat): string {
  * 10.6), and while the Replay runs «Fortsett Replay, Uke 9.» (Story
  * 10.4, UX-DR64), from the api's `replay` (AD-10); the way there is the Replay block's button just
  * above, so the step itself is no second Lenke. The current Individual test step leads to the test
- * (Story 11.3), and says when the Testfrist has passed without a hand-in (Story 11.11). */
+ * (Story 11.3), and says when the Testfrist has passed without a hand-in (Story 11.11). A step a
+ * Faglærer corrected says «gjort, rettet av faglærer» or «ikke gjort, …» whatever its state (Story
+ * 13.3); its link stays. */
 export function stepItems(
   steps: EnrolledSession["steps"],
   sessionId?: string,
   replay?: EnrolledSession["replay"],
 ): StegeneItem[] {
   const running = replay?.game?.status === "running" && replay.game.week != null ? replay.game : null;
-  return (steps ?? []).map(({ step, state, held, quiz_changed, group_open, closed, counts }) => ({
+  return (steps ?? []).map(({ step, state, held, quiz_changed, group_open, closed, counts, corrected }) => ({
     key: step,
     name: copy.stepNames[step],
     state,
-    note:
-      state === "current"
+    note: corrected
+      ? // Story 13.3: a Faglærer corrected the step's status; the reason is never the Student's.
+        copy.corrected(counts === true)
+      : state === "current"
         ? quiz_changed && step === "quiz"
           ? copy.quizChanged
           : group_open && step === "debrief"

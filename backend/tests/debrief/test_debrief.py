@@ -172,6 +172,7 @@ async def test_held_debriefs_wait_for_every_class_game_and_are_released_once(kla
             "group_open": False,
             "closed": False,
             "counts": None,
+            "corrected": False,
         }
     ]
     # The other game still running: its Students are told it has not finished.

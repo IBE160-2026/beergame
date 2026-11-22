@@ -2297,11 +2297,21 @@
         "type": "object"
       },
       "CompletionStepOut": {
-        "description": "One step of the «Fullføring» block: whether its step event is recorded and when, whether it\ncounts as done after the share, the minimums and any correction, and whether a correction\ndecided it (Story 13.1).",
+        "description": "One step of the «Fullføring» block: whether its step event is recorded and when, whether it\ncounts as done after the share, the minimums and any correction, and whether a correction\ndecided it (Story 13.1), with that correction (Story 13.3).",
         "properties": {
           "corrected": {
             "title": "Corrected",
             "type": "boolean"
+          },
+          "correction": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CorrectionOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "done": {
             "title": "Done",
@@ -2455,6 +2465,75 @@
           "archived"
         ],
         "title": "CopySourceOut",
+        "type": "object"
+      },
+      "CorrectionIn": {
+        "additionalProperties": false,
+        "description": "«Lagre retting» (Story 13.3, FR-17): the step, its new status and the required reason.",
+        "properties": {
+          "done": {
+            "title": "Done",
+            "type": "boolean"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "step": {
+            "enum": [
+              "class_game",
+              "debrief",
+              "quiz_passed",
+              "replay",
+              "test_submitted"
+            ],
+            "title": "Step",
+            "type": "string"
+          }
+        },
+        "required": [
+          "step",
+          "done",
+          "reason"
+        ],
+        "title": "CorrectionIn",
+        "type": "object"
+      },
+      "CorrectionOut": {
+        "description": "The correction of a step that applies, the latest (Story 13.3): the status it set, the\nLecturer's reason, when, and who made it by their name now (None when the name is no longer\nknown in the Class). For the staff of the Class only; never served to a Student.",
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "By"
+          },
+          "done": {
+            "title": "Done",
+            "type": "boolean"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "done",
+          "reason",
+          "at",
+          "by"
+        ],
+        "title": "CorrectionOut",
         "type": "object"
       },
       "CostLine": {
@@ -10354,6 +10433,11 @@
             "title": "Closed",
             "type": "boolean"
           },
+          "corrected": {
+            "default": false,
+            "title": "Corrected",
+            "type": "boolean"
+          },
           "counts": {
             "anyOf": [
               {
@@ -10759,6 +10843,11 @@
         "properties": {
           "assessment": {
             "$ref": "#/components/schemas/RecordAssessmentOut"
+          },
+          "can_correct": {
+            "default": false,
+            "title": "Can Correct",
+            "type": "boolean"
           },
           "can_manage": {
             "title": "Can Manage",
@@ -16510,6 +16599,98 @@
         "summary": "Save Adjustment",
         "tags": [
           "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/students/{user_id}/corrections": {
+      "post": {
+        "description": "«Lagre retting» (Story 13.3, FR-17, FR-3, AD-15, AD-16): a Lecturer of the Class sets one\nstep of the Student's Completion status to done or not done, with a required reason. A new\nrow every time; the latest per step applies. Recorded in the audit log; the Studentside and\nthe Student's Hjem read it again. It records no step event. Answers the Studentside's record.\n422 `invalid_correction` with `fields.reason` `required` or `too_long`; 409 `not_obligatory`\nfor a Class session that is not obligatory, 409 `class_archived`; 403 `forbidden` for an\nAssistant lecturer and anyone else as `getStudentRecord`.",
+        "operationId": "correctCompletion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CorrectionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentRecordOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Correct Completion",
+        "tags": [
+          "reports"
         ]
       }
     },

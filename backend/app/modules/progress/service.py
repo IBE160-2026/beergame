@@ -3,7 +3,11 @@
 A module records a step only through `record_step` and reads a gate only through `has_step` (or
 `steps_of` for many sessions at once). `record_step` is idempotent on `(user, class_session,
 step)`: the first call stores the row and emits `user:<id>` and `session:<id>`; a repeat stores
-and emits nothing. This module imports no feature module, so any module may call it."""
+and emits nothing. This module imports no feature module, so any module may call it.
+
+A Lecturer's correction of a Completion step (Story 13.3) is stored through `record_correction`
+and read through `corrections`. It is no step event: it never touches `progress_steps`, so gates
+(`has_step`) and the funnel stay as they are (AD-16)."""
 
 import uuid
 from collections.abc import AsyncIterator, Collection, Sequence
@@ -15,16 +19,25 @@ from sqlalchemy import Text, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.progress.models import Step, progress_steps
+from app.modules.progress.models import (
+    CORRECTABLE_STEPS,
+    Step,
+    completion_corrections,
+    progress_steps,
+)
 from app.platform import events
 from app.platform.db import get_sessionmaker
 
 __all__ = [
+    "CORRECTABLE_STEPS",
     "FUNNEL_STEPS",
+    "CompletionCorrection",
     "Funnel",
     "Step",
+    "corrections",
     "funnel",
     "has_step",
+    "record_correction",
     "record_step",
     "step_events",
     "steps_of",
@@ -209,3 +222,62 @@ async def funnel(
     )
     _funnels[class_session_id] = (students, stamp, found)
     return found
+
+
+@dataclass(frozen=True)
+class CompletionCorrection:
+    """One stored correction of a Completion step (Story 13.3): the step, the new status, the
+    reason, who made it (None once that User is gone) and when."""
+
+    id: uuid.UUID
+    step: str
+    done: bool
+    reason: str
+    actor_user_id: uuid.UUID | None
+    at: datetime
+
+
+async def record_correction(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    class_session_id: uuid.UUID,
+    step: str,
+    done: bool,
+    reason: str,
+    actor_user_id: uuid.UUID,
+    at: datetime,
+) -> uuid.UUID:
+    """Store a correction of `step` in the caller's transaction and return its id. Always a new
+    row: an earlier correction of the step stays, and the latest applies (AD-15). Records no step
+    event and emits nothing; the caller audits and emits."""
+    if step not in CORRECTABLE_STEPS:
+        raise ValueError(f"not a step of the requirement: {step}")
+    correction_id = uuid.uuid7()
+    await session.execute(
+        completion_corrections.insert().values(
+            id=correction_id,
+            user_id=user_id,
+            class_session_id=class_session_id,
+            step=step,
+            done=done,
+            reason=reason,
+            actor_user_id=actor_user_id,
+            at=at,
+        )
+    )
+    return correction_id
+
+
+async def corrections(
+    session: AsyncSession, user_id: uuid.UUID, class_session_id: uuid.UUID
+) -> list[CompletionCorrection]:
+    """Every correction of the User's steps in the Class session, oldest first by (`at`, `id`),
+    so the last one of a step is the one that applies. In the caller's session."""
+    c = completion_corrections.c
+    result = await session.execute(
+        select(c.id, c.step, c.done, c.reason, c.actor_user_id, c.at)
+        .where(c.user_id == user_id, c.class_session_id == class_session_id)
+        .order_by(c.at, c.id)
+    )
+    return [CompletionCorrection(**row) for row in result.mappings()]

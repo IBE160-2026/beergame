@@ -22,10 +22,24 @@ export function day(iso: string): string {
   return osloDayAndTime(iso).day;
 }
 
+/** «12. des.»: the day of an instant without its weekday, Europe/Oslo. */
+export function dayOfMonth(iso: string): string {
+  return day(iso).replace(/^\S+\s/, "");
+}
+
 /** One row of «Fullføring»: the step's name, «gjort» or «ikke gjort» in text (UX-DR54), and the
  * lines under it: when the step event was recorded, why a recorded step does not count, and on
- * the Klassespill row the share lines (FR-17). */
-export type CompletionRow = { step: string; name: string; done: boolean; status: string; lines: string[] };
+ * the Klassespill row the share lines (FR-17). A corrected step (Story 13.3) reads «Gjort, rettet
+ * av Bård 12. des.» with the Faglærer's reason under it. */
+export type CompletionRow = {
+  step: string;
+  name: string;
+  done: boolean;
+  status: string;
+  corrected: boolean;
+  reason: string | null;
+  lines: string[];
+};
 
 export function completionRows(completion: Completion): CompletionRow[] {
   return completion.steps.map((step) => {
@@ -35,11 +49,18 @@ export function completionRows(completion: Completion): CompletionRow[] {
       lines.push(copy.notCounted[step.step]!);
     }
     if (step.step === "class_game") lines.push(...shareLines(completion));
+    const correction = step.corrected ? step.correction : null;
     return {
       step: step.step,
       name: copy.steps[step.step] ?? step.step,
       done: step.done,
-      status: step.done ? copy.done : copy.notDone,
+      status: correction
+        ? copy.corrected(correction.done, correction.by ?? copy.someone, dayOfMonth(correction.at))
+        : step.done
+          ? copy.done
+          : copy.notDone,
+      corrected: correction != null,
+      reason: correction?.reason ?? null,
       lines,
     };
   });

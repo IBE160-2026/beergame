@@ -1,5 +1,6 @@
 """The api of `modules/reports` (Story 13.2): `GET /api/class-sessions/{id}/students/{user_id}/
-record`, the Studentside's record of one Student for the staff of the Class.
+record`, the Studentside's record of one Student for the staff of the Class; Story 13.3: `POST
+…/corrections`, «Lagre retting», for its Lecturers.
 
 An id that is not one, a Class session that does not exist, a Class outside the caller's scope and
 a User who is no Student of the Class all answer the same 403 `forbidden` (FR-5)."""
@@ -10,10 +11,10 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse, Response
 
-from app.modules.reports import studentside
-from app.modules.reports.schemas import StudentRecordOut
+from app.modules.reports import corrections, studentside
+from app.modules.reports.schemas import CorrectionIn, StudentRecordOut
 from app.platform import authz
-from app.platform.errors import documented
+from app.platform.errors import documented, error_response
 
 router = APIRouter(prefix="/api", tags=["reports"])
 
@@ -47,6 +48,36 @@ async def get_student_record(
     included, for a User who is no Student of the Class now and for a Class session that does not
     exist (FR-5, AD-12)."""
     found = await studentside.student_record(user, _id(session_id), _id(user_id))
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"), headers=PERSONAL)
+
+
+@router.post(
+    "/class-sessions/{session_id}/students/{user_id}/corrections",
+    response_model=StudentRecordOut,
+    responses=documented(401, 403, 409, 422),
+    operation_id="correctCompletion",
+)
+async def correct_completion(
+    session_id: str,
+    user_id: str,
+    body: CorrectionIn,
+    user: Annotated[authz.Principal, Depends(authz.require(studentside.CORRECT))],
+) -> Response:
+    """«Lagre retting» (Story 13.3, FR-17, FR-3, AD-15, AD-16): a Lecturer of the Class sets one
+    step of the Student's Completion status to done or not done, with a required reason. A new
+    row every time; the latest per step applies. Recorded in the audit log; the Studentside and
+    the Student's Hjem read it again. It records no step event. Answers the Studentside's record.
+    422 `invalid_correction` with `fields.reason` `required` or `too_long`; 409 `not_obligatory`
+    for a Class session that is not obligatory, 409 `class_archived`; 403 `forbidden` for an
+    Assistant lecturer and anyone else as `getStudentRecord`."""
+    try:
+        found = await corrections.correct(user, _id(session_id), _id(user_id), body)
+    except corrections.InvalidCorrection as refused:
+        return error_response(422, refused.code, "The correction breaks a rule.", refused.fields)
+    except corrections.NotObligatory as refused:
+        return error_response(409, refused.code, "The Class session is not obligatory.")
     if found is None:
         raise authz.Forbidden
     return JSONResponse(found.model_dump(mode="json"), headers=PERSONAL)

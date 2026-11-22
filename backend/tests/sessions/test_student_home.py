@@ -35,6 +35,7 @@ ALL_LOCKED = [
         "group_open": False,
         "closed": False,
         "counts": None,
+        "corrected": False,
     }
     for step in ("class_game", "debrief", "quiz", "replay", "test", "report")
 ]

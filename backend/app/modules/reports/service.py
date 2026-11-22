@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.analysis.completion import (
     CompletionSettings,
     CompletionStatus,
+    Correction,
     DecisionLogSummary,
     LoggedWeek,
     StepInputs,
@@ -50,16 +51,19 @@ def _required_parts() -> tuple[str, ...]:
 
 
 async def completion_status(
-    user_id: uuid.UUID, class_session_id: uuid.UUID
+    user_id: uuid.UUID, class_session_id: uuid.UUID, *, session: AsyncSession | None = None
 ) -> CompletionStatus | None:
     """The Student's Completion status in the Class session (FR-17); None for an unknown Class
-    session or a User reports do not count there (`reports.scope.reporting_students`). The
-    corrections of Story 13.3 are not there yet, so none are passed."""
-    async with _reading(None) as s:
+    session or a User reports do not count there (`reports.scope.reporting_students`). A
+    Lecturer's corrections (Story 13.3) are passed oldest first, so the latest of a step applies.
+    The reads owned by `progress`, `sessions` and `games` run in `session` when given (Story 13.3:
+    the status before a correction, in its transaction)."""
+    async with _reading(session) as s:
         terms = await sessions.completion_terms(s, class_session_id)
         if terms is None or user_id not in await scope.reporting_students(s, class_session_id):
             return None
         events = await progress.step_events(s, user_id, class_session_id)
+        corrected = await progress.corrections(s, user_id, class_session_id)
         adjustment = await sessions.get_adjustment(s, class_session_id, user_id)
         log = None
         game = await games.student_game(s, user_id, class_session_id)
@@ -87,7 +91,7 @@ async def completion_status(
             ),
         ),
         log,
-        (),
+        tuple(Correction(step=each.step, done=each.done, at=each.at) for each in corrected),
         CompletionSettings(
             obligatory=terms.obligatory,
             required_share=terms.required_share,

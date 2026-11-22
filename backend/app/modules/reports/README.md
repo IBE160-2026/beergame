@@ -1,15 +1,16 @@
 # `modules/reports`: Completion and Student reports (Epic 13)
 
-Story 13.1 adds the shared pieces, Story 13.2 the Studentside's record; later stories add
-corrections, the Student report and the exports.
+Story 13.1 adds the shared pieces, Story 13.2 the Studentside's record, Story 13.3 corrections;
+later stories add the Student report and the exports.
 
 - `service.completion_status(user_id, class_session_id)` is the one Completion assembler (FR-17,
   AD-16). It gathers the inputs through `progress.service.step_events`,
   `sessions.service.completion_terms` / `get_adjustment`, `games.service.student_game` /
   `seat_log`, `debrief.service.explanation_length` and `tests.service.attempt_status` /
   `parts_with_content`, and calls the pure `app.analysis.completion`. None for an unknown Class
-  session or a User outside `scope.reporting_students`. Corrections (Story 13.3) are not stored
-  yet, so none are passed.
+  session or a User outside `scope.reporting_students`. A Lecturer's corrections
+  (`progress.service.corrections`, Story 13.3) are passed oldest first; the latest per step
+  applies.
 - `service.funnel(class_session_id)` is the Oversikt's Trakt: `progress.funnel` over
   `scope.reporting_students`. It counts step events, never the requirement.
 - `scope.reporting_games(session, class_session_id, purposes=None)` and
@@ -42,6 +43,21 @@ The minimums are configuration, `COMPLETION_EXPLANATION_MIN_LENGTH` (50 characte
   «KI-vurdering» block takes this part's place on the page (`frontend/src/modules/reports/
   record-blocks.tsx`); no Indicative letter is ever in this response (FR-56, AD-12).
 - `report` is always None: the slot Story 13.12 fills with the Student report link.
+
+## Corrections (Story 13.3)
+
+- `POST /api/class-sessions/{id}/students/{user_id}/corrections` (`correctCompletion`,
+  `corrections.py`), policy `completion.correct`: the Lecturers of the Class only. Body `{step,
+  done, reason}`; 422 `invalid_correction` (`fields.reason` `required` or `too_long`, over 1000
+  characters after trimming), 409 `not_obligatory`, 409 `class_archived`, 403 `forbidden` for
+  everyone else. Answers the Studentside's record.
+- One transaction: a new row through `progress.service.record_correction`, one audit row
+  `completion.corrected` (target `class_session_id`, `user_id`, `correction_id`; change `step`,
+  `done`, `was_done`: ids and codes, never the reason), and `user:<student>` and `session:<id>`
+  (registry `reports.correct_completion`). No step event: gates and the funnel stay as they are.
+- The record carries the latest correction per step (`correction`: status, reason, time, the
+  Lecturer's name now) and `can_correct`. Hjem's Stegene gets only `corrected` (no reason).
+- The reason is free text about a Student: personal data in `completion_corrections`.
 
 ## Waiting for Epic 12 on this branch
 

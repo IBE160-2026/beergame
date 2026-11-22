@@ -18,8 +18,9 @@ import { RecordBlocks } from "./record-blocks";
 import type { StudentRecord } from "./record";
 
 /** The Studentside's in-place forms: one open at a time (EXPERIENCE.md → Studentside, «One
- * panel»); opening another closes the first and keeps nothing. */
-type Editing = "adjustment" | "deadline" | null;
+ * panel»); opening another closes the first and keeps nothing. Story 13.3: the correction form
+ * of one step of «Fullføring», `correct:<step>`. */
+type Editing = "adjustment" | "deadline" | `correct:${string}` | null;
 
 /** The shape of an id (a UUID). */
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -102,7 +103,13 @@ function StudentPageBody({
     >
       {data ? (
         <>
-          <CompletionBlock record={data} />
+          <CompletionBlock
+            record={data}
+            editing={editing?.startsWith("correct:") ? editing.slice("correct:".length) : null}
+            onEditingChange={(step) =>
+              setEditing((now) => (step ? `correct:${step}` : now?.startsWith("correct:") ? null : now))
+            }
+          />
           <RecordBlocks record={data} />
           {managed ? (
             <>

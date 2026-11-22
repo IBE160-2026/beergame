@@ -167,6 +167,88 @@ test("staff read one Student's Fullføring and record, and it follows the game l
   }
 });
 
+/** Story 13.3 (FR-17, UX-DR54, AD-8): the Lecturer corrects the Klassespill step in place. The form
+ * takes focus, «Avbryt» returns it, another block's form closes it, an empty «Begrunnelse» is
+ * refused before any request, and once saved the result line «Gjort, rettet av … » takes focus with
+ * the reason under it. The Student's Hjem, open all along, marks the step «rettet av faglærer»
+ * without the reason. The rules are `backend/tests/reports/test_corrections.py`. */
+test("a Lecturer corrects a step with a reason, and the Student's Hjem marks it", async ({ browser, lecturerSession }) => {
+  test.slow(); // Invitations through the worker, a Class session and a lock
+  const game = await liveClassGame(browser, lecturerSession, 2, {
+    aiMode: "rule_based",
+    obligatory: true,
+    gameSettings: { weeks: 3, demand: { kind: "step", start: 4, new_level: 8, change_week: 2 } },
+  });
+  const [first, second] = game.students as [(typeof game.students)[0], (typeof game.students)[0]];
+  const page = await lecturerPage(browser, lecturerSession, VIEWPORTS[2]!);
+  const hjem = await second.context.newPage();
+  const reason = "Holdt følge, men gruppen spilte sakte.";
+  try {
+    await hjem.goto("/hjem");
+    const steps = hjem.getByRole("main").getByRole("region", { name: nb.homes.student.steps });
+    await expect(steps).toBeVisible();
+    await untilLive(hjem);
+
+    await page.goto(`/klasseokter/${game.sessionId}/oversikt/spill/${game.gameId}`);
+    await page.locator("[data-insight-seats]").getByRole("link", { name: nb.reports.studentPage.linkLabel(second.name) }).click();
+    await expect(page.getByRole("heading", { level: 1, name: second.name })).toBeVisible();
+    const row = page.locator('[data-completion] [data-step="class_game"]');
+    const opener = row.getByRole("button", { name: copy.correct("Klassespill") });
+    const form = page.locator('[data-correct-form="class_game"]');
+
+    // In place, focus on the chosen Valgknapp («Gjort»: the step is not done); «Avbryt» returns it.
+    await opener.click();
+    await expect(form).toBeVisible();
+    await expect(form.getByRole("radio", { name: copy.doneChoice, exact: true })).toBeFocused();
+    await expect(form).toContainText(copy.logged);
+    await form.getByRole("button", { name: copy.cancel }).click();
+    await expect(form).toHaveCount(0);
+    await expect(opener).toBeFocused();
+
+    // One form at a time: «Endre tilrettelegging» closes it and keeps nothing.
+    await opener.click();
+    await form.getByLabel(copy.reasonLabel).fill("utkast");
+    await page.getByRole("button", { name: nb.reports.adjustment.change }).click();
+    await expect(form).toHaveCount(0);
+    await expect(page.locator("[data-adjustment-form]")).toBeVisible();
+    await opener.click();
+    await expect(page.locator("[data-adjustment-form]")).toHaveCount(0);
+    await expect(form.getByLabel(copy.reasonLabel)).toHaveValue("");
+
+    // An empty reason: nothing is sent, the field says why and takes focus.
+    let posted = 0;
+    page.on("request", (request) => {
+      if (request.method() === "POST" && request.url().includes("/corrections")) posted += 1;
+    });
+    await form.getByRole("button", { name: copy.save }).click();
+    const field = form.getByLabel(copy.reasonLabel);
+    await expect(field).toHaveAttribute("aria-invalid", "true");
+    await expect(form).toContainText(copy.reasonError);
+    await expect(field).toBeFocused();
+    expect(posted).toBe(0);
+    await expectAccessible(page, false);
+
+    // Saved: the result line replaces the form and takes focus, the reason under it.
+    await field.fill(reason);
+    await form.getByRole("button", { name: copy.save }).click();
+    await expect(form).toHaveCount(0);
+    const status = row.locator("[data-step-status]");
+    await expect(status).toHaveText(/^Gjort, rettet av .+ \d{1,2}\. [a-zæøå]+\.$/);
+    await expect(status).toBeFocused();
+    await expect(row.locator("[data-step-reason]")).toHaveText(reason);
+    expect(posted).toBe(1);
+    await expectAccessible(page, false);
+
+    // The Student's Hjem reads it again by itself: the step is marked, the reason is not there.
+    await expect(steps.getByText(nb.homes.student.corrected(true), { exact: true })).toBeVisible({ timeout: 15_000 });
+    await expect(hjem.getByText(reason)).toHaveCount(0);
+  } finally {
+    await page.context().close();
+    await first.context.close();
+    await second.context.close();
+  }
+});
+
 test("a Lecturer of another Class sees the permission-denied page, Student or not", async ({ page, browser }) => {
   const other = await freshLecturer(page, browser);
   for (const path of [

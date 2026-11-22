@@ -17,6 +17,12 @@ One table, `progress_steps`: one row per User, Class session and step from the c
   and how many of them have each of `FUNNEL_STEPS` recorded. Step events only, no AI score or text.
   Cached per Class session in the process; `record_step` drops the entry, and a stamp (number of
   the session's rows and the newest id) shows a step recorded by another process.
+- `completion_corrections` (Story 13.3, migration 0301): a Lecturer's corrections of a Completion
+  step with a reason, append-only (a trigger refuses UPDATE, except the actor set to NULL
+  when that User is deleted). `service.record_correction(session,
+  ...)` stores one in the caller's transaction; `service.corrections(session, user_id,
+  class_session_id)` reads them oldest first by (`at`, `id`), so the last of a step applies. A
+  correction is no step event and never touches `progress_steps`. The reason is personal data.
 - `progress` imports no feature module (`tests/test_imports.py`), so every module may call it.
 - Which step Stegene shows as open is computed in the api (`sessions.service.stegene`), never in
   the web app (AD-10).
