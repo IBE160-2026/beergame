@@ -3343,3 +3343,22 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den vis
 
 ### Åpne punkter
 - Issue #208: beslutninger; oppgavene er plassholdere til Issue #16.
+
+## Story 11.6: Skriv lange svar med automatisk lagring (spor 2)
+
+### Oppgave
+Bygge Story 11.6 på `epic-11` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den blinde gjennomgangen kom ikke tilbake til byggeagenten; den fikk beskjed om å lese funnene fra fila.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-11-6-write-long-answers-with-autosave.md`.
+- Commit: dad8ada. Ingen migrasjon.
+- Lange svar i et tekstfelt med flere linjer, lagret ved pause, når feltet mister fokus og når siden skjules eller forlates. Utkastet overlever en utlogging.
+- Tester: backend 3272, Vitest 1070, tsc, `lint:colours`, `check:copy`, bygg, Playwright 111 med axe.
+- Gjennomgang: 33 funn, 7 lave rettet. To punkter fra den blinde gjennomgangen (lagring uten `keepalive` når siden lukkes, og tekst skrevet under en pågående lagring) er satt på lista for avslutningen av Epic 11.
+- Status: done.
+
+### Åpne punkter
+- Issue #209: beslutninger og punkter til avslutningen.
