@@ -947,6 +947,10 @@ test("live: Stegene leads to the statement, which opens the test once; a reload 
   await expect(page.getByRole("heading", { name: copy.itemsHeading })).toBeFocused();
   const count = await page.locator("[data-test-item]").count();
   expect(count).toBeGreaterThan(0);
+  // The Adapted total is not lost on the real path (Story 11.7): this Class game was never played,
+  // so the question set's two replacement items carry it, last in the list.
+  await expect(page.locator("[data-test-item^=erstatning-]")).toHaveCount(2);
+  await expect(page.locator("[data-test-item]").last()).toHaveAttribute("data-test-item", "erstatning-langsvar");
 
   // A multiple-choice item answered: stored, and there again after a reload (Story 11.4).
   const choice = page.locator("[data-test-item]").filter({ has: page.getByRole("radio") }).first();

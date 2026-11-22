@@ -143,6 +143,7 @@ export function GraphOverTable({
   fixed,
   labelledBy,
   swipe,
+  swipeLater,
   footer,
   joinKey,
   movedFrom,
@@ -162,6 +163,9 @@ export function GraphOverTable({
   labelledBy?: string;
   /** «Sveip for tidligere uker», shown while earlier columns are scrolled out of view. */
   swipe?: string;
+  /** «Sveip for flere uker», shown while later columns are out of view (a drawn item starts at
+   * Uke 1, so the hidden columns are the later ones). */
+  swipeLater?: string;
   /** A line under the region, beside «Sveip» (a key). */
   footer?: ReactNode;
   /**
@@ -186,6 +190,7 @@ export function GraphOverTable({
   const variants = variantsOf(columns);
   const [measured, setMeasured] = useState<Measured>(EMPTY);
   const [earlierHidden, setEarlierHidden] = useState(false);
+  const [laterHidden, setLaterHidden] = useState(false);
   const [join, setJoin] = useState<Join | null>(null);
   const shown = fixed ? fixedSizes(fields, variants, fixed) : measured;
   const nowWeek = columns.find((column) => column.when === "now")?.week;
@@ -249,7 +254,9 @@ export function GraphOverTable({
 
   const update = useCallback(() => {
     const element = region.current;
-    if (element) setEarlierHidden(element.scrollLeft > 1);
+    if (!element) return;
+    setEarlierHidden(element.scrollLeft > 1);
+    setLaterHidden(element.scrollLeft + element.clientWidth < element.scrollWidth - 1);
   }, []);
 
   // Bring nå into view: nå at the left edge of the scrolled area, or as far right as the region
@@ -318,6 +325,7 @@ export function GraphOverTable({
     const observer = new ResizeObserver(() => {
       measure();
       measureJoin();
+      update();
       const now = `${element.clientWidth}x${element.scrollWidth}x${table.offsetHeight}`;
       if (now !== size) {
         size = now;
@@ -327,7 +335,7 @@ export function GraphOverTable({
     observer.observe(element);
     observer.observe(table);
     return () => observer.disconnect();
-  }, [measure, measureJoin, toNow]);
+  }, [measure, measureJoin, toNow, update]);
 
   return (
     <div className={fixed || !bleed ? undefined : "-mx-[calc(var(--spacing-gutter-phone)-var(--spacing-gutter-phone-chart))] lg:mx-0"}>
@@ -415,7 +423,7 @@ export function GraphOverTable({
           ) : null}
         </div>
       </div>
-      {footer || swipe ? (
+      {footer || swipe || swipeLater ? (
         <div
           className={cn(
             "flex flex-wrap justify-between gap-x-4",
@@ -424,6 +432,11 @@ export function GraphOverTable({
         >
           {footer ?? <span />}
           {swipe && earlierHidden ? <p className="mt-1 text-caption text-ink-secondary">{swipe}</p> : null}
+          {swipeLater && laterHidden ? (
+            <p data-swipe-later="" className="mt-1 text-caption text-ink-secondary">
+              {swipeLater}
+            </p>
+          ) : null}
         </div>
       ) : null}
     </div>

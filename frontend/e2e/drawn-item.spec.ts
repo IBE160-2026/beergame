@@ -149,6 +149,17 @@ for (const vp of VIEWPORTS) {
       await expect.poll(async () => Math.abs((await centreX(points.first())) - (await centreX(columnOf(1))))).toBeLessThan(1);
       expect(Math.abs((await centreX(points.nth(1))) - (await centreX(columnOf(2))))).toBeLessThan(1);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      // «Sveip for flere uker» shows while later Uker are out of view, and only then.
+      const hidden = await region.evaluate((el) => el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
+      await expect(item.locator("[data-swipe-later]")).toHaveCount(hidden ? 1 : 0);
+      if (hidden) {
+        await expect(item.locator("[data-swipe-later]")).toHaveText(drawn.swipe);
+        await region.evaluate((el) => (el.scrollLeft = el.scrollWidth));
+        await expect(item.locator("[data-swipe-later]")).toHaveCount(0);
+        await region.evaluate((el) => (el.scrollLeft = 0));
+        await expect(item.locator("[data-swipe-later]")).toHaveCount(1);
+      }
+      if (vp.phone) expect(hidden).toBe(true);
       await expectAccessible(page, vp.phone);
 
       // Graph and table scroll as one region.

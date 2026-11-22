@@ -148,6 +148,7 @@ export function DrawnItem({ classSessionId, userId, item, table }: { classSessio
         columns={columns}
         fields={[field]}
         bleed={false}
+        swipeLater={drawn.swipe}
         head={
           <tr>
             <th scope="row" className={`${ROW_LABEL} border-b border-axis text-label font-semibold`}>

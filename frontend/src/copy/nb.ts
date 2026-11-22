@@ -2966,6 +2966,8 @@ export const nb = {
         /** The SVGs' titles (AD-18). */
         svg: (caption: string) => `Graf: ${caption}`,
         axisSvg: "Verdiene på grafens akse",
+        /** [ASSUMPTION] as the charts' line: shown while later Uker are out of view. */
+        swipe: "Sveip for flere uker",
       },
       /** Long answers (Story 11.6, FR-73, UX-DR65). [ASSUMPTION] draft copy: the advice shown
        * above the field on a phone. */
