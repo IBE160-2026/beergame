@@ -267,7 +267,7 @@ development_status:
   15-2-the-admin-deletes-a-user-on-the-institution-s-instruction: done
   15-3-student-data-is-deleted-automatically-when-retention-ends: backlog
   15-4-the-admin-exports-pseudonymised-data-for-evaluation: done
-  15-5-the-admin-pins-and-freezes-a-model-for-class-sessions: backlog
+  15-5-the-admin-pins-and-freezes-a-model-for-class-sessions: in-progress
   15-6-the-admin-sees-ai-cost-and-sets-the-cost-limit: backlog
   15-7-the-admin-is-alerted-when-daily-ai-spend-is-high: backlog
   15-8-the-admin-sees-errors-fallback-and-response-times-per-class: backlog
