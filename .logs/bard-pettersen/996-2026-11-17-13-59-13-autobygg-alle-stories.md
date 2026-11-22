@@ -3533,3 +3533,23 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den vis
 
 ### Åpne punkter
 - Issue #218: beslutninger (blant annet hva Story 11.13 må holde utenfor når fristen flyttes).
+
+## Story 11.12: Krev én tidsbegrenset økt (spor 2)
+
+### Oppgave
+Bygge Story 11.12 på `epic-11` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den visuelle kontrollen gjøres i avslutningen av Epic 11.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-11-12-require-one-timed-sitting.md`.
+- Commit: f732397. Migrasjon 0129.
+- Blokken «Tidsgrense på testen» på Klasseøkta. Økta starter når testen åpnes, studenten ser «Tid igjen N min», og sweepen leverer når tiden er ute.
+- Tester: backend 3391 (to feil utenfor de berørte filene kom ikke igjen), Vitest 1081, tsc, `lint:colours`, `check:copy`, bygg, Playwright 217 med axe.
+- Gjennomgang: 37 funn, 6 lave rettet.
+- Status: done.
+- Neste: byggeagenten for 11.13 henter først inn `main` (Epic 8) i `epic-11` og kobler migrasjonene sammen, så tidsfaktoren fra Story 8.9 kommer med.
+
+### Åpne punkter
+- Issue #219: beslutninger og ny tabell med persondata.
