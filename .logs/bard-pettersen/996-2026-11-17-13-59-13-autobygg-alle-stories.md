@@ -3495,3 +3495,22 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den vis
 
 ### Åpne punkter
 - Issue #216: beslutninger og påminnelsen som kan komme etter levering.
+
+## Story 15.11: Feil når feilsporing uten persondata; sikkerhetskopi og overvåking lagt fram til beslutning (spor 1)
+
+### Oppgave
+Bygge Story 15.11 på `epic-15` i spor 1, uten å opprette konto hos noen tjeneste. En uavhengig gjennomgangsagent foreslår driftsverdiene i stedet for grunnleggeren.
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter og én agent som foreslo driftsverdiene.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-15-11-errors-reach-error-tracker-without-personal-data.md`.
+- Commit: 96515e2.
+- Én adapter for feilsporing, av uten `ERROR_TRACKER_DSN`, som aldri sender melding, variabler, forespørsel eller bruker-id. Tester med falsk transport viser at navn, e-post og Forklaring aldri forlater systemet. Kommandoen `verify_restore` spiller ferdige spill på nytt mot en gjenopprettet kopi. `docs/ops/readiness.md` står som no-go til grunnleggeren har bestemt seg.
+- Tester: backend 3534, frontend-sjekkene, Playwright 30 med axe. `verify_restore`-testen tar rundt 9 s.
+- Gjennomgang: 33 funn, 23 rettet; oppfølgende gjennomgang anbefalt.
+- Status: done.
+
+### Åpne punkter
+- Issue #217: foreslåtte driftsverdier (alle «to confirm») og beslutninger.
