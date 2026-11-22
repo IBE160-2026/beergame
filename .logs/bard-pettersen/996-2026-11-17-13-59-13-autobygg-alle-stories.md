@@ -3286,3 +3286,22 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den vis
 
 ### Åpne punkter
 - Issue #205: beslutninger (svaralternativene er plassholdere til Issue #16 gir ekte tekster).
+
+## Story 15.4: Admin eksporterer pseudonymiserte data til evaluering (spor 1)
+
+### Oppgave
+Bygge Story 15.4 på `epic-15` i spor 1.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet (persondata). Den visuelle kontrollen gjøres i avslutningen av Epic 15.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-15-4-admin-exports-pseudonymised-data-for-evaluation.md`.
+- Commit: 1f0c496.
+- Admin eksporterer en ZIP med CSV-filer og `manifest.json`, pseudonymisert med en nøkkel som aldri lagres. Avtale om evaluering per Klasseøkt, høyst 20 økter per eksport, og vern mot formler i regneark.
+- Tester: backend 3448, Vitest 1127, tsc, `lint:colours`, `check:copy`, bygg, Playwright 50 med axe. Hovedtesten for eksporten tar rundt 3,7 s.
+- Gjennomgang: 50 funn, 19 rettet, 2 utsatt; oppfølgende gjennomgang anbefalt.
+- Status: done.
+
+### Åpne punkter
+- Issue #206: beslutninger, sømmer mot Epic 11, 12 og Story 15.3.
