@@ -3763,3 +3763,22 @@ Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet.
 
 ### Åpne punkter
 - Issue #231: beslutninger og hva som må slås sammen med Story 12.5 ved merge.
+
+## Story 12.6: Vis veiledende bokstav der det er tillatt (spor 3)
+
+### Oppgave
+Bygge Story 12.6 på `epic-12` i spor 3.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-12-6-show-the-indicative-letter-where-it-is-allowed.md`.
+- Commit: 6f1a789. Migrasjon 0206.
+- Læreren velger om bokstaven vises, og grensene for A–E (plassholdere 90/80/60/50/40). Admin kan forby bokstaven per institusjon. Studenten kan slå den på for sin egen visning. Én funksjon, `assessment.letter_for`, avgjør alt.
+- Tester: backend 3824 (én feil i `test_orders.py` uten sammenheng, passerer alene), Vitest 1188, tsc, `lint:colours`, `check:copy`, bygg, Playwright med axe.
+- Gjennomgang: 12 rettet.
+- Status: done. Fra 12.8 får byggeagentene ikke navn og sender ikke rapporten som melding, så grunnleggeren får færre meldinger.
+
+### Åpne punkter
+- Issue #232: beslutninger og plassholdergrensene.
