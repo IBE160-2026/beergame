@@ -3228,3 +3228,23 @@ Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Den visue
 
 ### Åpne punkter
 - Issue #202: beslutninger, plassholdertekst og hva slettingen i Story 15.2 må dekke ved merge.
+
+## Story 15.2: Admin sletter en bruker etter instruks fra institusjonen (spor 1)
+
+### Oppgave
+Bygge Story 15.2 på `epic-15` i spor 1, den første storyen i Epic 15. 15.1 venter på Story 13.7.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet (persondata). Den visuelle kontrollen gjøres i avslutningen av Epic 15.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-15-2-admin-deletes-user-on-institution-instruction.md`.
+- Commit: 4ef327b. Migrasjon 0065.
+- Admin sletter en bruker fra «Brukere og roller» med referanse til instruksen. Setene går først til KI-spillere, brukeren beholder id-en uten navn og e-post, og fritekst og KI-kall som siterer den slettes. Et register over tabeller med persondata, med test, fanger nye tabeller.
+- Tester: backend 3439, Vitest 1122, tsc, `lint:colours`, `check:copy`, bygg, Playwright 66 med axe. Én ny test tar rundt 9 s.
+- Gjennomgang: 45 funn, 12 rettet, 2 utsatt; oppfølgende gjennomgang anbefalt.
+- Den gamle databasen til stacken i spor 1 mangler migrasjonene 0101–0119. Byggeagenten fikk ikke lov til å kjøre dem, så stacken bruker nå en fersk database.
+- Status: done.
+
+### Åpne punkter
+- Issue #203: beslutninger, sømmer mot Epic 11–14 og den trege testen.
