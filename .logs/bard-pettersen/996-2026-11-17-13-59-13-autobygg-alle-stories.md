@@ -3305,3 +3305,22 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet (persond
 
 ### Åpne punkter
 - Issue #206: beslutninger, sømmer mot Epic 11, 12 og Story 15.3.
+
+## Story 15.5: Admin fester og fryser en modell for Klasseøkter (spor 1)
+
+### Oppgave
+Bygge Story 15.5 på `epic-15` i spor 1.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den visuelle kontrollen gjøres i avslutningen av Epic 15.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-15-5-admin-pins-and-freezes-model-for-class-sessions.md`.
+- Commit: ed29279. Migrasjon 0067.
+- Siden «KI-kostnad» viser modellkonfigurasjonene. Admin fester en modell til en Klasseøkt før Startdato og kan fryse én modell for en studie. Uten svar fra den frosne modellen blir nye økter regelbaserte.
+- Tester: backend 3452, Vitest 1132, tsc, `lint:colours`, `check:copy`, bygg, Playwright 63 med axe.
+- Gjennomgang: 39 funn, 18 rettet, 2 utsatt; oppfølgende gjennomgang anbefalt.
+- Status: done. Neste i spor 1 er 15.7, fordi 15.6 trenger Epic 12.
+
+### Åpne punkter
+- Issue #207: beslutninger og sømmen mot Epic 12.
