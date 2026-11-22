@@ -3820,3 +3820,22 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Første
 
 ### Åpne punkter
 - Issue #234: samtykketeksten mangler lagringstid, rettigheter og tilbaketrekking og må avgjøres av grunnleggeren før ekte bruk.
+
+## Story 13.4: Gi en student et oppfølgingsspill (spor 2)
+
+### Oppgave
+Bygge Story 13.4 på `epic-13` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-13-4-give-a-student-an-oppfolgingsspill.md`.
+- Commit: e0a63f0. Migrasjon 0302.
+- Læreren gir en student et oppfølgingsspill fra Studentsiden. Studenten beholder rollen sin og spiller mot tre KI-spillere fra Hjem; fullføringen leser beste andel av de to spillene.
+- Tester: backend 3741, Vitest 1200, tsc, `lint:colours`, `check:copy`, bygg, Playwright 65 med axe.
+- Gjennomgang: 38 funn, 14 lave rettet. Fire funn (avgrensning til tellende studenter, test av e-posten, punktum etter «mai», frist som fjernes) rettes i steg 0 av neste kjøring.
+- Status: done.
+
+### Åpne punkter
+- Issue #235: beslutninger og det som er overlatt til Story 13.5.
