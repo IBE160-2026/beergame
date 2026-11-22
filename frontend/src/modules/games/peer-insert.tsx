@@ -48,7 +48,8 @@ export function FocusedLine({ text, kind }: { text: string; kind: string }) {
       tabIndex={-1}
       role="status"
       data-insert-result={kind}
-      className="mt-2 text-body-phone text-ink focus:outline-none lg:text-body"
+      // Caption, as the row's other detail lines (Epic 8 close-out, from the 8.8 visual check).
+      className="mt-1 text-caption text-ink focus:outline-none"
     >
       {text}
     </p>

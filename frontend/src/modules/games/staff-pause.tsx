@@ -70,8 +70,8 @@ export function checkAgreed(
 
 export type PauseMode = "pause" | "change";
 
-/** The primary: «Ta pause til to. 19:00», «Ta pause uten avtalt tid», or «Ta pause» while no time
- * is chosen; in «Endre avtalt tid» «Lagre avtalt tid to. 19:00» and «Lagre uten avtalt tid». */
+/** The primary: «Ta pause til to. 19:00», «Ta pause uten avtalt tid», or «Ta pause til …» while no
+ * time is chosen; in «Endre avtalt tid» «Lagre avtalt tid to. 19:00» and «Lagre uten avtalt tid». */
 export function confirmLabel(mode: PauseMode, inputs: AgreedInputs): string {
   const at = agreedAt(inputs);
   if (mode === "pause") {

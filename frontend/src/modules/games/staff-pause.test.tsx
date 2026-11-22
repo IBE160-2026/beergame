@@ -38,7 +38,7 @@ describe("the Lecturer's pause form", () => {
   it("names the time on the primary, or says there is none", () => {
     expect(confirmLabel("pause", AT_19)).toBe("Ta pause til to. 19:00");
     expect(confirmLabel("pause", { ...AT_19, noTime: true })).toBe("Ta pause uten avtalt tid");
-    expect(confirmLabel("pause", EMPTY_AGREED)).toBe("Ta pause");
+    expect(confirmLabel("pause", EMPTY_AGREED)).toBe("Ta pause til …");
     expect(confirmLabel("change", AT_19)).toBe("Lagre avtalt tid to. 19:00");
     expect(confirmLabel("change", { ...AT_19, noTime: true })).toBe("Lagre uten avtalt tid");
     expect(agreedAt(AT_19)).toBe(THURSDAY_19);

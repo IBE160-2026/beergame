@@ -3146,11 +3146,12 @@ export const nb = {
       noTime: "Uten avtalt tid",
       noTakeover: "Mens spillet har pause, tar ingen KI-spiller over setene. Spillfristen flyttes ikke.",
       afterTime: "Etter avtalt tid kan studentene sette inn en KI-spiller for den som ikke har bestilt.",
-      /** The primary: «Ta pause til to. 19:00», «Ta pause uten avtalt tid», or «Ta pause» while no
-       * time is chosen yet. */
+      /** The primary: «Ta pause til to. 19:00», «Ta pause uten avtalt tid», or «Ta pause til …»
+       * while no time is chosen yet: it names that a time comes (Epic 8 close-out, from the 8.7
+       * visual check). [ASSUMPTION] */
       confirmAt: (when: string) => `Ta pause til ${when}`,
       confirmNoTime: "Ta pause uten avtalt tid",
-      confirm: "Ta pause",
+      confirm: "Ta pause til …",
       /** «Endre avtalt tid»'s primary. [ASSUMPTION] */
       saveAt: (when: string) => `Lagre avtalt tid ${when}`,
       saveNoTime: "Lagre uten avtalt tid",

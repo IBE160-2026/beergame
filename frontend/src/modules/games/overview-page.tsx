@@ -493,7 +493,7 @@ function Group({
   const id = useId();
   return (
     <section aria-labelledby={id} className="mt-6 max-w-5xl">
-      <h3 id={id} className="border-b border-axis pb-2 text-label text-ink tabular-nums lining-nums">
+      <h3 id={id} className="border-b border-axis px-2 pb-2 text-label text-ink tabular-nums lining-nums">
         {group.title} {group.games.length}
       </h3>
       <ul>
@@ -515,9 +515,10 @@ function GameRow({ game, now, sessionId, tint }: { game: OverviewGame; now: numb
       data-game={game.game_id}
       data-tint={tint ? "" : undefined}
       className={cn(
-        "grid grid-cols-1 gap-y-1 border-b border-hairline py-3 @2xl:grid-cols-[7rem_5rem_minmax(0,1fr)_10rem] @2xl:gap-x-6",
-        // The tint reaches past the row's edges so its columns stay in line with the others.
-        tint && "-mx-2 bg-restordre-fill px-2",
+        "grid grid-cols-1 gap-y-1 border-b border-hairline px-2 py-3 @2xl:grid-cols-[7rem_5rem_minmax(0,1fr)_10rem] @2xl:gap-x-6",
+        // Every row (and the group heading) is inset by the tint's padding, so the tint stays inside
+        // the page's margin and the columns stay in line (Epic 8 close-out, from the 8.3 visual check).
+        tint && "bg-restordre-fill",
       )}
     >
       <p className="flex flex-wrap items-baseline gap-x-4 text-label text-ink">
