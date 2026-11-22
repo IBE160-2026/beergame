@@ -54,6 +54,10 @@ class Settings(BaseSettings):
     app_env: Literal["local", "test", "ci", "production"] = "local"
     database_url: str = LOCAL_DATABASE_URL
     db_pool_size: int = Field(10, ge=1)
+    # The pool size of the Supabase session pooler, copied by hand from Supabase (Database ->
+    # Connection pooling), since it cannot be read over the pooler (Story 15.9). Unset (empty)
+    # means the pooler check reports "not checked", never "passed".
+    db_pooler_size: int | None = Field(None, ge=1)
     log_level: Literal["debug", "info", "warning", "error", "critical"] = "info"
 
     # PRD §8.1 cut-list flags only (AD-17).
@@ -177,7 +181,7 @@ class Settings(BaseSettings):
     def _lower_level(cls, v: object) -> object:
         return v.lower() if isinstance(v, str) else v
 
-    @field_validator("ai_daily_alert_usd", mode="before")
+    @field_validator("ai_daily_alert_usd", "db_pooler_size", mode="before")
     @classmethod
     def _unset_alert(cls, v: object) -> object:
         return None if isinstance(v, str) and not v.strip() else v
@@ -203,7 +207,11 @@ class Settings(BaseSettings):
         if self.app_env != "production":
             return []
         bad: list[str] = []
-        if self.database_url == LOCAL_DATABASE_URL or not _requires_tls(self.database_url):
+        if (
+            self.database_url == LOCAL_DATABASE_URL
+            or not _requires_tls(self.database_url)
+            or uses_transaction_pooler(self.database_url)
+        ):
             bad.append("database_url")
         secret = self.jwt_secret
         if (
@@ -244,8 +252,15 @@ class Settings(BaseSettings):
     def check_production(self) -> None:
         bad = self.production_problems()
         if bad:
+            why = ""
+            if "database_url" in bad and _names_transaction_pooler(self.database_url):
+                why = (
+                    f" (DATABASE_URL points at the transaction pooler (port "
+                    f"{TRANSACTION_POOLER_PORT}), which breaks LISTEN/NOTIFY and procrastinate; "
+                    "use the session pooler on port 5432)"
+                )
             raise ConfigError(
-                "Refusing to start with APP_ENV=production: "
+                f"Refusing to start with APP_ENV=production{why}: "
                 f"missing, default or unsafe value for {', '.join(n.upper() for n in bad)}"
             )
 
@@ -266,6 +281,37 @@ def webhook_key(secret: str) -> bytes | None:
     except ValueError:
         return None
     return key or None
+
+
+TRANSACTION_POOLER_PORT = 6543
+"""Supabase's transaction pooler (Supavisor, transaction mode). It hands a client a server
+connection per transaction, so LISTEN/NOTIFY and procrastinate's worker break on it; production
+must use the session pooler on port 5432 (SETUP-GUIDE §5, Story 15.9)."""
+
+
+def _ports(database_url: str) -> list[str]:
+    """Every port the URL names: in its host part and in a libpq `port` query parameter. Raises
+    ValueError when the host part's port cannot be read."""
+    parts = urlsplit(database_url)
+    found = [str(parts.port)] if parts.port is not None else []
+    return found + [p.strip() for p in parse_qs(parts.query).get("port", [])]
+
+
+def uses_transaction_pooler(database_url: str) -> bool:
+    """True when the URL names the transaction pooler's port. A URL whose port cannot be read
+    counts as one, so a malformed port never passes the production guard."""
+    try:
+        return str(TRANSACTION_POOLER_PORT) in _ports(database_url)
+    except ValueError:
+        return True
+
+
+def _names_transaction_pooler(database_url: str) -> bool:
+    """True only when the URL's port reads as the transaction pooler's (for the message)."""
+    try:
+        return str(TRANSACTION_POOLER_PORT) in _ports(database_url)
+    except ValueError:
+        return False
 
 
 def _requires_tls(database_url: str) -> bool:

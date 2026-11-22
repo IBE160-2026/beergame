@@ -41,6 +41,7 @@ __all__ = [
     "JobFailureHook",
     "live_locks",
     "load_tasks",
+    "procrastinate_pool_size",
     "run_until_idle",
 ]
 
@@ -151,6 +152,12 @@ async def live_locks(session: AsyncSession, locks: Iterable[str]) -> set[str]:
     return {str(lock) for lock in result.scalars()}
 
 
+def procrastinate_pool_size(concurrency: int) -> int:
+    """The connections a worker's procrastinate pool may hold: one per job run at once and one
+    for its LISTEN for new jobs, at least two (docs/ops/connection-budget.md)."""
+    return max(2, concurrency + 1)
+
+
 def _connector(database_url: str | None, size: int) -> procrastinate.PsycopgConnector:
     return procrastinate.PsycopgConnector(
         conninfo=conninfo(database_url),
@@ -221,7 +228,9 @@ async def run_worker(
     # The app gets a pool that lives as long as this worker. It is the app itself, not a copy
     # (`with_connector`): the periodic deferrer of `ops.sweep` defers through the task's own app,
     # which must be the open one (Story 3.5).
-    with app.replace_connector(_connector(database_url, max(2, concurrency + 1))) as worker_app:
+    with app.replace_connector(
+        _connector(database_url, procrastinate_pool_size(concurrency))
+    ) as worker_app:
         async with worker_app.open_async():
             await worker_app.run_worker_async(
                 queues=list(queues),

@@ -52,6 +52,7 @@ Dropped compared with `technology.md`: Redis, the backup cron service, watchdog,
 | `APP_ENV` | 🟡🟢 | yourself | `local`, `test`, `ci` or `production`. In production the app refuses to start on missing or default secrets (AD-17). |
 | `DATABASE_URL` | 🔴🟢 | Supabase → Connect → **Session pooler** | `postgresql+psycopg://…@…pooler.supabase.com:5432/postgres?sslmode=require`. One driver, psycopg 3, for both SQLAlchemy and procrastinate. |
 | `DB_POOL_SIZE` | 🟡 | yourself | Start with `backend` 10, `worker-ai` 5 and `worker-batch` 5, with no overflow. See the connection budget in section 5. |
+| `DB_POOLER_SIZE` | 🟡 | Supabase → Database → Connection pooling | The pooler's pool size, copied by hand (Story 15.9); «Drift» and the preflight compare it with the connection budget. Unset means "not checked". |
 | `JWT_SECRET` | 🔴🟢 | generate (64+ random bytes) | Signs the session cookie (AD-11). |
 | `JWT_EXPIRE_MINUTES` | 🟡 | yourself | Default 43200 (30 days), as in `technology.md`. |
 | `PUBLIC_BASE_URL` | 🟡🟢 | yourself | For example `https://olspillet.no`. Used in email links. |

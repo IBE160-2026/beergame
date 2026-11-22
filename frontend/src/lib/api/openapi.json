@@ -2007,6 +2007,87 @@
         "title": "ClassSessionSaveIn",
         "type": "object"
       },
+      "ConnectionBudgetOut": {
+        "description": "The database connection budget against the running processes (Story 15.9, NFR-3,\nNFR-4).",
+        "properties": {
+          "budget_total": {
+            "title": "Budget Total",
+            "type": "integer"
+          },
+          "configured_total": {
+            "title": "Configured Total",
+            "type": "integer"
+          },
+          "overlap_total": {
+            "title": "Overlap Total",
+            "type": "integer"
+          },
+          "pooler": {
+            "$ref": "#/components/schemas/PoolerCheckOut"
+          },
+          "processes": {
+            "items": {
+              "$ref": "#/components/schemas/ProcessConnectionsOut"
+            },
+            "title": "Processes",
+            "type": "array"
+          },
+          "read_at": {
+            "format": "date-time",
+            "title": "Read At",
+            "type": "string"
+          },
+          "running": {
+            "enum": [
+              "within",
+              "over",
+              "incomplete"
+            ],
+            "title": "Running",
+            "type": "string"
+          }
+        },
+        "required": [
+          "read_at",
+          "processes",
+          "budget_total",
+          "overlap_total",
+          "configured_total",
+          "running",
+          "pooler"
+        ],
+        "title": "ConnectionBudgetOut",
+        "type": "object"
+      },
+      "ConnectionCountsOut": {
+        "description": "Database connections of one process: its SQLAlchemy pool, its procrastinate pool, its\nLISTEN connection, and their total.",
+        "properties": {
+          "listen": {
+            "title": "Listen",
+            "type": "integer"
+          },
+          "procrastinate_pool": {
+            "title": "Procrastinate Pool",
+            "type": "integer"
+          },
+          "sqlalchemy_pool": {
+            "title": "Sqlalchemy Pool",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sqlalchemy_pool",
+          "procrastinate_pool",
+          "listen",
+          "total"
+        ],
+        "title": "ConnectionCountsOut",
+        "type": "object"
+      },
       "CopiedFromOut": {
         "description": "The source of a copied Class session, as the Klasseøkt names it.",
         "properties": {
@@ -7226,6 +7307,92 @@
           "viewed"
         ],
         "title": "PlayTurnOut",
+        "type": "object"
+      },
+      "PoolerCheckOut": {
+        "properties": {
+          "pooler_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pooler Size"
+          },
+          "required": {
+            "title": "Required",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "passed",
+              "failed",
+              "not_checked"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "pooler_size",
+          "required"
+        ],
+        "title": "PoolerCheckOut",
+        "type": "object"
+      },
+      "ProcessConnectionsOut": {
+        "properties": {
+          "budget": {
+            "$ref": "#/components/schemas/ConnectionCountsOut"
+          },
+          "configured": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConnectionCountsOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "over_budget": {
+            "title": "Over Budget",
+            "type": "boolean"
+          },
+          "process": {
+            "enum": [
+              "backend",
+              "worker-ai",
+              "worker-batch"
+            ],
+            "title": "Process",
+            "type": "string"
+          },
+          "reported_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reported At"
+          }
+        },
+        "required": [
+          "process",
+          "budget",
+          "configured",
+          "reported_at",
+          "over_budget"
+        ],
+        "title": "ProcessConnectionsOut",
         "type": "object"
       },
       "ProposalPersonOut": {
@@ -13749,6 +13916,48 @@
           }
         },
         "summary": "Session Figures",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/operations/connections": {
+      "get": {
+        "description": "The database connection budget (Story 15.9, NFR-3, NFR-4): per process its written budget\nand what its latest start reported, the sums against the budget and a deploy overlap, and the\npooler check (`DB_POOLER_SIZE` against twice the budget plus the migration's connection; not\nchecked while it is unset).",
+        "operationId": "getConnectionBudget",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectionBudgetOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "summary": "Connections",
         "tags": [
           "admin"
         ]

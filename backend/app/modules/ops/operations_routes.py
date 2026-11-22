@@ -8,8 +8,12 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse, Response
 
-from app.modules.ops import operations
-from app.modules.ops.operations_schemas import OperationsOut, OperationsSessionListOut
+from app.modules.ops import connection_budget, operations
+from app.modules.ops.operations_schemas import (
+    ConnectionBudgetOut,
+    OperationsOut,
+    OperationsSessionListOut,
+)
 from app.platform import auth, authz
 from app.platform.errors import documented, error_response
 
@@ -44,4 +48,19 @@ async def session_figures(class_session_id: uuid.UUID, _: Reader) -> Response:
     found = await operations.session_figures(class_session_id, auth.utcnow())
     if found is None:
         return error_response(404, "not_found", "No such Class session.")
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.get(
+    "/connections",
+    response_model=ConnectionBudgetOut,
+    responses=documented(401, 403),
+    operation_id="getConnectionBudget",
+)
+async def connections(_: Reader) -> Response:
+    """The database connection budget (Story 15.9, NFR-3, NFR-4): per process its written budget
+    and what its latest start reported, the sums against the budget and a deploy overlap, and the
+    pooler check (`DB_POOLER_SIZE` against twice the budget plus the migration's connection; not
+    checked while it is unset)."""
+    found = await connection_budget.read_budget(auth.utcnow())
     return JSONResponse(found.model_dump(mode="json"))

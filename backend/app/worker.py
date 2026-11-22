@@ -91,10 +91,15 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 async def _start(names: Sequence[str], *, concurrency: int) -> None:
-    """Seed the zero-config default where allowed (AD-17), then serve."""
+    """Seed the zero-config default where allowed (AD-17), log and record the connections this
+    worker holds against the written budget (Story 15.9), then serve."""
     from app.ai import seed
+    from app.modules.ops import service as ops_service
 
     await seed.ensure_zero_config_logged()
+    await ops_service.report_connections(
+        ops_service.worker_process(list(names)), get_settings(), concurrency=concurrency
+    )
     await serve(names, concurrency=concurrency)
 
 

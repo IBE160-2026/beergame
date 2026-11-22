@@ -48,6 +48,16 @@ ALLOWED_FIELDS: frozenset[str] = frozenset(
         "notice_count",
         "provider_ref",
         "action",
+        # The connection budget at a process's start (Story 15.9): a service name and counts.
+        "process",
+        "sqlalchemy_pool",
+        "procrastinate_pool",
+        "db_listen",
+        "db_total",
+        "db_budget",
+        "within_budget",
+        "pooler_size",
+        "pooler_required",
     }
 )
 

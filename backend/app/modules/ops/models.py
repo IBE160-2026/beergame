@@ -86,3 +86,32 @@ error_events = Table(
 )
 """Per-session error counts (Story 15.8, NFR-8, AD-14): written only by
 `ops.service.record_error`; ids and codes only, kept at retention."""
+
+PROCESSES = ("backend", "worker-ai", "worker-batch")
+"""The processes that connect to the database, each its own Railway service (AD-24)."""
+
+db_connection_reports = Table(
+    "db_connection_reports",
+    metadata,
+    Column("id", Uuid, primary_key=True),
+    Column("process", Text, nullable=False),
+    Column("sqlalchemy_pool", SmallInteger, nullable=False),
+    # The procrastinate pool. Not named `procrastinate_*`: `alembic check` skips such names as
+    # procrastinate's own (migrations/env.py).
+    Column("job_pool", SmallInteger, nullable=False),
+    Column("listen", SmallInteger, nullable=False),
+    # The writer's clock.
+    Column("reported_at", DateTime(timezone=True), nullable=False),
+    CheckConstraint(
+        f"process IN ({', '.join(repr(p) for p in PROCESSES)})",
+        name="ck_db_connection_reports_process",
+    ),
+    CheckConstraint(
+        "sqlalchemy_pool >= 0 AND job_pool >= 0 AND listen >= 0",
+        name="ck_db_connection_reports_counts",
+    ),
+    Index("ix_db_connection_reports_process_time", "process", "reported_at"),
+)
+"""The database connections each process said at its start it is configured to hold (Story 15.9,
+NFR-3, NFR-4): written only by `ops.service.report_connections`, the newest ten per process
+kept. Counts only."""

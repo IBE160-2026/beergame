@@ -117,6 +117,8 @@ SPEND_ALERT_TABLES = {"ai_spend_alerts"}
 """The table of revision 0068 (Story 15.7)."""
 ERROR_EVENT_TABLES = {"error_events"}
 """The table of revision 0069 (Story 15.8)."""
+CONNECTION_REPORT_TABLES = {"db_connection_reports"}
+"""The table of revision 0070 (Story 15.9)."""
 HEAD_TABLES = (
     PRE_SESSION_TABLES
     | SESSION_TABLES
@@ -146,8 +148,9 @@ HEAD_TABLES = (
     | FREEZE_TABLES
     | SPEND_ALERT_TABLES
     | ERROR_EVENT_TABLES
+    | CONNECTION_REPORT_TABLES
 )
-HEAD = "0069"  # 0069 counts errors per Class session (Story 15.8)
+HEAD = "0070"  # 0070 records each process's database connections (Story 15.9)
 
 
 def reset_schema(url: str) -> None:
@@ -281,15 +284,25 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     assert "UNIQUE (key)" in sent["messages_key_key"]
     assert "'class_session'" in sent["ck_messages_recipient_kind"]
 
+    # 0070 (Story 15.9): the connections each process reports at start, and back.
+    reports = constraints(url, "db_connection_reports")
+    assert "'worker-batch'" in reports["ck_db_connection_reports_process"]
+    assert "listen >= 0" in reports["ck_db_connection_reports_counts"]
+    command.downgrade(cfg, "0069")
+    assert tables(url) == HEAD_TABLES - CONNECTION_REPORT_TABLES
+    command.upgrade(cfg, "0070")
+    assert tables(url) == HEAD_TABLES
+    command.downgrade(cfg, "0069")
+
     # 0069 (Story 15.8): the per-session error counts, of three sources, and back.
     events = constraints(url, "error_events")
     assert "'conservation_check'" in events["ck_error_events_source"]
     assert "'api_error'" in events["ck_error_events_source"]
     assert rows(url, "SELECT 1 FROM pg_indexes WHERE indexname = 'ix_error_events_session_time'")
     command.downgrade(cfg, "0068")
-    assert tables(url) == HEAD_TABLES - ERROR_EVENT_TABLES
+    assert tables(url) == HEAD_TABLES - CONNECTION_REPORT_TABLES - ERROR_EVENT_TABLES
     command.upgrade(cfg, "0069")
-    assert tables(url) == HEAD_TABLES
+    assert tables(url) == HEAD_TABLES - CONNECTION_REPORT_TABLES
     command.downgrade(cfg, "0068")
 
     # 0068 (Story 15.7): the daily AI spend alerts, one per day, and back.
@@ -298,9 +311,12 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     assert "spent_usd > alert_usd" in alerts["ck_ai_spend_alerts_money"]
     assert rows(url, "SELECT 1 FROM pg_indexes WHERE indexname = 'ix_llm_call_started_at'")
     command.downgrade(cfg, "0067")
-    assert tables(url) == HEAD_TABLES - SPEND_ALERT_TABLES - ERROR_EVENT_TABLES
+    assert (
+        tables(url)
+        == HEAD_TABLES - SPEND_ALERT_TABLES - ERROR_EVENT_TABLES - CONNECTION_REPORT_TABLES
+    )
     command.upgrade(cfg, "0068")
-    assert tables(url) == HEAD_TABLES - ERROR_EVENT_TABLES
+    assert tables(url) == HEAD_TABLES - ERROR_EVENT_TABLES - CONNECTION_REPORT_TABLES
     command.downgrade(cfg, "0067")
 
     # 0067 (Story 15.5): the study freeze, at most one in force, and back.
@@ -309,19 +325,41 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     )
     assert "UNIQUE" in index and "lifted_at IS NULL" in index
     command.downgrade(cfg, "0066")
-    assert tables(url) == HEAD_TABLES - FREEZE_TABLES - SPEND_ALERT_TABLES - ERROR_EVENT_TABLES
+    assert (
+        tables(url)
+        == HEAD_TABLES
+        - FREEZE_TABLES
+        - SPEND_ALERT_TABLES
+        - ERROR_EVENT_TABLES
+        - CONNECTION_REPORT_TABLES
+    )
     command.upgrade(cfg, "0067")
-    assert tables(url) == HEAD_TABLES - SPEND_ALERT_TABLES - ERROR_EVENT_TABLES
+    assert (
+        tables(url)
+        == HEAD_TABLES - SPEND_ALERT_TABLES - ERROR_EVENT_TABLES - CONNECTION_REPORT_TABLES
+    )
     command.downgrade(cfg, "0066")
 
     # 0066 (Story 15.4): the evaluation agreements and the key fingerprint, and back.
     command.downgrade(cfg, "0065")
     assert (
         tables(url)
-        == HEAD_TABLES - EVALUATION_TABLES - FREEZE_TABLES - SPEND_ALERT_TABLES - ERROR_EVENT_TABLES
+        == HEAD_TABLES
+        - EVALUATION_TABLES
+        - FREEZE_TABLES
+        - SPEND_ALERT_TABLES
+        - ERROR_EVENT_TABLES
+        - CONNECTION_REPORT_TABLES
     )
     command.upgrade(cfg, "0066")
-    assert tables(url) == HEAD_TABLES - FREEZE_TABLES - SPEND_ALERT_TABLES - ERROR_EVENT_TABLES
+    assert (
+        tables(url)
+        == HEAD_TABLES
+        - FREEZE_TABLES
+        - SPEND_ALERT_TABLES
+        - ERROR_EVENT_TABLES
+        - CONNECTION_REPORT_TABLES
+    )
     command.downgrade(cfg, "0065")
 
     # 0065 (Story 15.2): when a User was erased; a Debrief summary takes the one update that

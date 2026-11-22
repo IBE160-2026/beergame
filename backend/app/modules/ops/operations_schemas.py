@@ -4,6 +4,7 @@ when there is nothing to share; USD amounts are decimal strings with eight place
 
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -72,3 +73,48 @@ class OperationsOut(BaseModel):
     switched_share: str | None
     cost_usd: str
     ai_calls: int
+
+
+class ConnectionCountsOut(BaseModel):
+    """Database connections of one process: its SQLAlchemy pool, its procrastinate pool, its
+    LISTEN connection, and their total."""
+
+    sqlalchemy_pool: int
+    procrastinate_pool: int
+    listen: int
+    total: int
+
+
+class ProcessConnectionsOut(BaseModel):
+    process: Literal["backend", "worker-ai", "worker-batch"]
+    """`backend`, `worker-ai` or `worker-batch`."""
+    budget: ConnectionCountsOut
+    configured: ConnectionCountsOut | None
+    """What the latest start of the process reported; null when it never reported."""
+    reported_at: datetime | None
+    over_budget: bool
+
+
+class PoolerCheckOut(BaseModel):
+    status: Literal["passed", "failed", "not_checked"]
+    """`passed`, `failed` (the pool is smaller than `required`) or `not_checked`
+    (`DB_POOLER_SIZE` is not set)."""
+    pooler_size: int | None
+    required: int
+
+
+class ConnectionBudgetOut(BaseModel):
+    """The database connection budget against the running processes (Story 15.9, NFR-3,
+    NFR-4)."""
+
+    read_at: datetime
+    processes: list[ProcessConnectionsOut]
+    budget_total: int
+    overlap_total: int
+    """Twice the budget: the old and the new deploy side by side."""
+    configured_total: int
+    """The sum of the latest reports."""
+    running: Literal["within", "over", "incomplete"]
+    """`within`, `over` (the reports sum above the budget, or one process is over its line) or
+    `incomplete` (a process never reported)."""
+    pooler: PoolerCheckOut

@@ -15,12 +15,23 @@ from datetime import UTC, datetime
 import structlog
 
 from app.modules.games import service as games
+from app.modules.ops.connection_budget import (
+    BudgetCheck,
+    check_connection_budget,
+    configured,
+    report_start,
+    worker_process,
+)
 from app.modules.ops.models import ERROR_SOURCES, error_events
+from app.platform.config import Settings
 from app.platform.db import get_sessionmaker
 
 __all__ = [
     "API_ERROR",
+    "BudgetCheck",
     "CONSERVATION_CHECK",
+    "check_connection_budget",
+    "report_connections",
     "JOB_FAILED",
     "GAME_CHECK_FAILED",
     "SOURCES",
@@ -28,6 +39,7 @@ __all__ = [
     "record_error",
     "record_game_check_failure",
     "record_job_failure",
+    "worker_process",
 ]
 
 log = structlog.get_logger(__name__)
@@ -121,6 +133,13 @@ async def record_job_failure(task_name: str, task_kwargs: Mapping[str, object], 
         session_id = None
     code = task_name if _CODE.match(task_name or "") else "unknown_task"
     return await record_error(JOB_FAILED, code, session_id, None if job_id is None else str(job_id))
+
+
+async def report_connections(process: str, settings: Settings, *, concurrency: int = 1) -> bool:
+    """At a process's start (Story 15.9): log and record the database connections its settings
+    give it against the written budget (`connection_budget`). `main.py` calls it for `backend`,
+    `worker.py` for a worker (named by its queues through `worker_process`). Never raises."""
+    return await report_start(process, configured(process, settings, concurrency=concurrency))
 
 
 async def record_api_error(status: int, path_ids: Mapping[str, str], request_id: str | None):

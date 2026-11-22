@@ -63,6 +63,16 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     if settings.app_env == "production":
         # AD-17: the first Admin's Invitation, for each listed address with no account yet.
         await identity_service.ensure_bootstrap_invitations(auth.utcnow())
+    # Story 15.9: the connections this process holds against the written budget, and the pooler
+    # check (`DB_POOLER_SIZE`); a failed check is logged, it does not stop the start.
+    await ops_service.report_connections("backend", settings)
+    check = ops_service.check_connection_budget(settings)
+    (log.warning if check.status == "failed" else log.info)(
+        "db_pooler_check",
+        status=check.status,
+        pooler_size=check.pooler_size,
+        pooler_required=check.required,
+    )
     yield
     await event_hub.close()  # every open event stream ends (Story 6.4)
     await db.dispose()

@@ -29,6 +29,11 @@ services:
       APP_ENV: ${APP_ENV:-local}
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-olspillet}:${POSTGRES_PASSWORD:-olspillet}@postgres:5432/${POSTGRES_DB:-olspillet}
       DB_POOL_SIZE: ${DB_POOL_SIZE:-10}
+      # The pooler check (Story 15.9): unset locally, so «Drift» says "not checked".
+      DB_POOLER_SIZE: ${DB_POOLER_SIZE:-}
+      # libpq's application name, so `pg_stat_activity` counts connections per service
+      # (scripts/deploy-overlap, Story 15.9).
+      PGAPPNAME: olspillet-backend
       LOG_LEVEL: ${LOG_LEVEL:-info}
       # bcrypt's minimum cost locally, so the Playwright login tests stay fast. The app's own
       # default (12) applies everywhere this is not set, production included.
@@ -88,11 +93,13 @@ services:
     environment: &worker-env
       APP_ENV: ${APP_ENV:-local}
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-olspillet}:${POSTGRES_PASSWORD:-olspillet}@postgres:5432/${POSTGRES_DB:-olspillet}
-      DB_POOL_SIZE: ${DB_POOL_SIZE:-10}
+      # The workers' line of the connection budget (docs/ops/connection-budget.md, Story 15.9).
+      DB_POOL_SIZE: ${WORKER_DB_POOL_SIZE:-5}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       RUN_MIGRATIONS: "false"
       EMAIL_FROM: ${EMAIL_FROM:-ØL-spillet <noreply@olspillet.local>}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://127.0.0.1:8080}
+      PGAPPNAME: olspillet-worker-ai
     depends_on:
       backend:
         condition: service_healthy
@@ -102,7 +109,9 @@ services:
     restart: unless-stopped
     # The mail queue and the per-minute sweeper (Story 3.5, AD-9): only this worker sweeps.
     command: ["python", "-m", "app.worker", "--queues", "llm-batch,mail", "--sweeper"]
-    environment: *worker-env
+    environment:
+      <<: *worker-env
+      PGAPPNAME: olspillet-worker-batch
     depends_on:
       backend:
         condition: service_healthy

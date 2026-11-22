@@ -15,6 +15,7 @@ import app.modules.debrief.models  # noqa: F401  (debrief_sessions, _releases, _
 import app.modules.games.models  # noqa: F401  (registers the games tables on the metadata)
 import app.modules.identity.models  # noqa: F401  (users, user_roles)
 import app.modules.messaging.models  # noqa: F401  (mail_deliveries)
+import app.modules.ops.models  # noqa: F401  (error_events, db_connection_reports, …)
 import app.modules.progress.models  # noqa: F401  (progress_steps)
 import app.modules.replay.models  # noqa: F401  (replays)
 import app.modules.sessions.models  # noqa: F401  (class_sessions)

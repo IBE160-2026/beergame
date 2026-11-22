@@ -119,6 +119,12 @@ REGISTRY: dict[str, Entry] = {
         "Per-session error counts: a source, a fixed code, the Class session and a request or "
         "job id; no User, name or text. Kept at retention.",
     ),
+    # ops (Story 15.9): not tied to a User or a Class session.
+    "db_connection_reports": _e(
+        "none",
+        "Connection counts per process start (backend and workers); no User, name or text. "
+        "The newest ten per process are kept.",
+    ),
     # platform
     "audit_events": _e("keep", "Ids and codes only (AD-14)."),
     "rate_limit_counters": _e("none", "Hashed keys in a short window."),

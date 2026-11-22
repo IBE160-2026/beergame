@@ -2360,6 +2360,35 @@ export const nb = {
         title: "KI-kostnad",
         value: (usd: string, calls: string) => `${usd} for ${calls} KI-kall.`,
       },
+      /** The database connection budget against the running processes (Story 15.9, NFR-3,
+       * NFR-4). [ASSUMPTION] Story 15.9, all of it. */
+      connections: {
+        title: "Databasetilkoblinger",
+        lead: "Hvor mange tilkoblinger til databasen hver prosess har satt av, mot det skrevne budsjettet. Under en utrulling kjører gammel og ny prosess side om side, så pooleren må romme det dobbelte.",
+        columns: { process: "Prosess", budget: "Budsjett", configured: "Konfigurert", reported: "Rapportert" },
+        sum: "Sum",
+        notReported: "Ikke rapportert",
+        over: (count: string) => `${count}, over budsjettet`,
+        tableRegion: "Databasetilkoblinger per prosess",
+        running: {
+          within: (configured: string, budget: string) =>
+            `Prosessene holder seg innenfor budsjettet: ${configured} av ${budget} tilkoblinger.`,
+          over: (configured: string, budget: string) =>
+            `Over budsjettet: prosessene har satt av ${configured} tilkoblinger, budsjettet er ${budget}.`,
+          incomplete: (configured: string, budget: string) =>
+            `Ikke alle prosessene har rapportert ennå: ${configured} av ${budget} tilkoblinger er rapportert.`,
+        },
+        pooler: {
+          passed: (size: string, required: string) =>
+            `Pooleren rommer en utrulling: DB_POOLER_SIZE er ${size}, behovet er ${required}.`,
+          failed: (size: string, required: string) =>
+            `Pooleren er for liten: DB_POOLER_SIZE er ${size}, behovet er ${required}.`,
+          notChecked: (required: string) =>
+            `Pooleren er ikke sjekket: DB_POOLER_SIZE er ikke satt. Behovet er ${required}.`,
+        },
+        need: (budget: string, overlap: string, required: string) =>
+          `Behovet er budsjettet ganger to under en utrulling (${budget} × 2 = ${overlap}), pluss én tilkobling for migreringen: ${required}.`,
+      },
     },
     /** «KI-kostnad», its first page (Story 15.5, FR-68, FR-78, UX-DR57): the model configs with
      * their measured Effort levels, the model per Class session and the study freeze. Stories 15.6

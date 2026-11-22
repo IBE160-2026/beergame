@@ -40,19 +40,30 @@ def test_main_runs_a_worker_on_the_named_queues(monkeypatch):
         order.append("seed")
         seen["seeded"] = True
 
+    from app.modules.ops import service as ops_service
+
+    async def reported(process, settings, *, concurrency=1):
+        order.append("report")
+        seen["reported"] = (process, settings.db_pool_size, concurrency)
+
     monkeypatch.setattr(jobs, "run_worker", run_worker)
     monkeypatch.setattr(rescue, "run", loop)
     monkeypatch.setattr(seed, "ensure_zero_config_logged", seeded)
+    monkeypatch.setattr(ops_service, "report_connections", reported)
     assert worker.main(["--queues", "ai-orders,llm-batch", "--concurrency", "3"]) == 0
     # AD-17: the worker seeds the zero-config default before it serves (Story 2.12). A job that
-    # fails for good is counted through `ops.service` (Story 15.8).
+    # fails for good is counted through `ops.service` (Story 15.8). Before it serves, it reports
+    # its connections as `worker-ai`, since it runs the AI Orders (Story 15.9).
+    from app.platform.config import get_settings
+
     assert seen == {
         "seeded": True,
+        "reported": ("worker-ai", get_settings().db_pool_size, 3),
         "queues": ["ai-orders", "llm-batch"],
         "concurrency": 3,
         "hooked": True,
     }
-    assert order == ["seed", "serve"]
+    assert order == ["seed", "report", "serve"]
 
 
 def test_the_sweeper_flag_schedules_the_sweep_and_runs_its_queue(monkeypatch):
@@ -69,14 +80,24 @@ def test_the_sweeper_flag_schedules_the_sweep_and_runs_its_queue(monkeypatch):
     async def seeded():
         pass
 
+    from app.modules.ops import service as ops_service
+
+    async def reported(process, settings, *, concurrency=1):
+        seen["process"] = process
+
     monkeypatch.setattr(jobs, "run_worker", run_worker)
     monkeypatch.setattr(seed, "ensure_zero_config_logged", seeded)
+    monkeypatch.setattr(ops_service, "report_connections", reported)
     monkeypatch.setattr(ops_jobs, "schedule", lambda: seen.setdefault("scheduled", True))
     assert worker.main(["--queues", "llm-batch,mail", "--sweeper"]) == 0
-    assert seen == {"scheduled": True, "queues": ["llm-batch", "mail", "sweep"]}
+    assert seen == {
+        "scheduled": True,
+        "process": "worker-batch",
+        "queues": ["llm-batch", "mail", "sweep"],
+    }
     seen.clear()
     assert worker.main(["--queues", "mail"]) == 0
-    assert seen == {"queues": ["mail"]}
+    assert seen == {"process": "worker-batch", "queues": ["mail"]}
     with pytest.raises(SystemExit):  # the sweeper alone is not a queue list
         worker.main(["--queues", ",", "--sweeper"])
 

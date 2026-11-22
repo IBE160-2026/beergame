@@ -14,6 +14,7 @@ import { ADMIN_OPERATIONS_PATH, adminOperationsPath, HOME_PATH } from "@/modules
 import { PageShell } from "@/modules/identity/page-shell";
 
 import { type Operations, useOperationsSessions, useSessionOperations } from "./api";
+import { ConnectionBudgetSection } from "./connections";
 import {
   ErrorHoursChart,
   ErrorHoursTable,
@@ -86,7 +87,8 @@ function FirstLoad({
 
 /**
  * «Drift» in the Admin-område (Story 15.8, NFR-8): every saved Class session, newest first, with
- * its errors of the last 24 hours, each a Lenke to its view. Read again every 30 s. Only an Admin
+ * its errors of the last 24 hours, each a Lenke to its view, and the database connection budget
+ * (Story 15.9). Read again every 30 s. Only an Admin
  * sees it; anyone else gets the permission-denied page.
  */
 export function OperationsListPage() {
@@ -150,6 +152,7 @@ function ListContent({ user }: { user: Parameters<typeof PageShell>[0]["user"] }
           </table>
         </div>
       ) : null}
+      <ConnectionBudgetSection />
     </PageShell>
   );
 }

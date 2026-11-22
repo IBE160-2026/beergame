@@ -153,5 +153,72 @@ for (const vp of VIEWPORTS.filter((v) => !v.text200)) {
         await page.unroute(route);
       }
     });
+
+    test("«Databasetilkoblinger» shows the stack's processes against the budget and the pooler check", async ({
+      page,
+    }) => {
+      const budget = copy.connections;
+      await loginByApi(page, "admin");
+      await page.goto("/admin/drift");
+      const section = page.locator("[data-connection-budget]");
+      await expect(section.getByRole("heading", { level: 2, name: budget.title })).toBeVisible();
+      // Each process of the stack reported at its start: `DB_POOL_SIZE` 10 and 5, the LISTEN
+      // connection of `backend`, the workers' procrastinate pool (docs/ops/connection-budget.md).
+      for (const [process, total] of [
+        ["backend", "11"],
+        ["worker-ai", "7"],
+        ["worker-batch", "7"],
+      ]) {
+        const row = section.locator(`tr[data-process="${process}"]`);
+        await expect(row.locator("td").nth(0)).toHaveText(total);
+        await expect(row.locator("td").nth(1)).toHaveText(total);
+      }
+      await expect(section.locator("tfoot")).toContainText("25");
+      await expect(section.getByText(budget.running.within("25", "25"))).toBeVisible();
+      // The stack sets no `DB_POOLER_SIZE`: not checked, never passed.
+      await expect(section.getByText(budget.pooler.notChecked("51"))).toBeVisible();
+      await expect(section.getByText(budget.need("25", "50", "51"))).toBeVisible();
+      await expectAccessible(page, vp.phone);
+    });
+
+    test("a process over its line and a pooler too small are named with their numbers", async ({ page }) => {
+      await loginByApi(page, "admin");
+      const counts = (pool: number, jobs: number, listen: number) => ({
+        sqlalchemy_pool: pool,
+        procrastinate_pool: jobs,
+        listen,
+        total: pool + jobs + listen,
+      });
+      const at = new Date().toISOString();
+      const route = /\/api\/admin\/operations\/connections$/;
+      await page.route(route, (r) =>
+        r.fulfill({
+          json: {
+            read_at: at,
+            processes: [
+              { process: "backend", budget: counts(10, 0, 1), configured: counts(20, 0, 1), reported_at: at, over_budget: true },
+              { process: "worker-ai", budget: counts(5, 2, 0), configured: counts(5, 2, 0), reported_at: at, over_budget: false },
+              { process: "worker-batch", budget: counts(5, 2, 0), configured: null, reported_at: null, over_budget: false },
+            ],
+            budget_total: 25,
+            overlap_total: 50,
+            configured_total: 28,
+            running: "over",
+            pooler: { status: "failed", pooler_size: 15, required: 51 },
+          },
+        }),
+      );
+      try {
+        await page.goto("/admin/drift");
+        const section = page.locator("[data-connection-budget]");
+        await expect(section.locator('tr[data-process="backend"]')).toContainText(copy.connections.over("21"));
+        await expect(section.locator('tr[data-process="worker-batch"]')).toContainText(copy.connections.notReported);
+        await expect(section.getByText(copy.connections.running.over("28", "25"))).toBeVisible();
+        await expect(section.getByText(copy.connections.pooler.failed("15", "51"))).toBeVisible();
+        await expectAccessible(page, vp.phone);
+      } finally {
+        await page.unroute(route);
+      }
+    });
   });
 }

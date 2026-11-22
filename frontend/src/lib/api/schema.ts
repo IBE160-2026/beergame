@@ -477,6 +477,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/operations/connections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Connections
+         * @description The database connection budget (Story 15.9, NFR-3, NFR-4): per process its written budget
+         *     and what its latest start reported, the sums against the budget and a deploy overlap, and the
+         *     pooler check (`DB_POOLER_SIZE` against twice the budget plus the migration's connection; not
+         *     checked while it is unset).
+         */
+        get: operations["getConnectionBudget"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/users": {
         parameters: {
             query?: never;
@@ -4008,6 +4031,47 @@ export interface components {
             required_share_percent?: number | null;
         };
         /**
+         * ConnectionBudgetOut
+         * @description The database connection budget against the running processes (Story 15.9, NFR-3,
+         *     NFR-4).
+         */
+        ConnectionBudgetOut: {
+            /** Budget Total */
+            budget_total: number;
+            /** Configured Total */
+            configured_total: number;
+            /** Overlap Total */
+            overlap_total: number;
+            pooler: components["schemas"]["PoolerCheckOut"];
+            /** Processes */
+            processes: components["schemas"]["ProcessConnectionsOut"][];
+            /**
+             * Read At
+             * Format: date-time
+             */
+            read_at: string;
+            /**
+             * Running
+             * @enum {string}
+             */
+            running: "within" | "over" | "incomplete";
+        };
+        /**
+         * ConnectionCountsOut
+         * @description Database connections of one process: its SQLAlchemy pool, its procrastinate pool, its
+         *     LISTEN connection, and their total.
+         */
+        ConnectionCountsOut: {
+            /** Listen */
+            listen: number;
+            /** Procrastinate Pool */
+            procrastinate_pool: number;
+            /** Sqlalchemy Pool */
+            sqlalchemy_pool: number;
+            /** Total */
+            total: number;
+        };
+        /**
          * CopiedFromOut
          * @description The source of a copied Class session, as the Klasseøkt names it.
          */
@@ -6204,6 +6268,32 @@ export interface components {
             order: number | null;
             /** Viewed */
             viewed: boolean;
+        };
+        /** PoolerCheckOut */
+        PoolerCheckOut: {
+            /** Pooler Size */
+            pooler_size: number | null;
+            /** Required */
+            required: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "passed" | "failed" | "not_checked";
+        };
+        /** ProcessConnectionsOut */
+        ProcessConnectionsOut: {
+            budget: components["schemas"]["ConnectionCountsOut"];
+            configured: components["schemas"]["ConnectionCountsOut"] | null;
+            /** Over Budget */
+            over_budget: boolean;
+            /**
+             * Process
+             * @enum {string}
+             */
+            process: "backend" | "worker-ai" | "worker-batch";
+            /** Reported At */
+            reported_at: string | null;
         };
         /**
          * ProposalPersonOut
@@ -9648,6 +9738,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getConnectionBudget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectionBudgetOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
