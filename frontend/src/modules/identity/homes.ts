@@ -48,6 +48,14 @@ export const studentPagePath = (sessionId: string, userId: string) =>
 /** The Oversikt of a Class session's Class games, for its staff (Story 7.1). */
 export const classOverviewPath = (id: string) => `${classSessionPath(id)}/oversikt`;
 
+/** «Start spill» (Story 8.10): every Class game of the session that has not started, for its
+ * Lecturers. */
+export const startGamesPath = (id: string) => `${classOverviewPath(id)}/start`;
+
+/** The Oversikt after «Start 12 spill» (Story 8.10): it reads «12 spill er startet.» once. */
+export const overviewStartedPath = (id: string, started: number) =>
+  `${classOverviewPath(id)}?startet=${encodeURIComponent(String(started))}`;
+
 /** The Oversikt again, back from Spillinnsikt (Story 7.7): focus returns to the game `gameId`, in
  * the wall or, with `view` «tabell», in «Vis som tabell». */
 export const overviewReturnPath = (id: string, gameId: string, view: "wall" | "table" = "wall") =>

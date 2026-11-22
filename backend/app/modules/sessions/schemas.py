@@ -992,6 +992,10 @@ class ClassOverviewOut(BaseModel):
     «Pause spillet»; False for an Assistant lecturer."""
     play_deadline: AwareDatetime | None = None
     """Story 8.7: the Class session's Spillfrist, the latest agreed Pause time."""
+    startable: int = 0
+    """Story 8.10 (FR-22, UX-DR52): how many Class games a Lecturer of the Class may start now
+    (not started, with their settings snapshot); the header Lenke «Start spill som ikke har
+    startet (12)» shows it. 0 for an Assistant lecturer and before the lock."""
     class_id: uuid.UUID
     class_name: str
     session_number: int
@@ -1142,6 +1146,43 @@ class GameInsightOut(BaseModel):
     can_adjust: bool = False
     """Story 8.9 (AD-12): the reader is a Lecturer of the Class, so each Student's name leads to
     their Studentside with «Tilrettelegging». False for an Assistant lecturer."""
+    can_start: bool = False
+    """Story 8.10 (FR-22, AD-12): the reader is a Lecturer of the Class and the game may start now
+    (not started, with its settings snapshot, in a locked Class session), so Spillstyring offers
+    «Start spillet». False for an Assistant lecturer and before the lock."""
+    started_by: str | None = None
+    """Story 8.10: who started the game, by name now (a Student or a Lecturer of the Class); None
+    when no person did, before the start, or when they are no longer of the Class."""
+    started_at: AwareDatetime | None = None
+    """Story 8.10: when the game started; None before, and for a game started before it was
+    recorded."""
+
+
+class StartGamesOut(BaseModel):
+    """The «Start spill» page (Story 8.10, FR-22, UX-DR52): the Class session's games that have not
+    started and may start now, as the Oversikt words them, by game number."""
+
+    class_session_id: uuid.UUID
+    class_id: uuid.UUID
+    class_name: str
+    session_number: int
+    games: list[OverviewGameOut]
+
+
+class StartGamesIn(BaseModel):
+    """«Start 12 spill»: the games the page listed (Story 8.10)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    game_ids: list[uuid.UUID] = Field(min_length=1, max_length=1000)
+
+
+class StartedGamesOut(BaseModel):
+    """What «Start 12 spill» did (Story 8.10): the games it started, and the ones it skipped
+    because they had started meanwhile, were not ready or failed. Real counts."""
+
+    started: int
+    skipped: int
 
 
 class WallCells(StrEnum):

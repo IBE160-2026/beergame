@@ -2,7 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import { Button } from "@/components/button";
 import { Link } from "@/components/link";
@@ -24,6 +24,7 @@ import {
   HOME_PATH,
   messagePath,
   sentMessagesPath,
+  startGamesPath,
 } from "@/modules/identity/homes";
 import { PageShell } from "@/modules/identity/page-shell";
 import { osloDateText } from "@/modules/sessions/dates";
@@ -44,6 +45,7 @@ import {
   seatTexts,
   statusLines,
 } from "./overview";
+import { startedParam, startedText, startLinkText } from "./start-games";
 
 const copy = nb.overview;
 const live = copy.live;
@@ -87,6 +89,7 @@ function OverviewView({ sessionId, user, updatedAt }: { sessionId: string; user:
   const [held, setHeld] = useState<OverviewAnswer | null>(null);
   const latest = found.data;
   useReadAt(sessionId, latest);
+  const startedCount = useStartedCount(sessionId);
   if (found.error instanceof ApiRequestError && found.error.code === "forbidden") {
     return <AccessDenied user={user} updatedAt={updatedAt} />;
   }
@@ -126,6 +129,7 @@ function OverviewView({ sessionId, user, updatedAt }: { sessionId: string; user:
       header={data ? <OverviewHeader data={data} sessionId={sessionId} /> : undefined}
       liveLines={liveLines}
     >
+      {data && startedCount !== null ? <StartedLine count={startedCount} /> : null}
       {shown && latest ? (
         <OverviewBody
           sessionId={sessionId}
@@ -185,6 +189,7 @@ function useReadAt(sessionId: string, answer: OverviewAnswer | undefined) {
 }
 
 function OverviewHeader({ data, sessionId }: { data: ClassOverview; sessionId: string }) {
+  const startLink = startLinkText(data.startable);
   return (
     <header className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
       <h1 className="text-title-phone text-ink lg:text-title-page">{copy.title}</h1>
@@ -200,7 +205,43 @@ function OverviewHeader({ data, sessionId }: { data: ClassOverview; sessionId: s
       <Link href={sentMessagesPath(sessionId)} data-sent-messages-link="" standalone>
         {nb.messages.sentList.link}
       </Link>
+      {/* Every Class game not started, for a Lecturer (Story 8.10); not shown with a count of 0. */}
+      {startLink ? (
+        <Link href={startGamesPath(sessionId)} data-start-games-link="" standalone>
+          {startLink}
+        </Link>
+      ) : null}
     </header>
+  );
+}
+
+/**
+ * «12 spill er startet.» after «Start 12 spill» (Story 8.10): the count in `?startet=`, read once
+ * when the Oversikt opens; then the address drops it, so a reload does not say it again. The line
+ * takes focus (`tabindex="-1"`, `role="status"`) once the page shows.
+ */
+function useStartedCount(sessionId: string): number | null {
+  const params = useSearchParams();
+  const [found] = useState<number | null>(() => startedParam(params));
+  useEffect(() => {
+    if (found !== null) window.history.replaceState(null, "", classOverviewPath(sessionId));
+  }, [found, sessionId]);
+  return found;
+}
+
+function StartedLine({ count }: { count: number }) {
+  const ref = useRef<HTMLParagraphElement>(null);
+  useEffect(() => ref.current?.focus(), []);
+  return (
+    <p
+      ref={ref}
+      tabIndex={-1}
+      role="status"
+      data-games-started=""
+      className="mt-6 border-y border-ink-muted py-2 text-body-phone text-ink tabular-nums lining-nums focus:outline-none lg:text-body"
+    >
+      {startedText(count)}
+    </p>
   );
 }
 

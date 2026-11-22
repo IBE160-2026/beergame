@@ -144,6 +144,13 @@ class GameInsight:
     """Story 8.7: the Lecturer's agreed time of the Pause in force; None without one."""
     pausable: bool = False
     """Story 8.7 (FR-89): a Pause applies to the Game now: it runs and its policy has Pause."""
+    startable: bool = False
+    """Story 8.10 (FR-22): the Game has not started, has its settings snapshot (the lock) and a
+    Student in a Seat."""
+    started_by: uuid.UUID | None = None
+    """Story 8.10: who pressed «Start spillet», by id (AD-14); None when no person did."""
+    started_at: datetime | None = None
+    """Story 8.10: when the Game started; None before, and for a Game started before 0060."""
 
 
 def _in_force(history: Sequence[Mapping[str, Any]], week: int) -> Mapping[str, Any] | None:
@@ -284,6 +291,12 @@ async def game_insight(session: AsyncSession, game_id: uuid.UUID) -> GameInsight
         paused_by=game["paused_by"],
         resume_at=game["resume_at"],
         pausable=game["lifecycle"] == Lifecycle.RUNNING and game_policy.pause,
+        # As `service.startable_class_games`: a Student must hold a Seat (Story 8.10).
+        startable=game["lifecycle"] == Lifecycle.NOT_STARTED
+        and snapshot is not None
+        and any(seat["occupant_kind"] == OccupantKind.STUDENT for seat in held),
+        started_by=game["started_by"],
+        started_at=game["started_at"],
     )
 
 

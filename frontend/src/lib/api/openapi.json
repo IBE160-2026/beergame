@@ -1087,6 +1087,11 @@
               }
             ],
             "title": "Start At"
+          },
+          "startable": {
+            "default": 0,
+            "title": "Startable",
+            "type": "integer"
           }
         },
         "required": [
@@ -2320,6 +2325,11 @@
             "title": "Can Pause",
             "type": "boolean"
           },
+          "can_start": {
+            "default": false,
+            "title": "Can Start",
+            "type": "boolean"
+          },
           "class_id": {
             "format": "uuid",
             "title": "Class Id",
@@ -2396,6 +2406,29 @@
           "session_number": {
             "title": "Session Number",
             "type": "integer"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "started_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started By"
           },
           "status": {
             "$ref": "#/components/schemas/GameStatus"
@@ -6180,6 +6213,85 @@
         ],
         "title": "StaffStatus",
         "type": "string"
+      },
+      "StartGamesIn": {
+        "additionalProperties": false,
+        "description": "«Start 12 spill»: the games the page listed (Story 8.10).",
+        "properties": {
+          "game_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "minItems": 1,
+            "title": "Game Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "game_ids"
+        ],
+        "title": "StartGamesIn",
+        "type": "object"
+      },
+      "StartGamesOut": {
+        "description": "The «Start spill» page (Story 8.10, FR-22, UX-DR52): the Class session's games that have not\nstarted and may start now, as the Oversikt words them, by game number.",
+        "properties": {
+          "class_id": {
+            "format": "uuid",
+            "title": "Class Id",
+            "type": "string"
+          },
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "class_session_id": {
+            "format": "uuid",
+            "title": "Class Session Id",
+            "type": "string"
+          },
+          "games": {
+            "items": {
+              "$ref": "#/components/schemas/OverviewGameOut"
+            },
+            "title": "Games",
+            "type": "array"
+          },
+          "session_number": {
+            "title": "Session Number",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "class_session_id",
+          "class_id",
+          "class_name",
+          "session_number",
+          "games"
+        ],
+        "title": "StartGamesOut",
+        "type": "object"
+      },
+      "StartedGamesOut": {
+        "description": "What «Start 12 spill» did (Story 8.10): the games it started, and the ones it skipped\nbecause they had started meanwhile, were not ready or failed. Real counts.",
+        "properties": {
+          "skipped": {
+            "title": "Skipped",
+            "type": "integer"
+          },
+          "started": {
+            "title": "Started",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "started",
+          "skipped"
+        ],
+        "title": "StartedGamesOut",
+        "type": "object"
       },
       "StartedTestGameOut": {
         "description": "The test Game just started (Story 6.20); the web app opens its play route.",
@@ -10449,6 +10561,140 @@
         ]
       }
     },
+    "/api/class-sessions/{session_id}/start-games": {
+      "get": {
+        "description": "The «Start spill» page (Story 8.10, FR-22): the Class games a Lecturer of the Class may\nstart now, by game number with their Seats; none before the lock. 403 `forbidden` for anyone\nbut a Lecturer of the Class (FR-5).",
+        "operationId": "getStartGames",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartGamesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Start Games",
+        "tags": [
+          "sessions"
+        ]
+      },
+      "post": {
+        "description": "«Start 12 spill» (Story 8.10, FR-22, AD-2): starts the listed Class games, one start per\ngame in its own transaction, the Lecturer as actor. A game that started meanwhile, is not\nready yet, is not of this Class session or fails is skipped; the others go on. Answers the\nreal counts; a repeat is safe. 403 `forbidden` for anyone but a Lecturer of the Class.",
+        "operationId": "startGames",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartGamesIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartedGamesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Start Games",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
     "/api/class-sessions/{session_id}/students/{user_id}": {
       "get": {
         "description": "The Studentside (Story 8.9, UX-DR53): one Student of the Class session with the block\n«Tilrettelegging», for the Lecturers of its Class only. 403 `forbidden` for an Assistant\nlecturer, anyone outside the Class, a User who is not a Student of the Class now and a Class\nsession that does not exist (FR-5, AD-12).",
@@ -12988,6 +13234,79 @@
           }
         },
         "summary": "Take Over Seat",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/games/{game_id}/start": {
+      "post": {
+        "description": "«Start spillet» in Spillstyring (Story 8.10, FR-22, AD-2, AD-12): a Lecturer of the game's\nClass starts it for all four Seats; the rules for waiting apply from now. Recorded in the\naudit log. Answers Spillinnsikt as it now stands. 409 `game_already_started` with\n`fields.acted_by` (`kind` `student`, `staff` or `system`, and `user_id`) and\n`fields.acted_at` when someone started it first; 409 `game_not_ready` before the lock has\ngiven it its snapshot. 403 `forbidden` for anyone but a Lecturer of the game's Class (an\nAssistant lecturer included) and any Game the Oversikt does not list (FR-5).",
+        "operationId": "startGame",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameInsightOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Game",
         "tags": [
           "sessions"
         ]

@@ -998,19 +998,52 @@ async def _settle(game_id: str) -> None:
         log.exception("settle_failed", game_id=game_id)
 
 
-async def start(game_id: str) -> int:
+GAME_STARTED = "game.started"
+"""The audit action of a start a person pressed (Story 8.10, FR-22, AD-15)."""
+
+
+def _started_by(game: Mapping[str, Any], history: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """`fields` of a `game_already_started` refusal (Story 8.10, Story 8.5's shape): who started
+    the Game, a Student who ever held a Seat of it (`history`: its occupancy rows, so a Seat taken
+    over since keeps its Student), a staff member, or no person (`system`), by id, and when (None
+    for a Game started before revision 0060)."""
+    by = game["started_by"]
+    students = {row["user_id"] for row in history if row["occupant_kind"] == OccupantKind.STUDENT}
+    kind = "system" if by is None else "student" if by in students else "staff"
+    at = game["started_at"]
+    return {
+        "acted_by": {"kind": kind, "user_id": None if by is None else str(by)},
+        "acted_at": None if at is None else at.isoformat(),
+    }
+
+
+async def start(game_id: str, *, actor: uuid.UUID | str | None = None) -> int:
     """Start a `not_started` Game: give every free Seat a Rule-based player, store the Week 1
     state, open one turn per Seat and let the order source place the Orders of the non-student
     Seats. Returns the opened Week (1); by then the Game may have advanced, or finished when no
     Student holds a Seat. Emits `game:<id>`, `session:<id>` where the Lecturer overview lists
-    the Game, and `user:<id>` for each Student holding a Seat (Story 6.5)."""
+    the Game, and `user:<id>` for each Student holding a Seat (Story 6.5).
+
+    Story 8.10: `started_at` (the transaction's clock) and `started_by` (`actor`: the Student of
+    Story 6.5 or the Lecturer of Spillstyring, the caller having checked who may) are stored, and
+    a person's start is recorded in the audit log (`game.started`). A Game started already is
+    refused 409 `game_already_started` with `fields.acted_by` (`kind` `student`, `staff` or
+    `system`, and `user_id`) and `fields.acted_at`: who started it first, by id only."""
     game_uuid = _game_uuid(game_id)
+    actor_id = None if actor is None else _actor(actor)
+    if actor is not None and actor_id is None:
+        raise ValueError(f"{actor!r} is not a User id")
     async with get_sessionmaker().begin() as session:
         game = await repo.lock_game(session, game_uuid)
         if game is None:
             raise CommandError("game_not_found", f"no Game {game_id!r}", 404)
         if game["lifecycle"] != Lifecycle.NOT_STARTED:
-            raise CommandError("game_already_started", "the Game has already started", 409)
+            raise CommandError(
+                "game_already_started",
+                "the Game has already started",
+                409,
+                _started_by(game, await repo.occupancy_history(session, game_uuid)),
+            )
         if game["settings"] is None:
             raise CommandError(
                 "game_not_ready",
@@ -1034,6 +1067,16 @@ async def start(game_id: str) -> int:
             log.info("seats_cost_limited", game_id=game_id, seats=len(llm_seats))
         state = initial_state(settings, game["rules_version"])
         await repo.set_lifecycle(session, game_uuid, Lifecycle.RUNNING.value)
+        started_at = await repo.set_started(session, game_uuid, actor_id)
+        if actor_id is not None:
+            await audit.record(
+                session,
+                actor_id,
+                GAME_STARTED,
+                {"game_id": game_uuid},
+                {"started_at": started_at.isoformat()},
+                started_at,
+            )
         await _open_week(session, game, settings, params, [state], [], seat_rows)
         await _commit_change(session, game_uuid)
         # Story 6.5: each Student in the Game sees it started, on Hjem too (AD-8).
@@ -1045,7 +1088,7 @@ async def start(game_id: str) -> int:
             }
         ):
             await events.emit(session, "user", student)
-    log.info("game_started", game_id=game_id)
+    log.info("game_started", game_id=game_id, by_person=actor_id is not None)
     await _settle(game_id)
     return state.week
 

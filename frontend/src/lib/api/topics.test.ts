@@ -2,7 +2,14 @@ import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
 
 import { classesKey, enrolledClassesKey } from "@/modules/classes/api";
-import { classOverviewKey, gameInsightKey, myGameKey, playKey, startingTaskKey } from "@/modules/games/api";
+import {
+  classOverviewKey,
+  gameInsightKey,
+  myGameKey,
+  playKey,
+  startGamesKey,
+  startingTaskKey,
+} from "@/modules/games/api";
 import { meKey } from "@/modules/identity/api";
 import { messageFormKey, myMessagesKey, sentMessagesKey } from "@/modules/messaging/api";
 import { studentPageKey } from "@/modules/reports/api";
@@ -51,6 +58,8 @@ const ALL = [
   messageFormKey("s1", {}),
   studentPageKey("s1", "u1"),
   studentPageKey("s2", "u1"),
+  startGamesKey("s1"),
+  startGamesKey("s2"),
 ] as const;
 
 describe("topicKeys", () => {
@@ -81,6 +90,8 @@ describe("topicKeys", () => {
       sentMessagesKey("s1"),
       // The Studentsides of the Class session (Story 8.9).
       studentPageKey("s1", "u1"),
+      // Its «Start spill» page (Story 8.10).
+      startGamesKey("s1"),
     ]);
   });
 

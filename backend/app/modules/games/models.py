@@ -117,7 +117,13 @@ games = Table(
     Column("pause_ended_by", Uuid, nullable=True),
     # When the sweep saw the agreed time pass (Story 8.7): set once, cleared with `resume_at`.
     Column("agreed_time_reached_at", DateTime(timezone=True), nullable=True),
+    # Who started the Game and when (Story 8.10, FR-22): written once by `games.commands.start`;
+    # `started_by` is the Student or Lecturer who pressed «Start spillet», NULL when no person
+    # did (a simulation or a Game started before revision 0060). Ids only.
+    Column("started_at", DateTime(timezone=True), nullable=True),
+    Column("started_by", Uuid, nullable=True),
     CheckConstraint(_in("purpose", Purpose), name="ck_games_purpose"),
+    CheckConstraint("started_by IS NULL OR started_at IS NOT NULL", name="ck_games_started"),
     CheckConstraint(
         "(paused_by IS NULL AND resume_at IS NULL) OR paused_at IS NOT NULL",
         name="ck_games_pause",

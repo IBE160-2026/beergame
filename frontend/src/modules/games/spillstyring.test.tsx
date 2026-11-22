@@ -50,6 +50,7 @@ function insight(status: GameInsight["status"], seats: InsightSeat[]): GameInsig
     roles: [],
     can_pause: false,
     can_adjust: false,
+    can_start: false,
   };
 }
 

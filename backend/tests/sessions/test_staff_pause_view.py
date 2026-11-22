@@ -95,7 +95,8 @@ async def test_a_lecturer_pauses_with_a_time_changes_it_and_ends_it(klass):
             game_id,
         )
     ]
-    assert actions == ["game.paused", "game.pause_time_set", "game.resumed"]
+    # The Student's start comes first (Story 8.10).
+    assert actions == ["game.started", "game.paused", "game.pause_time_set", "game.resumed"]
 
 
 async def test_the_lecturer_gives_a_students_pause_a_time(klass):

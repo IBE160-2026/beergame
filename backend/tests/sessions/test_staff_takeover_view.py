@@ -105,8 +105,10 @@ async def test_an_assistant_may_and_anyone_else_is_refused(klass):
     done = await take_over(ASSISTANT, game_id, first)
     assert done.status_code == 200
     assert seat(done.json(), first)["mark_by"] == "Assistent"
+    # The Student's start is audited too (Story 8.10); the Takeover names the Assistant.
     [(actor, action)] = rows(
-        "SELECT actor_user_id, action FROM audit_events WHERE target_ids->>'game_id' = %s",
+        "SELECT actor_user_id, action FROM audit_events WHERE target_ids->>'game_id' = %s "
+        "AND action <> 'game.started'",
         game_id,
     )
     assert (str(actor), action) == (user_id(ASSISTANT), "seat.taken_over")

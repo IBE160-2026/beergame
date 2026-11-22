@@ -349,6 +349,44 @@ export function endPause(gameId: string) {
 /** The Pause in force on Spillinnsikt (Story 8.7). */
 export type InsightPause = NonNullable<GameInsight["pause"]>;
 
+/** «Start spillet» in Spillstyring (Story 8.10, FR-22): a Lecturer of the game's Class starts it.
+ * Answers Spillinnsikt as it now stands; 409 `game_already_started` with `acted_by` and
+ * `acted_at` when someone started it first, 409 `game_not_ready` before the lock. */
+export function startGameAsLecturer(gameId: string) {
+  return request(() => api.POST("/api/games/{game_id}/start", { params: { path: { game_id: gameId } } }));
+}
+
+/** The «Start spill» page (Story 8.10): the Class session's games that may start now. */
+export type StartGames = components["schemas"]["StartGamesOut"];
+export type StartedGames = components["schemas"]["StartedGamesOut"];
+export const startGamesKey = (sessionId: string) => ["games", "start-games", sessionId] as const;
+
+/** `/api/class-sessions/{id}/start-games`: anyone but a Lecturer of the Class answers 403
+ * `forbidden`. Read again on the session's `session:<id>` event (`topics.ts`). */
+export function useStartGames(sessionId: string) {
+  return useQuery({
+    queryKey: startGamesKey(sessionId),
+    queryFn: () =>
+      request(() =>
+        api.GET("/api/class-sessions/{session_id}/start-games", {
+          params: { path: { session_id: sessionId } },
+          cache: "no-store",
+        }),
+      ),
+    retry: false,
+  });
+}
+
+/** «Start 12 spill» (Story 8.10): starts the listed games; answers the real counts. */
+export function startGames(sessionId: string, gameIds: string[]) {
+  return request(() =>
+    api.POST("/api/class-sessions/{session_id}/start-games", {
+      params: { path: { session_id: sessionId } },
+      body: { game_ids: gameIds },
+    }),
+  );
+}
+
 /** «Spillet er ferdig» (Story 6.18): the finished game's cost per Role, the chain's and the
  * chain's per Uke. The api answers 409 `game_not_finished` before the end. */
 export type GameResult = components["schemas"]["GameResult"];

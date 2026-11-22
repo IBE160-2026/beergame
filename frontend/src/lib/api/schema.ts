@@ -879,6 +879,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/class-sessions/{session_id}/start-games": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Start Games
+         * @description The «Start spill» page (Story 8.10, FR-22): the Class games a Lecturer of the Class may
+         *     start now, by game number with their Seats; none before the lock. 403 `forbidden` for anyone
+         *     but a Lecturer of the Class (FR-5).
+         */
+        get: operations["getStartGames"];
+        put?: never;
+        /**
+         * Start Games
+         * @description «Start 12 spill» (Story 8.10, FR-22, AD-2): starts the listed Class games, one start per
+         *     game in its own transaction, the Lecturer as actor. A game that started meanwhile, is not
+         *     ready yet, is not of this Class session or fails is skipped; the others go on. Answers the
+         *     real counts; a repeat is safe. 403 `forbidden` for anyone but a Lecturer of the Class.
+         */
+        post: operations["startGames"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/class-sessions/{session_id}/students/{user_id}": {
         parameters: {
             query?: never;
@@ -1616,6 +1645,32 @@ export interface paths {
          *     list (FR-5).
          */
         post: operations["takeOverSeat"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/games/{game_id}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Game
+         * @description «Start spillet» in Spillstyring (Story 8.10, FR-22, AD-2, AD-12): a Lecturer of the game's
+         *     Class starts it for all four Seats; the rules for waiting apply from now. Recorded in the
+         *     audit log. Answers Spillinnsikt as it now stands. 409 `game_already_started` with
+         *     `fields.acted_by` (`kind` `student`, `staff` or `system`, and `user_id`) and
+         *     `fields.acted_at` when someone started it first; 409 `game_not_ready` before the lock has
+         *     given it its snapshot. 403 `forbidden` for anyone but a Lecturer of the game's Class (an
+         *     Assistant lecturer included) and any Game the Oversikt does not list (FR-5).
+         */
+        post: operations["startGame"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2584,6 +2639,11 @@ export interface components {
             session_number: number;
             /** Start At */
             start_at: string | null;
+            /**
+             * Startable
+             * @default 0
+             */
+            startable: number;
         };
         /** ClassSessionListItem */
         ClassSessionListItem: {
@@ -3080,6 +3140,11 @@ export interface components {
              */
             can_pause: boolean;
             /**
+             * Can Start
+             * @default false
+             */
+            can_start: boolean;
+            /**
              * Class Id
              * Format: uuid
              */
@@ -3109,6 +3174,10 @@ export interface components {
             seats: components["schemas"]["InsightSeatOut"][];
             /** Session Number */
             session_number: number;
+            /** Started At */
+            started_at?: string | null;
+            /** Started By */
+            started_by?: string | null;
             status: components["schemas"]["GameStatus"];
             /** Version */
             version: number;
@@ -4782,6 +4851,48 @@ export interface components {
          * @enum {string}
          */
         StaffStatus: "active" | "invited" | "expired";
+        /**
+         * StartGamesIn
+         * @description «Start 12 spill»: the games the page listed (Story 8.10).
+         */
+        StartGamesIn: {
+            /** Game Ids */
+            game_ids: string[];
+        };
+        /**
+         * StartGamesOut
+         * @description The «Start spill» page (Story 8.10, FR-22, UX-DR52): the Class session's games that have not
+         *     started and may start now, as the Oversikt words them, by game number.
+         */
+        StartGamesOut: {
+            /**
+             * Class Id
+             * Format: uuid
+             */
+            class_id: string;
+            /** Class Name */
+            class_name: string;
+            /**
+             * Class Session Id
+             * Format: uuid
+             */
+            class_session_id: string;
+            /** Games */
+            games: components["schemas"]["OverviewGameOut"][];
+            /** Session Number */
+            session_number: number;
+        };
+        /**
+         * StartedGamesOut
+         * @description What «Start 12 spill» did (Story 8.10): the games it started, and the ones it skipped
+         *     because they had started meanwhile, were not ready or failed. Real counts.
+         */
+        StartedGamesOut: {
+            /** Skipped */
+            skipped: number;
+            /** Started */
+            started: number;
+        };
         /**
          * StartedTestGameOut
          * @description The test Game just started (Story 6.20); the web app opens its play route.
@@ -7607,6 +7718,108 @@ export interface operations {
             };
         };
     };
+    getStartGames: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartGamesOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    startGames: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartGamesIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartedGamesOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     getStudentPage: {
         parameters: {
             query?: never;
@@ -9498,6 +9711,64 @@ export interface operations {
             path: {
                 game_id: string;
                 role: components["schemas"]["Role"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GameInsightOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    startGame: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
             };
             cookie?: never;
         };

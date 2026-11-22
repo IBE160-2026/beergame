@@ -3,12 +3,15 @@ whom it waits for and its chain cost, read from `games`' `game_summaries` only, 
 names resolved now (AD-12, AD-14). A fixed number of queries whatever the number of Games (NFR-3).
 """
 
+import asyncio
 import hashlib
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, Literal
+
+import structlog
 
 from app.analysis.class_cost import FinishedGame, class_cost
 from app.analysis.wall import Cells, wall_aggregates
@@ -39,6 +42,8 @@ from app.modules.sessions.schemas import (
     OverviewSeatOut,
     OverviewWaitOut,
     RoleCostOut,
+    StartedGamesOut,
+    StartGamesOut,
     WallAggregatesOut,
     WallCells,
     WallStatus,
@@ -48,6 +53,11 @@ from app.modules.sessions.schemas import (
 from app.modules.sessions.service import _class_for, is_locked, time_factors
 from app.platform import authz
 from app.platform.db import get_sessionmaker
+
+log = structlog.get_logger(__name__)
+
+BATCH_START_CONCURRENCY = 4
+"""How many Games «Start 12 spill» starts at once (Story 8.10): below the pool size (10)."""
 
 __all__ = [
     "WallFilter",
@@ -64,6 +74,10 @@ __all__ = [
     "pause_game",
     "set_agreed_time",
     "end_pause",
+    "StartRefused",
+    "start_game",
+    "start_games",
+    "start_games_page",
     "wall_aggregates_out",
     "wall_games",
 ]
@@ -103,6 +117,12 @@ async def class_overview(user: authz.Principal, session_id: uuid.UUID) -> ClassO
         # The registered Students of the Class: `progress` counts their steps and looks up no one.
         registered = await classes.registered_students(row["class_id"])
         trakt = await progress.funnel(s, session_id, registered)
+        # «Start spill som ikke har startet (12)» (Story 8.10): for a Lecturer, after the lock.
+        startable = (
+            len(await games_service.startable_class_games(s, session_id))
+            if not before_start and authz.can(user, "games.start", found)
+            else 0
+        )
     counts = {status: 0 for status in GameStatus}
     for game in games:
         counts[game.status] += 1
@@ -128,6 +148,7 @@ async def class_overview(user: authz.Principal, session_id: uuid.UUID) -> ClassO
         alert=None if before_start else _alert(games, names),
         can_pause=authz.can(user, "games.pause", found),
         play_deadline=row["play_deadline"],
+        startable=startable,
         class_id=found.id,
         class_name=found.name,
         session_number=number,
@@ -410,7 +431,8 @@ async def game_insight(user: authz.Principal, game_id: uuid.UUID) -> GameInsight
             row["class_id"],
             sorted(
                 {seat.actor_user_id for seat in insight.seats if seat.actor_user_id}
-                | ({insight.paused_by} if insight.paused_by is not None else set()),
+                | ({insight.paused_by} if insight.paused_by is not None else set())
+                | ({insight.started_by} if insight.started_by is not None else set()),
                 key=str,
             ),
         )
@@ -484,6 +506,10 @@ async def game_insight(user: authz.Principal, game_id: uuid.UUID) -> GameInsight
         can_pause=insight.pausable and authz.can(user, "games.pause", found),
         play_deadline=row["play_deadline"],
         can_adjust=can_adjust,
+        # «Start spillet» (Story 8.10): a Lecturer, a game with its snapshot, after the lock.
+        can_start=insight.startable and is_locked(row) and authz.can(user, "games.start", found),
+        started_by=by.get(insight.started_by) if insight.started_by is not None else None,
+        started_at=insight.started_at,
     )
 
 
@@ -631,6 +657,133 @@ async def end_pause(user: authz.Principal, game_id: uuid.UUID) -> GameInsightOut
     return await _staff_pause_command(
         user, game_id, lambda _: games_commands.resume(str(game_id), actor=user.id)
     )
+
+
+class StartRefused(Exception):
+    """A Lecturer's «Start spillet» `games.commands.start` refused (Story 8.10): its stable code,
+    status and `fields` (`acted_by`, `acted_at` on `game_already_started`)."""
+
+    def __init__(self, code: str, status: int, fields: dict[str, Any]) -> None:
+        super().__init__(code)
+        self.code = code
+        self.status = status
+        self.fields = fields
+
+
+async def start_game(user: authz.Principal, game_id: uuid.UUID) -> GameInsightOut | None:
+    """«Start spillet» in Spillstyring (Story 8.10, FR-22, AD-2, AD-12): a Lecturer of the game's
+    Class starts it for all four Seats, through the `games.start` policy and the Class staff
+    scope; None, one answer, for anyone else and any Game the Oversikt does not list (FR-5). Only
+    `games.commands.start` acts, with the Lecturer as actor; before the lock, and for a game no
+    Student holds a Seat in, it answers `game_not_ready`, and a game started first
+    `game_already_started` with who did.
+    Its refusals are raised as `StartRefused`. Returns Spillinnsikt as it now stands."""
+    async with get_sessionmaker()() as s:
+        head = await games_service.class_game_head(s, game_id)
+        if head is None or head.class_session_id is None or not head.listed:
+            return None
+        row = await repo.session_row(s, head.class_session_id)
+    if row is None or await _class_for(user, row["class_id"], "games.start") is None:
+        return None
+    if not is_locked(row):
+        raise StartRefused("game_not_ready", 409, {})
+    async with get_sessionmaker()() as s:
+        ready = game_id in await games_service.startable_class_games(s, head.class_session_id)
+        status = (await games_service.play_status(s, game_id)).status
+    # A game not started that may not start yet (no snapshot, or no Student in it) is not ready;
+    # one started already goes to the command, which says who started it first.
+    if not ready and status in ("ready", "not_ready"):
+        raise StartRefused("game_not_ready", 409, {})
+    try:
+        await games_commands.start(str(game_id), actor=user.id)
+    except games_commands.CommandError as refused:
+        if refused.status == 404 and refused.code == "game_not_found":
+            return None
+        raise StartRefused(refused.code, refused.status, dict(refused.fields)) from None
+    log.info("lecturer_started_game", game_id=str(game_id))
+    return await game_insight(user, game_id)
+
+
+async def _lecturer_session(user: authz.Principal, session_id: uuid.UUID) -> tuple[Any, Any] | None:
+    """The Class session row and its Class when `user` is a Lecturer of it (`games.start`); None,
+    one answer, for anyone else and a Class session that does not exist (FR-5)."""
+    async with get_sessionmaker()() as s:
+        row = await repo.session_row(s, session_id)
+    if row is None:
+        return None
+    found = await _class_for(user, row["class_id"], "games.start")
+    return None if found is None else (row, found)
+
+
+async def start_games_page(user: authz.Principal, session_id: uuid.UUID) -> StartGamesOut | None:
+    """The «Start spill» page (Story 8.10, FR-22, UX-DR52): the Class games a Lecturer may start
+    now, as the Oversikt words them (Students' names resolved now), by game number; none before
+    the lock. None for anyone but a Lecturer of the Class (FR-5)."""
+    own = await _lecturer_session(user, session_id)
+    if own is None:
+        return None
+    row, found = own
+    async with get_sessionmaker()() as s:
+        number = await repo.number_of(s, session_id, row["class_id"])
+        ready = (
+            set(await games_service.startable_class_games(s, session_id))
+            if is_locked(row)
+            else set()
+        )
+        games = [g for g in await games_service.class_overview(s, session_id) if g.game_id in ready]
+        students = sorted(
+            {seat.user_id for game in games for seat in game.seats if seat.user_id is not None},
+            key=str,
+        )
+        names = (
+            await classes.student_names(row["class_id"], students, session=s) if students else {}
+        )
+    return StartGamesOut(
+        class_session_id=session_id,
+        class_id=found.id,
+        class_name=found.name,
+        session_number=number,
+        games=[_game_out(game, names, True) for game in games],
+    )
+
+
+async def start_games(
+    user: authz.Principal, session_id: uuid.UUID, game_ids: list[uuid.UUID]
+) -> StartedGamesOut | None:
+    """«Start 12 spill» (Story 8.10, FR-22, AD-2, NFR-7): one `games.commands.start` per listed
+    Game, each in its own transaction, with the Lecturer as actor. Only the Class session's games
+    that may start now are tried; any other id, a Game started meanwhile, one with no snapshot yet
+    (`game_not_ready`) and one that fails are skipped, and a failure never stops the others, so a
+    repeat is safe. Returns the real counts; None for anyone but a Lecturer of the Class (FR-5)."""
+    own = await _lecturer_session(user, session_id)
+    if own is None:
+        return None
+    row, _ = own
+    wanted = list(dict.fromkeys(game_ids))  # each once, in the page's order
+    if not is_locked(row):
+        return StartedGamesOut(started=0, skipped=len(wanted))
+    async with get_sessionmaker()() as s:
+        ready = set(await games_service.startable_class_games(s, session_id))
+    # A few Games at a time, each start its own command and transaction on its own Game row, so
+    # a room of 100 games starts in seconds and the pool keeps connections for other requests.
+    gate = asyncio.Semaphore(BATCH_START_CONCURRENCY)
+
+    async def start_one(game_id: uuid.UUID) -> bool:
+        async with gate:
+            try:
+                await games_commands.start(str(game_id), actor=user.id)
+            except games_commands.CommandError as refused:
+                log.info("batch_start_skipped", game_id=str(game_id), code=refused.code)
+                return False
+            except Exception:
+                log.exception("batch_start_failed", game_id=str(game_id))
+                return False
+            return True
+
+    outcomes = await asyncio.gather(*(start_one(g) for g in wanted if g in ready))
+    started = sum(outcomes)
+    log.info("lecturer_started_games", class_session_id=str(session_id), started=started)
+    return StartedGamesOut(started=started, skipped=len(wanted) - started)
 
 
 def insight_etag(insight: GameInsightOut) -> str:

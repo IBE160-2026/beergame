@@ -1797,7 +1797,8 @@ async def start_own_game(user: authz.Principal, game_id: str) -> StudentGameOut 
     if found.pre_play_gate and progress.Step.STARTING_TASK not in done.get(row["id"], set()):
         raise StartRefused("starting_task_required")
     try:
-        await games_commands.start(str(found.game_id))
+        # The Student is stored as the one who started it (Story 8.10).
+        await games_commands.start(str(found.game_id), actor=user.id)
     except games_commands.CommandError as refused:
         if refused.code == "game_not_ready":
             raise StartRefused(refused.code) from None
@@ -4078,7 +4079,8 @@ async def start_test_game(
                 else:
                     await games_commands.assign_seat(game_id, seat_role, ai.value, within=s)
     try:
-        await games_commands.start(game_id)
+        # The Lecturer who pressed it is stored as its starter and audited (Story 8.10).
+        await games_commands.start(game_id, actor=user.id)
     except games_commands.CommandError as refused:
         # Two presses on a Game whose start failed: the other one started it.
         if refused.code != "game_already_started":

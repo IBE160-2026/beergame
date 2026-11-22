@@ -2138,6 +2138,26 @@ export const nb = {
     crumb: "Oversikt",
     /** The Lenke on the Klasseøkt. */
     open: "Oversikt",
+    /** «Start spill» (Story 8.10, FR-22, UX-DR52, EXPERIENCE.md → Spillstyring → Start): the header
+     * Lenke, the page and the result line on the Oversikt are the spine's; the empty line, the
+     * refusals and the failure are [ASSUMPTION] draft copy. */
+    start: {
+      /** «Start spill som ikke har startet (12)», not shown with 0. */
+      link: (n: number) => `Start spill som ikke har startet (${n})`,
+      title: "Start spill",
+      crumb: "Start spill",
+      consequence: "Spillene starter for alle i dem. Reglene for ventetid gjelder fra nå.",
+      /** The primary: «Start 12 spill». */
+      confirm: (n: number) => `Start ${n} spill`,
+      /** [ASSUMPTION] */
+      listLabel: "Spill som ikke har startet",
+      /** [ASSUMPTION] */
+      empty: "Ingen spill venter på start.",
+      /** On the Oversikt after the press: «12 spill er startet.» */
+      done: (n: number) => `${n} spill er startet.`,
+      /** [ASSUMPTION] */
+      failed: "Spillene ble ikke startet. Prøv igjen.",
+    },
     /** «Klasseøkt 2, class-of-1994» beside the heading. */
     session: (number: number, className: string) => `Klasseøkt ${number}, ${className}`,
     counts: {
@@ -2524,6 +2544,22 @@ export const nb = {
     } as Record<string, string>,
     /** [ASSUMPTION] */
     failed: "KI-spilleren ble ikke satt inn. Prøv igjen.",
+    /** «Start spillet» (Story 8.10, FR-22, UX-DR52, EXPERIENCE.md → Spillstyring → Start): the
+     * button, its consequence and «Spillet er startet.» are the spine's; who started it first and
+     * the refusals are [ASSUMPTION] draft copy. */
+    start: {
+      consequence: "Spillet starter for alle fire. Reglene for ventetid gjelder fra nå.",
+      button: "Start spillet",
+      done: "Spillet er startet.",
+      /** Someone started it first, named from the view read again: «Spillet ble startet av Sara.» */
+      startedBy: (name: string) => `Spillet ble startet av ${name}.`,
+      /** …by no one the Class still names. */
+      startedAlready: "Spillet er allerede startet.",
+      refusals: {
+        game_not_ready: "Spillet kan ikke startes før Startdatoen.",
+      } as Record<string, string>,
+      failed: "Spillet ble ikke startet. Prøv igjen.",
+    },
     /** The Lecturer's Pause (Story 8.7, FR-89, UX-DR52, EXPERIENCE.md → Spillstyring → Pause). */
     pause: {
       open: "Pause spillet",

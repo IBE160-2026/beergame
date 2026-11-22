@@ -55,7 +55,10 @@ from app.modules.sessions.schemas import (
     SettingsCheckIn,
     SettingsCheckOut,
     StaffPauseIn,
+    StartedGamesOut,
     StartedTestGameOut,
+    StartGamesIn,
+    StartGamesOut,
     StudentGameOut,
     StudentPageOut,
     TestGameIn,
@@ -433,6 +436,74 @@ async def end_pause(
     except overview.PauseRefused as refused:
         return _pause_refused(refused, "The pause was not ended.")
     return _pause_answer(found)
+
+
+@router.post(
+    "/games/{game_id}/start",
+    response_model=GameInsightOut,
+    responses=documented(401, 403, 409),
+    operation_id="startGame",
+)
+async def start_game(
+    game_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("games.start"))],
+) -> Response:
+    """«Start spillet» in Spillstyring (Story 8.10, FR-22, AD-2, AD-12): a Lecturer of the game's
+    Class starts it for all four Seats; the rules for waiting apply from now. Recorded in the
+    audit log. Answers Spillinnsikt as it now stands. 409 `game_already_started` with
+    `fields.acted_by` (`kind` `student`, `staff` or `system`, and `user_id`) and
+    `fields.acted_at` when someone started it first; 409 `game_not_ready` before the lock has
+    given it its snapshot. 403 `forbidden` for anyone but a Lecturer of the game's Class (an
+    Assistant lecturer included) and any Game the Oversikt does not list (FR-5)."""
+    try:
+        found = await overview.start_game(user, _id(game_id))
+    except overview.StartRefused as refused:
+        return error_response(
+            refused.status, refused.code, "The game was not started.", refused.fields
+        )
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.get(
+    "/class-sessions/{session_id}/start-games",
+    response_model=StartGamesOut,
+    responses=documented(401, 403),
+    operation_id="getStartGames",
+)
+async def get_start_games(
+    session_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("games.start"))],
+) -> StartGamesOut:
+    """The «Start spill» page (Story 8.10, FR-22): the Class games a Lecturer of the Class may
+    start now, by game number with their Seats; none before the lock. 403 `forbidden` for anyone
+    but a Lecturer of the Class (FR-5)."""
+    found = await overview.start_games_page(user, _id(session_id))
+    if found is None:
+        raise authz.Forbidden
+    return found
+
+
+@router.post(
+    "/class-sessions/{session_id}/start-games",
+    response_model=StartedGamesOut,
+    responses=documented(401, 403, 422),
+    operation_id="startGames",
+)
+async def start_games(
+    session_id: str,
+    body: StartGamesIn,
+    user: Annotated[authz.Principal, Depends(authz.require("games.start"))],
+) -> StartedGamesOut:
+    """«Start 12 spill» (Story 8.10, FR-22, AD-2): starts the listed Class games, one start per
+    game in its own transaction, the Lecturer as actor. A game that started meanwhile, is not
+    ready yet, is not of this Class session or fails is skipped; the others go on. Answers the
+    real counts; a repeat is safe. 403 `forbidden` for anyone but a Lecturer of the Class."""
+    found = await overview.start_games(user, _id(session_id), body.game_ids)
+    if found is None:
+        raise authz.Forbidden
+    return found
 
 
 TEST_GAME_REFUSED = {

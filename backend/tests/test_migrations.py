@@ -90,7 +90,7 @@ HEAD_TABLES = (
     | RECLAIM_TABLES
     | ADJUSTMENT_TABLES
 )
-HEAD = "0059"  # 0059 adds the Students' Tilrettelegging (Story 8.9)
+HEAD = "0060"  # 0060 adds who started a Game and when (Story 8.10)
 
 
 def reset_schema(url: str) -> None:

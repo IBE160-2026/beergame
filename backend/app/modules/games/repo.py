@@ -388,6 +388,18 @@ async def set_lifecycle(session: AsyncSession, game_id: uuid.UUID, lifecycle: st
     await session.execute(update(games).where(games.c.id == game_id).values(lifecycle=lifecycle))
 
 
+async def set_started(session: AsyncSession, game_id: uuid.UUID, actor: uuid.UUID | None) -> Any:
+    """Story 8.10: the Game started at the transaction's `now()`, by `actor` (None when no person
+    did). Returns `started_at`."""
+    result = await session.execute(
+        update(games)
+        .where(games.c.id == game_id)
+        .values(started_at=func.now(), started_by=actor)
+        .returning(games.c.started_at)
+    )
+    return result.scalar_one()
+
+
 async def set_pause(
     session: AsyncSession, game_id: uuid.UUID, user_id: uuid.UUID, resume_at: Any = None
 ) -> Any:

@@ -312,6 +312,23 @@ async def class_games_of(
     return found
 
 
+async def startable_class_games(
+    session: AsyncSession, class_session_id: uuid.UUID
+) -> list[uuid.UUID]:
+    """The Class session's Games a Lecturer may start (Story 8.10, FR-22), by game number: not
+    started, with their settings snapshot, which the lock gives them (Story 5.12, the readiness
+    Story 6.5 uses for the Student's button), and with a Student in a Seat: a game of AI players
+    alone would play itself out at the start, and AI players never play a Class game on their own
+    before the Play deadline (Story 8.14 plays those out). Two reads."""
+    return [
+        game.id
+        for game in await class_games(session, class_session_id)
+        if game.lifecycle == Lifecycle.NOT_STARTED
+        and game.has_snapshot
+        and any(seat.occupant_kind == OccupantKind.STUDENT for seat in game.seats)
+    ]
+
+
 async def class_sessions_awaiting_snapshot(session: AsyncSession) -> list[uuid.UUID]:
     """The Class sessions with a Game that is `not_started` and has no snapshot (Story 5.12)."""
     return await repo.class_sessions_awaiting_snapshot(session)

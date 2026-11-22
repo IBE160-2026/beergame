@@ -111,6 +111,9 @@ POLICIES: dict[str, frozenset[str]] = {
     # (Story 8.7, FR-89): the Lecturers of the game's Class only; an Assistant lecturer may not
     # pause, set an agreed time or end a Pause (AD-12, EXPERIENCE.md → Spillstyring → Who).
     "games.pause": frozenset({LECTURER}),
+    # «Start spillet» in Spillstyring and «Start spill» for every Class game not started (Story
+    # 8.10, FR-22): the Lecturers of the Class only (AD-12, EXPERIENCE.md → Spillstyring → Who).
+    "games.start": frozenset({LECTURER}),
     # A Message to a Student, a Class game or a whole Class session (Story 7.9, FR-40): the staff
     # of its Class, Lecturers and Assistant lecturers alike.
     "messages.send": frozenset({LECTURER, ASSISTANT}),
@@ -159,6 +162,7 @@ CLASS_STAFF_ROLES: dict[str, frozenset[str]] = {
     "games.insight": frozenset({OWNER, ASSISTANT_STAFF}),
     "games.takeover": frozenset({OWNER, ASSISTANT_STAFF}),
     "games.pause": frozenset({OWNER}),
+    "games.start": frozenset({OWNER}),
     "messages.send": frozenset({OWNER, ASSISTANT_STAFF}),
     "messages.read_sent": frozenset({OWNER, ASSISTANT_STAFF}),
 }

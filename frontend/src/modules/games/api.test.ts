@@ -17,6 +17,7 @@ const OVERVIEW = {
   funnel: [{ stage: "registered", count: 0 }],
   alert: null,
   can_pause: false,
+  startable: 0,
   class_id: "c1",
   class_name: "klasse",
   session_number: 1,

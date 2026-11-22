@@ -11,12 +11,21 @@ import type { components } from "@/lib/api/schema";
 import { errorCode, useAction } from "@/lib/api/mutation";
 import { roleName } from "@/modules/sessions/sessions";
 
-import { classOverviewKey, type GameInsight, gameInsightKey, takeOverSeat } from "./api";
+import {
+  classOverviewKey,
+  type GameInsight,
+  gameInsightKey,
+  startGameAsLecturer,
+  startGamesKey,
+  takeOverSeat,
+} from "./api";
 import { seatsUpstreamFirst } from "./insight";
 import { insightPauseText, type PauseMode, PauseResult, StaffPauseForm, useEndPause } from "./staff-pause";
+import { type StartResult, startedFirst, startResultText } from "./start-games";
 
 const copy = nb.spillstyring;
 const pauseCopy = nb.spillstyring.pause;
+const startCopy = nb.spillstyring.start;
 
 type Role = components["schemas"]["Role"];
 type From = "this_week" | "next_week";
@@ -165,22 +174,28 @@ export function TakeoverAction({
  * and the result line replaces it and takes focus. Then one row per Student-held Seat (Fabrikk
  * first) with its consequence and «Sett inn KI-spiller for …», which Assistant lecturers have too.
  * The api decides which Seats and from when (`takeover`, AD-10). A row stays after its press, so its
- * result line can be read; a game not started or finished shows no block; a paused one keeps it.
+ * result line can be read; a finished game shows no block; a paused one keeps it. A game not
+ * started shows the block only with «Start spillet» for a Lecturer (Story 8.10, `can_start`).
  */
 export function Spillstyring({ data }: { data: GameInsight }) {
   const id = useId();
   // The Seats pressed here, with the name the row had then: the row and its result line stay.
   const [pressed, setPressed] = useState<ReadonlyMap<Role, string>>(new Map());
+  // «Start spillet»'s result line stays once the game runs, above the block's other actions.
+  const [started, setStarted] = useState<StartResult | null>(null);
+  const startShown = data.can_start || started !== null;
   // A paused game still runs: the staff's per-Seat action stays (Story 8.6).
-  if (data.status !== "running" && data.status !== "waiting" && data.status !== "paused") return null;
-  const rows = seatsUpstreamFirst(data).filter((seat) => seat.takeover != null || pressed.has(seat.role));
-  if (rows.length === 0 && !data.can_pause) return null;
+  const running = data.status === "running" || data.status === "waiting" || data.status === "paused";
+  const rows = running ? seatsUpstreamFirst(data).filter((seat) => seat.takeover != null || pressed.has(seat.role)) : [];
+  const pauseShown = running && data.can_pause;
+  if (!startShown && !pauseShown && rows.length === 0) return null;
   return (
     <section aria-labelledby={id} className="mt-8" data-spillstyring="">
       <h2 id={id} className="text-label text-ink">
         {copy.title}
       </h2>
-      {data.can_pause ? <PauseStyring data={data} /> : null}
+      {startShown ? <StartStyring data={data} result={started} onResult={setStarted} /> : null}
+      {pauseShown ? <PauseStyring data={data} /> : null}
       {rows.length > 0 ? (
         <ul className="mt-3 flex flex-col gap-4">
           {rows.map((seat) => {
@@ -209,6 +224,88 @@ export function Spillstyring({ data }: { data: GameInsight }) {
         </ul>
       ) : null}
     </section>
+  );
+}
+
+/**
+ * «Start spillet» in Spillstyring (Story 8.10, FR-22, UX-DR52, EXPERIENCE.md → Spillstyring →
+ * Start), for a Lecturer on a game that may start (`can_start`): the consequence directly above the
+ * primary button, full width below 1024 px; one press, no dialog. After the api commits, «Spillet er
+ * startet.» replaces it and takes focus (`tabindex="-1"`, `role="status"`). When someone started it
+ * first (`game_already_started`), the line naming them replaces it the same way, the name read from
+ * the view read again (`started_by`); any other refusal is said inline and the button stays active.
+ */
+function StartStyring({
+  data,
+  result,
+  onResult,
+}: {
+  data: GameInsight;
+  result: StartResult | null;
+  onResult: (result: StartResult) => void;
+}) {
+  const queryClient = useQueryClient();
+  const lineId = useId();
+  const lineRef = useRef<HTMLParagraphElement>(null);
+  const reread = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: gameInsightKey(data.game_id) }),
+      queryClient.invalidateQueries({ queryKey: classOverviewKey(data.class_session_id) }),
+      queryClient.invalidateQueries({ queryKey: startGamesKey(data.class_session_id) }),
+    ]);
+  const starting = useAction({
+    mutationFn: () => startGameAsLecturer(data.game_id),
+    messages: startCopy.refusals,
+    fallback: startCopy.failed,
+    onSuccess: (insight: GameInsight) => {
+      queryClient.setQueryData(gameInsightKey(data.game_id), insight);
+      void reread();
+      onResult({ kind: "done" });
+    },
+  });
+  // The result line takes focus when it comes, also when the block was redrawn meanwhile (the
+  // view read again after a lost race may hide «Start spillet» before the line is set).
+  useEffect(() => {
+    if (result) lineRef.current?.focus();
+  }, [result]);
+  if (result) {
+    return (
+      <p
+        ref={lineRef}
+        tabIndex={-1}
+        role="status"
+        data-start-result={result.kind}
+        className="mt-3 border-b border-hairline pb-4 text-body-phone text-ink [overflow-wrap:anywhere] focus:outline-none lg:text-body"
+      >
+        {startResultText(result, data.started_by)}
+      </p>
+    );
+  }
+  return (
+    <div className="mt-3 flex flex-col items-start gap-3 border-b border-hairline pb-4" data-spillstyring-start="">
+      <p id={lineId} className="text-body-phone text-ink lg:text-body" data-start-consequence="">
+        {startCopy.consequence}
+      </p>
+      <Button
+        variant="primary"
+        data-start-game=""
+        className="w-full lg:w-auto"
+        aria-describedby={lineId}
+        unavailable={starting.isPending}
+        onClick={() =>
+          starting.mutate(undefined, {
+            onError: (error) => {
+              if (!startedFirst(error)) return;
+              // Who started it first is named from the view read again: the line waits for it.
+              void reread().then(() => onResult({ kind: "first" }));
+            },
+          })
+        }
+      >
+        {startCopy.button}
+      </Button>
+      {startedFirst(starting.error) ? null : <ActionError message={starting.errorMessage} />}
+    </div>
   );
 }
 

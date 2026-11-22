@@ -123,6 +123,7 @@ function insight(over: Partial<GameInsight>): GameInsight {
     roles: [],
     can_pause: true,
     can_adjust: false,
+    can_start: false,
     play_deadline: DEADLINE,
     ...over,
   };
