@@ -30,6 +30,7 @@ const seat = (over: Partial<InsightSeat>): InsightSeat => ({
   mark: null,
   mark_by: null,
   takeover: "this_week",
+  extra_time: false,
   ...over,
 });
 
@@ -48,6 +49,7 @@ function insight(status: GameInsight["status"], seats: InsightSeat[]): GameInsig
     seats,
     roles: [],
     can_pause: false,
+    can_adjust: false,
   };
 }
 

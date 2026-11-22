@@ -879,6 +879,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/class-sessions/{session_id}/students/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Student Page
+         * @description The Studentside (Story 8.9, UX-DR53): one Student of the Class session with the block
+         *     «Tilrettelegging», for the Lecturers of its Class only. 403 `forbidden` for an Assistant
+         *     lecturer, anyone outside the Class, a User who is not a Student of the Class now and a Class
+         *     session that does not exist (FR-5, AD-12).
+         */
+        get: operations["getStudentPage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class-sessions/{session_id}/students/{user_id}/adjustment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save Adjustment
+         * @description «Lagre tilrettelegging» (Story 8.9, FR-17): the Student's factor on the Inactivity limit
+         *     (1, 1.5, 2 or 3) and the share of Weeks required of them (0 to the class share; null or the
+         *     class share: the class's own). Applies from now, also after the Start date: the open turn times
+         *     of the Student's Class game are recomputed at once. Recorded in the audit log. Answers the
+         *     Studentside. 422 `invalid_adjustment` with `fields` (`time_factor` `not_offered`,
+         *     `share_percent` `out_of_range`); 409 `class_archived`; 403 `forbidden` as `getStudentPage`.
+         */
+        put: operations["saveAdjustment"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/class-sessions/{session_id}/test-game": {
         parameters: {
             query?: never;
@@ -2124,6 +2172,27 @@ export interface components {
          */
         AddressProblem: "empty" | "whitespace" | "missing_at" | "two_at" | "missing_name" | "missing_domain";
         /**
+         * AdjustmentIn
+         * @description «Lagre tilrettelegging» (Story 8.9): the factor and the share. There is no field for a
+         *     reason, so no health data is stored (UX-DR53, C-1).
+         */
+        AdjustmentIn: {
+            /** Share Percent */
+            share_percent?: number | null;
+            /** Time Factor */
+            time_factor: number;
+        };
+        /**
+         * AdjustmentOut
+         * @description A Student's Tilrettelegging as the Lecturer reads it (Story 8.9, FR-17).
+         */
+        AdjustmentOut: {
+            /** Share Percent */
+            share_percent: number | null;
+            /** Time Factor */
+            time_factor: number;
+        };
+        /**
          * AiDescriptionsOut
          * @description The plain-language Norwegian description of each AI player type, from
          *     `players.service.describe` (FR-33): Markdown with a title line, paragraphs and `- ` lists.
@@ -2920,6 +2989,7 @@ export interface components {
          *     deadline that applies. Never the Game settings, the number of Weeks or the demand.
          */
         EnrolledSessionOut: {
+            adjustment?: components["schemas"]["OwnAdjustmentOut"] | null;
             /**
              * Class Id
              * Format: uuid
@@ -2999,6 +3069,11 @@ export interface components {
          *     number of Weeks. Seats and Roles in chain order, the Role serving the customer first.
          */
         GameInsightOut: {
+            /**
+             * Can Adjust
+             * @default false
+             */
+            can_adjust: boolean;
             /**
              * Can Pause
              * @default false
@@ -3280,6 +3355,11 @@ export interface components {
          * @description A Seat of the Game on Spillinnsikt as held now, like the Oversikt's, with its links.
          */
         InsightSeatOut: {
+            /**
+             * Extra Time
+             * @default false
+             */
+            extra_time: boolean;
             /**
              * Holder
              * @enum {string}
@@ -3941,6 +4021,17 @@ export interface components {
              * Format: date-time
              */
             since: string;
+        };
+        /**
+         * OwnAdjustmentOut
+         * @description The reading Student's own Tilrettelegging on Hjem (Story 8.9, UX-DR53): only they ever read
+         *     it. Each part is None when it does not apply.
+         */
+        OwnAdjustmentOut: {
+            /** Share Percent */
+            share_percent?: number | null;
+            /** Time Factor */
+            time_factor?: number | null;
         };
         /** PasswordResetIn */
         PasswordResetIn: {
@@ -4805,6 +4896,37 @@ export interface components {
             turn: components["schemas"]["PlayTurnOut"] | null;
             /** Week */
             week: number | null;
+        };
+        /**
+         * StudentPageOut
+         * @description The Studentside of one Student of a Class session (Story 8.9, UX-DR53), for the Lecturers of
+         *     its Class only: for now the block «Tilrettelegging»; Story 13.2 adds its own blocks.
+         */
+        StudentPageOut: {
+            adjustment: components["schemas"]["AdjustmentOut"] | null;
+            /**
+             * Class Id
+             * Format: uuid
+             */
+            class_id: string;
+            /** Class Name */
+            class_name: string;
+            /**
+             * Class Session Id
+             * Format: uuid
+             */
+            class_session_id: string;
+            /** Class Share */
+            class_share: number;
+            /** Name */
+            name: string;
+            /** Session Number */
+            session_number: number;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
         };
         /**
          * SumTermOut
@@ -7481,6 +7603,119 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getStudentPage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentPageOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    saveAdjustment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdjustmentIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentPageOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

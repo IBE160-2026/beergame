@@ -613,6 +613,16 @@ class StepOut(BaseModel):
     state: StepState
 
 
+class OwnAdjustmentOut(BaseModel):
+    """The reading Student's own Tilrettelegging on Hjem (Story 8.9, UX-DR53): only they ever read
+    it. Each part is None when it does not apply."""
+
+    time_factor: float | None = None
+    """The factor on the Inactivity limit when above 1 (1.5, 2 or 3)."""
+    share_percent: int | None = None
+    """The share of Weeks required of the Student when it differs from the Class session's."""
+
+
 class EnrolledSessionOut(BaseModel):
     """A Class session as its Student reads it (Story 5.2, FR-18, AD-3): the dates and the next
     deadline that applies. Never the Game settings, the number of Weeks or the demand."""
@@ -644,6 +654,8 @@ class EnrolledSessionOut(BaseModel):
     steps: list[StepOut] = []
     """Story 6.1: Stegene's six steps in order, Klassespill first. With no game every step not
     done is `locked`; with one, the first step not done is `current`."""
+    adjustment: OwnAdjustmentOut | None = None
+    """Story 8.9: the Student's own Tilrettelegging, None without one (FR-17)."""
 
 
 class EnrolledSessionListOut(BaseModel):
@@ -1042,6 +1054,9 @@ class InsightSeatOut(BaseModel):
     """«Sett inn KI-spiller» (Story 8.5, FR-37): from when an AI player would order for the
     Student if the staff put one in now, this Week or (the Student has ordered this Week) the next;
     None where Spillstyring offers no Takeover: a Seat no Student holds, a game not running."""
+    extra_time: bool = False
+    """Story 8.9 (UX-DR52): the Student holding the Seat has Tilrettelegging with more time
+    («Jonas har tilrettelegging med mer tid.»). Only ever true for a Lecturer of the Class."""
 
 
 class InsightWeekOut(BaseModel):
@@ -1124,6 +1139,9 @@ class GameInsightOut(BaseModel):
     pausen» while it is paused. False for an Assistant lecturer."""
     play_deadline: AwareDatetime | None = None
     """Story 8.7: the Class session's Spillfrist, the latest agreed time; None without one."""
+    can_adjust: bool = False
+    """Story 8.9 (AD-12): the reader is a Lecturer of the Class, so each Student's name leads to
+    their Studentside with «Tilrettelegging». False for an Assistant lecturer."""
 
 
 class WallCells(StrEnum):
@@ -1173,3 +1191,38 @@ class WallAggregatesOut(BaseModel):
     """The Class games the Status filter matched."""
     weeks: list[WallWeekOut]
     """Uke 1 to the furthest any matched Game has reached; empty for no Game."""
+
+
+class AdjustmentOut(BaseModel):
+    """A Student's Tilrettelegging as the Lecturer reads it (Story 8.9, FR-17)."""
+
+    time_factor: float
+    """The factor on the Inactivity limit: 1 («Som klassen»), 1.5, 2 or 3."""
+    share_percent: int | None
+    """The share of Weeks required of the Student; None: the Class session's own."""
+
+
+class StudentPageOut(BaseModel):
+    """The Studentside of one Student of a Class session (Story 8.9, UX-DR53), for the Lecturers of
+    its Class only: for now the block «Tilrettelegging»; Story 13.2 adds its own blocks."""
+
+    class_session_id: uuid.UUID
+    class_id: uuid.UUID
+    class_name: str
+    session_number: int
+    user_id: uuid.UUID
+    name: str
+    class_share: int
+    """The Class session's required share of Weeks (`service.required_share`, Story 5.7)."""
+    adjustment: AdjustmentOut | None
+    """None: no Tilrettelegging («Ingen tilrettelegging.»)."""
+
+
+class AdjustmentIn(BaseModel):
+    """«Lagre tilrettelegging» (Story 8.9): the factor and the share. There is no field for a
+    reason, so no health data is stored (UX-DR53, C-1)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    time_factor: float
+    share_percent: StrictInt | None = None

@@ -122,6 +122,7 @@ function insight(over: Partial<GameInsight>): GameInsight {
     seats: [],
     roles: [],
     can_pause: true,
+    can_adjust: false,
     play_deadline: DEADLINE,
     ...over,
   };
@@ -141,6 +142,7 @@ describe("Spillstyring's Pause", () => {
       user_id: "u-jonas",
       links: [],
       takeover: "this_week" as const,
+      extra_time: false,
     };
     const assistant = html(<Spillstyring data={insight({ can_pause: false, seats: [seat] })} />);
     expect(assistant).toContain('data-takeover="factory"');

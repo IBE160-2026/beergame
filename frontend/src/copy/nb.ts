@@ -416,6 +416,15 @@ export const nb = {
         } as Record<string, string>,
         reclaimFailed: "Setet ble ikke tatt tilbake. Prøv igjen.",
       },
+      /** The Student's own Tilrettelegging under Stegene (Story 8.9, FR-17, UX-DR53, EXPERIENCE.md
+       * → Tilrettelegging → Student's own view): the spine's lines. Only that Student reads them. */
+      adjustment: {
+        /** «Du har mer tid før en KI-spiller tar setet ditt (2 × vanlig ventetid).» */
+        moreTime: (factor: string) =>
+          `Du har mer tid før en KI-spiller tar setet ditt (${factor} vanlig ventetid).`,
+        /** «For deg er kravet 60 % av ukene.» */
+        share: (percent: string) => `For deg er kravet ${percent} av ukene.`,
+      },
       /** «Sett inn KI-spiller» on another Student's Setestatus row (Story 8.8, FR-89, UX-DR27,
        * EXPERIENCE.md → Sett inn KI-spiller and State Patterns → Student game). The two lines before
        * the insert time are the spine's; the button, its consequence and «Sara har allerede satt
@@ -2495,6 +2504,9 @@ export const nb = {
     done: (name: string) => `KI-spiller satt inn for ${name}.`,
     /** A Seat row's name: «Fabrikk: Jonas». [ASSUMPTION] */
     seat: (role: string, name: string) => `${role}: ${name}`,
+    /** A Seat with Tilrettelegging, for the Lecturer only (Story 8.9, UX-DR52, EXPERIENCE.md →
+     * Spillstyring → Manual Takeover): «Jonas har tilrettelegging med mer tid.» */
+    extraTime: (name: string) => `${name} har tilrettelegging med mer tid.`,
     /** Who acted first, from the view read again (`takeover_exists`, EXPERIENCE.md → AI put in by
      * two at once): «Sara har allerede satt inn en KI-spiller.» */
     taken: (name: string) => `${name} har allerede satt inn en KI-spiller.`,
@@ -2557,6 +2569,44 @@ export const nb = {
       } as Record<string, string>,
       /** [ASSUMPTION] */
       failed: "Det gikk ikke. Prøv igjen.",
+    },
+  },
+
+  /** The Studentside (Story 8.9, UX-DR53, EXPERIENCE.md → Studentside and Tilrettelegging), for
+   * the Lecturers of the Class: for now the block «Tilrettelegging»; Story 13.2 adds its own. */
+  reports: {
+    studentPage: {
+      /** The crumb and the link from Spillinnsikt are the Student's name. */
+      linkLabel: (name: string) => `Studentside for ${name}`,
+      /** [ASSUMPTION] the line under the name. */
+      session: (number: number) => `Klasseøkt ${number}`,
+    },
+    /** The block (EXPERIENCE.md → Tilrettelegging): the idle lines, the form, «Lagret. Gjelder fra
+     * nå.» are the spine's; the refusals and the failure are [ASSUMPTION] draft copy. */
+    adjustment: {
+      title: "Tilrettelegging",
+      none: "Ingen tilrettelegging.",
+      /** «Mer tid: 2 ×.» */
+      moreTime: (factor: string) => `Mer tid: ${factor}.`,
+      /** «Andel uker: 60 %.» */
+      share: (percent: string) => `Andel uker: ${percent}.`,
+      change: "Endre tilrettelegging",
+      factorLegend: "Mer tid før KI tar over",
+      asClass: "Som klassen",
+      shareLabel: "Andel uker som kreves",
+      /** The help line: «Klassen: 80 %.» */
+      classShare: (percent: string) => `Klassen: ${percent}.`,
+      /** «Skriv et helt tall fra 0 til 80.» */
+      shareError: (max: number) => `Skriv et helt tall fra 0 til ${max}.`,
+      /** «Gjelder bare Jonas, fra nå. Ingen andre studenter ser det. Endringen logges.» */
+      scope: (name: string) => `Gjelder bare ${name}, fra nå. Ingen andre studenter ser det. Endringen logges.`,
+      save: "Lagre tilrettelegging",
+      cancel: "Avbryt",
+      saved: "Lagret. Gjelder fra nå.",
+      refusals: {
+        invalid_adjustment: "Sjekk feltene.",
+      } as Record<string, string>,
+      failed: "Tilretteleggingen ble ikke lagret. Prøv igjen.",
     },
   },
 

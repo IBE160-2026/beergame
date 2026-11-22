@@ -471,6 +471,26 @@ async def set_insert_allowed(session: AsyncSession, turn_id: uuid.UUID, at: Any)
     )
 
 
+async def set_due_times(
+    session: AsyncSession,
+    turn_id: uuid.UUID,
+    *,
+    takeover_due_at: Any,
+    insert_allowed_at: Any,
+    insert_moved: bool,
+) -> None:
+    """Story 8.9: the turn's FR-36 due times, recomputed by `recompute_turn_times` through
+    `rules.turn_times` after a Student's Tilrettelegging changed; its wait start stays. When the
+    insert time moved (`insert_moved`) the sweep has not announced the new one yet (Story 8.8)."""
+    values: dict[str, Any] = {
+        "takeover_due_at": takeover_due_at,
+        "insert_allowed_at": insert_allowed_at,
+    }
+    if insert_moved:
+        values["insert_announced_at"] = None
+    await session.execute(update(seat_turns).where(seat_turns.c.id == turn_id).values(**values))
+
+
 async def mark_insert_announced(session: AsyncSession, turn_id: uuid.UUID, at: Any) -> None:
     """Story 8.8: the sweep saw the turn's insert time pass at `at`."""
     await session.execute(

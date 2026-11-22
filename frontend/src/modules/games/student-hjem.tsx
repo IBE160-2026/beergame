@@ -15,6 +15,7 @@ import { enrolledClassesKey, useEnrolledClasses } from "@/modules/classes/api";
 import { gamePath, rulesPath, seatChoicePath } from "@/modules/identity/homes";
 import { MyMessages } from "@/modules/messaging/my-messages";
 import { type EnrolledSession, enrolledSessionsKey, useEnrolledSessions } from "@/modules/sessions/api";
+import { ownLines } from "@/modules/reports/adjustment";
 import { homeLine } from "@/modules/sessions/seat-choice";
 
 import { GameAction } from "./game-action";
@@ -174,6 +175,14 @@ function SessionBlock({
         <BeforeStart session={session} />
       )}
       <Stegene title={copy.steps} titleId={`steps-${session.id}`} items={stepItems(session.steps)} />
+      {/* The Student's own Tilrettelegging (Story 8.9): only they read it. */}
+      {ownLines(session.adjustment).length > 0 ? (
+        <div className="mt-3 flex flex-col gap-1 text-body-phone text-ink-secondary lg:text-body" data-own-adjustment="">
+          {ownLines(session.adjustment).map((line) => (
+            <p key={line}>{line}</p>
+          ))}
+        </div>
+      ) : null}
       {deadline || labs.length > 0 ? (
         <dl className="mt-6 flex flex-col gap-2 border-t border-hairline pt-4 text-body-phone lg:text-body">
           {deadline ? (

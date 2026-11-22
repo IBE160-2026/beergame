@@ -37,10 +37,11 @@ export function topicKeys(event: ChangeEvent): QueryKey[] {
       ];
     // A Class session, for its staff: the Klasseøkt, its allocation block, the Lærerhjem parts of
     // Stories 5.2 and 5.9, the Class page's list of its sessions, its Oversikt (Story 7.1) and its
-    // «Meldinger» (Story 7.10).
+    // «Meldinger» (Story 7.10), and the Studentsides under it (Story 8.9).
     case "session":
       return [
         classSessionKey(event.id),
+        ["class-sessions", "students", event.id],
         allocationKey(event.id),
         lecturerHomeKey,
         ["class-sessions", "of-class"],

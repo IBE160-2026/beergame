@@ -94,6 +94,7 @@ __all__ = [
     "place_order",
     "propose_time",
     "reach_agreed_time",
+    "recompute_turn_times",
     "request_reclaim",
     "resume",
     "set_agreed_time",
@@ -1543,7 +1544,8 @@ async def _start_waits(session: AsyncSession, game: Mapping[str, Any], week: int
     start gets one, from `rules.turn_times` with this transaction's clock as the clock start
     (Story 6.14, FR-25, AD-20); one already set stays, so the first Student's moment counts.
     A Student-held one also gets its FR-36 due times from the Inactivity limit in the Game's
-    `SessionRuntime`, when the Game's policy has inactivity Takeover (Story 8.1, AD-13). An insert
+    `SessionRuntime` times the Student's Tilrettelegging factor (Story 8.9), when the Game's policy
+    has inactivity Takeover (Story 8.1, AD-13). An insert
     time a Lecturer's agreed Pause time gave the turn before any clock ran is its agreed time, so
     it stays the insert time for this Week after the Order (Story 8.7, open-assumptions)."""
     guided = rules.guided_week(
@@ -1559,12 +1561,14 @@ async def _start_waits(session: AsyncSession, game: Mapping[str, Any], week: int
         return
     clock_start = await repo.now(session)
     limit = _inactivity_limit(game)
+    factors = await _time_factors(session, game, waiting)
     for turn in waiting:
         kind = OccupantKind(turn["occupant_kind"] or OccupantKind.RULE_BASED)
         seat = rules.TurnSeat(occupant_kind=kind, opened_at=turn["opened_at"])
         inputs = rules.TurnInputs(
             clock_start=clock_start,
             inactivity_limit=limit,
+            time_factor=factors.get(turn["user_id"]),
             agreed_time=turn["insert_allowed_at"],
         )
         times = rules.turn_times(rules.TurnGame(guided_week=guided), seat, inputs)
@@ -1575,6 +1579,25 @@ async def _start_waits(session: AsyncSession, game: Mapping[str, Any], week: int
             takeover_due_at=times.takeover_due_at,
             insert_allowed_at=times.insert_allowed_at,
         )
+
+
+async def _time_factors(
+    session: AsyncSession, game: Mapping[str, Any], turns: Sequence[Mapping[str, Any]]
+) -> dict[uuid.UUID, float]:
+    """The Tilrettelegging factor above 1 of each Student holding one of `turns`, by `user_id`
+    (Story 8.9, FR-17), read through `sessions.service`, the one source (AD-14). Empty for a Game
+    of no Class session or one whose policy has no inactivity Takeover."""
+    students = [
+        turn["user_id"]
+        for turn in turns
+        if turn["occupant_kind"] == OccupantKind.STUDENT and turn["user_id"] is not None
+    ]
+    if not students or game["class_session_id"] is None or _inactivity_limit(game) is None:
+        return {}
+    # Imported here: `sessions` imports `games` at module level.
+    from app.modules.sessions import service as sessions_service
+
+    return await sessions_service.time_factors(session, game["class_session_id"], students)
 
 
 def _inactivity_limit(game: Mapping[str, Any]) -> timedelta | None:
@@ -2179,6 +2202,76 @@ async def announce_insert_time(game_id: str, seat_id: str, *, now: datetime) -> 
     return True
 
 
+async def recompute_turn_times(game_id: str) -> bool:
+    """A Student's Tilrettelegging changed (Story 8.9, FR-17, FR-36, FR-89, AD-2, AD-20): every turn
+    of the open Week that a Student holds and that has not ordered gets its Takeover due time and
+    insert time again from `rules.turn_times`, with its stored wait start as the clock start, the
+    Inactivity limit the Game froze, the Student's factor (`sessions.service.time_factors`) and the
+    agreed time: the Game's `resume_at` while paused, else the stored insert time when it differs
+    from the stored due time (an agreed time kept after the Pause ended, Story 8.7), else none. So
+    automatic Takeover, the Varselbånd and «Sett inn KI-spiller» follow at once. The wait start
+    never moves. One transaction under the Game row lock; when a time changed the version rises
+    with `game:<id>`, `session:<id>` and `user:<id>` for every seated Student; True then. False,
+    writing nothing, for a Game not running, with no open Week or no change. Refuses
+    `game_not_found` (404)."""
+    game_uuid = _game_uuid(game_id)
+    async with get_sessionmaker().begin() as session:
+        game = await repo.lock_game(session, game_uuid)
+        if game is None:
+            raise CommandError("game_not_found", f"no Game {game_id!r}", 404)
+        if game["lifecycle"] != Lifecycle.RUNNING or game["settings"] is None:
+            return False
+        week = await repo.open_week(session, game_uuid)
+        if week is None:
+            return False
+        guided = rules.guided_week(
+            _policy(game["purpose"]), GameSettings.model_validate(game["settings"]), week
+        )
+        limit = _inactivity_limit(game)
+        turns = await repo.week_turns_with_occupant(session, game_uuid, week)
+        factors = await _time_factors(session, game, turns)
+        changed = False
+        for turn in turns:
+            if turn["occupant_kind"] != OccupantKind.STUDENT or rules.has_ordered(
+                turn, guided=guided
+            ):
+                continue
+            stored_due, stored_insert = turn["takeover_due_at"], turn["insert_allowed_at"]
+            if rules.is_paused(game) and game["resume_at"] is not None:
+                agreed = game["resume_at"]
+            elif stored_insert is not None and stored_insert != stored_due:
+                agreed = stored_insert
+            else:
+                agreed = None
+            times = rules.turn_times(
+                rules.TurnGame(guided_week=guided),
+                rules.TurnSeat(occupant_kind=OccupantKind.STUDENT, opened_at=turn["opened_at"]),
+                rules.TurnInputs(
+                    clock_start=turn["wait_started_at"],
+                    inactivity_limit=limit,
+                    time_factor=factors.get(turn["user_id"]),
+                    agreed_time=agreed,
+                ),
+            )
+            if (times.takeover_due_at, times.insert_allowed_at) != (stored_due, stored_insert):
+                await repo.set_due_times(
+                    session,
+                    turn["id"],
+                    takeover_due_at=times.takeover_due_at,
+                    insert_allowed_at=times.insert_allowed_at,
+                    insert_moved=times.insert_allowed_at != stored_insert,
+                )
+                changed = True
+        if not changed:
+            return False
+        await _commit_change(session, game_uuid)
+        seated = seated_students(await repo.seats_with_occupant(session, game_uuid))
+        for student in sorted(seated, key=str):
+            await events.emit(session, "user", str(student))
+    log.info("turn_times_recomputed", game_id=game_id)
+    return True
+
+
 async def _pausable_game(
     session: AsyncSession, game_uuid: uuid.UUID, game_id: str
 ) -> Mapping[str, Any]:
@@ -2224,9 +2317,10 @@ async def _recompute_insert_times(
 ) -> None:
     """Story 8.7 (FR-89, AD-20): the insert time of every turn of the open Week that a Student
     holds and that has not ordered, from `rules.turn_times` with its stored wait start as the
-    clock start, the Inactivity limit the Game froze and the agreed time `agreed`. The Takeover
-    due time is never moved. With `keep_passed` (the end of a Pause) an insert time at or before
-    now stays: a right to put in an AI player that has arisen survives the end."""
+    clock start, the Inactivity limit the Game froze, the Student's Tilrettelegging factor (Story
+    8.9: never an insert time before their own extended limit) and the agreed time `agreed`. The
+    Takeover due time is never moved. With `keep_passed` (the end of a Pause) an insert time at
+    or before now stays: a right to put in an AI player that has arisen survives the end."""
     if game["settings"] is None:
         return
     week = await repo.open_week(session, game["id"])
@@ -2237,7 +2331,9 @@ async def _recompute_insert_times(
     )
     now = await repo.clock_now(session)
     limit = _inactivity_limit(game)
-    for turn in await repo.week_turns_with_occupant(session, game["id"], week):
+    turns = await repo.week_turns_with_occupant(session, game["id"], week)
+    factors = await _time_factors(session, game, turns)
+    for turn in turns:
         if turn["occupant_kind"] != OccupantKind.STUDENT or rules.has_ordered(turn, guided=guided):
             continue
         stored = turn["insert_allowed_at"]
@@ -2247,7 +2343,10 @@ async def _recompute_insert_times(
             rules.TurnGame(guided_week=guided),
             rules.TurnSeat(occupant_kind=OccupantKind.STUDENT, opened_at=turn["opened_at"]),
             rules.TurnInputs(
-                clock_start=turn["wait_started_at"], inactivity_limit=limit, agreed_time=agreed
+                clock_start=turn["wait_started_at"],
+                inactivity_limit=limit,
+                time_factor=factors.get(turn["user_id"]),
+                agreed_time=agreed,
             ),
         )
         if times.insert_allowed_at != stored:

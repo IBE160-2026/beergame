@@ -137,7 +137,12 @@ async def test_staff_read_every_week_of_every_role_as_stored(klass):
     assistant = await insight(ASSISTANT, game_id)
     # The same answer, but only a Lecturer may pause the game (Story 8.7, AD-12).
     assert body["can_pause"] is True
-    assert (assistant.status_code, assistant.json()) == (200, {**body, "can_pause": False})
+    # Story 8.9: Tilrettelegging (the names' Studentside) is for Lecturers only.
+    assert body["can_adjust"] is True
+    assert (assistant.status_code, assistant.json()) == (
+        200,
+        {**body, "can_pause": False, "can_adjust": False},
+    )
     etag = response.headers["etag"]
     repeat = await insight(LECTURER, game_id, headers={"If-None-Match": etag})
     assert (repeat.status_code, repeat.content) == (304, b"")

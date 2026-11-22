@@ -158,8 +158,8 @@ class TurnSeat:
 @dataclass(frozen=True)
 class TurnInputs:
     """The named inputs of the turn times: the AI budget (Story 2.6), the clock start (Story
-    6.14) and the FR-36 inputs (Story 8.1); the per-Student factor, the agreed time and the
-    in-room limit stay empty until Stories 8.9, 8.7 and 8.11 pass them."""
+    6.14) and the FR-36 inputs (Story 8.1), with the per-Student factor (Story 8.9) and the agreed
+    time (Story 8.7); the in-room limit stays empty until Story 8.11 passes it."""
 
     ai_order_budget_s: float | None = None
     """The per-Order time budget of the Effort level in the Game's `SessionRuntime`; None when

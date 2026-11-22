@@ -18,6 +18,7 @@ import {
   HOME_PATH,
   messagePath,
   overviewReturnPath,
+  studentPagePath,
 } from "@/modules/identity/homes";
 import { PageShell } from "@/modules/identity/page-shell";
 import { roleName } from "@/modules/sessions/sessions";
@@ -142,7 +143,13 @@ export function InsightBody({ data }: { data: GameInsight }) {
           data-insight-seats=""
         >
           {seatsUpstreamFirst(data).map((seat) => (
-            <SeatItem key={seat.role} seat={seat} sessionId={data.class_session_id} gameId={data.game_id} />
+            <SeatItem
+              key={seat.role}
+              seat={seat}
+              sessionId={data.class_session_id}
+              gameId={data.game_id}
+              canAdjust={data.can_adjust ?? false}
+            />
           ))}
         </ol>
       </section>
@@ -167,14 +174,37 @@ export function InsightBody({ data }: { data: GameInsight }) {
   );
 }
 
-function SeatItem({ seat, sessionId, gameId }: { seat: InsightSeat; sessionId: string; gameId: string }) {
+function SeatItem({
+  seat,
+  sessionId,
+  gameId,
+  canAdjust,
+}: {
+  seat: InsightSeat;
+  sessionId: string;
+  gameId: string;
+  /** A Lecturer of the Class: the Student's name leads to their Studentside (Story 8.9). */
+  canAdjust: boolean;
+}) {
   const links = linkTexts(seat);
   const mark = seatMarkText(seat);
+  const student = seat.holder === "student" && seat.user_id && seat.name ? { id: seat.user_id, name: seat.name } : null;
   return (
     <li className="min-w-0" data-role={seat.role}>
       <p className="text-label text-ink">{roleName(seat.role)}</p>
       <p className="flex flex-wrap items-baseline gap-x-3 text-body-phone text-ink [overflow-wrap:anywhere] lg:text-body">
-        <span>{holderText(seat)}</span>
+        {student && canAdjust ? (
+          <Link
+            href={studentPagePath(sessionId, student.id)}
+            aria-label={nb.reports.studentPage.linkLabel(student.name)}
+            data-student-page=""
+            standalone
+          >
+            {student.name}
+          </Link>
+        ) : (
+          <span>{holderText(seat)}</span>
+        )}
         {/* A Message to the Student of this Seat (Story 7.9), titled with the game. */}
         {seat.holder === "student" && seat.user_id && seat.name ? (
           <Link

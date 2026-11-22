@@ -77,6 +77,8 @@ MESSAGE_TABLES = {"messages", "message_recipients"}
 """The tables of revision 0052 (Story 7.9)."""
 RECLAIM_TABLES = {"seat_reclaims"}
 """The table of revision 0055 (Story 8.4)."""
+ADJUSTMENT_TABLES = {"student_adjustments"}
+"""The table of revision 0059 (Story 8.9)."""
 HEAD_TABLES = (
     PRE_SESSION_TABLES
     | SESSION_TABLES
@@ -86,8 +88,9 @@ HEAD_TABLES = (
     | SUMMARY_TABLES
     | MESSAGE_TABLES
     | RECLAIM_TABLES
+    | ADJUSTMENT_TABLES
 )
-HEAD = "0058"  # 0058 adds when the sweep announced a passed insert time (Story 8.8)
+HEAD = "0059"  # 0059 adds the Students' Tilrettelegging (Story 8.9)
 
 
 def reset_schema(url: str) -> None:

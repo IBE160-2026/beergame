@@ -110,7 +110,7 @@ describe("the Oversikt with a paused game", () => {
   });
 
   it("keeps Spillstyring's per-Seat action on a paused game", () => {
-    const seat = { role: "factory" as const, holder: "student" as const, name: "Jonas", user_id: "u", links: [], mark: null, mark_by: null };
+    const seat = { role: "factory" as const, holder: "student" as const, name: "Jonas", user_id: "u", links: [], mark: null, mark_by: null, extra_time: false };
     const data = {
       game_id: "g1",
       class_session_id: "s1",
@@ -125,6 +125,7 @@ describe("the Oversikt with a paused game", () => {
       seats: [{ ...seat, takeover: "this_week" as const }],
       roles: [],
       can_pause: false,
+      can_adjust: false,
     };
     expect(html(<Spillstyring data={data} />)).toContain('data-takeover="factory"');
   });

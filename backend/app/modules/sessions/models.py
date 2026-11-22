@@ -8,6 +8,8 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
+    Numeric,
+    PrimaryKeyConstraint,
     Table,
     Text,
     UniqueConstraint,
@@ -202,3 +204,36 @@ deadline_reminders = Table(
 """One row per deadline time the Students were reminded of, 24 hours ahead (Story 5.14, FR-18):
 what the sweep's `sessions.send_deadline_reminder` finder skips, and the `ref` of each
 `deadline_reminder` notice. Ids and times only (AD-14)."""
+
+TIME_FACTORS = ("1.0", "1.5", "2.0", "3.0")
+"""The factors «Mer tid før KI tar over» offers (Story 8.9, EXPERIENCE.md → Tilrettelegging):
+«Som klassen», «1,5 ×», «2 ×» and «3 ×». A factor only ever extends a limit."""
+
+student_adjustments = Table(
+    "student_adjustments",
+    metadata,
+    Column(
+        "class_session_id",
+        Uuid,
+        ForeignKey("class_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("user_id", Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+    Column("time_factor", Numeric(3, 1), nullable=False),
+    # NULL: the Class session's own required share (`required_share_percent`).
+    Column("share_percent", Integer, nullable=True),
+    Column("updated_by", Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+    PrimaryKeyConstraint("class_session_id", "user_id"),
+    CheckConstraint(
+        f"time_factor IN ({', '.join(TIME_FACTORS)})", name="ck_student_adjustments_time_factor"
+    ),
+    CheckConstraint(
+        "share_percent IS NULL OR share_percent BETWEEN 0 AND 100",
+        name="ck_student_adjustments_share",
+    ),
+)
+"""A Student's Tilrettelegging in one Class session (Story 8.9, FR-17): the factor on the
+Inactivity limit and the share of Weeks required of them. No reason is stored, so no health data
+(UX-DR53). Only `sessions` reads it; other modules ask `service.get_adjustment` or
+`service.time_factors`. Personal data: never in a log line, a mail or another Student's view."""

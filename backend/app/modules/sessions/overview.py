@@ -45,7 +45,7 @@ from app.modules.sessions.schemas import (
     WallWeekOut,
     WeekSeatOut,
 )
-from app.modules.sessions.service import _class_for, is_locked
+from app.modules.sessions.service import _class_for, is_locked, time_factors
 from app.platform import authz
 from app.platform.db import get_sessionmaker
 
@@ -135,14 +135,16 @@ async def class_overview(user: authz.Principal, session_id: uuid.UUID) -> ClassO
 
 
 def _next_due(games: list[ClassGameSummary], now: datetime) -> datetime | None:
-    """The nearest stored Takeover due time of a waiting Class game after `now` (Story 8.1,
-    AD-8, AD-20): the Oversikt is read again then. None without one."""
+    """The nearest stored Takeover due time after `now` of any waited-for Seat of a waiting Class
+    game (Stories 8.1 and 8.9, AD-8, AD-20): the Oversikt is read again then. Each Seat's own due
+    time counts, not only the game's earliest: with Tilrettelegging the Seats of one game differ,
+    and once the earliest has passed a later one still lies ahead. None without one."""
     due = [
-        g.takeover_due_at
+        at
         for g in games
         if g.status is GameStatus.WAITING
-        and g.takeover_due_at is not None
-        and g.takeover_due_at > now
+        for at in (g.takeover_due_at, *(wait.takeover_due_at for wait in g.waiting_for))
+        if at is not None and at > now
     ]
     return min(due, default=None)
 
@@ -412,6 +414,22 @@ async def game_insight(user: authz.Principal, game_id: uuid.UUID) -> GameInsight
                 key=str,
             ),
         )
+        # Tilrettelegging is for the Lecturers of the Class only (Story 8.9, UX-DR52, AD-12).
+        can_adjust = authz.can(user, "class_sessions.manage", found)
+        extra = (
+            await time_factors(
+                s,
+                head.class_session_id,
+                [
+                    seat.user_id
+                    for seat in insight.seats
+                    if seat.user_id is not None
+                    and seat.occupant_kind == games_service.OccupantKind.STUDENT
+                ],
+            )
+            if can_adjust
+            else {}
+        )
     return GameInsightOut(
         game_id=insight.game_id,
         class_session_id=head.class_session_id,
@@ -433,6 +451,8 @@ async def game_insight(user: authz.Principal, game_id: uuid.UUID) -> GameInsight
                 mark=_mark(seat.occupant_kind, seat.reason),
                 mark_by=_mark_by(seat.occupant_kind, seat.actor_user_id, by),
                 takeover=seat.takeover,
+                extra_time=seat.occupant_kind == games_service.OccupantKind.STUDENT
+                and seat.user_id in extra,
             )
             for seat in insight.seats
         ],
@@ -463,6 +483,7 @@ async def game_insight(user: authz.Principal, game_id: uuid.UUID) -> GameInsight
         pause=_insight_pause(insight, user, by),
         can_pause=insight.pausable and authz.can(user, "games.pause", found),
         play_deadline=row["play_deadline"],
+        can_adjust=can_adjust,
     )
 
 

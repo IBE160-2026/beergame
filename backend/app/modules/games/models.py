@@ -374,7 +374,7 @@ game_summaries = Table(
     # The earliest `wait_started_at` of `waiting_for` (Story 6.14's clock, FR-25).
     Column("wait_started_at", DateTime(timezone=True), nullable=True),
     # The earliest stored `takeover_due_at` of `waiting_for` (Story 8.1): the overview's
-    # `next_change_at` is read from it, never computed (AD-20, AD-25).
+    # `next_change_at` is read from it and the Seats' own, never computed (AD-20, AD-25).
     Column("takeover_due_at", DateTime(timezone=True), nullable=True),
     # `[{role, user_id, since}]` in chain order: the Student Seats the Game waits for. Ids only.
     Column("waiting_for", JSONB, nullable=False),

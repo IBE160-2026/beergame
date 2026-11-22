@@ -163,6 +163,58 @@
         "title": "AddressProblem",
         "type": "string"
       },
+      "AdjustmentIn": {
+        "additionalProperties": false,
+        "description": "«Lagre tilrettelegging» (Story 8.9): the factor and the share. There is no field for a\nreason, so no health data is stored (UX-DR53, C-1).",
+        "properties": {
+          "share_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Share Percent"
+          },
+          "time_factor": {
+            "title": "Time Factor",
+            "type": "number"
+          }
+        },
+        "required": [
+          "time_factor"
+        ],
+        "title": "AdjustmentIn",
+        "type": "object"
+      },
+      "AdjustmentOut": {
+        "description": "A Student's Tilrettelegging as the Lecturer reads it (Story 8.9, FR-17).",
+        "properties": {
+          "share_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Share Percent"
+          },
+          "time_factor": {
+            "title": "Time Factor",
+            "type": "number"
+          }
+        },
+        "required": [
+          "time_factor",
+          "share_percent"
+        ],
+        "title": "AdjustmentOut",
+        "type": "object"
+      },
       "AiDescriptionsOut": {
         "description": "The plain-language Norwegian description of each AI player type, from\n`players.service.describe` (FR-33): Markdown with a title line, paragraphs and `- ` lists.",
         "properties": {
@@ -2032,6 +2084,16 @@
       "EnrolledSessionOut": {
         "description": "A Class session as its Student reads it (Story 5.2, FR-18, AD-3): the dates and the next\ndeadline that applies. Never the Game settings, the number of Weeks or the demand.",
         "properties": {
+          "adjustment": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OwnAdjustmentOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "class_id": {
             "format": "uuid",
             "title": "Class Id",
@@ -2248,6 +2310,11 @@
       "GameInsightOut": {
         "description": "Spillinnsikt (Story 7.7, FR-62, AD-3, AD-12): one Game week by week, for the staff of its\nClass only. The only answer that gives the staff the full chain, the demand series and the\nnumber of Weeks. Seats and Roles in chain order, the Role serving the customer first.",
         "properties": {
+          "can_adjust": {
+            "default": false,
+            "title": "Can Adjust",
+            "type": "boolean"
+          },
           "can_pause": {
             "default": false,
             "title": "Can Pause",
@@ -2813,6 +2880,11 @@
       "InsightSeatOut": {
         "description": "A Seat of the Game on Spillinnsikt as held now, like the Oversikt's, with its links.",
         "properties": {
+          "extra_time": {
+            "default": false,
+            "title": "Extra Time",
+            "type": "boolean"
+          },
           "holder": {
             "enum": [
               "student",
@@ -4416,6 +4488,35 @@
           "since"
         ],
         "title": "OverviewWaitOut",
+        "type": "object"
+      },
+      "OwnAdjustmentOut": {
+        "description": "The reading Student's own Tilrettelegging on Hjem (Story 8.9, UX-DR53): only they ever read\nit. Each part is None when it does not apply.",
+        "properties": {
+          "share_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Share Percent"
+          },
+          "time_factor": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Factor"
+          }
+        },
+        "title": "OwnAdjustmentOut",
         "type": "object"
       },
       "PasswordResetIn": {
@@ -6362,6 +6463,64 @@
           "turn"
         ],
         "title": "StudentGameOut",
+        "type": "object"
+      },
+      "StudentPageOut": {
+        "description": "The Studentside of one Student of a Class session (Story 8.9, UX-DR53), for the Lecturers of\nits Class only: for now the block «Tilrettelegging»; Story 13.2 adds its own blocks.",
+        "properties": {
+          "adjustment": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AdjustmentOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "class_id": {
+            "format": "uuid",
+            "title": "Class Id",
+            "type": "string"
+          },
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "class_session_id": {
+            "format": "uuid",
+            "title": "Class Session Id",
+            "type": "string"
+          },
+          "class_share": {
+            "title": "Class Share",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "session_number": {
+            "title": "Session Number",
+            "type": "integer"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "class_session_id",
+          "class_id",
+          "class_name",
+          "session_number",
+          "user_id",
+          "name",
+          "class_share",
+          "adjustment"
+        ],
+        "title": "StudentPageOut",
         "type": "object"
       },
       "SumTermOut": {
@@ -10285,6 +10444,170 @@
           }
         },
         "summary": "Check Class Session Settings",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/students/{user_id}": {
+      "get": {
+        "description": "The Studentside (Story 8.9, UX-DR53): one Student of the Class session with the block\n«Tilrettelegging», for the Lecturers of its Class only. 403 `forbidden` for an Assistant\nlecturer, anyone outside the Class, a User who is not a Student of the Class now and a Class\nsession that does not exist (FR-5, AD-12).",
+        "operationId": "getStudentPage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentPageOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Student Page",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/students/{user_id}/adjustment": {
+      "put": {
+        "description": "«Lagre tilrettelegging» (Story 8.9, FR-17): the Student's factor on the Inactivity limit\n(1, 1.5, 2 or 3) and the share of Weeks required of them (0 to the class share; null or the\nclass share: the class's own). Applies from now, also after the Start date: the open turn times\nof the Student's Class game are recomputed at once. Recorded in the audit log. Answers the\nStudentside. 422 `invalid_adjustment` with `fields` (`time_factor` `not_offered`,\n`share_percent` `out_of_range`); 409 `class_archived`; 403 `forbidden` as `getStudentPage`.",
+        "operationId": "saveAdjustment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdjustmentIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentPageOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Save Adjustment",
         "tags": [
           "sessions"
         ]

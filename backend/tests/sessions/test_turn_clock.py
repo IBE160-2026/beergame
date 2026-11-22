@@ -127,9 +127,12 @@ async def test_the_overview_reads_again_at_the_nearest_takeover_due_time(klass):
         (game_id,),
     )
     assert stored == due
-    # A due time already passed is no time to read again at (8.2's sweep acts on it).
+    # A due time already passed is no time to read again at (8.2's sweep acts on it). Each
+    # waited-for Seat's own due time counts too (Story 8.9), so both are set back.
     execute(
-        "UPDATE game_summaries SET takeover_due_at = now() - interval '1 minute' "
+        "UPDATE game_summaries SET takeover_due_at = now() - interval '1 minute', "
+        "waiting_for = (SELECT jsonb_agg(w || jsonb_build_object('takeover_due_at', "
+        "to_jsonb(now() - interval '1 minute'))) FROM jsonb_array_elements(waiting_for) w) "
         "WHERE game_id = %s",
         game_id,
     )

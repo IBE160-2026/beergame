@@ -41,6 +41,10 @@ export const classStaffPath = (id: string) => `${classPath(id)}/faglaerere`;
 /** A Class session's Klasseøkt screen (Story 5.1). */
 export const classSessionPath = (id: string) => `/klasseokter/${encodeURIComponent(id)}`;
 
+/** The Studentside of one Student of a Class session, for its Lecturers (Story 8.9). */
+export const studentPagePath = (sessionId: string, userId: string) =>
+  `${classSessionPath(sessionId)}/studenter/${encodeURIComponent(userId)}`;
+
 /** The Oversikt of a Class session's Class games, for its staff (Story 7.1). */
 export const classOverviewPath = (id: string) => `${classSessionPath(id)}/oversikt`;
 

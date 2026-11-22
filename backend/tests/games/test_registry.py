@@ -293,6 +293,28 @@ async def _run_announce_insert_time() -> str:
     return game_id
 
 
+async def _run_recompute_turn_times() -> str:
+    """A Student's Tilrettelegging moves the open Week's due time (Story 8.9): its Class session
+    and both Students hear of it."""
+    from app.modules.sessions import service as sessions_service
+    from tests.games.test_takeover import class_game
+
+    game_id, students = await class_game()
+    await commands.place_order(game_id, "retailer", 1, 4, "student", actor=students["retailer"])
+    factory = students["factory"]
+    original = sessions_service.time_factors
+
+    async def doubled(session, class_session_id, user_ids):
+        return {user: 2.0 for user in user_ids if user == factory}
+
+    sessions_service.time_factors = doubled
+    try:
+        assert await commands.recompute_turn_times(game_id)
+    finally:
+        sessions_service.time_factors = original
+    return game_id
+
+
 RUNNERS = {
     "create": _run_create,
     "assign_seat": _run_assign_seat,
@@ -313,6 +335,7 @@ RUNNERS = {
     "resume": _run_resume,
     "reach_agreed_time": _run_reach_agreed_time,
     "announce_insert_time": _run_announce_insert_time,
+    "recompute_turn_times": _run_recompute_turn_times,
 }
 """How to run each command once; a command added without a runner fails the test below."""
 
@@ -343,6 +366,7 @@ CLASS_SETUP_EVENTS = {
     "resume": -4,
     "reach_agreed_time": -4,
     "announce_insert_time": -4,
+    "recompute_turn_times": -4,
 }
 """Runners on a Class game, and how many events their setup emits before the command's own."""
 
@@ -371,6 +395,7 @@ def test_every_command_is_exported_and_registered():
             "resume",
             "reach_agreed_time",
             "announce_insert_time",
+            "recompute_turn_times",
         }
         == set(RUNNERS)
     )

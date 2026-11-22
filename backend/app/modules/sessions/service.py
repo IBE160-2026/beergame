@@ -75,7 +75,7 @@ archived Class. Who may do what is `platform/authz`'s: `class_sessions.read`,
 
 import secrets
 import uuid
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Collection, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -117,6 +117,7 @@ from app.modules.sessions.models import (
     PLACE_MAX_LENGTH,
 )
 from app.modules.sessions.schemas import (
+    AdjustmentOut,
     AiDescriptionsOut,
     AiMode,
     AllocationConfirmIn,
@@ -151,6 +152,7 @@ from app.modules.sessions.schemas import (
     NextDate,
     NextDeadline,
     OfferedEffortLevelOut,
+    OwnAdjustmentOut,
     PauseOut,
     PlayOut,
     PlayTurnOut,
@@ -556,6 +558,66 @@ def required_share(class_session: ClassSessionLike) -> int:
     FR-17): the one source Story 8.9 and Epic 13 read. It is stored whether or not the session is
     obligatory; whether a requirement applies is the obligatory mark's to say."""
     return _value(class_session, "required_share_percent")
+
+
+@dataclass(frozen=True)
+class Adjustment:
+    """A Student's Tilrettelegging in one Class session (Story 8.9, FR-17): the factor on the
+    Inactivity limit (1, 1.5, 2 or 3; it only ever extends) and the share of Weeks required of
+    them (None: the Class session's own, `required_share`). Personal data: never logged."""
+
+    time_factor: Decimal
+    share_percent: int | None
+
+
+def _adjustment(row: Mapping[str, Any] | None) -> Adjustment | None:
+    """A stored row as read: a share no lower than the Class session's own (the class lowered its
+    share since the save) is the class's own, so an adjustment never raises the requirement."""
+    if row is None:
+        return None
+    share = row["share_percent"]
+    if share is not None and share >= row["class_share"]:
+        share = None
+    return Adjustment(time_factor=Decimal(row["time_factor"]), share_percent=share)
+
+
+async def get_adjustment(
+    session: AsyncSession, class_session_id: uuid.UUID, user_id: uuid.UUID
+) -> Adjustment | None:
+    """The one way another module reads a Student's Tilrettelegging (Story 8.9, AD-14): `games`
+    for the turn times, Epic 11 for a timed sitting, Epic 13 for the share of Weeks. None without
+    one. Read in the caller's transaction."""
+    return _adjustment(await repo.adjustment_row(session, class_session_id, user_id))
+
+
+async def time_factors(
+    session: AsyncSession, class_session_id: uuid.UUID, user_ids: Collection[uuid.UUID]
+) -> dict[uuid.UUID, float]:
+    """`get_adjustment`'s factor for many Students of one Class session in one read (Story 8.9):
+    only those whose factor is above 1; anyone else's limit is the Class session's. For
+    `games.commands`, which multiplies the Inactivity limit by it (`rules.turn_times`)."""
+    rows = await repo.adjustment_rows(session, class_session_id, sorted(set(user_ids), key=str))
+    return {row["user_id"]: float(row["time_factor"]) for row in rows if row["time_factor"] > 1}
+
+
+def own_adjustment(adjustment: Adjustment | None) -> OwnAdjustmentOut | None:
+    """The Student's own Tilrettelegging as Hjem says it (Story 8.9, UX-DR53): the factor when
+    above 1 and the share when it is below the Class session's; None when neither applies."""
+    if adjustment is None:
+        return None
+    factor = float(adjustment.time_factor) if adjustment.time_factor > 1 else None
+    if factor is None and adjustment.share_percent is None:
+        return None
+    return OwnAdjustmentOut(time_factor=factor, share_percent=adjustment.share_percent)
+
+
+def adjustment_out(adjustment: Adjustment | None) -> AdjustmentOut | None:
+    """The Tilrettelegging as the Lecturer's Studentside reads it; None when there is none."""
+    if adjustment is None or (adjustment.time_factor <= 1 and adjustment.share_percent is None):
+        return None
+    return AdjustmentOut(
+        time_factor=float(adjustment.time_factor), share_percent=adjustment.share_percent
+    )
 
 
 def effective_debrief_deadline(
@@ -1186,6 +1248,10 @@ async def enrolled_sessions(user: authz.Principal) -> EnrolledSessionListOut:
         )
         locked = [row for row in rows if row["class_id"] in names and is_locked(row, now=now)]
         done = await progress.steps_of(s, user.id, [row["id"] for row in rows])
+        adjustments = {
+            row["class_session_id"]: _adjustment(row)
+            for row in await repo.adjustments_of_user(s, user.id, [row["id"] for row in rows])
+        }
         cards = {
             row["id"]: await _student_card(s, user.id, row, done.get(row["id"], set()))
             for row in locked
@@ -1217,6 +1283,7 @@ async def enrolled_sessions(user: authz.Principal) -> EnrolledSessionListOut:
                 drawn_seat=_drawn_seat(drafts.get(row["id"]), user.id),
                 game=cards.get(row["id"]),
                 steps=stegene(cards.get(row["id"]) is not None, done.get(row["id"], set())),
+                adjustment=own_adjustment(adjustments.get(row["id"])),
             )
             for row in rows
             if row["class_id"] in names

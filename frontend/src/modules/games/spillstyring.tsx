@@ -188,6 +188,12 @@ export function Spillstyring({ data }: { data: GameInsight }) {
             return (
               <li key={seat.role} data-role={seat.role} className="flex min-w-0 flex-col gap-2 border-b border-hairline pb-4">
                 <p className="text-label text-ink [overflow-wrap:anywhere]">{copy.seat(roleName(seat.role), name)}</p>
+                {/* Tilrettelegging, for the Lecturer only: the api sets it for no one else (Story 8.9). */}
+                {seat.extra_time ? (
+                  <p className="text-caption text-ink-secondary" data-extra-time="">
+                    {copy.extraTime(name)}
+                  </p>
+                ) : null}
                 <TakeoverAction
                   gameId={data.game_id}
                   sessionId={data.class_session_id}

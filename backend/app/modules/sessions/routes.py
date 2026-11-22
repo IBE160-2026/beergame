@@ -28,8 +28,9 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse, Response
 
 from app.engine.settings import Role
-from app.modules.sessions import overview, service
+from app.modules.sessions import adjustments, overview, service
 from app.modules.sessions.schemas import (
+    AdjustmentIn,
     AllocationConfirmIn,
     AllocationMoveIn,
     AllocationOut,
@@ -56,6 +57,7 @@ from app.modules.sessions.schemas import (
     StaffPauseIn,
     StartedTestGameOut,
     StudentGameOut,
+    StudentPageOut,
     TestGameIn,
     TimeProposalIn,
     WallAggregatesOut,
@@ -1223,3 +1225,57 @@ async def take_seat(
     if taken is None:
         return _no_seat_choice()
     return JSONResponse(taken.model_dump(mode="json"))
+
+
+PERSONAL = {"Cache-Control": "no-store"}
+"""A Student's Tilrettelegging is personal data: no cache keeps it (Story 8.9)."""
+
+
+@router.get(
+    "/class-sessions/{session_id}/students/{user_id}",
+    response_model=StudentPageOut,
+    responses=documented(401, 403),
+    operation_id="getStudentPage",
+)
+async def get_student_page(
+    session_id: str,
+    user_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("class_sessions.manage"))],
+) -> Response:
+    """The Studentside (Story 8.9, UX-DR53): one Student of the Class session with the block
+    «Tilrettelegging», for the Lecturers of its Class only. 403 `forbidden` for an Assistant
+    lecturer, anyone outside the Class, a User who is not a Student of the Class now and a Class
+    session that does not exist (FR-5, AD-12)."""
+    found = await adjustments.student_page(user, _id(session_id), _id(user_id))
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"), headers=PERSONAL)
+
+
+@router.put(
+    "/class-sessions/{session_id}/students/{user_id}/adjustment",
+    response_model=StudentPageOut,
+    responses=documented(401, 403, 409, 422),
+    operation_id="saveAdjustment",
+)
+async def save_adjustment(
+    session_id: str,
+    user_id: str,
+    body: AdjustmentIn,
+    user: Annotated[authz.Principal, Depends(authz.require("class_sessions.manage"))],
+) -> Response:
+    """«Lagre tilrettelegging» (Story 8.9, FR-17): the Student's factor on the Inactivity limit
+    (1, 1.5, 2 or 3) and the share of Weeks required of them (0 to the class share; null or the
+    class share: the class's own). Applies from now, also after the Start date: the open turn times
+    of the Student's Class game are recomputed at once. Recorded in the audit log. Answers the
+    Studentside. 422 `invalid_adjustment` with `fields` (`time_factor` `not_offered`,
+    `share_percent` `out_of_range`); 409 `class_archived`; 403 `forbidden` as `getStudentPage`."""
+    try:
+        found = await adjustments.save_adjustment(user, _id(session_id), _id(user_id), body)
+    except adjustments.InvalidAdjustment as refused:
+        return error_response(
+            422, refused.code, "The Tilrettelegging breaks a rule.", refused.fields
+        )
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"), headers=PERSONAL)

@@ -54,11 +54,12 @@ const insight = (weeks: InsightWeek[][]): GameInsight => ({
   version: 7,
   weeks_total: 36,
   can_pause: false,
+  can_adjust: false,
   demand: [],
   seats: [
-    { role: "retailer", holder: "student", name: "Ida Berg", links: [] },
-    { role: "wholesaler", holder: "ai", name: null, links: [] },
-    { role: "distributor", holder: "free", name: null, links: [] },
+    { role: "retailer", holder: "student", name: "Ida Berg", links: [], extra_time: false },
+    { role: "wholesaler", holder: "ai", name: null, links: [], extra_time: false },
+    { role: "distributor", holder: "free", name: null, links: [], extra_time: false },
     {
       role: "factory",
       holder: "student",
@@ -67,6 +68,7 @@ const insight = (weeks: InsightWeek[][]): GameInsight => ({
         { kind: "explanation", href: "/f" },
         { kind: "later_kind", href: "/g" },
       ],
+      extra_time: false,
     },
   ],
   roles: CHAIN.map((role, i) => ({ role, weeks: weeks[i] ?? [], first_large_order_week: null })),

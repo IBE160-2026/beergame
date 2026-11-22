@@ -5,6 +5,7 @@ import { classesKey, enrolledClassesKey } from "@/modules/classes/api";
 import { classOverviewKey, gameInsightKey, myGameKey, playKey, startingTaskKey } from "@/modules/games/api";
 import { meKey } from "@/modules/identity/api";
 import { messageFormKey, myMessagesKey, sentMessagesKey } from "@/modules/messaging/api";
+import { studentPageKey } from "@/modules/reports/api";
 import {
   allocationKey,
   classSessionKey,
@@ -48,6 +49,8 @@ const ALL = [
   sentMessagesKey("s1"),
   sentMessagesKey("s2"),
   messageFormKey("s1", {}),
+  studentPageKey("s1", "u1"),
+  studentPageKey("s2", "u1"),
 ] as const;
 
 describe("topicKeys", () => {
@@ -76,6 +79,8 @@ describe("topicKeys", () => {
       classSessionsKey("c1"),
       classOverviewKey("s1"),
       sentMessagesKey("s1"),
+      // The Studentsides of the Class session (Story 8.9).
+      studentPageKey("s1", "u1"),
     ]);
   });
 
