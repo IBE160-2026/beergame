@@ -2852,3 +2852,24 @@ Avslutte Epic 9 (9.1–9.15; 9.14 og 9.15 står i review) med merge av `main` (E
 ### Åpne punkter
 - Issue #180: utsatte punkter (tilbakeholdt Debrief når et spill aldri blir ferdig, nøytral tekst for tilbakefall, et oppfølgingsspørsmål uten svar da klokka i Docker hoppet, trege tester i Epic 9).
 - Issue #173 og #176: 9.14 og 9.15 venter på prøve mot ekte modell.
+
+## Story 10.2: Sett Replay-scenariet fritt (spor 2)
+
+### Oppgave
+Bygge Story 10.2 på `epic-10` i spor 2, og ta hensyn til tre punkter fra den visuelle kontrollen av 10.1 på samme blokk.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Etter storyen merget orkestratoren `main` (Epic 7 og 9) inn i `epic-10`. Neste byggeagent startet med en gang, og den visuelle kontrollen gikk samtidig med eget compose-prosjekt.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-10-2-set-the-replay-scenario-freely.md`.
+- Commit: e7942c1. Migrasjon 0115. Merge av `main`: 3e81126.
+- «Standard» og «Eget scenario» på Klasseøkt, et eget skjema med uker og endringsuke som enkeltverdi eller spenn, sjekk når et felt forlates, advarsler når et valg trolig gjør Replay lettere, og låsing og kopiering av eget scenario.
+- Tester: backend 3064 (112 s), Vitest 794, typecheck, `check:copy`, `lint:colours`, bygg, Playwright 268. Én backend-kjøring hang til tidsavbrudd mens gjennomgangsagentene arbeidet.
+- Merge med `main`: konflikt i `moments-step.tsx` (beholdt versjonen fra `main`) og api-klienten (generert på nytt); Vitest 907 og `test_migrations` passerte.
+- Gjennomgang: 26 funn, 7 rettet (1 middels).
+- Visuell kontroll (Sonnet, bare rapport, eget compose-prosjekt): skjermbilder i `screenshots/10.2/`. Én klar feil: skjemaet viser bare én feil om gangen når flere felt er feil. Den og tre punkter om overskrift, bredde og omvendt spenn går til avslutningen av Epic 10.
+- Status: done.
+
+### Åpne punkter
+- Issue #182: beslutninger (advarsler, spenn, eget scenario følger spillinnstillingene).
