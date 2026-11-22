@@ -75,5 +75,12 @@ schema (`schemas.py`). Kinds: `starting_task` (Story 6.3), `detected_patterns` (
   `content_records.class_session_id`): it takes the kind's next number but is never the latest
   default, and the load never compares a file with it. Which version a Class session uses, and
   its pin at the Test deadline, belong to `modules/tests` (`guide.py`).
+- Version 1 of the Adapted item templates (Story 11.7) is stored by migration 0125 and shipped as
+  `files/adapted_templates.json` (a test keeps them equal): per template its id (the Scoring
+  guide's `adapted` question), the Game it reads (`game` or `replay`), the fact kind it needs
+  (`moment`, `pattern` or `outcome`), which fact (`pick`), its share of the Adapted total weight
+  (the shares sum to 100) and its text with `{slot}`s code fills, marked `status: "draft"` until
+  issue #16. Its shape and renderer are `analysis.adapted`; the lock pins the version
+  (`adapted_templates_pin`, `SessionRuntime.pins["adapted_templates"]`).
 - `is_checked(scoring_guide_version_id, model_config_id)` is the one answer to whether a Control
   test has checked a Scoring guide version (AD-27); it is False until Epic 12 adds the record.

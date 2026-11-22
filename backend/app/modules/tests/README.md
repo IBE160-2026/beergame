@@ -58,8 +58,9 @@ latest default. A trigger refuses any change of a pinned row.
 statement (`statement_accepted_at`): the question set version and selection it opened on (the
 Start-date lock's pin; the selection in force for a session locked before the pin existed), the
 frozen ordered item list (`[{id, type, weight}]`, the Core items left in, in the set's order;
-Adapted items join in Story 11.7), `effective_deadline` (`sessions.effective_test_deadline` at
-opening) and the status `open` / `submitted` / `auto_submitted`. `test_answers`: one row per
+then the Adapted items or their replacement items, Story 11.7), `effective_deadline`
+(`sessions.effective_test_deadline` at opening) and the status `open` / `submitted` /
+`auto_submitted`. `test_answers`: one row per
 attempt and item with its revision (written from Story 11.4). Both hold personal data (a User's
 attempt, text a Student wrote).
 
@@ -132,3 +133,27 @@ Story 11.13 must leave Students with their own extension out.
 - The page keeps every keystroke on the device (`lib/drafts.ts`) and saves when typing pauses
   (`LONG_ANSWER_PAUSE_MS` in `frontend/src/modules/tests/autosave.ts`, a placeholder), when the
   field loses focus and when the page is hidden.
+
+## Adapted items from the Student's own game and Replay (Story 11.7)
+
+- `adapted.build`, called by `open_attempt` in its transaction, appends the Student's Adapted
+  items to the frozen list, so opening never waits on a job or an LLM call. The templates are the
+  content kind `adapted_templates` at the version the Start-date lock pinned
+  (`pins["adapted_templates"]`), so every Student of the Class session gets the same templates (a
+  session locked before that pin reads the latest version at each open).
+- Each template is filled by `analysis.adapted.fill` from one stored facts set: the Student's
+  Seat in their own Class game (`games.service.student_game`) or in their Replay
+  (`replay.service.replay_game_of`, the same Role), read through `games.service.fact_set`. A
+  frozen Adapted item is `{id, type: "adapted", weight, template_version, source, fact,
+  fact_set_id, fact_ids, text: {text, ai_generated: false, llm_call_id: null}}`; code renders
+  every number, Week and Role. The items carry the selection's `adapted_weight` between them,
+  split by the templates' shares into whole numbers (`analysis.adapted.apportion`).
+- Fewer than 10 own Orders in the own game (the facts set's `decided_by = student` count, AD-15)
+  gives the question set's replacement Core items instead, scaled to the same total, each frozen
+  with `replaces: "few_orders"`. So does an own game, Replay or facts set that cannot be read
+  (`no_game`, `no_replay`, `facts_unavailable`) or a template that finds no fact (`unfilled`); the
+  reason is logged with ids only. An Adapted total of 0 serves neither.
+- An Adapted item is answered as a long answer (Story 11.6's validation and autosave). The page
+  gets `type: "adapted"`, its frozen text as `title` and as `wording` (`{text, ai_generated,
+  llm_call_id}`), never its facts or weight. The items never change once frozen: a second open
+  returns them as stored, whatever template version is newer.

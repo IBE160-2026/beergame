@@ -1,4 +1,4 @@
-"""Publish content versions (Story 6.3, Story 11.1, AD-23).
+"""Publish content versions (Story 6.3, Story 11.1, Story 11.7, AD-23).
 
 One file, one new version of its kind:
 
@@ -10,6 +10,7 @@ One file, one new version of its kind:
     uv run python -m app.modules.content narration_templates path/to/narration-templates.json
     uv run python -m app.modules.content question_set path/to/question-set.json
     uv run python -m app.modules.content scoring_guide path/to/scoring-guide.json
+    uv run python -m app.modules.content adapted_templates path/to/adapted-templates.json
 
 The content load (Story 11.1): every `<kind>.json` in a folder (default: the files shipped in the
 repo, `app/modules/content/files/`), the Starting task first, each published only when its body

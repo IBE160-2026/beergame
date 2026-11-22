@@ -248,20 +248,32 @@ class ColumnOut(BaseModel):
     starting_task: bool
 
 
+class WordingOut(BaseModel):
+    """An Adapted item's text as it travels (Story 11.7, AD-7): code-rendered text has
+    `ai_generated` false and no `llm_call_id`; AI-worded text (Story 11.8) names its call."""
+
+    text: str
+    ai_generated: bool
+    llm_call_id: str | None
+
+
 class IndividualItemOut(BaseModel):
     """One item of the Student's frozen Individual test (Story 11.3), in order: its number from 1,
     its type and its text; a choice item's option ids (Story 11.4, `[]` for other types), a table
     item's value table or a number item's column (Story 11.5, null otherwise or when the item has
-    none) and the Student's saved answer (null before the first save). No weight, no answer key,
-    no rule and no score are sent to the Student."""
+    none) and the Student's saved answer (null before the first save). An Adapted item (Story
+    11.7) is answered as a long answer; its `title` is its frozen text, and `wording` carries that
+    text with whether an AI wrote it (null for every other type). No weight, no answer key, no
+    rule, no fact and no score are sent to the Student."""
 
     id: str
     number: int
-    type: Literal["choice", "table", "number", "long"]
+    type: Literal["choice", "table", "number", "long", "adapted"]
     title: str
     options: list[str]
     table: TableOut | None
     column: ColumnOut | None
+    wording: WordingOut | None
     answer: StoredAnswerOut | None
 
 
@@ -271,8 +283,9 @@ TEST_REVISION_MAX = 1_000_000
 class TestAnswerIn(BaseModel):
     """One autosave of an item's answer (Story 11.4, AD-10): the value (a choice item: one of its
     option ids; a table item: one whole number or null per row; a number item: a whole number or
-    null, Story 11.5; a long-answer item: its text as typed, Story 11.6) and the answer's revision,
-    which rises by one per change on the Student's device."""
+    null, Story 11.5; a long-answer item: its text as typed, Story 11.6; an Adapted item: the
+    same, Story 11.7) and the answer's revision, which rises by one per change on the Student's
+    device."""
 
     __test__ = False  # not a pytest class
     model_config = _IN

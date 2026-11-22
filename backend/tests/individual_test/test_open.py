@@ -33,6 +33,13 @@ from tests.sessions.test_student_home import home
 __all__ = ["_empty", "clock", "emitted", "klass"]
 
 BEFORE = ("class_game", "debrief", "quiz_passed", "replay")
+REPLACEMENTS = ("erstatning-tabell", "erstatning-langsvar")
+"""The question set's replacement items: a Student whose Class game was never played gets them
+in place of the Adapted items (Story 11.7)."""
+
+
+def core(items: list[dict]) -> list[dict]:
+    return [item for item in items if item["id"] not in REPLACEMENTS]
 
 
 def path(session_id: str) -> str:
@@ -105,10 +112,15 @@ async def test_the_test_opens_after_the_replay_with_the_statement_first_and_once
     assert (version, selection) == (pin["version"], pin)
     assert [item["id"] for item in items] == [item["id"] for item in body["items"]]
     assert [item["number"] for item in body["items"]] == list(range(1, len(items) + 1))
-    keys = {"id", "number", "type", "title", "options", "table", "column", "answer"}
+    keys = {"id", "number", "type", "title", "options", "table", "column", "wording", "answer"}
     # no weight, key, rule or score
     assert all(set(item) == keys and item["answer"] is None for item in body["items"])
-    assert all(item["weight"] == pin["weights"][item["id"]] for item in items)
+    core = [item for item in items if "replaces" not in item]
+    assert all(item["weight"] == pin["weights"][item["id"]] for item in core)
+    # This Class game was never played, so the Adapted total goes to the replacement items
+    # (Story 11.7); the whole attempt weighs 100.
+    assert [item["replaces"] for item in items if "replaces" in item] == ["facts_unavailable"] * 2
+    assert sum(item["weight"] for item in items) == 100
     assert {topic for topic, _ in emitted} == COMMAND_TOPICS["tests.open_attempt"]
     assert emitted == [("user", str(seated[0]))]  # once: the follow-up's closure carries it
     assert await follow_up.closed(seated[0], uuid.UUID(session_id))
@@ -210,7 +222,7 @@ async def test_items_taken_out_are_not_in_the_attempt(klass):
     await sweep.run(START + MINUTE)
     await replayed(seated[0], session_id)
     opened = (await call(email(0), "POST", path(session_id))).json()
-    ids = [item["id"] for item in opened["items"]]
+    ids = [item["id"] for item in core(opened["items"])]
     assert out["id"] not in ids
     assert ids == [item["id"] for item in block["items"] if item["id"] != out["id"]]
     [row] = attempts(session_id)
@@ -255,9 +267,9 @@ async def test_a_session_locked_before_the_pin_opens_on_the_selection_in_force(k
     block = (await call(LECTURER, "GET", f"/api/class-sessions/{session_id}/question-set")).json()
     [row] = attempts(session_id)
     assert row[2] == block["version"]
-    assert [item["id"] for item in opened["items"]] == [
+    assert [item["id"] for item in core(opened["items"])] == [
         item["id"] for item in block["items"] if not item["excluded"]
     ]
-    assert {item["id"]: item["weight"] for item in row[4]} == {
+    assert {item["id"]: item["weight"] for item in core(row[4])} == {
         item["id"]: item["weight"] for item in block["items"] if not item["excluded"]
     }

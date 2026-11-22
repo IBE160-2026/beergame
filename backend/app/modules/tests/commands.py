@@ -42,6 +42,7 @@ from app.modules.content.schemas import QuestionSet, QuestionSetItem
 from app.modules.debrief import service as debrief
 from app.modules.progress import service as progress
 from app.modules.sessions import service as sessions
+from app.modules.tests import adapted
 from app.modules.tests import selection as selections
 from app.modules.tests.models import AttemptStatus, test_answers, test_attempts
 from app.platform import authz, events
@@ -86,8 +87,8 @@ class UnknownItem(Exception):
 
 class InvalidAnswer(Exception):
     """The value is no answer to the item (422 `invalid_answer`): for a choice item, not one of
-    its option ids; for a table or number item, not whole numbers in its shape (Story 11.5). Long
-    answers arrive with Story 11.6."""
+    its option ids; for a table or number item, not whole numbers in its shape (Story 11.5); for a
+    long-answer or Adapted item, not text within `LONG_ANSWER_MAX` (Stories 11.6, 11.7)."""
 
 
 @dataclass(frozen=True)
@@ -112,11 +113,12 @@ async def attempt_of(
 
 
 async def _frozen(
-    s: AsyncSession, class_session_id: uuid.UUID, pins: Any
+    s: AsyncSession, user_id: uuid.UUID, class_session_id: uuid.UUID, pins: Any
 ) -> tuple[selections.Selection, list[dict[str, Any]]]:
     """The selection the attempt opens on (the lock's pin; the selection in force for a session
     locked before the pin existed) and its ordered item list: the Core items left in, in the
-    question set's order, each with its type and weight (AD-23). Adapted items join it in 11.7."""
+    question set's order, each with its type and weight (AD-23), then the Student's Adapted items
+    or their replacement items, carrying the Adapted total weight (Story 11.7, `adapted.build`)."""
     pinned = selections.pinned_selection(pins)
     if pinned is not None:
         _, question_set = await content.question_set(pinned.version)
@@ -128,6 +130,9 @@ async def _frozen(
         for item in question_set.items
         if item.id not in chosen.excluded
     ]
+    items += await adapted.build(
+        s, user_id, class_session_id, pins, chosen.adapted_weight, question_set
+    )
     return chosen, items
 
 
@@ -144,7 +149,9 @@ async def open_attempt(
     row is inserted with `ON CONFLICT DO NOTHING` on the unique key, and on a conflict the
     existing attempt is returned (two opens at once make one). The Student's Debrief follow-up
     questions close in the same transaction (FR-45, `debrief.service.close_follow_up`), and
-    `user:<id>` is emitted so their other devices read the test again."""
+    `user:<id>` is emitted so their other devices read the test again. The Student's Adapted items
+    are built from their stored facts sets in this transaction and frozen with the rest (Story
+    11.7): a second open returns them as first stored, whatever template version is newer."""
     if not await progress.has_step(user.id, class_session_id, progress.Step.REPLAY):
         async with get_sessionmaker()() as s:
             found = await sessions.individual_test_session_of(s, user, class_session_id)
@@ -161,7 +168,7 @@ async def open_attempt(
         deadline = sessions.effective_test_deadline(user, found.row)
         if deadline is not None and deadline <= now:
             raise DeadlinePassed
-        chosen, items = await _frozen(s, class_session_id, found.pins)
+        chosen, items = await _frozen(s, user.id, class_session_id, found.pins)
         made = await s.scalar(
             insert(test_attempts)
             .values(
@@ -218,8 +225,11 @@ def _valid(item_type: str, item: QuestionSetItem | None, value: Any) -> bool:
     """Whether `value` answers an item of this type: a choice item's option id (Story 11.4); a
     table item's list of one whole number or null per row, and a number item's whole number or
     null (cleared), negative only where the item allows it (Story 11.5; a Starting task item
-    always does); a long-answer item's text, stored as typed (Story 11.6). An item with no table
-    of its own (question set version 1) takes nothing."""
+    always does); a long-answer item's text, stored as typed (Story 11.6), and so an Adapted
+    item's, whose text is frozen on the attempt rather than in the question set (Story 11.7). An
+    item with no table of its own (question set version 1) takes nothing."""
+    if item_type == adapted.ADAPTED:
+        return _text(value)
     if item is None:
         return False
     if item_type == "long":

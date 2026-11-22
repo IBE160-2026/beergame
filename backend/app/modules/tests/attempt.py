@@ -5,9 +5,10 @@ item is served), `open` with the items of their attempt in its frozen order, `cl
 Test deadline has passed with no attempt. `open_` accepts the statement through
 `commands.open_attempt`. Each open item carries a choice item's option ids, a table item's value
 table or a number item's column (Story 11.5; a Starting task item's from the Class session's
-pinned Starting task) and the Student's saved answer; `save` autosaves one answer through
-`commands.save_answer` (Story 11.4). Only the Student's own locked Class session is reached;
-every other caller gets None (the route's 403 `forbidden`), whether or not an attempt exists."""
+pinned Starting task), an Adapted item's frozen text (Story 11.7) and the Student's saved
+answer; `save` autosaves one answer through `commands.save_answer` (Story 11.4). Only the
+Student's own locked Class session is reached; every other caller gets None (the route's 403
+`forbidden`), whether or not an attempt exists."""
 
 import uuid
 from collections.abc import Mapping
@@ -21,6 +22,7 @@ from app.modules.content.schemas import QuestionSet, QuestionSetItem, StartingTa
 from app.modules.progress import service as progress
 from app.modules.sessions import service as sessions
 from app.modules.tests import commands
+from app.modules.tests.adapted import ADAPTED
 from app.modules.tests.models import test_answers
 from app.modules.tests.schemas import (
     ColumnOut,
@@ -31,6 +33,7 @@ from app.modules.tests.schemas import (
     StoredAnswerOut,
     TableColumnOut,
     TableOut,
+    WordingOut,
 )
 from app.platform import authz
 from app.platform.db import get_sessionmaker
@@ -104,6 +107,22 @@ def _column(item: QuestionSetItem, task: StartingTask) -> ColumnOut | None:
     )
 
 
+def _adapted(frozen: Mapping[str, Any], number: int, answer: Any) -> IndividualItemOut:
+    """An Adapted item as frozen on the attempt (Story 11.7): its text never changes."""
+    wording = WordingOut.model_validate(frozen["text"])
+    return IndividualItemOut(
+        id=frozen["id"],
+        number=number,
+        type=ADAPTED,
+        title=wording.text,
+        options=[],
+        table=None,
+        column=None,
+        wording=wording,
+        answer=answer,
+    )
+
+
 async def _items(attempt: Mapping[str, Any], pins: Any) -> list[IndividualItemOut]:
     question_set: QuestionSet = await content.get(
         content.Kind.QUESTION_SET, attempt["question_set_version"]
@@ -112,19 +131,26 @@ async def _items(attempt: Mapping[str, Any], pins: Any) -> list[IndividualItemOu
     # The Class session's pinned Starting task, the one its Students answered (Story 6.3).
     _, task = await content.starting_task(content.pinned_version(pins))
     answers = await _answers(attempt["id"])
-    return [
-        IndividualItemOut(
-            id=item["id"],
-            number=number,
-            type=item["type"],
-            title=by_id[item["id"]].title,
-            options=list(by_id[item["id"]].options),
-            table=_table(by_id[item["id"]]),
-            column=_column(by_id[item["id"]], task),
-            answer=answers.get(item["id"]),
+    out = []
+    for number, frozen in enumerate(attempt["items"], start=1):
+        if frozen["type"] == ADAPTED:
+            out.append(_adapted(frozen, number, answers.get(frozen["id"])))
+            continue
+        item = by_id[frozen["id"]]
+        out.append(
+            IndividualItemOut(
+                id=frozen["id"],
+                number=number,
+                type=frozen["type"],
+                title=item.title,
+                options=list(item.options),
+                table=_table(item),
+                column=_column(item, task),
+                wording=None,
+                answer=answers.get(frozen["id"]),
+            )
         )
-        for number, item in enumerate(attempt["items"], start=1)
-    ]
+    return out
 
 
 async def _open(attempt: Mapping[str, Any], pins: Any) -> MyTestOut:

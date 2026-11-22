@@ -31,6 +31,8 @@ describe("the Individual test page's state (Story 11.3)", () => {
   it("numbers the items and names their type in words", () => {
     expect(itemLines({ number: 3, type: "long" })).toEqual({ heading: "Oppgave 3", type: "Langsvar" });
     expect(itemLines({ number: 1, type: "table" }).type).toBe(copy.types.table);
+    // Story 11.7: an Adapted item, answered as a long answer.
+    expect(itemLines({ number: 12, type: "adapted" })).toEqual({ heading: "Oppgave 12", type: "Tilpasset oppgave" });
   });
 
   it("is read again on the User's `user` event", () => {

@@ -2797,6 +2797,9 @@ export const nb = {
         table: "Fyll inn kolonnen",
         number: "Tallsvar",
         long: "Langsvar",
+        /** [ASSUMPTION] an Adapted item (Story 11.7): asked about the Student's own game or Replay,
+         * answered as a long answer. The Klasseøkt calls these «Tilpassede oppgaver». */
+        adapted: "Tilpasset oppgave",
       },
       /** Autosave (Story 11.4, UX-DR65): «Lagret 21:14», Europe/Oslo; the failure line is the
        * spine's. */

@@ -3647,7 +3647,7 @@
         "type": "object"
       },
       "IndividualItemOut": {
-        "description": "One item of the Student's frozen Individual test (Story 11.3), in order: its number from 1,\nits type and its text; a choice item's option ids (Story 11.4, `[]` for other types), a table\nitem's value table or a number item's column (Story 11.5, null otherwise or when the item has\nnone) and the Student's saved answer (null before the first save). No weight, no answer key,\nno rule and no score are sent to the Student.",
+        "description": "One item of the Student's frozen Individual test (Story 11.3), in order: its number from 1,\nits type and its text; a choice item's option ids (Story 11.4, `[]` for other types), a table\nitem's value table or a number item's column (Story 11.5, null otherwise or when the item has\nnone) and the Student's saved answer (null before the first save). An Adapted item (Story\n11.7) is answered as a long answer; its `title` is its frozen text, and `wording` carries that\ntext with whether an AI wrote it (null for every other type). No weight, no answer key, no\nrule, no fact and no score are sent to the Student.",
         "properties": {
           "answer": {
             "anyOf": [
@@ -3703,10 +3703,21 @@
               "choice",
               "table",
               "number",
-              "long"
+              "long",
+              "adapted"
             ],
             "title": "Type",
             "type": "string"
+          },
+          "wording": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WordingOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -3717,6 +3728,7 @@
           "options",
           "table",
           "column",
+          "wording",
           "answer"
         ],
         "title": "IndividualItemOut",
@@ -9637,7 +9649,7 @@
       },
       "TestAnswerIn": {
         "additionalProperties": false,
-        "description": "One autosave of an item's answer (Story 11.4, AD-10): the value (a choice item: one of its\noption ids; a table item: one whole number or null per row; a number item: a whole number or\nnull, Story 11.5; a long-answer item: its text as typed, Story 11.6) and the answer's revision,\nwhich rises by one per change on the Student's device.",
+        "description": "One autosave of an item's answer (Story 11.4, AD-10): the value (a choice item: one of its\noption ids; a table item: one whole number or null per row; a number item: a whole number or\nnull, Story 11.5; a long-answer item: its text as typed, Story 11.6; an Adapted item: the\nsame, Story 11.7) and the answer's revision, which rises by one per change on the Student's\ndevice.",
         "properties": {
           "revision": {
             "maximum": 1000000.0,
@@ -10361,6 +10373,37 @@
           "order"
         ],
         "title": "WeekValues",
+        "type": "object"
+      },
+      "WordingOut": {
+        "description": "An Adapted item's text as it travels (Story 11.7, AD-7): code-rendered text has\n`ai_generated` false and no `llm_call_id`; AI-worded text (Story 11.8) names its call.",
+        "properties": {
+          "ai_generated": {
+            "title": "Ai Generated",
+            "type": "boolean"
+          },
+          "llm_call_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Llm Call Id"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "ai_generated",
+          "llm_call_id"
+        ],
+        "title": "WordingOut",
         "type": "object"
       }
     }

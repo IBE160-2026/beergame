@@ -145,7 +145,11 @@ async def test_the_latest_version_is_the_shipped_draft_file_and_the_migrations_l
 
 async def test_the_load_of_the_shipped_files_publishes_nothing_and_a_change_once(tmp_path):
     assert await cli.load(cli.SHIPPED) == (
-        [f"question_set unchanged (v{V})", "scoring_guide unchanged (v1)"],
+        [
+            f"question_set unchanged (v{V})",
+            "scoring_guide unchanged (v1)",
+            "adapted_templates unchanged (v1)",
+        ],
         [],
     )
     assert await content.latest_version("question_set") == V
@@ -157,7 +161,11 @@ async def test_the_load_of_the_shipped_files_publishes_nothing_and_a_change_once
     assert (await content.question_set(None))[1].status == "approved"
     # The older shipped draft never supersedes the newer version.
     assert await cli.load(cli.SHIPPED) == (
-        [f"question_set unchanged (v{V})", "scoring_guide unchanged (v1)"],
+        [
+            f"question_set unchanged (v{V})",
+            "scoring_guide unchanged (v1)",
+            "adapted_templates unchanged (v1)",
+        ],
         [],
     )
     assert await content.latest_version("question_set") == V + 1

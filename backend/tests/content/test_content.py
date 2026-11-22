@@ -101,7 +101,10 @@ async def test_the_lock_pins_the_latest_starting_task_version():
             "weights": pins["question_set"]["weights"],
             "adapted_weight": 30,
         },
+        # Story 11.7: the Adapted item templates.
+        "adapted_templates": {"version": 1},
     }
+    assert sessions._pin_providers["adapted_templates"] is content.adapted_templates_pin
     assert pins["replay_template"]["weeks"] == {"minimum": 30, "maximum": 40}
     assert sessions._pin_providers["reflection_questions"] is content.reflection_questions_pin
     assert sessions._pin_providers["moment_templates"] is content.moment_templates_pin

@@ -1,5 +1,5 @@
 """The table owned by `modules/content` (Stories 6.3, 9.1, 9.4, 9.6, 9.7, 9.9, 9.14, 11.1,
-11.2, AD-23)."""
+11.2, 11.7, AD-23)."""
 
 from enum import StrEnum
 
@@ -31,6 +31,7 @@ class Kind(StrEnum):
     NARRATION_TEMPLATES = "narration_templates"
     QUESTION_SET = "question_set"
     SCORING_GUIDE = "scoring_guide"
+    ADAPTED_TEMPLATES = "adapted_templates"
 
 
 content_records = Table(

@@ -3370,6 +3370,8 @@ register_pin_provider(content.Kind.DEBRIEF_QUIZ.value, content.debrief_quiz_pin)
 # Story 9.14: the narration templates, and whether the Debrief shows AI text, with the model
 # config and Effort level its calls use.
 register_pin_provider(content.Kind.NARRATION_TEMPLATES.value, content.narration_templates_pin)
+# Story 11.7: the Adapted item templates its Individual tests are built with.
+register_pin_provider(content.Kind.ADAPTED_TEMPLATES.value, content.adapted_templates_pin)
 
 
 DEBRIEF_AI_TEXT_PIN = "debrief_ai_text"

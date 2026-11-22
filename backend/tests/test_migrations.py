@@ -141,7 +141,7 @@ HEAD_TABLES = (
     | SCORING_GUIDE_TABLES
     | ATTEMPT_TABLES
 )
-HEAD = "0124"  # 0124 stores version 2 of the question set, with Interactive tables (11.5)
+HEAD = "0125"  # 0125 stores version 1 of the Adapted item templates (11.7)
 
 
 def reset_schema(url: str) -> None:
@@ -329,6 +329,14 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     # 0111 (Story 9.12): presence, the Students who go on alone and the 48-hour fallback.
     assert "last_seen_at" in columns(url, "debrief_members")
     assert {"fallback_due_at", "fallback_at"} <= columns(url, "debrief_sessions")
+
+    # 0125 (Story 11.7): version 1 of the Adapted item templates, a kind of its own.
+    templates = (
+        "SELECT version, body->>'status' FROM content_records WHERE kind = 'adapted_templates'"
+    )
+    assert rows(url, templates) == [(1, "draft")]
+    command.downgrade(cfg, "0124")
+    assert rows(url, templates) == []
 
     # 0124 (Story 11.5): version 2 of the question set, its Interactive items with their tables.
     sets = "SELECT version, body FROM content_records WHERE kind = 'question_set' ORDER BY version"

@@ -5,7 +5,8 @@ that applies the thresholds owns their shape; so are the sentence templates (Sto
 `analysis.sentences.SentenceTemplates`) and the own moments' templates (Story 9.7,
 `analysis.sentences.MomentTemplates`) and the Debrief quiz (Story 9.9,
 `analysis.quiz.DebriefQuiz`, whose scoring and own-game sentences are pure) and the narration
-templates (Story 9.14, `analysis.narration.NarrationTemplates`). The reflection
+templates (Story 9.14, `analysis.narration.NarrationTemplates`) and the Adapted item templates
+(Story 11.7, `analysis.adapted.AdaptedTemplates`, whose renderer is pure). The reflection
 questions (Story 9.6) are shaped here."""
 
 import re
@@ -13,6 +14,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.analysis.adapted import AdaptedTemplates
 from app.analysis.narration import NarrationTemplates
 from app.analysis.patterns import PatternSet
 from app.analysis.quiz import DebriefQuiz
@@ -20,6 +22,7 @@ from app.analysis.scoring import ANSWER, Criterion, FlowCheck, InteractiveRule
 from app.analysis.sentences import MomentTemplates, SentenceTemplates
 
 __all__ = [
+    "AdaptedTemplates",
     "CRITERIA_MAX",
     "CRITERIA_MIN",
     "ColumnRow",

@@ -62,13 +62,25 @@ const STARTING = {
   negative: true,
   starting_task: true,
 };
-const PLAIN = { table: null, column: null, answer: null };
+const PLAIN = { table: null, column: null, wording: null, answer: null };
+/** An Adapted item (Story 11.7): its question rendered by code from the Student's own game. */
+const ADAPTED_TEXT =
+  "Utkast: I uke 7 av Klassespillet var du Grossist. Du fikk inn en ordre på 12 enheter, hadde 0 enheter på lager, 9 enheter i restordre og 20 enheter på vei, og du bestilte 16 enheter. Forklar hva du la vekt på da du bestilte.";
 const ITEMS = [
   { id: "flervalg-1", number: 1, type: "choice", title: "Utkast: hva er et lager?", options: ["a", "b", "c"], ...PLAIN },
   { id: "kolonne-1", number: 2, type: "table", title: "Utkast: fyll inn kolonnen for bakeriet.", options: [], ...PLAIN, table: TABLE },
   { id: "langsvar-1", number: 3, type: "long", title: "Utkast: forklar svingningene ut fra kjedens struktur.", options: [], ...PLAIN },
   { id: "tall-1", number: 4, type: "number", title: "Utkast: tall fra et verksted.", options: [], ...PLAIN, column: COLUMN },
   { id: "startoppgave-1", number: 5, type: "number", title: "Utkast: Startoppgaven, posisjonen.", options: [], ...PLAIN, column: STARTING },
+  {
+    id: "tilpasset-eget-spill",
+    number: 6,
+    type: "adapted",
+    title: ADAPTED_TEXT,
+    options: [],
+    ...PLAIN,
+    wording: { text: ADAPTED_TEXT, ai_generated: false, llm_call_id: null },
+  },
 ] as const;
 const SAVED_AT = "2026-11-22T20:14:00Z"; // «Lagret 21:14» in Oslo
 const ANSWERS = `**/api/me/class-sessions/${SESSION}/test/answers/*`;
@@ -287,6 +299,29 @@ for (const vp of VIEWPORTS) {
       failing = false;
       await page.evaluate(() => window.dispatchEvent(new Event("online")));
       await expect(status).toHaveText(copy.saved("21:14"));
+    });
+
+    test("an Adapted item: its own-game question labels a long answer, saved after the pause; axe passes", async ({ page }) => {
+      const saves = await storeSaves(page);
+      await standIn(page, { status: 200, json: opened });
+      const item = page.locator("[data-test-item=tilpasset-eget-spill]");
+      await expect(item.getByRole("heading", { level: 3 })).toHaveText(`${copy.item(6)}${copy.types.adapted}`);
+      const field = item.getByRole("textbox", { name: ADAPTED_TEXT, exact: true });
+      const status = item.getByRole("status");
+      await expect(field).toBeVisible();
+      await expect(field).toHaveAttribute("maxlength", "20000");
+      await expect(item.getByText(copy.long.largerScreen)).toBeVisible({ visible: vp.phone });
+      // No right or wrong state and no AI mark on code-rendered text.
+      await expect(item).not.toContainText("KI-generert");
+      await expectAccessible(page, vp.phone);
+
+      await field.focus();
+      await page.keyboard.type("Restordren");
+      await expect(field).toHaveValue("Restordren");
+      await expect(status).toHaveText(copy.saved("21:14"));
+      expect(saves).toEqual([{ value: "Restordren", revision: 10 }]);
+      await expect(field).toBeFocused();
+      await expectAccessible(page, vp.phone);
     });
 
     test("a multiple-choice item: idle, selected, saved and save-failed by keyboard, 44 px rows; axe passes", async ({ page }) => {

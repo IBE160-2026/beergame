@@ -6,10 +6,10 @@ Scoring guide (Story 11.2) is a version made for one Class session (`publish_in`
 `class_session_id`), which takes the kind's next number but is never the latest default. The
 lock pins the version a Class session uses (`starting_task_pin`, `detected_patterns_pin`,
 `sentence_templates_pin`, `reflection_questions_pin` and `moment_templates_pin`,
-`debrief_quiz_pin` and `narration_templates_pin`, registered by `sessions`); readers ask for
-that version, or the latest for a session locked before the pin existed. Whether a Scoring guide
-version is checked by a Control test is asked of `is_checked` only (AD-27). This module imports no
-feature module."""
+`debrief_quiz_pin`, `narration_templates_pin` and `adapted_templates_pin`, registered by
+`sessions`); readers ask for that version, or the latest for a session locked before the pin
+existed. Whether a Scoring guide version is checked by a Control test is asked of `is_checked`
+only (AD-27). This module imports no feature module."""
 
 import uuid
 from dataclasses import dataclass
@@ -24,6 +24,7 @@ from app.modules.content.schemas import (
     CRITERIA_MAX,
     CRITERIA_MIN,
     ITEM_TYPES,
+    AdaptedTemplates,
     DebriefQuiz,
     MomentTemplates,
     NarrationTemplates,
@@ -38,6 +39,9 @@ from app.modules.content.schemas import (
 from app.platform.db import get_sessionmaker
 
 __all__ = [
+    "AdaptedTemplates",
+    "adapted_templates",
+    "adapted_templates_pin",
     "ContentNotFound",
     "ContentRejected",
     "DebriefQuiz",
@@ -81,7 +85,8 @@ __all__ = [
 ]
 
 type Body = (
-    StartingTask
+    AdaptedTemplates
+    | StartingTask
     | PatternSet
     | SentenceTemplates
     | ReflectionQuestions
@@ -102,7 +107,8 @@ _SCHEMAS: dict[
     | type[DebriefQuiz]
     | type[NarrationTemplates]
     | type[QuestionSet]
-    | type[ScoringGuide],
+    | type[ScoringGuide]
+    | type[AdaptedTemplates],
 ] = {
     Kind.STARTING_TASK: StartingTask,
     Kind.DETECTED_PATTERNS: PatternSet,
@@ -113,6 +119,7 @@ _SCHEMAS: dict[
     Kind.NARRATION_TEMPLATES: NarrationTemplates,
     Kind.QUESTION_SET: QuestionSet,
     Kind.SCORING_GUIDE: ScoringGuide,
+    Kind.ADAPTED_TEMPLATES: AdaptedTemplates,
 }
 
 
@@ -349,6 +356,15 @@ async def narration_templates(version: int | None) -> tuple[int, NarrationTempla
     return version, templates
 
 
+async def adapted_templates(version: int | None) -> tuple[int, AdaptedTemplates]:
+    """The Adapted item templates at the pinned `version`, or the latest when None: (version,
+    body) (Story 11.7)."""
+    if version is None:
+        version = await latest_version(Kind.ADAPTED_TEMPLATES)
+    templates: AdaptedTemplates = await get(Kind.ADAPTED_TEMPLATES, version)
+    return version, templates
+
+
 async def latest_body(kind: Kind | str) -> Any | None:
     """The stored JSON of the newest version of `kind`, None when none is stored: what the
     content load compares a file with (Story 11.1)."""
@@ -503,6 +519,13 @@ async def narration_templates_pin(session: AsyncSession, _class_session: Any) ->
     """The lock's pin provider (Story 9.14, AD-23): the narration-template version a Class
     session uses from its lock on, under `SessionRuntime.pins["narration_templates"]`."""
     return {"version": await latest_version(Kind.NARRATION_TEMPLATES, session)}
+
+
+async def adapted_templates_pin(session: AsyncSession, _class_session: Any) -> dict[str, int]:
+    """The lock's pin provider (Story 11.7, AD-23): the Adapted item template version a Class
+    session's Individual tests use from its lock on, under
+    `SessionRuntime.pins["adapted_templates"]`."""
+    return {"version": await latest_version(Kind.ADAPTED_TEMPLATES, session)}
 
 
 def pinned_version(pins: Any, kind: Kind | str = Kind.STARTING_TASK) -> int | None:

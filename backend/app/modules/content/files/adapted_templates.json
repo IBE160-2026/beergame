@@ -1,0 +1,21 @@
+{
+  "status": "draft",
+  "templates": [
+    {
+      "id": "tilpasset-eget-spill",
+      "source": "game",
+      "fact": "moment",
+      "pick": 1,
+      "share": 50,
+      "text": "Utkast: I uke {week} av Klassespillet var du {role}. Du fikk inn en ordre på {incoming_order} enheter, hadde {inventory} enheter på lager, {backlog} enheter i restordre og {supply_line} enheter på vei, og du bestilte {order} enheter. Forklar hva du la vekt på da du bestilte, og hva som skjedde i kjeden de neste ukene."
+    },
+    {
+      "id": "tilpasset-replay",
+      "source": "replay",
+      "fact": "outcome",
+      "pick": 1,
+      "share": 50,
+      "text": "Utkast: I Replay var du {role} i {weeks} uker. Kostnaden din ble {total_cost} kr, {holding_cost} kr for lager og {backorder_cost} kr for restordre. Sammenlign med Klassespillet og forklar hva du gjorde annerledes."
+    }
+  ]
+}
