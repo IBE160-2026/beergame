@@ -20,7 +20,9 @@ from app.modules.messaging import message_routes
 from app.modules.messaging import routes as messaging_routes
 from app.modules.messaging import webhooks as messaging_webhooks
 from app.modules.ops import ai_routes as ops_ai_routes
+from app.modules.ops import operations_routes as ops_operations_routes
 from app.modules.ops import routes as ops_routes
+from app.modules.ops import service as ops_service
 from app.modules.replay import dev as replay_dev
 from app.modules.replay import routes as replay_routes
 from app.modules.sessions import dev as sessions_dev
@@ -116,6 +118,7 @@ def create_app() -> FastAPI:
     app.include_router(replay_routes.router)  # the Student's Replay (Story 10.3)
     app.include_router(ops_routes.router)  # «Pseudonymisert eksport» (Story 15.4)
     app.include_router(ops_ai_routes.router)  # «KI-kostnad» (Story 15.5)
+    app.include_router(ops_operations_routes.router)  # «Drift» per Class session (Story 15.8)
     app.include_router(messaging_webhooks.router)  # the provider's events (Story 4.6), signed
     if get_settings().app_env != "production":
         app.include_router(messaging_routes.router)  # the dev mailbox (Story 3.6), local only
@@ -135,7 +138,9 @@ def create_app() -> FastAPI:
     app.add_exception_handler(RequestValidationError, _invalid_request)
     app.add_exception_handler(classes_service.ClassArchived, _class_archived)
     app.add_middleware(CsrfMiddleware)
-    app.add_middleware(RequestLogMiddleware)  # outermost: refused requests are logged too
+    # Outermost: refused requests are logged too, and each 5xx answer is counted under its Class
+    # session through `ops.service` (Story 15.8, NFR-8).
+    app.add_middleware(RequestLogMiddleware, on_server_error=ops_service.record_api_error)
     return app
 
 

@@ -32,6 +32,12 @@ from app.modules.games.insight import (
     unregister_insight_links,
 )
 from app.modules.games.marks import seat_mark
+from app.modules.games.operations import (
+    FallbackCount,
+    SessionAiFigures,
+    class_session_of,
+    session_ai_figures,
+)
 from app.modules.games.policy import GamePolicy, PurposeNotSupportedError, policy, purposes_with
 from app.modules.games.ratings import BelievabilityRefused, believability, rate_believability
 from app.modules.games.schemas import (
@@ -198,6 +204,10 @@ __all__ = [
     "announce",
     "open_takeover_due",
     "verify_finished",
+    "FallbackCount",
+    "SessionAiFigures",
+    "class_session_of",
+    "session_ai_figures",
 ]
 
 

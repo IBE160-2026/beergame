@@ -14,8 +14,9 @@ per-minute `ops.sweep` (AD-9). Later epics add theirs. Alembic owns the procrast
 (revision 0008).
 """
 
+import asyncio
 import importlib
-from collections.abc import Iterable, Sequence
+from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
 
 import procrastinate
 import structlog
@@ -36,6 +37,8 @@ __all__ = [
     "conninfo",
     "defer",
     "defer_many",
+    "failure_middleware",
+    "JobFailureHook",
     "live_locks",
     "load_tasks",
     "run_until_idle",
@@ -157,6 +160,46 @@ def _connector(database_url: str | None, size: int) -> procrastinate.PsycopgConn
     )
 
 
+HOOK_TIMEOUT_S = 5.0
+"""The longest the failure hook may hold a failed job's status."""
+
+JobFailureHook = Callable[[str, Mapping[str, object], object], Awaitable[object]]
+"""`(task name, task arguments, job id)`: told when a job failed for good (Story 15.8)."""
+
+
+def failure_middleware(on_failure: JobFailureHook):
+    """A procrastinate worker middleware that tells `on_failure` about a job that raised and that
+    its task will not retry, then lets the job fail as before. A failing hook is logged by type
+    and never changes the job's outcome (NFR-9). `platform` imports no module, so the hook comes
+    from `worker.py` (Story 15.8)."""
+
+    async def middleware(call_next, context, worker):
+        try:
+            return await call_next()
+        except BaseException as exc:
+            if not isinstance(exc, Exception) or isinstance(
+                exc, procrastinate.exceptions.JobAborted
+            ):
+                raise
+            job = context.job
+            task = worker.app.tasks.get(job.task_name)
+            retry = task.get_retry_exception(exception=exc, job=job) if task else None
+            if retry is None:
+                try:
+                    await asyncio.wait_for(
+                        on_failure(job.task_name, dict(job.task_kwargs), job.id), HOOK_TIMEOUT_S
+                    )
+                except Exception as hook_exc:
+                    log.warning(
+                        "job_failure_hook_failed",
+                        job_id=job.id,
+                        exc_type=type(hook_exc).__name__,
+                    )
+            raise
+
+    return middleware
+
+
 async def run_worker(
     queues: Sequence[str],
     *,
@@ -164,9 +207,11 @@ async def run_worker(
     concurrency: int = 1,
     database_url: str | None = None,
     install_signal_handlers: bool = True,
+    on_failure: JobFailureHook | None = None,
 ) -> None:
     """Run a worker on `queues` until it is stopped, or, with `wait=False`, until no job of
-    those queues is left (jobs deferred by the jobs it runs included)."""
+    those queues is left (jobs deferred by the jobs it runs included). `on_failure` is told of
+    each job that fails for good (Story 15.8)."""
     if not queues:
         raise ValueError("no queue given")  # procrastinate would run every queue
     unknown = [queue for queue in queues if queue not in QUEUES]
@@ -185,13 +230,23 @@ async def run_worker(
                 listen_notify=wait,
                 install_signal_handlers=install_signal_handlers,
                 delete_jobs="successful",
+                worker_middleware=[failure_middleware(on_failure)] if on_failure else None,
             )
 
 
-async def run_until_idle(queues: Iterable[str], *, database_url: str | None = None) -> None:
+async def run_until_idle(
+    queues: Iterable[str],
+    *,
+    database_url: str | None = None,
+    on_failure: JobFailureHook | None = None,
+) -> None:
     """Run every job waiting on `queues`, and the jobs they defer, in this process; returns
     when none is left. Tests and the simulation runner drive jobs with it, never with a
     clock."""
     await run_worker(
-        list(queues), wait=False, database_url=database_url, install_signal_handlers=False
+        list(queues),
+        wait=False,
+        database_url=database_url,
+        install_signal_handlers=False,
+        on_failure=on_failure,
     )

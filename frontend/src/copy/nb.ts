@@ -2116,6 +2116,8 @@ export const nb = {
       evaluation: "Pseudonymisert eksport",
       // [ASSUMPTION] Story 15.5 (EXPERIENCE.md → Admin-område, UX-DR57).
       aiCost: "KI-kostnad",
+      // [ASSUMPTION] Story 15.8.
+      operations: "Drift per Klasseøkt",
     },
     /** «Revisjonslogg» (Story 3.12, FR-3): every Admin action with who did it and when. The page
      * renders any action from these entries; a later epic adds its own action names here and the
@@ -2297,6 +2299,66 @@ export const nb = {
           pseudonym_key_changed: "Avvist: nøkkelen er endret",
           failed: "Feilet",
         } as Record<string, string>,
+      },
+    },
+    /** «Drift»: errors, fallback, AI response times, the Play guard share and AI cost per Class
+     * session (Story 15.8, NFR-8, FR-79). Counts and timings only. [ASSUMPTION] Story 15.8, all
+     * of it. */
+    operations: {
+      title: "Drift per Klasseøkt",
+      lead: "Feil, reserveordrer, svartider og KI-kostnad per Klasseøkt, for å se under en Labtime om noe går galt. Bare tall, ingen studentdata.",
+      listLead: "Velg en Klasseøkt for å se tallene. Feil teller bokføringskontroller som fant avvik, jobber som feilet og serverfeil.",
+      columns: { session: "Klasseøkt", errors: "Feil siste 24 timer" },
+      empty: "Ingen Klasseøkt er lagret ennå.",
+      refetch: "Tallene leses på nytt hvert 30. sekund.",
+      failed: (clock: string) => `Tallene kunne ikke leses på nytt. De som vises, er fra ${clock}.`,
+      showTable: "Vis som tabell",
+      showChart: "Vis som graf",
+      errors: {
+        title: "Feil per time",
+        lead: "De siste 24 timene, norsk tid. Den siste søylen er timen som pågår.",
+        sources: {
+          conservation_check: "Bokføringskontroll",
+          job_failed: "Jobb feilet",
+          api_error: "Serverfeil",
+        } as Record<string, string>,
+        last24: (count: string) => `${count} feil de siste 24 timene.`,
+        allTime: (count: string) => `${count} feil i alt i Klasseøkten.`,
+        hour: "Time",
+        sum: "Sum",
+        tableRegion: "Feil per time og kilde",
+      },
+      fallback: {
+        title: "Reserveordrer per type",
+        lead: "Andelen av LLM-spillernes ordrer der den regelbaserte referanseordren ble brukt i stedet.",
+        base: (count: string) => `${count} ordrer fra LLM-spillere.`,
+        none: "Ingen ordrer fra LLM-spillere ennå.",
+        kinds: {
+          fallback_timeout: "Tidsavbrudd",
+          fallback_invalid_output: "Ugyldig svar",
+          fallback_budget_exhausted: "Budsjettet brukt opp",
+          fallback_provider_error: "Feil hos leverandøren",
+        } as Record<string, string>,
+        columns: { kind: "Type", orders: "Ordrer", share: "Andel" },
+      },
+      times: {
+        title: "Svartid per innsatsnivå",
+        lead: "Median og 95-persentil for hvert kall fra LLM-spillerne, nye forsøk medregnet.",
+        none: "Ingen kall fra LLM-spillere ennå.",
+        median: "Median",
+        p95: "95-persentil",
+        columns: { level: "Innsatsnivå", calls: "Kall", median: "Median", p95: "95-persentil" },
+        // A no-break space, so the unit never parts from the number at a line end.
+        ms: (value: string) => `${value} ms`,
+      },
+      guard: {
+        title: "Seter byttet av spillvakten",
+        value: (share: string, switched: string, seats: string) => `${share} (${switched} av ${seats} LLM-seter)`,
+        none: "Ingen LLM-seter.",
+      },
+      cost: {
+        title: "KI-kostnad",
+        value: (usd: string, calls: string) => `${usd} for ${calls} KI-kall.`,
       },
     },
     /** «KI-kostnad», its first page (Story 15.5, FR-68, FR-78, UX-DR57): the model configs with

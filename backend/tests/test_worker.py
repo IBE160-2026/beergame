@@ -21,12 +21,14 @@ def test_a_missing_or_unknown_queue_exits_2(capsys, argv):
 
 
 def test_main_runs_a_worker_on_the_named_queues(monkeypatch):
+    from app.modules.ops.service import record_job_failure as record
+
     seen = {}
     order = []
 
-    async def run_worker(queues, *, concurrency):
+    async def run_worker(queues, *, concurrency, on_failure=None):
         order.append("serve")
-        seen.update(queues=queues, concurrency=concurrency)
+        seen.update(queues=queues, concurrency=concurrency, hooked=on_failure is record)
 
     async def loop(interval_s=5.0, stop=None):
         await stop.wait()
@@ -42,8 +44,14 @@ def test_main_runs_a_worker_on_the_named_queues(monkeypatch):
     monkeypatch.setattr(rescue, "run", loop)
     monkeypatch.setattr(seed, "ensure_zero_config_logged", seeded)
     assert worker.main(["--queues", "ai-orders,llm-batch", "--concurrency", "3"]) == 0
-    # AD-17: the worker seeds the zero-config default before it serves (Story 2.12).
-    assert seen == {"seeded": True, "queues": ["ai-orders", "llm-batch"], "concurrency": 3}
+    # AD-17: the worker seeds the zero-config default before it serves (Story 2.12). A job that
+    # fails for good is counted through `ops.service` (Story 15.8).
+    assert seen == {
+        "seeded": True,
+        "queues": ["ai-orders", "llm-batch"],
+        "concurrency": 3,
+        "hooked": True,
+    }
     assert order == ["seed", "serve"]
 
 
@@ -55,7 +63,7 @@ def test_the_sweeper_flag_schedules_the_sweep_and_runs_its_queue(monkeypatch):
 
     seen = {}
 
-    async def run_worker(queues, *, concurrency):
+    async def run_worker(queues, *, concurrency, on_failure=None):
         seen["queues"] = queues
 
     async def seeded():
@@ -120,7 +128,7 @@ async def test_an_ai_orders_worker_runs_the_rescue_loop_until_the_worker_stops(m
 
     seen = []
 
-    async def run_worker(queues, *, concurrency):
+    async def run_worker(queues, *, concurrency, on_failure=None):
         seen.append(("worker", list(queues)))
         await asyncio.sleep(0)
 

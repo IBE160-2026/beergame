@@ -169,6 +169,9 @@ POLICIES: dict[str, frozenset[str]] = {
     # «KI-kostnad» (Story 15.5, FR-68): the Admin reads the model configs, pins one for a Class
     # session before its Start date and freezes one for a learning study.
     "ai_models.manage": frozenset({ADMIN}),
+    # «Drift» (Story 15.8, NFR-8): the Admin reads error counts, fallback, response times, the Play
+    # guard share and AI cost per Class session. Counts and timings only, no Student data (FR-5).
+    "operations.read": frozenset({ADMIN}),
     # FR-5: no account role grants these. Epic 4+ adds the Class-scoped grants.
     "student_answers.read": frozenset(),
     "ai_assessments.read": frozenset(),

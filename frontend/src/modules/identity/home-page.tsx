@@ -16,6 +16,7 @@ import {
   ADMIN_AUDIT_PATH,
   ADMIN_EVALUATION_PATH,
   ADMIN_INSTITUTIONS_PATH,
+  ADMIN_OPERATIONS_PATH,
   ADMIN_USERS_PATH,
   canView,
   HOME_LINK,
@@ -90,6 +91,11 @@ function AdminSections() {
           {nb.admin.sections.aiCost}
         </Link>
         <DailySpendAlert />
+      </li>
+      <li className="border-b border-hairline">
+        <Link href={ADMIN_OPERATIONS_PATH} standalone>
+          {nb.admin.sections.operations}
+        </Link>
       </li>
     </ul>
   );

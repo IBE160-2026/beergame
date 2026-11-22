@@ -5,10 +5,12 @@ listed below, so names, emails and free text cannot reach the logs even
 if a caller passes them (spine: Logging convention, AD-14).
 """
 
+import asyncio
 import logging
 import sys
 import time
 import uuid
+from collections.abc import Awaitable, Callable
 from typing import IO, Any
 
 import structlog
@@ -92,11 +94,38 @@ def configure_logging(level: str = "info", stream: IO[str] | None = None) -> Non
     logging.getLogger("uvicorn.access").disabled = True
 
 
-class RequestLogMiddleware:
-    """Pure ASGI middleware: binds request_id and writes one line per request."""
+ServerErrorHook = Callable[[int, dict[str, str], str], Awaitable[object]]
+"""`(status, the matched route's id path parameters, request id)`: told of each 5xx answer."""
 
-    def __init__(self, app: Any) -> None:
+PATH_IDS = ("class_session_id", "session_id", "game_id")
+"""The path parameters a 5xx is placed by: a Class session's id (named either way) or a Game's."""
+
+HOOK_TIMEOUT_S = 2.0
+"""The longest a 5xx answer's hook may hold the request: an outage must not grow by it."""
+
+
+def _path_ids(scope: dict) -> dict[str, str]:
+    """The matched route's `PATH_IDS` that are UUIDs, as strings."""
+    found = {}
+    for name in PATH_IDS:
+        value = (scope.get("path_params") or {}).get(name)
+        try:
+            if value is not None:
+                found[name] = str(uuid.UUID(str(value)))
+        except ValueError:
+            continue
+    return found
+
+
+class RequestLogMiddleware:
+    """Pure ASGI middleware: binds request_id and writes one line per request. With
+    `on_server_error` it also tells that hook of each answer of 5xx, an unhandled exception
+    included (Story 15.8); a failing hook is logged by type and changes nothing. `platform`
+    imports no module, so `main.py` passes the hook."""
+
+    def __init__(self, app: Any, on_server_error: ServerErrorHook | None = None) -> None:
         self.app = app
+        self.on_server_error = on_server_error
         self.log = structlog.get_logger("app.request")
 
     async def __call__(self, scope: dict, receive: Any, send: Any) -> None:
@@ -108,6 +137,7 @@ class RequestLogMiddleware:
         structlog.contextvars.bind_contextvars(request_id=request_id)
         start = time.perf_counter()
         status = 500
+        cancelled = False
 
         async def send_wrapper(message: dict) -> None:
             nonlocal status
@@ -120,6 +150,9 @@ class RequestLogMiddleware:
 
         try:
             await self.app(scope, receive, send_wrapper)
+        except asyncio.CancelledError:
+            cancelled = True  # a dropped connection or shutdown: no answer, so no 5xx
+            raise
         finally:
             self.log.info(
                 "request",
@@ -128,4 +161,11 @@ class RequestLogMiddleware:
                 status=status,
                 duration_ms=round((time.perf_counter() - start) * 1000, 1),
             )
+            if status >= 500 and not cancelled and self.on_server_error is not None:
+                try:
+                    await asyncio.wait_for(
+                        self.on_server_error(status, _path_ids(scope), request_id), HOOK_TIMEOUT_S
+                    )
+                except Exception as exc:
+                    self.log.warning("server_error_hook_failed", exc_type=type(exc).__name__)
             structlog.contextvars.clear_contextvars()

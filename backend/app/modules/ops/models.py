@@ -6,6 +6,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Index,
     SmallInteger,
     Table,
     Text,
@@ -55,3 +56,33 @@ pseudonym_key_fingerprints = Table(
 )
 """At most one row: the fingerprint of the pseudonym key (AD-14). The key itself is never
 stored."""
+
+ERROR_SOURCES = ("conservation_check", "job_failed", "api_error")
+"""Where a counted error comes from (Story 15.8, NFR-8): the finished-game check found a
+violation, a job failed for good, or the api answered 5xx."""
+
+error_events = Table(
+    "error_events",
+    metadata,
+    Column("id", Uuid, primary_key=True),
+    Column("source", Text, nullable=False),
+    # A fixed technical value: `game_check_failed`, a task name, `http_500`. Never free text.
+    Column("code", Text, nullable=False),
+    # The Class session when one is known. No foreign key: a row is counted even for a session id
+    # read from a request path, and the rows are kept at retention (AD-14).
+    Column("class_session_id", Uuid, nullable=True),
+    # The request id of an api error, the job id of a failed job.
+    Column("request_id", Text, nullable=True),
+    # The writer's clock, so the hour buckets and their window use one clock.
+    Column("occurred_at", DateTime(timezone=True), nullable=False),
+    CheckConstraint(
+        f"source IN ({', '.join(repr(s) for s in ERROR_SOURCES)})", name="ck_error_events_source"
+    ),
+    CheckConstraint("code ~ '^[a-z0-9_.:-]{1,80}$'", name="ck_error_events_code"),
+    CheckConstraint(
+        "request_id IS NULL OR length(request_id) <= 64", name="ck_error_events_request_id"
+    ),
+    Index("ix_error_events_session_time", "class_session_id", "occurred_at"),
+)
+"""Per-session error counts (Story 15.8, NFR-8, AD-14): written only by
+`ops.service.record_error`; ids and codes only, kept at retention."""

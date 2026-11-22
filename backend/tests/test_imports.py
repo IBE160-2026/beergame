@@ -178,7 +178,8 @@ def test_only_ops_imports_messaging_and_nothing_imports_ops():
     the local dev mailbox, `messaging.routes` (Story 3.6), the provider's webhook,
     `messaging.webhooks` (Story 4.6), and the Meldingsskjema's endpoints,
     `messaging.message_routes` (Story 7.9); and the Admin's operations endpoints,
-    `ops.routes` (Story 15.4) and `ops.ai_routes` (Story 15.5)."""
+    `ops.routes` (Story 15.4), `ops.ai_routes` (Story 15.5) and `ops.operations_routes` with the
+    5xx hook of `ops.service` (Story 15.8)."""
     for path, line, name in imports(APP):
         inside = {
             folder: (APP / "modules" / folder) in path.parents
@@ -195,10 +196,13 @@ def test_only_ops_imports_messaging_and_nothing_imports_ops():
                 and name.startswith("app.modules.messaging.service")
             ), f"{path.name}:{line} imports {name}"
         if name.startswith("app.modules.ops") and not inside["ops"]:
-            # Stories 15.4 and 15.5: the app factory also mounts the Admin's operations endpoints.
+            # Stories 15.4, 15.5 and 15.8: the app factory also mounts the Admin's operations
+            # endpoints and hands the request log its 5xx hook (`ops.service.record_api_error`).
             mounts_ops = path == APP / "main.py" and name in (
                 "app.modules.ops.routes",
                 "app.modules.ops.ai_routes",
+                "app.modules.ops.operations_routes",
+                "app.modules.ops.service",
             )
             assert mounts_ops or path == APP / "worker.py", f"{path.name}:{line} imports {name}"
 

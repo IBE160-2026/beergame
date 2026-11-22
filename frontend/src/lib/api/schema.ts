@@ -434,6 +434,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/operations/class-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Sessions
+         * @description Every saved Class session, newest first, with its errors of the last 24 hours.
+         */
+        get: operations["listOperationsSessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/operations/class-sessions/{class_session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Session Figures
+         * @description One Class session's errors by source and hour (the last 24 hours) and in total, the share
+         *     of its LLM players' Orders each fallback kind replaced, their response times per Effort level
+         *     (median and 95th percentile), the share of LLM Seats the Play guard switched, and its AI
+         *     cost. 404 `not_found` for an unknown Class session.
+         */
+        get: operations["getSessionOperations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/users": {
         parameters: {
             query?: never;
@@ -4384,9 +4427,35 @@ export interface components {
             /** Message */
             message: string;
         };
+        /**
+         * ErrorCountsOut
+         * @description Counted errors per source.
+         */
+        ErrorCountsOut: {
+            /** Api Error */
+            api_error: number;
+            /** Conservation Check */
+            conservation_check: number;
+            /** Job Failed */
+            job_failed: number;
+        };
         /** ErrorEnvelope */
         ErrorEnvelope: {
             error: components["schemas"]["ErrorBody"];
+        };
+        /** ErrorHourOut */
+        ErrorHourOut: {
+            /** Api Error */
+            api_error: number;
+            /** Conservation Check */
+            conservation_check: number;
+            /**
+             * Hour
+             * Format: date-time
+             */
+            hour: string;
+            /** Job Failed */
+            job_failed: number;
         };
         /** EvaluationSessionListOut */
         EvaluationSessionListOut: {
@@ -4503,6 +4572,15 @@ export interface components {
             id: string;
             /** Number */
             number: number | null;
+        };
+        /** FallbackOut */
+        FallbackOut: {
+            /** Kind */
+            kind: string;
+            /** Orders */
+            orders: number;
+            /** Share */
+            share: string | null;
         };
         /**
          * FillSeatsIn
@@ -5815,6 +5893,72 @@ export interface components {
             time_per_order_median_s: string | null;
         };
         /**
+         * OperationsOut
+         * @description One Class session's operations figures (Story 15.8, NFR-8, FR-79).
+         */
+        OperationsOut: {
+            /** Ai Calls */
+            ai_calls: number;
+            /**
+             * Class Session Id
+             * Format: uuid
+             */
+            class_session_id: string;
+            /** Cost Usd */
+            cost_usd: string;
+            /** Fallbacks */
+            fallbacks: components["schemas"]["FallbackOut"][];
+            /** Hours */
+            hours: components["schemas"]["ErrorHourOut"][];
+            /** Institution Name */
+            institution_name: string | null;
+            /** Label */
+            label: string;
+            /** Llm Orders */
+            llm_orders: number;
+            /** Llm Seats */
+            llm_seats: number;
+            /**
+             * Read At
+             * Format: date-time
+             */
+            read_at: string;
+            /** Response Times */
+            response_times: components["schemas"]["ResponseTimeOut"][];
+            /** Switched Seats */
+            switched_seats: number;
+            /** Switched Share */
+            switched_share: string | null;
+            totals: components["schemas"]["ErrorCountsOut"];
+        };
+        /** OperationsSessionListOut */
+        OperationsSessionListOut: {
+            /** Items */
+            items: components["schemas"]["OperationsSessionOut"][];
+            /**
+             * Read At
+             * Format: date-time
+             */
+            read_at: string;
+        };
+        /**
+         * OperationsSessionOut
+         * @description A Class session as «Drift» lists it, with its errors of the last 24 hours.
+         */
+        OperationsSessionOut: {
+            /** Errors 24H */
+            errors_24h: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Institution Name */
+            institution_name: string | null;
+            /** Label */
+            label: string;
+        };
+        /**
          * OrderIn
          * @description The Student's Order for the open Week (Story 6.12): one whole number; the command checks
          *     it lies from 0 to the Game settings maximum (`order_invalid`).
@@ -6580,6 +6724,17 @@ export interface components {
         ResetTokenIn: {
             /** Token */
             token: string;
+        };
+        /** ResponseTimeOut */
+        ResponseTimeOut: {
+            /** Calls */
+            calls: number;
+            /** Effort Level */
+            effort_level: string;
+            /** Median Ms */
+            median_ms: number;
+            /** P95 Ms */
+            p95_ms: number;
         };
         /**
          * RevealOut
@@ -9397,6 +9552,102 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listOperationsSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationsSessionListOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getSessionOperations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationsOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

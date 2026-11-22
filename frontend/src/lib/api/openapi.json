@@ -2980,6 +2980,30 @@
         "title": "ErrorBody",
         "type": "object"
       },
+      "ErrorCountsOut": {
+        "description": "Counted errors per source.",
+        "properties": {
+          "api_error": {
+            "title": "Api Error",
+            "type": "integer"
+          },
+          "conservation_check": {
+            "title": "Conservation Check",
+            "type": "integer"
+          },
+          "job_failed": {
+            "title": "Job Failed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "conservation_check",
+          "job_failed",
+          "api_error"
+        ],
+        "title": "ErrorCountsOut",
+        "type": "object"
+      },
       "ErrorEnvelope": {
         "properties": {
           "error": {
@@ -2990,6 +3014,35 @@
           "error"
         ],
         "title": "ErrorEnvelope",
+        "type": "object"
+      },
+      "ErrorHourOut": {
+        "properties": {
+          "api_error": {
+            "title": "Api Error",
+            "type": "integer"
+          },
+          "conservation_check": {
+            "title": "Conservation Check",
+            "type": "integer"
+          },
+          "hour": {
+            "format": "date-time",
+            "title": "Hour",
+            "type": "string"
+          },
+          "job_failed": {
+            "title": "Job Failed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "conservation_check",
+          "job_failed",
+          "api_error",
+          "hour"
+        ],
+        "title": "ErrorHourOut",
         "type": "object"
       },
       "EvaluationSessionListOut": {
@@ -3309,6 +3362,36 @@
           "deletion_date"
         ],
         "title": "ExportSessionOut",
+        "type": "object"
+      },
+      "FallbackOut": {
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "orders": {
+            "title": "Orders",
+            "type": "integer"
+          },
+          "share": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Share"
+          }
+        },
+        "required": [
+          "kind",
+          "orders",
+          "share"
+        ],
+        "title": "FallbackOut",
         "type": "object"
       },
       "FillSeatsIn": {
@@ -6372,6 +6455,168 @@
         "title": "OfferedEffortLevelOut",
         "type": "object"
       },
+      "OperationsOut": {
+        "description": "One Class session's operations figures (Story 15.8, NFR-8, FR-79).",
+        "properties": {
+          "ai_calls": {
+            "title": "Ai Calls",
+            "type": "integer"
+          },
+          "class_session_id": {
+            "format": "uuid",
+            "title": "Class Session Id",
+            "type": "string"
+          },
+          "cost_usd": {
+            "title": "Cost Usd",
+            "type": "string"
+          },
+          "fallbacks": {
+            "items": {
+              "$ref": "#/components/schemas/FallbackOut"
+            },
+            "title": "Fallbacks",
+            "type": "array"
+          },
+          "hours": {
+            "items": {
+              "$ref": "#/components/schemas/ErrorHourOut"
+            },
+            "title": "Hours",
+            "type": "array"
+          },
+          "institution_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Institution Name"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "llm_orders": {
+            "title": "Llm Orders",
+            "type": "integer"
+          },
+          "llm_seats": {
+            "title": "Llm Seats",
+            "type": "integer"
+          },
+          "read_at": {
+            "format": "date-time",
+            "title": "Read At",
+            "type": "string"
+          },
+          "response_times": {
+            "items": {
+              "$ref": "#/components/schemas/ResponseTimeOut"
+            },
+            "title": "Response Times",
+            "type": "array"
+          },
+          "switched_seats": {
+            "title": "Switched Seats",
+            "type": "integer"
+          },
+          "switched_share": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Switched Share"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/ErrorCountsOut"
+          }
+        },
+        "required": [
+          "class_session_id",
+          "label",
+          "institution_name",
+          "read_at",
+          "hours",
+          "totals",
+          "llm_orders",
+          "fallbacks",
+          "response_times",
+          "llm_seats",
+          "switched_seats",
+          "switched_share",
+          "cost_usd",
+          "ai_calls"
+        ],
+        "title": "OperationsOut",
+        "type": "object"
+      },
+      "OperationsSessionListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OperationsSessionOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "read_at": {
+            "format": "date-time",
+            "title": "Read At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "read_at",
+          "items"
+        ],
+        "title": "OperationsSessionListOut",
+        "type": "object"
+      },
+      "OperationsSessionOut": {
+        "description": "A Class session as «Drift» lists it, with its errors of the last 24 hours.",
+        "properties": {
+          "errors_24h": {
+            "title": "Errors 24H",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "institution_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Institution Name"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "institution_name",
+          "errors_24h"
+        ],
+        "title": "OperationsSessionOut",
+        "type": "object"
+      },
       "OrderIn": {
         "additionalProperties": false,
         "description": "The Student's Order for the open Week (Story 6.12): one whole number; the command checks\nit lies from 0 to the Game settings maximum (`order_invalid`).",
@@ -8152,6 +8397,34 @@
           "token"
         ],
         "title": "ResetTokenIn",
+        "type": "object"
+      },
+      "ResponseTimeOut": {
+        "properties": {
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "effort_level": {
+            "title": "Effort Level",
+            "type": "string"
+          },
+          "median_ms": {
+            "title": "Median Ms",
+            "type": "integer"
+          },
+          "p95_ms": {
+            "title": "P95 Ms",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "effort_level",
+          "calls",
+          "median_ms",
+          "p95_ms"
+        ],
+        "title": "ResponseTimeOut",
         "type": "object"
       },
       "RevealOut": {
@@ -13360,6 +13633,122 @@
           }
         },
         "summary": "Resend Invitation",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/operations/class-sessions": {
+      "get": {
+        "description": "Every saved Class session, newest first, with its errors of the last 24 hours.",
+        "operationId": "listOperationsSessions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationsSessionListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "summary": "List Sessions",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/operations/class-sessions/{class_session_id}": {
+      "get": {
+        "description": "One Class session's errors by source and hour (the last 24 hours) and in total, the share\nof its LLM players' Orders each fallback kind replaced, their response times per Effort level\n(median and 95th percentile), the share of LLM Seats the Play guard switched, and its AI\ncost. 404 `not_found` for an unknown Class session.",
+        "operationId": "getSessionOperations",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Class Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Session Figures",
         "tags": [
           "admin"
         ]

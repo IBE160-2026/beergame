@@ -19,6 +19,7 @@ from app.modules.games import commands as games_commands
 from app.modules.games import service as games
 from app.modules.identity import service as identity
 from app.modules.messaging import service as messaging
+from app.modules.ops import service as ops_service
 from app.modules.ops import spend_alert
 from app.modules.sessions import service as sessions
 from app.platform import ratelimit
@@ -109,6 +110,11 @@ async def _verify_finished(game_id: object, now: datetime) -> object:
         raise Backoff from exc
     if _failing_checks.pop(game_id, None) is not None:
         log.info("finished_check_recovered", game_id=game_id)
+    if not checked.ok:
+        # Story 15.8 (FR-29, NFR-8): the violation counts under the Game's Class session: a Class
+        # game, a played-out one or a Replay. The sweep only finds Games with no check yet, so
+        # each failed check is counted once.
+        await ops_service.record_game_check_failure(game_id, at=now)
     return checked
 
 

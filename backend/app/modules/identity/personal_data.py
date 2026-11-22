@@ -113,6 +113,12 @@ REGISTRY: dict[str, Entry] = {
         "Admin's text about the Institution; `recorded_by` is an id.",
     ),
     "pseudonym_key_fingerprints": _e("keep", "The key's fingerprint; `set_by` is an id."),
+    # ops (Story 15.8): kept when retention runs for the Class session.
+    "error_events": _e(
+        "none",
+        "Per-session error counts: a source, a fixed code, the Class session and a request or "
+        "job id; no User, name or text. Kept at retention.",
+    ),
     # platform
     "audit_events": _e("keep", "Ids and codes only (AD-14)."),
     "rate_limit_counters": _e("none", "Hashed keys in a short window."),

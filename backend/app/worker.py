@@ -47,16 +47,20 @@ def build_parser() -> argparse.ArgumentParser:
 
 async def serve(names: Sequence[str], *, concurrency: int) -> None:
     """Run the worker on `names`; with `ai-orders` among them, also the rescue loop
-    (`players.rescue`, AD-5), which stops when the worker stops."""
+    (`players.rescue`, AD-5), which stops when the worker stops. A job that fails for good is
+    counted under its Class session through `ops.service` (Story 15.8)."""
+    from app.modules.ops import service as ops_service
+
+    on_failure = ops_service.record_job_failure
     if jobs.AI_ORDERS not in names:
-        await jobs.run_worker(names, concurrency=concurrency)
+        await jobs.run_worker(names, concurrency=concurrency, on_failure=on_failure)
         return
     from app.modules.players import rescue
 
     stop = asyncio.Event()
     loop = asyncio.create_task(rescue.run(stop=stop))
     try:
-        await jobs.run_worker(names, concurrency=concurrency)
+        await jobs.run_worker(names, concurrency=concurrency, on_failure=on_failure)
     finally:
         stop.set()
         await loop

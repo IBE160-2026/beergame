@@ -196,6 +196,65 @@ async def day_spend(day: date, *, top: int = 10, session: AsyncSession | None = 
     )
 
 
+@dataclass(frozen=True)
+class LevelTimes:
+    """The response times of one Effort level's player attempts (nearest rank)."""
+
+    effort_level: str
+    calls: int
+    median_ms: int
+    p95_ms: int
+
+
+@dataclass(frozen=True)
+class SessionFigures:
+    """The AI figures of one Class session (Story 15.8, NFR-8)."""
+
+    usd: Decimal
+    """Every call of the session's scope, every purpose and outcome, unrounded."""
+    calls: int
+    levels: list[LevelTimes]
+    """Per Effort level of its `player_order` attempts, by name."""
+
+
+async def session_figures(class_session_id: uuid.UUID) -> SessionFigures:
+    """The AI cost of a Class session's scope and the response times of its LLM players' attempts
+    per Effort level, median and 95th percentile by nearest rank (`percentile_disc`), as
+    `python -m app.sim report` takes them (Story 2.11). The one place they are read (AD-6)."""
+    in_scope = (llm_calls.c.scope_kind == "class_session") & (
+        llm_calls.c.scope_id == class_session_id
+    )
+    latency = llm_calls.c.latency_ms
+    async with transaction(None) as session:
+        total = (
+            await session.execute(
+                select(
+                    func.coalesce(func.sum(llm_calls.c.cost_usd), 0), func.count(llm_calls.c.id)
+                ).where(in_scope)
+            )
+        ).one()
+        rows = (
+            await session.execute(
+                select(
+                    llm_calls.c.effort_level,
+                    func.count(llm_calls.c.id),
+                    func.percentile_disc(0.5).within_group(latency),
+                    func.percentile_disc(0.95).within_group(latency),
+                )
+                .where(in_scope, llm_calls.c.purpose == PLAYER_PURPOSE)
+                .group_by(llm_calls.c.effort_level)
+                .order_by(llm_calls.c.effort_level)
+            )
+        ).all()
+    return SessionFigures(
+        usd=_usd(total[0]),
+        calls=total[1],
+        levels=[
+            LevelTimes(level, count, int(median), int(p95)) for level, count, median, p95 in rows
+        ],
+    )
+
+
 async def get(ids: Sequence[uuid.UUID]) -> list[Attempt]:
     """The rows with these ids, in attempt order."""
     if not ids:
