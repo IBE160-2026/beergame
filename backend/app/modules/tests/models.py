@@ -1,5 +1,5 @@
 """The tables owned by `modules/tests` (Story 6.3, FR-85; Story 11.1, FR-52; Story 11.2, FR-81;
-Story 11.3, FR-51; Story 11.8, FR-53)."""
+Story 11.3, FR-51; Story 11.8, FR-53; Story 11.12, FR-51)."""
 
 from enum import StrEnum
 
@@ -160,6 +160,12 @@ test_attempts = Table(
         "effective_deadline",
         postgresql_where=text("closed_at IS NULL"),
     ),
+    # Story 11.12: the finder of `commands.end_sitting` over open attempts with a sitting end.
+    Index(
+        "ix_test_attempts_due_sitting",
+        "sitting_ends_at",
+        postgresql_where=text("status = 'open' AND sitting_ends_at IS NOT NULL"),
+    ),
     CheckConstraint(
         "status IN (" + ", ".join(f"'{s.value}'" for s in AttemptStatus) + ")",
         name="ck_test_attempts_status",
@@ -173,7 +179,8 @@ test_attempts = Table(
 they accept the own-work statement (`statement_accepted_at`): the question set version and
 selection it was opened on, the frozen ordered item list (`[{id, type, weight}]`), the Student's
 effective Test deadline, its status and when the Test-deadline close ran (`closed_at`, Story
-11.11). Written only by `tests.commands`."""
+11.11). In a timed sitting (Story 11.12) `sitting_ends_at` is the opening time plus the Student's
+time limit; it never changes `effective_deadline`. Written only by `tests.commands`."""
 
 
 test_answers = Table(
@@ -230,3 +237,22 @@ replacement) items the `tests.prepare_adapted` job built before the Student open
 any LLM wording already validated, for the question set version and Adapted total weight they were
 built for. Stored once by `tests.prepare`, never updated; `tests.commands.open_attempt` freezes
 them. Holds the Student's id and text rendered from their own game's facts (personal data)."""
+
+
+test_sittings = Table(
+    "test_sittings",
+    metadata,
+    Column(
+        "class_session_id",
+        Uuid,
+        ForeignKey("class_sessions.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column("minutes", Integer, nullable=False),
+    Column("updated_by", Uuid, ForeignKey("users.id", ondelete="SET NULL")),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+    CheckConstraint("minutes > 0", name="ck_test_sittings_minutes"),
+)
+"""A Class session's one timed sitting (Story 11.12, FR-51): the time limit in whole minutes. A
+row means the Individual test is taken in one sitting with this limit; no row, it is not. Written
+only by `tests.sitting` through «Lagre Klasseøkt» (and a copy, FR-66), before the Start date."""

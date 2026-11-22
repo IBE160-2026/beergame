@@ -1,7 +1,8 @@
 """The Student's Individual test as their page reads it (Story 11.3, FR-51, FR-5, AD-12, AD-16).
 
 `read` answers the state: `statement` before the Student has accepted the own-work statement (no
-item is served), `open` with the items of their attempt in its frozen order, `closed` when their
+item is served; in one timed sitting it carries the Student's time limit, Story 11.12), `open`
+with the items of their attempt in its frozen order, `closed` when their
 Test deadline has passed with no attempt. `open_` accepts the statement through
 `commands.open_attempt`. Each open item carries a choice item's option ids, a table item's value
 table or a number item's column (Story 11.5; a Starting task item's from the Class session's
@@ -10,6 +11,7 @@ answer; `save` autosaves one answer through `commands.save_answer` (Story 11.4).
 Student's own locked Class session is reached; every other caller gets None (the route's 403
 `forbidden`), whether or not an attempt exists."""
 
+import math
 import uuid
 from collections.abc import Mapping
 from datetime import datetime
@@ -21,7 +23,7 @@ from app.modules.content import service as content
 from app.modules.content.schemas import QuestionSet, QuestionSetItem, StartingTask
 from app.modules.progress import service as progress
 from app.modules.sessions import service as sessions
-from app.modules.tests import commands
+from app.modules.tests import commands, rules, sitting
 from app.modules.tests.adapted import ADAPTED
 from app.modules.tests.models import AttemptStatus, test_answers
 from app.modules.tests.schemas import (
@@ -153,16 +155,35 @@ async def _items(attempt: Mapping[str, Any], pins: Any) -> list[IndividualItemOu
     return out
 
 
-async def _open(attempt: Mapping[str, Any], pins: Any) -> MyTestOut:
+async def _open(attempt: Mapping[str, Any], pins: Any, now: datetime) -> MyTestOut:
     """The Student's attempt: `open`, or handed in (`submitted`, `auto_submitted`, Story 11.10)
-    with its time; the items and saved answers either way."""
+    with its time; the items and saved answers either way. A timed one (Story 11.12) carries its
+    sitting's end, when answering ends, the API's clock, and whether the sweep handed it in at the
+    sitting's end (`commands.end_sitting` stores `submitted_at = sitting_ends_at`)."""
     state = attempt["status"]
+    ends = attempt["sitting_ends_at"]
+    # The limit the sitting was opened with, the Student's time factor applied.
+    limit = (
+        math.ceil((ends - attempt["statement_accepted_at"]).total_seconds() / 60)
+        if ends is not None
+        else None
+    )
     return MyTestOut(
         state="open" if state == AttemptStatus.OPEN.value else state,
         test_deadline=attempt["effective_deadline"],
         opened_at=attempt["statement_accepted_at"],
         submitted_at=attempt["submitted_at"],
         items=await _items(attempt, pins),
+        time_limit_minutes=limit,
+        sitting_ends_at=ends,
+        answering_ends_at=rules.answering_ends_at(attempt),
+        server_now=now,
+        sitting_ended=(
+            state == AttemptStatus.AUTO_SUBMITTED.value
+            and ends is not None
+            and attempt["submitted_at"] == ends
+            and (attempt["effective_deadline"] is None or ends < attempt["effective_deadline"])
+        ),
     )
 
 
@@ -176,8 +197,12 @@ async def read(
         if found is None:
             return None
         attempt = await commands.attempt_of(s, user.id, class_session_id)
+        minutes = await sitting.minutes_of(s, class_session_id) if attempt is None else None
+        factor = (
+            await sitting.time_factor(s, class_session_id, user.id) if minutes is not None else None
+        )
     if attempt is not None:
-        return await _open(attempt, found.pins)
+        return await _open(attempt, found.pins, now)
     if not await progress.has_step(user.id, class_session_id, progress.Step.REPLAY):
         raise commands.ReplayRequired
     deadline = sessions.effective_test_deadline(user, found.row)
@@ -188,6 +213,13 @@ async def read(
         opened_at=None,
         submitted_at=None,
         items=[],
+        # Story 11.12: the statement names the Student's own limit before the test is opened.
+        time_limit_minutes=(
+            rules.limit_minutes(minutes, factor)
+            if minutes is not None and factor is not None
+            else None
+        ),
+        server_now=now,
     )
 
 
@@ -204,7 +236,7 @@ async def open_(
         found = await sessions.individual_test_session_of(s, user, class_session_id)
     if found is None:  # no longer theirs a moment later: the same refusal as before
         return None
-    return await _open(opened.attempt, found.pins), opened.created
+    return await _open(opened.attempt, found.pins, now), opened.created
 
 
 async def save(
@@ -234,4 +266,4 @@ async def submit(
     if not done.submitted:
         raise commands.AttemptSubmitted
     # Handed in: answered with what was committed, read with the pins the command read.
-    return await _open(done.attempt, done.pins)
+    return await _open(done.attempt, done.pins, now)

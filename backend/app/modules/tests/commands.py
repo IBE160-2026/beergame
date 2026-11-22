@@ -8,8 +8,9 @@ The decision (the Deferred item "Test attempt write path"):
   No other code inserts or updates an attempt or an answer.
 - Every command that acts on an existing attempt takes `SELECT … FOR UPDATE` on the attempt row
   and runs in one transaction. `save_answer` and `submit` on an attempt that is not `open` fail
-  with `attempt_submitted`; on an open attempt after its `effective_deadline` with
-  `test_deadline_passed`.
+  with `attempt_submitted`; on an open attempt once answering has ended
+  (`rules.answering_ends_at`) with `sitting_ended` when its timed sitting ended first (Story
+  11.12), else with `test_deadline_passed`.
 - Where no attempt row exists yet, the lock is named: `open_attempt` relies on the unique key on
   User and Class session (`uq_test_attempts_user_session`) and returns the existing attempt on a
   conflict; `extend_deadline` locks the Student's extension row in `modules/sessions`, and the
@@ -24,6 +25,11 @@ The decision (the Deferred item "Test attempt write path"):
   attempt, handed in or not (`closed_at`): an open one is auto-submitted with what was saved by
   the deadline, since `save_answer` refuses a later save with `test_deadline_passed`. It is the
   one place Epic 12 starts the AI assessment.
+- A timed sitting (Story 11.12): `open_attempt` sets `sitting_ends_at` (the opening time plus the
+  Class session's limit times the Student's time factor); it never changes `effective_deadline`.
+  The sweep's `tests.end_sitting`, before `sessions.lock_test`, hands in an open attempt whose
+  sitting ended before its deadline (`end_sitting`): it starts nothing else and leaves `closed_at`
+  to `close_attempt` at the deadline, so nothing that hangs on the Test deadline happens early.
 
 - `save_answer` keeps the highest revision per answer (AD-10): the row is upserted only when the
   sent revision is above the stored one, and the stored answer is returned either way, so a late
@@ -38,7 +44,7 @@ from datetime import datetime
 from typing import Any
 
 import structlog
-from sqlalchemy import select, update
+from sqlalchemy import or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -48,7 +54,7 @@ from app.modules.content.schemas import QuestionSet, QuestionSetItem
 from app.modules.debrief import service as debrief
 from app.modules.progress import service as progress
 from app.modules.sessions import service as sessions
-from app.modules.tests import adapted
+from app.modules.tests import adapted, rules, sitting
 from app.modules.tests import selection as selections
 from app.modules.tests.models import (
     AttemptStatus,
@@ -67,10 +73,14 @@ __all__ = [
     "LONG_ANSWER_MAX",
     "Opened",
     "ReplayRequired",
+    "SittingEnded",
     "attempt_of",
     "close_attempt",
     "close_due",
     "due_closes",
+    "due_sitting_ends",
+    "end_due",
+    "end_sitting",
     "move_deadline",
     "open_attempt",
     "save_answer",
@@ -94,6 +104,11 @@ class ReplayRequired(Exception):
 
 class DeadlinePassed(Exception):
     """The Student's Test deadline has passed (409 `test_deadline_passed`)."""
+
+
+class SittingEnded(Exception):
+    """The attempt's timed sitting has ended before its Test deadline (409 `sitting_ended`, Story
+    11.12); the sweep hands it in within the minute."""
 
 
 class AttemptSubmitted(Exception):
@@ -222,6 +237,14 @@ async def open_attempt(
         if deadline is not None and deadline <= now:
             raise DeadlinePassed
         chosen, items, prepared = await _frozen(s, user.id, class_session_id, found.pins)
+        # Story 11.12: a timed sitting ends the Class session's limit (times the Student's time
+        # factor) after now; the Test deadline stays as it is.
+        minutes = await sitting.minutes_of(s, class_session_id)
+        ends = (
+            rules.sitting_end(now, minutes, await sitting.time_factor(s, class_session_id, user.id))
+            if minutes is not None
+            else None
+        )
         made = await s.scalar(
             insert(test_attempts)
             .values(
@@ -233,6 +256,7 @@ async def open_attempt(
                 items=items,
                 statement_accepted_at=now,
                 effective_deadline=deadline,
+                sitting_ends_at=ends,
                 status=AttemptStatus.OPEN.value,
             )
             .on_conflict_do_nothing(constraint="uq_test_attempts_user_session")
@@ -252,6 +276,7 @@ async def open_attempt(
         attempt_id=str(attempt["id"]),
         items=len(items),
         prepared=prepared,
+        timed=ends is not None,
         follow_up_closed=closed,
     )
     return Opened(attempt, created=True)
@@ -306,6 +331,17 @@ def _valid(item_type: str, item: QuestionSetItem | None, value: Any) -> bool:
     return False
 
 
+def _refuse_ended(attempt: Mapping[str, Any], now: datetime) -> None:
+    """Raises `SittingEnded` once an open attempt's timed sitting has ended before its deadline,
+    `DeadlinePassed` once its `effective_deadline` has passed (`rules.answering_ends_at`)."""
+    ends = rules.answering_ends_at(attempt)
+    if ends is None or ends > now:
+        return
+    if rules.sitting_ended(attempt, now):
+        raise SittingEnded
+    raise DeadlinePassed
+
+
 async def save_answer(
     user: authz.Principal,
     class_session_id: uuid.UUID,
@@ -322,7 +358,8 @@ async def save_answer(
 
     One transaction with the attempt row `FOR UPDATE`, so two devices saving the same item are
     serialised and the highest revision is the one kept. Raises `AttemptSubmitted` once the
-    attempt is not open, `DeadlinePassed` once its `effective_deadline` has passed, `UnknownItem`
+    attempt is not open, `SittingEnded` once its timed sitting has ended (Story 11.12),
+    `DeadlinePassed` once its `effective_deadline` has passed, `UnknownItem`
     for an item not in its frozen list and `InvalidAnswer` for a value that does not answer the
     item. Emits nothing: the saving page has the answer, and another device reads it when it
     reads the test. The value is never logged."""
@@ -348,9 +385,7 @@ async def save_answer(
             return None
         if attempt["status"] != AttemptStatus.OPEN.value:
             raise AttemptSubmitted
-        deadline = attempt["effective_deadline"]
-        if deadline is not None and deadline <= now:
-            raise DeadlinePassed
+        _refuse_ended(attempt, now)
         frozen = next((item for item in attempt["items"] if item["id"] == item_id), None)
         if frozen is None:
             raise UnknownItem
@@ -471,7 +506,8 @@ async def submit(
     transaction, which emits `user:<id>` and `session:<id>`. An attempt handed in already is
     returned unchanged (`submitted=False`), emitting nothing; the route answers that with
     `attempt_submitted`. Raises `DeadlinePassed` for an open attempt past its deadline (the sweep
-    of Story 11.11 hands it in). No answer is logged."""
+    of Story 11.11 hands it in) and `SittingEnded` once its timed sitting has ended (Story 11.12's
+    sweep hands it in). No answer is logged."""
     async with get_sessionmaker().begin() as s:
         found = await sessions.individual_test_session_of(s, user, class_session_id)
         if found is None:
@@ -494,9 +530,7 @@ async def submit(
             return None
         if attempt["status"] != AttemptStatus.OPEN.value:
             return Submitted(attempt, submitted=False, pins=found.pins)
-        deadline = attempt["effective_deadline"]
-        if deadline is not None and deadline <= now:
-            raise DeadlinePassed
+        _refuse_ended(attempt, now)
         scored = await score_answers(s, attempt, found.pins)
         await s.execute(
             update(test_attempts)
@@ -578,11 +612,15 @@ async def close_attempt(attempt_id: uuid.UUID, now: datetime) -> bool:
         auto = attempt["status"] == AttemptStatus.OPEN.value
         values: dict[str, Any] = {"closed_at": now}
         scored = 0
+        # What was saved by the deadline is handed in, as of the deadline, also when the sweep
+        # runs late; a save after it was refused (`DeadlinePassed`). A timed sitting that ended
+        # earlier and was not yet handed in (Story 11.12) is handed in as of its end, since saves
+        # were refused from then on (`SittingEnded`).
+        ends = attempt["sitting_ends_at"]
+        handed = ends if ends is not None and ends < deadline else deadline
         if auto:
-            # What was saved by the deadline is handed in, as of the deadline, also when the
-            # sweep runs late; a save after it was refused (`DeadlinePassed`).
             scored = await score_answers(s, attempt, found.pins)
-            values |= {"status": AttemptStatus.AUTO_SUBMITTED.value, "submitted_at": deadline}
+            values |= {"status": AttemptStatus.AUTO_SUBMITTED.value, "submitted_at": handed}
         await s.execute(
             update(test_attempts).where(test_attempts.c.id == attempt_id).values(**values)
         )
@@ -591,7 +629,7 @@ async def close_attempt(attempt_id: uuid.UUID, now: datetime) -> bool:
                 attempt["user_id"],
                 class_session_id,
                 progress.Step.TEST_SUBMITTED,
-                deadline,
+                handed,
                 within=s,
             )
     log.info(
@@ -626,6 +664,93 @@ async def close_due(attempt_id: object, now: datetime) -> bool:
     """The sweep's `tests.close_attempt` action, one attempt per transaction with its id only."""
     assert isinstance(attempt_id, uuid.UUID)
     return await close_attempt(attempt_id, now)
+
+
+SITTING_ENDS_PER_SWEEP = 200
+"""The most timed sittings one sweep hands in; the next minute's sweep takes the rest."""
+
+
+async def end_sitting(attempt_id: uuid.UUID, now: datetime) -> bool:
+    """Hand in an attempt whose timed sitting has ended before its Test deadline (Story 11.12,
+    FR-51, AD-9): the sweep's `tests.end_sitting` action. True when this call handed it in.
+
+    One transaction: the Class session row share-locked (`sessions.test_session`), then the attempt
+    row `FOR UPDATE`. Only an `open` attempt whose sitting has ended at `now` before its
+    `effective_deadline` (`rules.sitting_ended`) changes: its saved answers are scored as at a
+    hand-in (`score_answers`), it becomes `auto_submitted` as of `sitting_ends_at` (a later save was
+    refused with `sitting_ended`), and `test_submitted` is recorded through `progress.record_step`
+    (which emits `user:<id>` and `session:<id>`). It calls no `close_attempt`, sets no `closed_at`
+    and starts nothing else: `close_attempt` still runs for it at its `effective_deadline`, after
+    `sessions.lock_test`. A repeat changes nothing. Ids and counts only are logged."""
+    async with get_sessionmaker().begin() as s:
+        class_session_id = await s.scalar(
+            select(test_attempts.c.class_session_id).where(test_attempts.c.id == attempt_id)
+        )
+        if class_session_id is None:
+            return False
+        found = await sessions.test_session(s, class_session_id)
+        if found is None:
+            return False
+        attempt = (
+            (
+                await s.execute(
+                    select(test_attempts).where(test_attempts.c.id == attempt_id).with_for_update()
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if (
+            attempt is None
+            or attempt["status"] != AttemptStatus.OPEN.value
+            or not rules.sitting_ended(attempt, now)
+        ):
+            return False
+        ended = attempt["sitting_ends_at"]
+        scored = await score_answers(s, attempt, found.pins)
+        await s.execute(
+            update(test_attempts)
+            .where(test_attempts.c.id == attempt_id)
+            .values(status=AttemptStatus.AUTO_SUBMITTED.value, submitted_at=ended)
+        )
+        await progress.record_step(
+            attempt["user_id"], class_session_id, progress.Step.TEST_SUBMITTED, ended, within=s
+        )
+    log.info(
+        "test_sitting_ended",
+        class_session_id=str(class_session_id),
+        attempt_id=str(attempt_id),
+        scored=scored,
+    )
+    return True
+
+
+async def due_sitting_ends(now: datetime) -> list[uuid.UUID]:
+    """The sweep's `tests.end_sitting` finder (AD-9): the open attempts whose timed sitting has
+    ended before their `effective_deadline` (or with none), by id, the earliest end first, at most
+    `SITTING_ENDS_PER_SWEEP`. A sitting that ends at or after the deadline is `close_attempt`'s."""
+    async with get_sessionmaker()() as s:
+        found = await s.scalars(
+            select(test_attempts.c.id)
+            .where(
+                test_attempts.c.status == AttemptStatus.OPEN.value,
+                test_attempts.c.sitting_ends_at.is_not(None),
+                test_attempts.c.sitting_ends_at <= now,
+                or_(
+                    test_attempts.c.effective_deadline.is_(None),
+                    test_attempts.c.sitting_ends_at < test_attempts.c.effective_deadline,
+                ),
+            )
+            .order_by(test_attempts.c.sitting_ends_at, test_attempts.c.id)
+            .limit(SITTING_ENDS_PER_SWEEP)
+        )
+        return list(found)
+
+
+async def end_due(attempt_id: object, now: datetime) -> bool:
+    """The sweep's `tests.end_sitting` action, one attempt per transaction with its id only."""
+    assert isinstance(attempt_id, uuid.UUID)
+    return await end_sitting(attempt_id, now)
 
 
 sessions.register_test_deadline_mover(move_deadline)

@@ -205,6 +205,32 @@ class TestGameRefOut(BaseModel):
     status: Literal["not_ready", "ready", "running", "finished"]
 
 
+class TestSittingOut(BaseModel):
+    """The Individual test's one timed sitting of a Class session (Story 11.12, FR-51), stored by
+    `modules/tests`."""
+
+    minutes: int | None
+    """The time limit in whole minutes, before any Student's time factor; None: no time limit, the
+    test stays open until the Test deadline."""
+    min_minutes: int
+    max_minutes: int
+    """The range a limit must lie in (configuration)."""
+    can_change: bool
+    """The reader may change it now: an owner of a Class that is not archived, before the Class
+    session is locked (it is frozen with the question set). Assistant lecturers read it only."""
+
+
+class TestSittingIn(BaseModel):
+    """The one timed sitting as «Lagre Klasseøkt» sends it (Story 11.12): `minutes` the time limit
+    in whole minutes, or null to switch it off."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    minutes: StrictInt | None = Field(..., ge=-100_000, le=100_000)
+    """Whole minutes, a JSON integer; the service answers `out_of_range` outside the configured
+    range. The bounds here only keep the value an integer the database holds."""
+
+
 class AiAssessmentOut(BaseModel):
     """The «KI-vurdering» switch of a Class session (Story 12.1, FR-61), stored by
     `modules/assessment`."""
@@ -333,6 +359,8 @@ class ClassSessionOut(BaseModel):
     """Story 6.20: the reader's latest test Game in this session, while the flag is on."""
     ai_assessment: AiAssessmentOut
     """Story 12.1 (FR-61): the «KI-vurdering» switch, open until the original Test deadline."""
+    test_sitting: TestSittingOut
+    """Story 11.12 (FR-51): one timed sitting for the Individual test, frozen at the Start date."""
 
 
 class TestGameIn(BaseModel):
@@ -428,6 +456,9 @@ class ClassSessionSaveIn(BaseModel):
     ai_assessment: bool | None = None
     """Story 12.1 (FR-61): the «KI-vurdering» switch on or off; left out, kept. It can change
     after the Start date, until the original Test deadline."""
+    test_sitting: TestSittingIn | None = None
+    """Story 11.12 (FR-51): one timed sitting with its time limit, or `{"minutes": null}` for
+    none; left out, kept. Frozen at the Start date."""
     dates: DatesIn | None = None
     game_settings: dict[str, Any] | None = None
     obligatory: bool | None = None

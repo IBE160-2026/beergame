@@ -10,7 +10,15 @@ import { deadlineLine, isAnswered, itemLabel, itemLines, listSeparator, submitte
 
 const copy = nb.tests.individual;
 
-const statement: MyTest = { state: "statement", test_deadline: "2026-12-18T22:59:00Z", opened_at: null, submitted_at: null, items: [] };
+const statement: MyTest = {
+  state: "statement",
+  test_deadline: "2026-12-18T22:59:00Z",
+  opened_at: null,
+  submitted_at: null,
+  items: [],
+  server_now: "2026-12-18T20:00:00Z",
+  sitting_ended: false,
+};
 
 describe("the Individual test page's state (Story 11.3)", () => {
   it("follows the api's answer and refusals alone", () => {
@@ -80,6 +88,10 @@ describe("the review before «Lever testen» (Story 11.10)", () => {
     expect(submittedLine(handedIn)).toMatch(/^Levert fr\. 18\. des\. kl\.\s21:40\. Du kan ikke endre svarene\.$/u);
     expect(submittedLine({ state: "auto_submitted", submitted_at: "2026-12-18T22:59:00Z" })).toBe(copy.submit.autoSubmitted);
     expect(submittedLine({ state: "open", submitted_at: null })).toBeNull();
+    // Story 11.12: handed in by the sweep when the timed sitting ended.
+    expect(submittedLine({ state: "auto_submitted", submitted_at: "2026-12-18T20:00:00Z", sitting_ended: true })).toBe(
+      "Tiden er ute. Testen er levert.",
+    );
   });
 });
 

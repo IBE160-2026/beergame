@@ -579,6 +579,12 @@ export interface paths {
          *     after the Start date too; once the original Test deadline has passed (and the Test-deadline
          *     lock has pinned it) a changed value answers 409 `ai_assessment_pinned`
          *     (`{"ai_assessment": "pinned"}`). Only the Class's owners change it (`ai_assessment.change`).
+         *
+         *     `test_sitting` (Story 11.12, FR-51), left out, keeps the Individual test's one timed sitting:
+         *     `{"minutes": n}` sets the time limit in whole minutes, `{"minutes": null}` switches it off. A
+         *     limit outside the configured range answers 422 `invalid_session_values`
+         *     (`{"test_sitting_minutes": "out_of_range"}`); once locked a change answers 409
+         *     `session_locked` (`{"test_sitting": "locked"}`).
          */
         put: operations["saveClassSession"];
         post?: never;
@@ -2310,7 +2316,8 @@ export interface paths {
          * @description Autosave the Student's answer to one item (Story 11.4, FR-51, AD-10): the answer stored
          *     after the save. It is replaced only when `revision` is above the stored one; otherwise the
          *     stored answer comes back unchanged, without an error. 409 `attempt_submitted` once the test is
-         *     handed in, 409 `test_deadline_passed` after the Student's Test deadline, 422 `unknown_item`
+         *     handed in, 409 `test_deadline_passed` after the Student's Test deadline, 409 `sitting_ended`
+         *     once their timed sitting has ended (Story 11.12), 422 `unknown_item`
          *     for an item the attempt does not have, 422 `invalid_answer` for a value that does not answer
          *     the item, 403 `forbidden` for any session that is not theirs or a test not yet opened.
          */
@@ -2336,7 +2343,8 @@ export interface paths {
          * @description «Lever testen» (Story 11.10, FR-51, AD-9, AD-16): the Student hands in their Individual
          *     test once; their saved answers are scored and stored and `test_submitted` is recorded. 200
          *     with the test as handed in (state `submitted`). 409 `attempt_submitted` when it was handed in
-         *     already (nothing changes), 409 `test_deadline_passed` after the Student's Test deadline, 403
+         *     already (nothing changes), 409 `test_deadline_passed` after the Student's Test deadline, 409
+         *     `sitting_ended` once their timed sitting has ended (Story 11.12), 403
          *     `forbidden` for any session that is not theirs or a test not yet opened.
          */
         post: operations["submitMyTest"];
@@ -3495,6 +3503,7 @@ export interface components {
             /** Test Deadline */
             test_deadline: string | null;
             test_game?: components["schemas"]["TestGameRefOut"] | null;
+            test_sitting: components["schemas"]["TestSittingOut"];
         };
         /**
          * ClassSessionSaveIn
@@ -3534,6 +3543,7 @@ export interface components {
             } | null;
             /** Required Share Percent */
             required_share_percent?: number | null;
+            test_sitting?: components["schemas"]["TestSittingIn"] | null;
         };
         /**
          * ColumnOut
@@ -4915,12 +4925,32 @@ export interface components {
          *     `opened_at` when they accepted the statement. Once handed in (Story 11.10), `submitted` by
          *     the Student or `auto_submitted` at the deadline (Story 11.11), with `submitted_at`: the items
          *     and saved answers stay readable, never with a score (FR-54).
+         *
+         *     In one timed sitting (Story 11.12): `time_limit_minutes` is the Student's own limit (their
+         *     time factor applied, whole minutes rounded up; null when the test is not timed),
+         *     `sitting_ends_at` when their sitting ends once opened, `answering_ends_at` the earlier of that
+         *     and the Test deadline, `server_now` the API's clock for the time left, and `sitting_ended`
+         *     whether the sweep handed the attempt in at the sitting's end.
          */
         MyTestOut: {
+            /** Answering Ends At */
+            answering_ends_at?: string | null;
             /** Items */
             items: components["schemas"]["IndividualItemOut"][];
             /** Opened At */
             opened_at: string | null;
+            /**
+             * Server Now
+             * Format: date-time
+             */
+            server_now: string;
+            /**
+             * Sitting Ended
+             * @default false
+             */
+            sitting_ended: boolean;
+            /** Sitting Ends At */
+            sitting_ends_at?: string | null;
             /**
              * State
              * @enum {string}
@@ -4930,6 +4960,8 @@ export interface components {
             submitted_at: string | null;
             /** Test Deadline */
             test_deadline: string | null;
+            /** Time Limit Minutes */
+            time_limit_minutes?: number | null;
         };
         /**
          * NeighbourNumber
@@ -6988,6 +7020,30 @@ export interface components {
              * @enum {string}
              */
             status: "not_ready" | "ready" | "running" | "finished";
+        };
+        /**
+         * TestSittingIn
+         * @description The one timed sitting as «Lagre Klasseøkt» sends it (Story 11.12): `minutes` the time limit
+         *     in whole minutes, or null to switch it off.
+         */
+        TestSittingIn: {
+            /** Minutes */
+            minutes: number | null;
+        };
+        /**
+         * TestSittingOut
+         * @description The Individual test's one timed sitting of a Class session (Story 11.12, FR-51), stored by
+         *     `modules/tests`.
+         */
+        TestSittingOut: {
+            /** Can Change */
+            can_change: boolean;
+            /** Max Minutes */
+            max_minutes: number;
+            /** Min Minutes */
+            min_minutes: number;
+            /** Minutes */
+            minutes: number | null;
         };
         /**
          * TimeProposalIn

@@ -67,8 +67,13 @@ export function itemAnchor(number: number): string {
   return `oppgave-${number}`;
 }
 
-/** «Levert to. 18. des. kl. 21:40. Du kan ikke endre svarene.», or the auto-submitted line. */
-export function submittedLine(test: Pick<MyTest, "state" | "submitted_at">): string | null {
+/** «Levert to. 18. des. kl. 21:40. Du kan ikke endre svarene.», or the auto-submitted line, or
+ * «Tiden er ute. Testen er levert.» for a timed sitting the sweep handed in at its end. */
+export function submittedLine(
+  test: Pick<MyTest, "state" | "submitted_at"> & Partial<Pick<MyTest, "sitting_ended">>,
+): string | null {
+  // Story 11.12: handed in by the sweep when the timed sitting ended.
+  if (test.state === "auto_submitted" && test.sitting_ended) return copy.timed.ended;
   if (test.state === "auto_submitted") return copy.submit.autoSubmitted;
   if (test.state !== "submitted" || !test.submitted_at) return null;
   return copy.submit.submitted(osloDateText(test.submitted_at));

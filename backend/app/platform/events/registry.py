@@ -176,6 +176,9 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # FR-51): an open one is auto-submitted and its `test_submitted` step emits `user` and
         # `session`, as at a hand-in; closing one handed in earlier emits nothing.
         "tests.close_attempt": frozenset({"session", "user"}),
+        # A timed sitting ended before the Test deadline (Story 11.12, FR-51): the sweep hands the
+        # attempt in, and its `test_submitted` step emits `user` and `session`, as at a hand-in.
+        "tests.end_sitting": frozenset({"session", "user"}),
         # A Student's Replay made and started (Story 10.3, FR-48): its Game is created, seated and
         # started through `games.commands` (`game`), and the Student's Hjem reads it again
         # (`user`). No Lecturer overview lists a Replay, so no `session`.

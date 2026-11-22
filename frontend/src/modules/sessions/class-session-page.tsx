@@ -20,6 +20,15 @@ import { AiAssessmentBlock } from "@/modules/assessment/switch-block";
 import { QuizExclusionsBlock } from "@/modules/debrief/quiz-exclusions";
 import { QuestionSetBlock } from "@/modules/tests/question-set-block";
 import { ScoringGuideBlock } from "@/modules/tests/scoring-guide-block";
+import {
+  minutesProblem,
+  refusedMinutes,
+  sittingBody,
+  sittingChanged,
+  type SittingDraft,
+  sittingDraftOf,
+} from "@/modules/tests/sitting";
+import { TimedSittingBlock } from "@/modules/tests/timed-sitting-block";
 import { classOverviewPath, classPath, classSessionPath, HOME_PATH } from "@/modules/identity/homes";
 import { PageLink, PageShell } from "@/modules/identity/page-shell";
 import { LINK_BUTTON } from "@/modules/classes/roster-entry-forms";
@@ -173,6 +182,13 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
   const [aiAssessment, setAiAssessment] = useState<boolean | null>(null);
   const assessmentOpen = item.ai_assessment.can_change;
   const assessmentBody = assessmentOpen && aiAssessment !== null ? { ai_assessment: aiAssessment } : {};
+  // The Individual test's one timed sitting (Story 11.12) as typed: sent with «Lagre Klasseøkt»
+  // when it differs from the stored one, until the Start date; its reason shows once the field is
+  // left or the save pressed.
+  const [sitting, setSitting] = useState<SittingDraft>(() => sittingDraftOf(item));
+  const [sittingChecked, setSittingChecked] = useState(false);
+  const sittingOpen = item.test_sitting.can_change && choosing;
+  const sittingSent = sittingOpen && sittingChanged(sitting, item) ? { test_sitting: sittingBody(sitting) } : {};
   const action = useAction({
     mutationFn: async () => {
       try {
@@ -180,7 +196,7 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
           item.id,
           // Once locked the choices stand as stored; the api refuses any change.
           choosing
-            ? { ...choicesBody(choices), ...methodBody(method, item), ...assessmentBody }
+            ? { ...choicesBody(choices), ...methodBody(method, item), ...assessmentBody, ...sittingSent }
             : { ai_mode: item.ai_mode, ...assessmentBody },
           datesBody(inputs),
           settingsOpen ? settingsBody(draft, item.game_settings.roles) : undefined,
@@ -233,6 +249,8 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
       setChoices(choicesOf(result));
       setMethod(result.allocation_method);
       setAiAssessment(null);
+      setSitting(sittingDraftOf(result));
+      setSittingChecked(false);
       setTestTouched(result.test_deadline != null);
       setShareChecked(false);
       setInactivity(String(result.inactivity_limit_hours));
@@ -281,15 +299,19 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
     refusedValues.share;
   const inactivityError =
     (settingsOpen && inactivityChecked ? inactivityProblem(inactivity) : undefined) ?? refusedValues.inactivity;
+  const sittingError = (sittingOpen && sittingChecked ? minutesProblem(sitting, item) : undefined) ?? refusedMinutes(action.error, item);
   /** Whether the drafts the web checks itself may be sent; shows each reason otherwise. */
   const valuesReady = () => {
     const shareWrong = choosing && choices.obligatory && shareProblem(choices.requiredShare) !== undefined;
     const inactivityWrong = settingsOpen && inactivityProblem(inactivity) !== undefined;
+    // Only a change is judged, as the api does: a stored limit is sent again as it is.
+    const sittingWrong = sittingOpen && sittingChanged(sitting, item) && minutesProblem(sitting, item) !== undefined;
     // Only a field on screen is marked checked, so a share field that opens later is not judged
     // before it is left.
     setShareChecked(choosing && choices.obligatory);
     setInactivityChecked(settingsOpen);
-    return !shareWrong && !inactivityWrong;
+    setSittingChecked(sittingOpen && sitting.on && sittingChanged(sitting, item));
+    return !shareWrong && !inactivityWrong && !sittingWrong;
   };
   const cancelSettings = () => {
     checks.current += 1;
@@ -451,6 +473,14 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
       {/* Stories 10.1 and 10.2 (FR-49): the Replay scenario, frozen at the Start date like the
           choices above. */}
       <ReplayScenarioBlock item={item} editable={choosing} state={replay} />
+      {/* Story 11.12 (FR-51): one timed sitting for the Individual test, frozen at the Start date. */}
+      <TimedSittingBlock
+        item={item}
+        draft={sitting}
+        error={sittingError}
+        onChange={setSitting}
+        onLeave={() => setSittingChecked(true)}
+      />
       {/* Story 12.1 (FR-61): KI-vurdering, open until the original Test deadline. */}
       <AiAssessmentBlock item={item} draft={aiAssessment ?? item.ai_assessment.enabled} onChange={setAiAssessment} />
       {saveShown && !lockedSaveUnderDates ? saveRow : null}

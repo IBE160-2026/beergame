@@ -241,3 +241,29 @@ The Deferred item "Timing of Adapted items", closed here (`prepare.py`, `jobs.py
 - `service.parts_with_content(user_id, class_session_id)` tells Completion (Epic 13, FR-17) for
   each part among the attempt's items (`choice`, `interactive`, `long`, `adapted`) whether any
   item holds a saved answer with content; None without an attempt.
+
+## One timed sitting (Story 11.12)
+
+- `test_sittings` (migration 0129): a Class session's time limit in whole minutes; a row means
+  the test is taken in one timed sitting, no row that it is not. «Lagre Klasseøkt» sends
+  `test_sitting: {minutes}` (null: off); `sessions.save_session` judges the configured range
+  (`test_sitting_min_minutes`/`test_sitting_max_minutes`, PLACEHOLDERS; 422
+  `invalid_session_values` `test_sitting_minutes`), refuses a change once the Class session is
+  locked (409 `session_locked` `test_sitting`) and stores it through `tests.service`, which
+  registers `sitting.minutes_of`/`sitting.write` with `sessions.register_test_sitting` and
+  `sitting.copy_sitting` with `register_copier` (FR-66). `ClassSessionOut.test_sitting` reads it.
+- `open_attempt` sets `test_attempts.sitting_ends_at` = opening time + limit × the Student's time
+  factor (`sitting.time_factor`: Story 8.9's `sessions.get_adjustment` where it exists, else 1).
+  `effective_deadline` never changes. `rules.answering_ends_at` is the earlier of the two;
+  `save_answer` and `submit` answer 409 `sitting_ended` once the sitting ended before the deadline
+  (`rules.sitting_ended`), else `test_deadline_passed`.
+- The sweep's `tests.end_sitting` (before the Test-deadline actions) finds the open attempts whose
+  sitting ended before their deadline (`commands.due_sitting_ends`, at most 200 a sweep) and runs
+  `commands.end_sitting`: under the Class session's share lock and the attempt row lock it scores
+  the saved answers, sets `auto_submitted` with `submitted_at` = `sitting_ends_at` and records
+  `test_submitted` (`user`, `session`). It sets no `closed_at` and starts nothing else:
+  `close_attempt` still runs at the attempt's `effective_deadline`, after `sessions.lock_test`.
+  A sitting that would end at or after the deadline ends with it, through `close_attempt`.
+- `GET …/test` carries `time_limit_minutes` (also on the statement), `sitting_ends_at`,
+  `answering_ends_at`, `server_now` and `sitting_ended`; the page counts «Tid igjen N min» from
+  them.

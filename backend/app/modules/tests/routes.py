@@ -313,7 +313,8 @@ async def submit_my_test(
     """«Lever testen» (Story 11.10, FR-51, AD-9, AD-16): the Student hands in their Individual
     test once; their saved answers are scored and stored and `test_submitted` is recorded. 200
     with the test as handed in (state `submitted`). 409 `attempt_submitted` when it was handed in
-    already (nothing changes), 409 `test_deadline_passed` after the Student's Test deadline, 403
+    already (nothing changes), 409 `test_deadline_passed` after the Student's Test deadline, 409
+    `sitting_ended` once their timed sitting has ended (Story 11.12), 403
     `forbidden` for any session that is not theirs or a test not yet opened."""
     try:
         found = await attempt.submit(user, _id(session_id), auth.utcnow())
@@ -321,6 +322,8 @@ async def submit_my_test(
         return error_response(409, "attempt_submitted", "The test is handed in.")
     except commands.DeadlinePassed:
         return error_response(409, "test_deadline_passed", "Your Test deadline has passed.")
+    except commands.SittingEnded:
+        return error_response(409, "sitting_ended", "Your time limit has run out.")
     if found is None:
         raise authz.Forbidden
     return JSONResponse(found.model_dump(mode="json"))
@@ -341,7 +344,8 @@ async def save_my_test_answer(
     """Autosave the Student's answer to one item (Story 11.4, FR-51, AD-10): the answer stored
     after the save. It is replaced only when `revision` is above the stored one; otherwise the
     stored answer comes back unchanged, without an error. 409 `attempt_submitted` once the test is
-    handed in, 409 `test_deadline_passed` after the Student's Test deadline, 422 `unknown_item`
+    handed in, 409 `test_deadline_passed` after the Student's Test deadline, 409 `sitting_ended`
+    once their timed sitting has ended (Story 11.12), 422 `unknown_item`
     for an item the attempt does not have, 422 `invalid_answer` for a value that does not answer
     the item, 403 `forbidden` for any session that is not theirs or a test not yet opened."""
     try:
@@ -352,6 +356,8 @@ async def save_my_test_answer(
         return error_response(409, "attempt_submitted", "The test is handed in.")
     except commands.DeadlinePassed:
         return error_response(409, "test_deadline_passed", "Your Test deadline has passed.")
+    except commands.SittingEnded:
+        return error_response(409, "sitting_ended", "Your time limit has run out.")
     except commands.UnknownItem:
         return error_response(422, "unknown_item", "The test has no such item.")
     except commands.InvalidAnswer:

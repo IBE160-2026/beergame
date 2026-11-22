@@ -148,6 +148,11 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
   `test_locked_ids` let `tests` close only the attempts of a session the lock has run for. The
   local dev route `POST /api/dev/class-sessions/{id}/lock-test`
   runs it at once.
+- The Individual test's one timed sitting (Story 11.12): «Lagre Klasseøkt» takes
+  `test_sitting: {minutes}` (null: off), judged against the configured range and frozen at the
+  Start date like the choices (`session_locked`, `test_sitting`); `tests` stores it through the
+  pair it registers with `register_test_sitting`, since `sessions` never imports `tests`.
+  `test_session` gives `tests.end_sitting` the share-locked row and pins with ids only.
 - «Lagre Klasseøkt» takes `ai_assessment`; left out it is kept. A change is stored through
   `assessment.set_switch` in the same transaction, also after the Start-date lock, and needs
   `ai_assessment.change` (owners); once the original Test deadline has passed or the switch is

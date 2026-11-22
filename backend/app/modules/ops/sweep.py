@@ -155,6 +155,10 @@ DUE_ACTIONS: tuple[DueAction, ...] = (
     # Story 6.18: the finished-game check (FR-29, NFR-9, AD-4): replay each finished Game that
     # has no `game_checks` row yet, one Game per transaction, so the end screen never waits.
     DueAction("games.verify_finished", _unchecked_finished_games, _verify_finished),
+    # Story 11.12 (FR-51, AD-9): hand in each open Individual test attempt whose timed sitting
+    # ended before its Test deadline, one per transaction. Before the lock and the close, so a
+    # late sweep hands it in as of the sitting's end; it closes nothing (`close_attempt` does).
+    DueAction("tests.end_sitting", tests_commands.due_sitting_ends, tests_commands.end_due),
     # Story 10.6 (FR-18, AD-13): close each unfinished Replay once its Student's Test deadline has
     # passed (`effective_test_deadline`), never played out; one Game per transaction.
     DueAction(

@@ -115,6 +115,8 @@ ATTEMPT_TABLES = {"test_attempts", "test_answers"}
 """The tables of revision 0123 (Story 11.3)."""
 PREPARED_TABLES = {"test_prepared_items"}
 """The tables of revision 0126 (Story 11.8)."""
+SITTING_TABLES = {"test_sittings"}
+"""The tables of revision 0129 (Story 11.12)."""
 HEAD_TABLES = (
     PRE_SESSION_TABLES
     | SESSION_TABLES
@@ -143,8 +145,9 @@ HEAD_TABLES = (
     | SCORING_GUIDE_TABLES
     | ATTEMPT_TABLES
     | PREPARED_TABLES
+    | SITTING_TABLES
 )
-HEAD = "0128"  # 0128 marks when an attempt was closed at its Test deadline (11.11)
+HEAD = "0129"  # 0129 adds a Class session's one timed sitting (11.12)
 
 
 def reset_schema(url: str) -> None:
@@ -332,6 +335,11 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     # 0111 (Story 9.12): presence, the Students who go on alone and the 48-hour fallback.
     assert "last_seen_at" in columns(url, "debrief_members")
     assert {"fallback_due_at", "fallback_at"} <= columns(url, "debrief_sessions")
+
+    # 0129 (Story 11.12): a Class session's one timed sitting.
+    assert {"minutes", "updated_by", "updated_at"} <= columns(url, "test_sittings")
+    command.downgrade(cfg, "0128")
+    assert "test_sittings" not in tables(url)
 
     # 0128 (Story 11.11): when the Test-deadline close ran for an attempt.
     assert "closed_at" in columns(url, "test_attempts")

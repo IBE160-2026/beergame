@@ -2816,6 +2816,8 @@ export const nb = {
       saveErrors: {
         attempt_submitted: "Testen er levert. Svaret ble ikke lagret.",
         test_deadline_passed: "Testfristen er passert. Svaret ble ikke lagret.",
+        /** [ASSUMPTION] Story 11.12: the timed sitting ended before the save arrived. */
+        sitting_ended: "Tiden er ute. Svaret ble ikke lagret.",
       } as Readonly<Record<string, string>>,
       saveRefused: "Svaret ble ikke lagret. Last siden på nytt.",
       /** Table and number Interactive items (Story 11.5, FR-80, UX-DR38). «Skriv et helt tall.»
@@ -2861,6 +2863,8 @@ export const nb = {
         errors: {
           /** [ASSUMPTION] the Testfrist passed while the page was open. */
           test_deadline_passed: "Testfristen er passert. Svarene du har lagret, leveres automatisk.",
+          /** [ASSUMPTION] Story 11.12: the timed sitting ended while the review was open. */
+          sitting_ended: "Tiden er ute. Svarene du har lagret, leveres automatisk.",
         } as Readonly<Record<string, string>>,
         /** «Levert to. 18. des. kl. 21:40. Du kan ikke endre svarene.» */
         submitted: (date: string) => `Levert ${date}. Du kan ikke endre svarene.`,
@@ -2872,6 +2876,44 @@ export const nb = {
         yourAnswer: "Ditt svar",
         answerLine: (label: string, value: string) => `${label}: ${value}`,
       },
+      /** One timed sitting (Story 11.12, FR-51, UX-DR65). «Tid igjen 38 min», «5 minutter igjen.
+       * Svarene dine er lagret.» and «Tiden er ute. Testen er levert.» are the epic's draft copy;
+       * the rest is [ASSUMPTION] draft copy for the founder's review. */
+      timed: {
+        /** In the own-work statement, before the button (UX-DR9). */
+        limit: (minutes: number) =>
+          `Testen har en tidsgrense på ${minutes} minutter. Tiden starter når du åpner testen, og den kan ikke stoppes.`,
+        /** Replaces «Du kan lukke testen og fortsette senere …» for a timed sitting. */
+        howItWorks:
+          "Svarene lagres underveis. Lukker du testen, går tiden likevel, og du kan komme tilbake før tiden er ute.",
+        /** Fixed at the top of the open test, in whole minutes. */
+        timeLeft: (minutes: number) => `Tid igjen ${minutes} min`,
+        /** Announced politely once. */
+        fiveMinutes: "5 minutter igjen. Svarene dine er lagret.",
+        /** The sitting ended: before the sweep, and once it has handed the test in. */
+        ended: "Tiden er ute. Testen er levert.",
+      },
+    },
+    /** Story 11.12 (FR-51, UX-DR12, UX-DR49): the Klasseøkt's block «Tidsgrense» for the
+     * Individual test, saved with «Lagre Klasseøkt». [ASSUMPTION] draft copy for the founder's
+     * review. */
+    sitting: {
+      heading: "Tidsgrense på testen",
+      lead: "Studentene kan ta Individuell test over flere kvelder fram til testfristen, eller i én økt med tidsgrense.",
+      /** The Bryter's state words. */
+      on: "Én økt med tidsgrense",
+      off: "Ingen tidsgrense",
+      minutesLabel: "Tidsgrense i minutter",
+      /** The scope, under the field (UX-DR49). */
+      help: "Gjelder alle studentene i Klasseøkten. Tiden starter når studenten åpner testen, og kan ikke stoppes. Studenter med tilrettelegging får mer tid. Testfristen gjelder fortsatt.",
+      /** «Fra 15 til 240 minutter.» */
+      range: (min: number, max: number) => `Fra ${min} til ${max} minutter.`,
+      /** On leaving the field or saving, and the api's `out_of_range`. */
+      error: (min: number, max: number) => `Skriv et helt antall minutter fra ${min} til ${max}.`,
+      /** Read-only (from the Start date, or for an Assistant lecturer). */
+      readOnly: (minutes: number) => `Én økt med tidsgrense: ${minutes} minutter.`,
+      readOnlyOff: "Ingen tidsgrense. Testen er åpen fram til testfristen.",
+      locked: "Låst fra startdatoen.",
     },
     /** Story 11.1 (FR-52, FR-53, UX-DR49): the Klasseøkt's block «Spørsmål og vekter». The title,
      * «Ta ut», «Vekt», the sum line and the quantity warning are the spine's; the rest is

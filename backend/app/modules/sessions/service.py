@@ -188,6 +188,8 @@ from app.modules.sessions.schemas import (
     TableSeatOut,
     TableStatusOut,
     TestGameRefOut,
+    TestSittingIn,
+    TestSittingOut,
     TimeProposalOut,
     WaitingClass,
     WaitingReason,
@@ -841,6 +843,7 @@ async def get_session(user: authz.Principal, session_id: uuid.UUID) -> ClassSess
         number = await repo.number_of(s, session_id, row["class_id"]) if row else 0
         labs = await repo.lab_hours_of(s, [session_id]) if row else []
         switch = await assessment.switch_of(s, session_id) if row else assessment.DEFAULT_SWITCH
+        sitting = await _sitting_minutes(s, session_id) if row else None
     if row is None:
         return None
     found = await _class_for(user, row["class_id"], "class_sessions.read")
@@ -919,6 +922,14 @@ async def get_session(user: authz.Principal, session_id: uuid.UUID) -> ClassSess
         lecturer_test_enabled=lecturer_test_enabled(),
         test_game=test_game,
         ai_assessment=_ai_assessment_out(user, found, row, switch, now),
+        test_sitting=TestSittingOut(
+            minutes=sitting,
+            min_minutes=get_settings().test_sitting_min_minutes,
+            max_minutes=get_settings().test_sitting_max_minutes,
+            can_change=authz.can(user, "class_sessions.manage", found)
+            and not found.archived
+            and not is_locked(row, now=now),
+        ),
     )
 
 
@@ -994,6 +1005,7 @@ async def save_session(
     replay_scenario: str | None = None,
     replay_template: Mapping[str, Any] | None = None,
     ai_assessment: bool | None = None,
+    test_sitting: TestSittingIn | None = None,
 ) -> ClassSessionOut | None:
     """«Lagre Klasseøkt»: saves the Class session as it stands and emits `session:<id>`. LLM
     players on a Class session with no model config take the active default and its budget row
@@ -1017,8 +1029,10 @@ async def save_session(
     `ai_assessment` (Story 12.1), None, keeps the «KI-vurdering» switch; a change is stored
     through `assessment.set_switch` in the same transaction, also after the Start date, and
     raises `AiAssessmentPinned` once the original Test deadline has passed or the switch is
-    pinned. None when the User may not manage the Class (or change the switch); raises
-    `ClassArchived`."""
+    pinned. `test_sitting` (Story 11.12), None, keeps the Individual test's one timed sitting; a
+    changed limit is judged by `_judge_sitting` and stored through the registered `tests` writer
+    in the same transaction, and raises `SessionLocked` once locked. None when the User may not
+    manage the Class (or change the switch); raises `ClassArchived`."""
     async with get_sessionmaker().begin() as s:
         row = await repo.session_row(s, session_id)
     found = (
@@ -1064,6 +1078,9 @@ async def save_session(
         )
         method: AllocationMethod = allocation_method or row["allocation_method"]
         switching = method != row["allocation_method"]
+        stored_sitting = await _sitting_minutes(s, session_id)
+        sitting = stored_sitting if test_sitting is None else test_sitting.minutes
+        timing = sitting != stored_sitting
         try:
             if switching:
                 await _judge_method(s, row, method, locked=locked)
@@ -1084,6 +1101,7 @@ async def save_session(
                         ("obligatory", marked != row["obligatory"]),
                         ("required_share_percent", share != row["required_share_percent"]),
                         ("inactivity_limit_hours", limit != row["inactivity_limit_hours"]),
+                        ("test_sitting", timing),
                     )
                     if differs
                 }
@@ -1097,6 +1115,8 @@ async def save_session(
                 if not _ai_assessment_open(row, switch, now):
                     raise AiAssessmentPinned({"ai_assessment": "pinned"})
             _judge_values(row, share, limit)
+            if timing:
+                _judge_sitting(sitting)
             if game_settings is not None:
                 new_settings = _settings_to_store(row, game_settings, locked=locked)
             # An own template follows changed Game settings even when the scenario is not sent.
@@ -1175,6 +1195,8 @@ async def save_session(
             # Story 11.3: open Individual test attempts keep their stored deadline in step.
             for mover in _test_deadline_movers:
                 await mover(s, session_id, changed["test_deadline"])
+        if timing and _test_sitting:
+            await _test_sitting[0][1](s, session_id, sitting, user.id, now)
         if switching_assessment:
             assert ai_assessment is not None
             # The Class session's row lock, held since the read, keeps `lock_test` out meanwhile.
@@ -1207,6 +1229,7 @@ async def save_session(
         students_told=len(students) if switched_on else 0,
         student_choice_opened=switching,
         ai_assessment=ai_assessment if switching_assessment else None,
+        test_sitting_changed=timing,
     )
     if changed and locked:
         # After the start a moved deadline holds for the whole Class session (FR-18).
@@ -1753,6 +1776,52 @@ def register_test_deadline_mover(mover: TestDeadlineMover) -> None:
     open attempts), for a module `sessions` may not import. The same one again changes nothing."""
     if mover not in _test_deadline_movers:
         _test_deadline_movers.append(mover)
+
+
+async def test_session(
+    s: AsyncSession, class_session_id: uuid.UUID
+) -> IndividualTestSession | None:
+    """The Class session for `tests.end_sitting` (Story 11.12, AD-9), read in `s` and share-locked
+    with its pins, as `individual_test_session_of` holds it for a Student's own commands; None when
+    it is gone. The sweep has only ids."""
+    row = await repo.session_row(s, class_session_id, share=True)
+    if row is None:
+        return None
+    return IndividualTestSession(row=row, pins=await repo.session_pins(s, class_session_id))
+
+
+TestSittingReader = Callable[[AsyncSession, uuid.UUID], Awaitable[int | None]]
+"""`(session, class_session_id)`: the Class session's time limit in whole minutes for one timed
+sitting of the Individual test (Story 11.12), or None when it has none."""
+
+TestSittingWriter = Callable[
+    [AsyncSession, uuid.UUID, int | None, uuid.UUID, datetime], Awaitable[None]
+]
+"""`(session, class_session_id, minutes or None, user_id, now)`: stores the time limit (None
+switches the timed sitting off), in the transaction of «Lagre Klasseøkt» under the row lock."""
+
+_test_sitting: list[tuple[TestSittingReader, TestSittingWriter]] = []
+
+
+def register_test_sitting(read: TestSittingReader, write: TestSittingWriter) -> None:
+    """Register where the Individual test's one timed sitting is kept (Story 11.12: `tests`
+    stores it), for a module `sessions` may not import. One pair; registering again replaces it."""
+    _test_sitting[:] = [(read, write)]
+
+
+async def _sitting_minutes(s: AsyncSession, class_session_id: uuid.UUID) -> int | None:
+    """The Class session's time limit through the registered reader; None without one."""
+    return await _test_sitting[0][0](s, class_session_id) if _test_sitting else None
+
+
+def _judge_sitting(minutes: int | None) -> None:
+    """Raises `InvalidSessionValues` for a time limit outside the configured range (Story 11.12;
+    `test_sitting_minutes` `out_of_range`). None (switched off) is always allowed."""
+    settings = get_settings()
+    if minutes is not None and not (
+        settings.test_sitting_min_minutes <= minutes <= settings.test_sitting_max_minutes
+    ):
+        raise InvalidSessionValues({"test_sitting_minutes": "out_of_range"})
 
 
 async def debrief_session_of(

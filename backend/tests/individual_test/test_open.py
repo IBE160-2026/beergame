@@ -92,6 +92,12 @@ async def test_the_test_opens_after_the_replay_with_the_statement_first_and_once
         "opened_at": None,
         "submitted_at": None,
         "items": [],
+        # Story 11.12: no time limit on this Class session.
+        "time_limit_minutes": None,
+        "sitting_ends_at": None,
+        "answering_ends_at": None,
+        "server_now": NOW.isoformat().replace("+00:00", "Z"),
+        "sitting_ended": False,
     }
     assert not await follow_up.closed(seated[0], uuid.UUID(session_id))
 

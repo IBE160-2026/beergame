@@ -10,6 +10,7 @@ import { ApiRequestError } from "@/lib/api/client";
 import { errorCode, useAction } from "@/lib/api/mutation";
 import { clearDrafts } from "@/lib/drafts";
 import { usePageState } from "@/lib/page-state";
+import { useServerNow } from "@/modules/games/seat-status";
 import type { SessionUser } from "@/modules/identity/api";
 import { AccessDenied, GuardedPage } from "@/modules/identity/home-page";
 import { HOME_LINK, HOME_PATH } from "@/modules/identity/homes";
@@ -30,6 +31,7 @@ import {
 import { isInteractive } from "./interactive";
 import { NumberItem, TableItem } from "./interactive-item";
 import { LongItem } from "./long-item";
+import { minutesLeft, sittingEnd } from "./sitting";
 import { SubmittedItems } from "./submitted-items";
 import { UnsentContext } from "./use-autosave";
 
@@ -39,6 +41,10 @@ const STATEMENT_HEADING_ID = "test-statement";
 const ITEMS_HEADING_ID = "test-items";
 const REVIEW_HEADING_ID = "test-review";
 const ANSWERS_HEADING_ID = "test-answers";
+/** The minutes left at which the page says once, politely, that time is short (Story 11.12). */
+const WARN_AT_MINUTES = 5;
+/** How often a sitting that has ended is read again until the sweep has handed it in. */
+const ENDED_REREAD_MS = 20_000;
 
 /**
  * The Individual test (Story 11.3, FR-51, UX-DR65, EXPERIENCE.md → Individuell test), reached from
@@ -50,7 +56,10 @@ const ANSWERS_HEADING_ID = "test-answers";
  * permission-denied page. Every state comes from the api (AD-10). Multiple-choice items are
  * answered with autosave (Story 11.4), table and number items too (Story 11.5), and long answers,
  * saved when typing pauses (Story 11.6). «Lever testen» opens a review on the page, then hands the
- * test in once; the handed-in test shows when, with every answer read-only (Story 11.10).
+ * test in once; the handed-in test shows when, with every answer read-only (Story 11.10). In one
+ * timed sitting (Story 11.12) the statement names the limit, the open test keeps «Tid igjen 38 min»
+ * at the top, and when the time is up the answers stand read-only under «Tiden er ute. Testen er
+ * levert.».
  */
 export function IndividualTestPage({ classSessionId }: { classSessionId: string }) {
   return (
@@ -84,7 +93,9 @@ function TestPage({ classSessionId, user, updatedAt }: { classSessionId: string;
       {test?.state === "statement" ? (
         <Statement test={test} classSessionId={classSessionId} onAccepted={() => setAccepted(true)} />
       ) : null}
-      {test?.state === "open" ? (
+      {test?.state === "open" && test.sitting_ends_at ? (
+        <TimedItems test={test} focus={accepted} classSessionId={classSessionId} userId={user.id} onSubmitted={() => setSubmitted(true)} />
+      ) : test?.state === "open" ? (
         <Items test={test} focus={accepted} classSessionId={classSessionId} userId={user.id} onSubmitted={() => setSubmitted(true)} />
       ) : null}
       {test?.state === "submitted" || test?.state === "auto_submitted" ? (
@@ -129,7 +140,15 @@ function Statement({ test, classSessionId, onAccepted }: { test: MyTest; classSe
         {copy.statementHeading}
       </h2>
       <p className={`${LINE} mt-3 text-ink`}>{copy.statement}</p>
-      <p className={`${LINE} mt-3 text-ink-secondary`}>{copy.howItWorks}</p>
+      {/* Story 11.12: the limit, and that the time cannot be paused, before the button. */}
+      {test.time_limit_minutes != null ? (
+        <p data-time-limit className={`${LINE} mt-3 font-semibold text-ink`}>
+          {copy.timed.limit(test.time_limit_minutes)}
+        </p>
+      ) : null}
+      <p className={`${LINE} mt-3 text-ink-secondary`}>
+        {test.time_limit_minutes != null ? copy.timed.howItWorks : copy.howItWorks}
+      </p>
       {deadline ? <p className={`${LINE} mt-3 text-ink-secondary`}>{deadline}</p> : null}
       <div className="mt-5 flex flex-col items-start gap-3">
         <Button variant="primary" unavailable={opening.isPending || opening.isSuccess} onClick={press}>
@@ -137,6 +156,73 @@ function Statement({ test, classSessionId, onAccepted }: { test: MyTest; classSe
         </Button>
         <ActionError message={opening.errorMessage} />
       </div>
+    </section>
+  );
+}
+
+/**
+ * A timed sitting (Story 11.12, FR-51, UX-DR65): «Tid igjen 38 min» fixed at the top while the
+ * Student scrolls, in whole minutes counted from the api's `server_now` to `answering_ends_at`
+ * (their time factor is in it). The line changes without moving focus and is no live region; one
+ * polite line says «5 minutter igjen. Svarene dine er lagret.» once. Closing the page does not stop
+ * the clock: the end is the api's. At 0 the answers stand read-only, handed in by the sweep within
+ * the minute.
+ */
+function TimedItems(props: { test: MyTest; focus: boolean; classSessionId: string; userId: string; onSubmitted: () => void }) {
+  const { test } = props;
+  const now = useServerNow(test.server_now);
+  const ends = test.answering_ends_at ?? test.sitting_ends_at;
+  const left = ends ? minutesLeft(ends, now) : 0;
+  // Set after the page is shown, so the status line changes and is announced also when the test
+  // is opened with less than five minutes left.
+  const [warned, setWarned] = useState(false);
+  const short = left > 0 && left <= WARN_AT_MINUTES;
+  useEffect(() => {
+    if (short) setWarned(true);
+  }, [short]);
+  if (left === 0) {
+    return <TimeUp test={test} classSessionId={props.classSessionId} userId={props.userId} />;
+  }
+  return (
+    <>
+      <div data-time-left className="sticky top-0 z-10 -mx-4 mt-4 border-b border-axis bg-paper px-4 py-2 lg:mx-0 lg:px-0">
+        <p className="text-body-phone font-semibold text-ink tabular-nums lg:text-body">{copy.timed.timeLeft(left)}</p>
+      </div>
+      {/* Always there, so the one line is announced when it appears. */}
+      <p role="status" data-time-warning className="sr-only">
+        {warned ? copy.timed.fiveMinutes : ""}
+      </p>
+      <Items {...props} />
+    </>
+  );
+}
+
+/**
+ * The time is up (Story 11.12): «Tiden er ute. Testen er levert.», which takes focus, then every
+ * answer read-only. Nothing more can be saved (the api answers `sitting_ended`), so the drafts of
+ * this test are dropped; the test is read again until the sweep has handed it in. A timed sitting
+ * that would have ended after the Testfrist ends with it and says so.
+ */
+function TimeUp({ test, classSessionId, userId }: { test: MyTest; classSessionId: string; userId: string }) {
+  const queryClient = useQueryClient();
+  const line = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    line.current?.focus();
+    clearDrafts(userId, draftPrefix(classSessionId));
+    const reread = () => void queryClient.invalidateQueries({ queryKey: myTestKey(classSessionId) });
+    reread();
+    const timer = window.setInterval(reread, ENDED_REREAD_MS);
+    return () => window.clearInterval(timer);
+  }, [classSessionId, queryClient, userId]);
+  return (
+    <section aria-labelledby={ANSWERS_HEADING_ID} data-test-state="time-up" className="mt-6 max-w-2xl">
+      <p ref={line} tabIndex={-1} data-submitted-line className={`${LINE} max-w-md font-semibold text-ink focus:outline-none`}>
+        {sittingEnd(test) ? copy.timed.ended : copy.submit.autoSubmitted}
+      </p>
+      <h2 id={ANSWERS_HEADING_ID} className="mt-6 text-headline text-ink">
+        {copy.submit.answersHeading}
+      </h2>
+      <SubmittedItems items={test.items} />
     </section>
   );
 }
@@ -252,7 +338,7 @@ function Submit({ test, classSessionId, waiting, onSubmitted }: { test: MyTest; 
         const code = errorCode(error);
         // The handed-in view that replaces the review takes focus, as after a hand-in here.
         if (code === "attempt_submitted") onSubmitted();
-        if (code === "attempt_submitted" || code === "test_deadline_passed") {
+        if (code === "attempt_submitted" || code === "test_deadline_passed" || code === "sitting_ended") {
           void queryClient.invalidateQueries({ queryKey: myTestKey(classSessionId) });
         }
       },

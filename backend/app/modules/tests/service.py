@@ -9,7 +9,11 @@ finished game with no Orders still offers the task.
 
 `parts_with_content` (Story 11.11, FR-17, AD-16) tells Completion (Epic 13) which parts of a
 Student's Individual test attempt hold content, so the minimum for an auto-submitted test is
-applied without another module reading the answers."""
+applied without another module reading the answers.
+
+The Individual test's one timed sitting (Story 11.12, FR-51) is stored with the Class session
+through this module: `tests.sitting` keeps it, registered here with `sessions` for «Lagre
+Klasseøkt» and «Lag kopi» (FR-66)."""
 
 import uuid
 from collections.abc import Mapping
@@ -25,6 +29,7 @@ from app.modules.content import service as content
 from app.modules.content.schemas import StartingTask, StartingTaskItem
 from app.modules.progress import service as progress
 from app.modules.sessions import service as sessions
+from app.modules.tests import sitting
 from app.modules.tests.adapted import ADAPTED
 from app.modules.tests.models import (
     PLAYED_BEFORE,
@@ -250,3 +255,8 @@ async def parts_with_content(
         if part is not None:
             parts[part] = parts.get(part, False) or item["id"] in answered
     return parts
+
+
+# «Lagre Klasseøkt» stores the timed sitting here (Story 11.12), and «Lag kopi» copies it (FR-66).
+sessions.register_test_sitting(sitting.minutes_of, sitting.write)
+sessions.register_copier(sitting.copy_sitting)

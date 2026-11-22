@@ -1828,6 +1828,9 @@
                 "type": "null"
               }
             ]
+          },
+          "test_sitting": {
+            "$ref": "#/components/schemas/TestSittingOut"
           }
         },
         "required": [
@@ -1868,7 +1871,8 @@
           "lab_hours",
           "capacity_enabled",
           "info_visibility_enabled",
-          "ai_assessment"
+          "ai_assessment",
+          "test_sitting"
         ],
         "title": "ClassSessionOut",
         "type": "object"
@@ -2035,6 +2039,16 @@
               }
             ],
             "title": "Required Share Percent"
+          },
+          "test_sitting": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TestSittingIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -5073,8 +5087,20 @@
         "type": "object"
       },
       "MyTestOut": {
-        "description": "The Student's Individual test (Story 11.3, FR-51): `statement` until they accept the\nown-work statement (no item is served), `open` once they have (the items of their attempt in\norder; the statement is not asked again), `closed` when their Test deadline passed with no\nattempt. `test_deadline` is the Student's effective Test deadline (none set: null);\n`opened_at` when they accepted the statement. Once handed in (Story 11.10), `submitted` by\nthe Student or `auto_submitted` at the deadline (Story 11.11), with `submitted_at`: the items\nand saved answers stay readable, never with a score (FR-54).",
+        "description": "The Student's Individual test (Story 11.3, FR-51): `statement` until they accept the\nown-work statement (no item is served), `open` once they have (the items of their attempt in\norder; the statement is not asked again), `closed` when their Test deadline passed with no\nattempt. `test_deadline` is the Student's effective Test deadline (none set: null);\n`opened_at` when they accepted the statement. Once handed in (Story 11.10), `submitted` by\nthe Student or `auto_submitted` at the deadline (Story 11.11), with `submitted_at`: the items\nand saved answers stay readable, never with a score (FR-54).\n\nIn one timed sitting (Story 11.12): `time_limit_minutes` is the Student's own limit (their\ntime factor applied, whole minutes rounded up; null when the test is not timed),\n`sitting_ends_at` when their sitting ends once opened, `answering_ends_at` the earlier of that\nand the Test deadline, `server_now` the API's clock for the time left, and `sitting_ended`\nwhether the sweep handed the attempt in at the sitting's end.",
         "properties": {
+          "answering_ends_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answering Ends At"
+          },
           "items": {
             "items": {
               "$ref": "#/components/schemas/IndividualItemOut"
@@ -5093,6 +5119,28 @@
               }
             ],
             "title": "Opened At"
+          },
+          "server_now": {
+            "format": "date-time",
+            "title": "Server Now",
+            "type": "string"
+          },
+          "sitting_ended": {
+            "default": false,
+            "title": "Sitting Ended",
+            "type": "boolean"
+          },
+          "sitting_ends_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sitting Ends At"
           },
           "state": {
             "enum": [
@@ -5128,6 +5176,17 @@
               }
             ],
             "title": "Test Deadline"
+          },
+          "time_limit_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Limit Minutes"
           }
         },
         "required": [
@@ -5135,7 +5194,8 @@
           "test_deadline",
           "opened_at",
           "submitted_at",
-          "items"
+          "items",
+          "server_now"
         ],
         "title": "MyTestOut",
         "type": "object"
@@ -9810,6 +9870,66 @@
         "title": "TestGameRefOut",
         "type": "object"
       },
+      "TestSittingIn": {
+        "additionalProperties": false,
+        "description": "The one timed sitting as «Lagre Klasseøkt» sends it (Story 11.12): `minutes` the time limit\nin whole minutes, or null to switch it off.",
+        "properties": {
+          "minutes": {
+            "anyOf": [
+              {
+                "maximum": 100000.0,
+                "minimum": -100000.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minutes"
+          }
+        },
+        "required": [
+          "minutes"
+        ],
+        "title": "TestSittingIn",
+        "type": "object"
+      },
+      "TestSittingOut": {
+        "description": "The Individual test's one timed sitting of a Class session (Story 11.12, FR-51), stored by\n`modules/tests`.",
+        "properties": {
+          "can_change": {
+            "title": "Can Change",
+            "type": "boolean"
+          },
+          "max_minutes": {
+            "title": "Max Minutes",
+            "type": "integer"
+          },
+          "min_minutes": {
+            "title": "Min Minutes",
+            "type": "integer"
+          },
+          "minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minutes"
+          }
+        },
+        "required": [
+          "minutes",
+          "min_minutes",
+          "max_minutes",
+          "can_change"
+        ],
+        "title": "TestSittingOut",
+        "type": "object"
+      },
       "TimeProposalIn": {
         "additionalProperties": false,
         "description": "«Send forslaget til gruppen» (Story 6.19): a date and a time as one instant, nothing else.",
@@ -12410,7 +12530,7 @@
         ]
       },
       "put": {
-        "description": "«Lagre Klasseøkt»: saves the Class session as it stands. LLM players while no model config\nis pinned as the default answer 409 `llm_unavailable`, and nothing changes.\n\nWith `dates` the four dates are replaced (FR-18). `fields` names each date in question:\n422 `invalid_dates` (`past`, `order` for the later date of a pair out of order, `before` for\nthe earlier one when only it changed, `required` once locked), 409 `deadline_passed`\n(`passed`). Dates count to the whole minute.\n\n`effort_level`, `debrief_mode`, `debrief_release` and `debrief_ai_text` (FR-15, FR-16, FR-42,\nFR-78), left out, keep their values; a changed `debrief_release` or `debrief_ai_text` once\nlocked answers 409 `session_locked` too. With LLM\nplayers a changed Effort level the model config does not offer answers 422\n`invalid_effort_level` (`{\"effort_level\": \"not_offered\"}`); with Rule-based players no level\nis in force and a sent one is ignored. Once the Start date has passed, a changed AI mode,\nEffort level or Debrief mode answers 409 `session_locked`, `fields` naming each.\n\nWith `game_settings` (the editable settings, laid over the stored ones; `demand` and\n`demand_seed` too) the engine judges the settings (FR-12, FR-13): 422 `invalid_settings` with\n`fields` mapping each setting (`demand.<field>` inside the Demand pattern) to\n`{code, minimum, maximum, decimal_places}`. Once locked, changed settings answer 409\n`session_locked` (`{\"game_settings\": \"locked\"}`).\n\n`game_settings.capacity` (Story 5.15) is `{role: units}` or null: one Role or every Role\ncapped per Week, `capacity.<role>` from 1 to 100. While `FEATURE_CAPACITY` is off a\nnon-empty capacity answers 422 `feature_disabled` (`{\"capacity\": \"feature_disabled\"}`).\n\n`game_settings.info_visibility` (Story 5.16) is `{upstream, downstream}`, two booleans that\nlet each Seat see its neighbour's inventory and backlog; anything else is `info_visibility`\n`invalid`. While `FEATURE_INFO_VISIBILITY` is off a view switched on answers 422\n`feature_disabled` (`{\"info_visibility\": \"feature_disabled\"}`).\n\n`obligatory`, `required_share_percent` and `inactivity_limit_hours` (Story 5.7, FR-17,\nFR-36), left out, keep their values. A changed share outside 1 to 100 or Inactivity limit\nunder 20 hours answers 422 `invalid_session_values` (`out_of_range`, `below_minimum`); once\nlocked a changed one answers 409 `session_locked`. Switching the mark on tells each\nregistered Student through the day's digest mail.\n\n`allocation_method` (Story 5.17, FR-21), left out, keeps the method. `student_choice` creates\nempty Class games for the registered Students and tells each of them through the day's digest\nmail that they may choose a Class game and a Seat. A changed method answers 422\n`feature_disabled` (`{\"allocation_method\": \"feature_disabled\"}`) for Student choice while\n`FEATURE_STUDENT_CHOICE` is off, 409 `session_locked` once locked and 409\n`allocation_confirmed` (`{\"allocation_method\": \"confirmed\"}`) once an allocation is confirmed:\nStudent choice is final once saved.\n\n`replay_scenario` (Story 10.2, FR-49), left out, keeps the Replay scenario: `default`, or\n`own` with `replay_template`, the own scenario's editable fields (`starting_inventory`,\n`starting_backlog`, `supply_line`, the three delays, `weeks`, `guided_weeks`, `max_order` as\nwhole numbers or `{minimum, maximum}`; `holding_cost`, `backorder_cost`; `demand` as `step`\nwith a ranged `change_week`, `random` or `fixed`, each with a `spread`; `info_visibility`\nas in the Game settings, the Replay's own, Story 10.9), laid over the Class game's exact\nsettings (Information visibility: over a stored own template's). A template the engine\nrefuses answers 422 `invalid_replay_scenario` with `fields` as `invalid_settings`; while\n`FEATURE_INFO_VISIBILITY` is off a view switched on there names `info_visibility`\n`feature_disabled`; `own` with no template sent or stored names\n`replay_template` `required`. Once locked, a changed scenario answers 409 `session_locked`\n(`{\"replay_scenario\": \"locked\"}`).\n\n`ai_assessment` (Story 12.1, FR-61), left out, keeps the «KI-vurdering» switch. It can change\nafter the Start date too; once the original Test deadline has passed (and the Test-deadline\nlock has pinned it) a changed value answers 409 `ai_assessment_pinned`\n(`{\"ai_assessment\": \"pinned\"}`). Only the Class's owners change it (`ai_assessment.change`).",
+        "description": "«Lagre Klasseøkt»: saves the Class session as it stands. LLM players while no model config\nis pinned as the default answer 409 `llm_unavailable`, and nothing changes.\n\nWith `dates` the four dates are replaced (FR-18). `fields` names each date in question:\n422 `invalid_dates` (`past`, `order` for the later date of a pair out of order, `before` for\nthe earlier one when only it changed, `required` once locked), 409 `deadline_passed`\n(`passed`). Dates count to the whole minute.\n\n`effort_level`, `debrief_mode`, `debrief_release` and `debrief_ai_text` (FR-15, FR-16, FR-42,\nFR-78), left out, keep their values; a changed `debrief_release` or `debrief_ai_text` once\nlocked answers 409 `session_locked` too. With LLM\nplayers a changed Effort level the model config does not offer answers 422\n`invalid_effort_level` (`{\"effort_level\": \"not_offered\"}`); with Rule-based players no level\nis in force and a sent one is ignored. Once the Start date has passed, a changed AI mode,\nEffort level or Debrief mode answers 409 `session_locked`, `fields` naming each.\n\nWith `game_settings` (the editable settings, laid over the stored ones; `demand` and\n`demand_seed` too) the engine judges the settings (FR-12, FR-13): 422 `invalid_settings` with\n`fields` mapping each setting (`demand.<field>` inside the Demand pattern) to\n`{code, minimum, maximum, decimal_places}`. Once locked, changed settings answer 409\n`session_locked` (`{\"game_settings\": \"locked\"}`).\n\n`game_settings.capacity` (Story 5.15) is `{role: units}` or null: one Role or every Role\ncapped per Week, `capacity.<role>` from 1 to 100. While `FEATURE_CAPACITY` is off a\nnon-empty capacity answers 422 `feature_disabled` (`{\"capacity\": \"feature_disabled\"}`).\n\n`game_settings.info_visibility` (Story 5.16) is `{upstream, downstream}`, two booleans that\nlet each Seat see its neighbour's inventory and backlog; anything else is `info_visibility`\n`invalid`. While `FEATURE_INFO_VISIBILITY` is off a view switched on answers 422\n`feature_disabled` (`{\"info_visibility\": \"feature_disabled\"}`).\n\n`obligatory`, `required_share_percent` and `inactivity_limit_hours` (Story 5.7, FR-17,\nFR-36), left out, keep their values. A changed share outside 1 to 100 or Inactivity limit\nunder 20 hours answers 422 `invalid_session_values` (`out_of_range`, `below_minimum`); once\nlocked a changed one answers 409 `session_locked`. Switching the mark on tells each\nregistered Student through the day's digest mail.\n\n`allocation_method` (Story 5.17, FR-21), left out, keeps the method. `student_choice` creates\nempty Class games for the registered Students and tells each of them through the day's digest\nmail that they may choose a Class game and a Seat. A changed method answers 422\n`feature_disabled` (`{\"allocation_method\": \"feature_disabled\"}`) for Student choice while\n`FEATURE_STUDENT_CHOICE` is off, 409 `session_locked` once locked and 409\n`allocation_confirmed` (`{\"allocation_method\": \"confirmed\"}`) once an allocation is confirmed:\nStudent choice is final once saved.\n\n`replay_scenario` (Story 10.2, FR-49), left out, keeps the Replay scenario: `default`, or\n`own` with `replay_template`, the own scenario's editable fields (`starting_inventory`,\n`starting_backlog`, `supply_line`, the three delays, `weeks`, `guided_weeks`, `max_order` as\nwhole numbers or `{minimum, maximum}`; `holding_cost`, `backorder_cost`; `demand` as `step`\nwith a ranged `change_week`, `random` or `fixed`, each with a `spread`; `info_visibility`\nas in the Game settings, the Replay's own, Story 10.9), laid over the Class game's exact\nsettings (Information visibility: over a stored own template's). A template the engine\nrefuses answers 422 `invalid_replay_scenario` with `fields` as `invalid_settings`; while\n`FEATURE_INFO_VISIBILITY` is off a view switched on there names `info_visibility`\n`feature_disabled`; `own` with no template sent or stored names\n`replay_template` `required`. Once locked, a changed scenario answers 409 `session_locked`\n(`{\"replay_scenario\": \"locked\"}`).\n\n`ai_assessment` (Story 12.1, FR-61), left out, keeps the «KI-vurdering» switch. It can change\nafter the Start date too; once the original Test deadline has passed (and the Test-deadline\nlock has pinned it) a changed value answers 409 `ai_assessment_pinned`\n(`{\"ai_assessment\": \"pinned\"}`). Only the Class's owners change it (`ai_assessment.change`).\n\n`test_sitting` (Story 11.12, FR-51), left out, keeps the Individual test's one timed sitting:\n`{\"minutes\": n}` sets the time limit in whole minutes, `{\"minutes\": null}` switches it off. A\nlimit outside the configured range answers 422 `invalid_session_values`\n(`{\"test_sitting_minutes\": \"out_of_range\"}`); once locked a change answers 409\n`session_locked` (`{\"test_sitting\": \"locked\"}`).",
         "operationId": "saveClassSession",
         "parameters": [
           {
@@ -18367,7 +18487,7 @@
     },
     "/api/me/class-sessions/{session_id}/test/answers/{item_id}": {
       "put": {
-        "description": "Autosave the Student's answer to one item (Story 11.4, FR-51, AD-10): the answer stored\nafter the save. It is replaced only when `revision` is above the stored one; otherwise the\nstored answer comes back unchanged, without an error. 409 `attempt_submitted` once the test is\nhanded in, 409 `test_deadline_passed` after the Student's Test deadline, 422 `unknown_item`\nfor an item the attempt does not have, 422 `invalid_answer` for a value that does not answer\nthe item, 403 `forbidden` for any session that is not theirs or a test not yet opened.",
+        "description": "Autosave the Student's answer to one item (Story 11.4, FR-51, AD-10): the answer stored\nafter the save. It is replaced only when `revision` is above the stored one; otherwise the\nstored answer comes back unchanged, without an error. 409 `attempt_submitted` once the test is\nhanded in, 409 `test_deadline_passed` after the Student's Test deadline, 409 `sitting_ended`\nonce their timed sitting has ended (Story 11.12), 422 `unknown_item`\nfor an item the attempt does not have, 422 `invalid_answer` for a value that does not answer\nthe item, 403 `forbidden` for any session that is not theirs or a test not yet opened.",
         "operationId": "saveMyTestAnswer",
         "parameters": [
           {
@@ -18459,7 +18579,7 @@
     },
     "/api/me/class-sessions/{session_id}/test/submit": {
       "post": {
-        "description": "«Lever testen» (Story 11.10, FR-51, AD-9, AD-16): the Student hands in their Individual\ntest once; their saved answers are scored and stored and `test_submitted` is recorded. 200\nwith the test as handed in (state `submitted`). 409 `attempt_submitted` when it was handed in\nalready (nothing changes), 409 `test_deadline_passed` after the Student's Test deadline, 403\n`forbidden` for any session that is not theirs or a test not yet opened.",
+        "description": "«Lever testen» (Story 11.10, FR-51, AD-9, AD-16): the Student hands in their Individual\ntest once; their saved answers are scored and stored and `test_submitted` is recorded. 200\nwith the test as handed in (state `submitted`). 409 `attempt_submitted` when it was handed in\nalready (nothing changes), 409 `test_deadline_passed` after the Student's Test deadline, 409\n`sitting_ended` once their timed sitting has ended (Story 11.12), 403\n`forbidden` for any session that is not theirs or a test not yet opened.",
         "operationId": "submitMyTest",
         "parameters": [
           {

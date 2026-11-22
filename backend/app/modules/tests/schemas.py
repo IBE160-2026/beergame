@@ -333,10 +333,21 @@ class MyTestOut(BaseModel):
     attempt. `test_deadline` is the Student's effective Test deadline (none set: null);
     `opened_at` when they accepted the statement. Once handed in (Story 11.10), `submitted` by
     the Student or `auto_submitted` at the deadline (Story 11.11), with `submitted_at`: the items
-    and saved answers stay readable, never with a score (FR-54)."""
+    and saved answers stay readable, never with a score (FR-54).
+
+    In one timed sitting (Story 11.12): `time_limit_minutes` is the Student's own limit (their
+    time factor applied, whole minutes rounded up; null when the test is not timed),
+    `sitting_ends_at` when their sitting ends once opened, `answering_ends_at` the earlier of that
+    and the Test deadline, `server_now` the API's clock for the time left, and `sitting_ended`
+    whether the sweep handed the attempt in at the sitting's end."""
 
     state: Literal["statement", "open", "closed", "submitted", "auto_submitted"]
     test_deadline: datetime | None
     opened_at: datetime | None
     submitted_at: datetime | None
     items: list[IndividualItemOut]
+    time_limit_minutes: int | None = None
+    sitting_ends_at: datetime | None = None
+    answering_ends_at: datetime | None = None
+    server_now: datetime
+    sitting_ended: bool = False

@@ -430,7 +430,13 @@ async def save_class_session(
     `ai_assessment` (Story 12.1, FR-61), left out, keeps the «KI-vurdering» switch. It can change
     after the Start date too; once the original Test deadline has passed (and the Test-deadline
     lock has pinned it) a changed value answers 409 `ai_assessment_pinned`
-    (`{"ai_assessment": "pinned"}`). Only the Class's owners change it (`ai_assessment.change`)."""
+    (`{"ai_assessment": "pinned"}`). Only the Class's owners change it (`ai_assessment.change`).
+
+    `test_sitting` (Story 11.12, FR-51), left out, keeps the Individual test's one timed sitting:
+    `{"minutes": n}` sets the time limit in whole minutes, `{"minutes": null}` switches it off. A
+    limit outside the configured range answers 422 `invalid_session_values`
+    (`{"test_sitting_minutes": "out_of_range"}`); once locked a change answers 409
+    `session_locked` (`{"test_sitting": "locked"}`)."""
     try:
         saved = await service.save_session(
             user,
@@ -450,6 +456,7 @@ async def save_class_session(
             replay_scenario=body.replay_scenario,
             replay_template=body.replay_template,
             ai_assessment=body.ai_assessment,
+            test_sitting=body.test_sitting,
         )
     except service.InvalidSettings as refused:
         return error_response(
@@ -473,7 +480,10 @@ async def save_class_session(
         return error_response(422, refused.code, "The dates break a rule.", refused.fields)
     except service.InvalidSessionValues as refused:
         return error_response(
-            422, refused.code, "The share or the Inactivity limit breaks a rule.", refused.fields
+            422,
+            refused.code,
+            "The share, the Inactivity limit or the time limit breaks a rule.",
+            refused.fields,
         )
     except service.InvalidEffortLevel as refused:
         return error_response(
