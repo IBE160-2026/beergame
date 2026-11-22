@@ -36,9 +36,14 @@ PLACE_LLM_ORDER = "players.place_llm_order"
 """The `ai-orders` task that places an LLM player's Order (`players.jobs`)."""
 
 
-def llm_order_key(game_id: str, week: int, seat_id: str) -> str:
-    """The natural key of one LLM Order's job: `(game, week, seat)` (AD-5)."""
-    return f"{jobs.AI_ORDERS}:{game_id}:{week}:{seat_id}"
+def llm_order_key(game_id: str, week: int, seat_id: str, *, playout: bool = False) -> str:
+    """The natural key of one LLM Order's job: `(game, week, seat)` (AD-5), on its queue:
+    `llm-batch` for a Game playing out at the Play deadline (Story 8.14), else `ai-orders`."""
+    return f"{_queue(playout)}:{game_id}:{week}:{seat_id}"
+
+
+def _queue(playout: bool) -> str:
+    return jobs.LLM_BATCH if playout else jobs.AI_ORDERS
 
 
 log = structlog.get_logger(__name__)
@@ -72,9 +77,10 @@ async def ensure_order(game: games_service.OpenGame, seat: str) -> None:
     a `rule_based` occupant orders the reference Order stored on its turn (never recomputed), a
     `scripted` occupant the Order of the policy on its occupancy row, and an `llm` occupant gets
     one `ai-orders` job keyed `(game, week, seat)`, deferred on the command's connection so it
-    commits with the Week or not at all (AD-5, AD-9). Does nothing for a Student outside a
-    Guided Week, when the Game is not running, or when the Seat has already ordered, so it is
-    safe to call again."""
+    commits with the Week or not at all (AD-5, AD-9); in a Game playing out at the Play deadline
+    the job goes to `llm-batch` instead, and its turn has no deadline (Story 8.14). Does nothing
+    for a Student outside a Guided Week, when the Game is not running, or when the Seat has
+    already ordered, so it is safe to call again."""
     turn = await games_service.pending_turn(game, seat)
     if turn is None or turn.ordered:
         return
@@ -84,8 +90,10 @@ async def ensure_order(game: games_service.OpenGame, seat: str) -> None:
             deferred = await jobs.defer(
                 game.session,
                 PLACE_LLM_ORDER,
-                queue=jobs.AI_ORDERS,
-                queueing_lock=llm_order_key(turn.game_id, turn.week, turn.seat_id),
+                queue=_queue(turn.playout),
+                queueing_lock=llm_order_key(
+                    turn.game_id, turn.week, turn.seat_id, playout=turn.playout
+                ),
                 game_id=turn.game_id,
                 seat_id=turn.seat_id,
                 week=turn.week,

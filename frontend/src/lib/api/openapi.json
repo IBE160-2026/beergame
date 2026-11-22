@@ -6670,6 +6670,11 @@
               }
             ]
           },
+          "played_out": {
+            "default": false,
+            "title": "Played Out",
+            "type": "boolean"
+          },
           "role": {
             "$ref": "#/components/schemas/Role"
           },

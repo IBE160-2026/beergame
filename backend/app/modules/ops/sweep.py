@@ -125,6 +125,8 @@ TAKEOVER_RACES = frozenset(
         "takeover_exists",
         # A Student paused the game after the finder's read (Story 8.6).
         "game_paused",
+        # The Play deadline playout took the Game over after the finder's read (Story 8.14).
+        "play_deadline_passed",
     }
 )
 """`rules.can_take_over`'s refusals: what changed between the finder's read and the lock."""
@@ -202,6 +204,36 @@ async def _queue_turn_reminder(item: object, now: datetime) -> bool:
     return await games_commands.queue_turn_reminder(game_id, seat_id, now=now)
 
 
+async def _stalled_playout_turns(now: object) -> Sequence[tuple[str, str]]:
+    return await games.stalled_playout_turns()
+
+
+async def _ensure_playout_order(item: object, now: datetime) -> bool:
+    """Story 8.14 (AD-5, AD-9): a turn of a Game playing out has no Order and no live job: its
+    LLM job was lost, so the Seat gets its Order again on `llm-batch`."""
+    assert isinstance(item, tuple)
+    game_id, seat_id = item
+    return await games_commands.ensure_playout_order(game_id, seat_id)
+
+
+_overdue_logged: set[str] = set()
+"""Games logged as playing out past the allowed time in this process: each is logged once."""
+
+
+async def _overdue_playouts(now: datetime) -> Sequence[str]:
+    allowed = timedelta(minutes=get_settings().playout_allowed_minutes)
+    return [g for g in await games.overdue_playouts(now - allowed) if g not in _overdue_logged]
+
+
+async def _log_overdue_playout(item: object, now: datetime) -> bool:
+    """Story 8.14 (FR-38, NFR-3): a Game still playing out after `playout_allowed_minutes` (a
+    placeholder, set after the prototype) is logged as an error with its id, once."""
+    assert isinstance(item, str)
+    _overdue_logged.add(item)
+    log.error("playout_overdue", game_id=item)
+    return True
+
+
 DUE_ACTIONS: tuple[DueAction, ...] = (
     # The first due action (Story 3.5): claim due notices into mails and defer their `mail` jobs.
     DueAction("messaging.mail", messaging.due_items, messaging.claim),  # type: ignore[arg-type]
@@ -249,6 +281,14 @@ DUE_ACTIONS: tuple[DueAction, ...] = (
     # Story 8.13: queue a turn reminder for each Seat the game has waited for since its reminder
     # time (FR-27); after the Takeover, so a Seat taken over this minute is not reminded.
     DueAction("games.queue_turn_reminder", _due_turn_reminders, _queue_turn_reminder),
+    # Story 8.14: at the Play deadline every unfinished Class game (never started and paused ones
+    # too) is played out by AI players, one Game per transaction (FR-38). After the Takeover and
+    # the reminders, which then find nothing more in it, and before the finished-game checks, so a
+    # Game played out by Rule-based players is checked in the same minute. A lost LLM job of a
+    # Game playing out is deferred again, and one playing out too long is logged.
+    DueAction("sessions.playout", sessions.due_playouts, sessions.playout_due),
+    DueAction("games.playout_orders", _stalled_playout_turns, _ensure_playout_order),
+    DueAction("games.playout_overdue", _overdue_playouts, _log_overdue_playout),
     DueAction("games.verify_finished", _unchecked_finished_games, _verify_finished),
     # Story 5.14: remind every Student of a Play, Debrief or Test deadline 24 hours ahead, once
     # per deadline time (FR-18). The reminders join the next minute's digest claim.

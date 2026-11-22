@@ -2,6 +2,7 @@
 read or manage the Class the rows belong to (AD-12)."""
 
 import uuid
+from collections.abc import Collection
 from datetime import datetime
 from typing import Any
 
@@ -282,6 +283,21 @@ async def due_locks(session: AsyncSession, now: datetime) -> list[RowMapping]:
         .order_by(class_sessions.c.id)
     )
     return list(result.mappings())
+
+
+async def passed_play_deadlines(
+    session: AsyncSession, now: datetime, among: Collection[uuid.UUID]
+) -> list[uuid.UUID]:
+    """Of the Class sessions `among`, those whose Play deadline lies at or before `now` (Story
+    8.14), by id."""
+    if not among:
+        return []
+    result = await session.execute(
+        select(class_sessions.c.id)
+        .where(class_sessions.c.id.in_(list(among)), class_sessions.c.play_deadline <= now)
+        .order_by(class_sessions.c.id)
+    )
+    return list(result.scalars())
 
 
 async def set_lock_refused(session: AsyncSession, session_id: uuid.UUID, at: datetime) -> bool:

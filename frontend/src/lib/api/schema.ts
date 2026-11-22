@@ -5146,6 +5146,11 @@ export interface components {
              */
             obligatory: boolean;
             pause?: components["schemas"]["PauseOut"] | null;
+            /**
+             * Played Out
+             * @default false
+             */
+            played_out: boolean;
             role: components["schemas"]["Role"];
             rules: components["schemas"]["GameRulesOut"];
             seat_state: components["schemas"]["SeatState"] | null;

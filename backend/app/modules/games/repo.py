@@ -1170,11 +1170,11 @@ async def running_games_of_config(
     session: AsyncSession, purpose: str, model_config_id: uuid.UUID
 ) -> list[uuid.UUID]:
     """The id of every running Game of `purpose` whose `SessionRuntime` froze
-    `model_config_id`, oldest first."""
+    `model_config_id`, oldest first; a Game playing out at the Play deadline runs too (8.14)."""
     result = await session.execute(
         select(games.c.id)
         .where(
-            games.c.lifecycle == "running",
+            games.c.lifecycle.in_(("running", "playing_out")),
             games.c.purpose == purpose,
             games.c.session_runtime["model_config_id"].astext == str(model_config_id),
         )
@@ -1186,10 +1186,14 @@ async def running_games_of_config(
 async def running_games_of_session(
     session: AsyncSession, class_session_id: uuid.UUID
 ) -> list[uuid.UUID]:
-    """The id of every running Game of the Class session, oldest first."""
+    """The id of every running Game of the Class session, oldest first; a Game playing out at the
+    Play deadline runs too (Story 8.14), so the cost-limit switch reaches its LLM Seats."""
     result = await session.execute(
         select(games.c.id)
-        .where(games.c.lifecycle == "running", games.c.class_session_id == class_session_id)
+        .where(
+            games.c.lifecycle.in_(("running", "playing_out")),
+            games.c.class_session_id == class_session_id,
+        )
         .order_by(games.c.id)
     )
     return list(result.scalars())
@@ -1207,11 +1211,12 @@ async def stored_rules_versions(session: AsyncSession) -> list[int]:
 
 
 def _open_weeks() -> Any:
-    """Each running Game's open Week (`game_id`, `week`) as a subquery."""
+    """Each running Game's open Week (`game_id`, `week`) as a subquery; a Game the Play deadline
+    playout plays out runs on too (Story 8.14), so the rescue loop advances it."""
     return (
         select(game_weeks.c.game_id, func.max(game_weeks.c.week).label("week"))
         .select_from(game_weeks.join(games, games.c.id == game_weeks.c.game_id))
-        .where(games.c.lifecycle == "running", game_weeks.c.finished.is_(False))
+        .where(games.c.lifecycle.in_(("running", "playing_out")), game_weeks.c.finished.is_(False))
         .group_by(game_weeks.c.game_id)
         .subquery()
     )
@@ -1258,6 +1263,101 @@ async def complete_running_games(session: AsyncSession) -> list[uuid.UUID]:
         .order_by(open_weeks.c.game_id)
     )
     return list(result.scalars())
+
+
+async def set_played_out(session: AsyncSession, game_id: uuid.UUID) -> Any:
+    """Story 8.14: the Play deadline playout takes the Game over at the transaction's `now()`:
+    `lifecycle = playing_out`, `played_out_at` set, and the Pause and «I rommet» mark in force
+    cleared (no one ended them, so `pause_ended_*` stay as they were). Returns `played_out_at`."""
+    result = await session.execute(
+        update(games)
+        .where(games.c.id == game_id)
+        .values(
+            lifecycle="playing_out",
+            played_out_at=func.now(),
+            paused_at=None,
+            paused_by=None,
+            resume_at=None,
+            agreed_time_reached_at=None,
+            in_room_minutes=None,
+            in_room_until=None,
+            in_room_lab_hour_id=None,
+            in_room_by=None,
+            in_room_marked_at=None,
+        )
+        .returning(games.c.played_out_at)
+    )
+    return result.scalar_one()
+
+
+async def playout_games(
+    session: AsyncSession, class_session_ids: Collection[uuid.UUID]
+) -> list[RowMapping]:
+    """Story 8.14 (AD-9, AD-13): `id` and `class_session_id` of every Game of the Class sessions
+    that has not finished or started its playout, where `games.policy` has the playout, oldest
+    first. A Game without a snapshot is listed too: the command refuses it."""
+    if not class_session_ids:
+        return []
+    result = await session.execute(
+        select(games.c.id, games.c.class_session_id)
+        .where(
+            games.c.class_session_id.in_(list(class_session_ids)),
+            games.c.purpose.in_(purposes_with("play_deadline_playout")),
+            games.c.lifecycle.in_(("not_started", "running")),
+        )
+        .order_by(games.c.id)
+    )
+    return list(result.mappings())
+
+
+async def sessions_with_playout_games(session: AsyncSession) -> list[uuid.UUID]:
+    """Story 8.14: the Class sessions with a Game the playout has still to take, by id: a short
+    list, whatever the number of Class sessions run before."""
+    result = await session.execute(
+        select(games.c.class_session_id)
+        .where(
+            games.c.class_session_id.is_not(None),
+            games.c.purpose.in_(purposes_with("play_deadline_playout")),
+            games.c.lifecycle.in_(("not_started", "running")),
+        )
+        .distinct()
+        .order_by(games.c.class_session_id)
+    )
+    return list(result.scalars())
+
+
+async def overdue_playouts(session: AsyncSession, before: Any) -> list[uuid.UUID]:
+    """Story 8.14: the Games still playing out whose playout began at or before `before`."""
+    result = await session.execute(
+        select(games.c.id)
+        .where(games.c.lifecycle == "playing_out", games.c.played_out_at <= before)
+        .order_by(games.c.played_out_at, games.c.id)
+    )
+    return list(result.scalars())
+
+
+async def playout_turns_without_order(session: AsyncSession) -> list[RowMapping]:
+    """Story 8.14 (AD-5): `game_id`, `seat_id`, `week` of each turn in the open Week of a Game
+    playing out that has no Order and no AI deadline: an LLM Order deferred on `llm-batch`, which
+    the sweep defers again when no job for it is alive. Oldest first."""
+    open_weeks = _open_weeks()
+    result = await session.execute(
+        select(seat_turns.c.game_id, seat_turns.c.seat_id, seat_turns.c.week)
+        .select_from(
+            seat_turns.join(
+                open_weeks,
+                (open_weeks.c.game_id == seat_turns.c.game_id)
+                & (open_weeks.c.week == seat_turns.c.week),
+            ).join(games, games.c.id == seat_turns.c.game_id)
+        )
+        .where(
+            games.c.lifecycle == "playing_out",
+            seat_turns.c.ordered_at.is_(None),
+            seat_turns.c.ai_deadline_at.is_(None),
+        )
+        .order_by(seat_turns.c.opened_at, seat_turns.c.id)
+    )
+    return list(result.mappings())
 
 
 async def insert_batch(session: AsyncSession, values: dict[str, Any]) -> None:

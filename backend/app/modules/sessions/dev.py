@@ -1,7 +1,9 @@
 """The local dev lock (Story 6.15): `POST /api/dev/class-sessions/{id}/lock` locks a Class
 session now, whatever its Start date, and opens its Class games (`service.lock`). The local dev
 Takeover (Story 8.3): `POST /api/dev/games/{id}/seats/{role}/takeover` runs the sweep's Takeover
-of one Seat at its stored due time, the injected clock, so no test waits the Inactivity limit.
+of one Seat at its stored due time, the injected clock, so no test waits the Inactivity limit. The
+local dev playout (Story 8.14): `POST /api/dev/games/{id}/playout` runs the Play deadline playout
+of one Class game at its Class session's Play deadline.
 
 A real started Class game needs its Start date to pass and the sweep; the end-to-end tests of the
 play screen use this route instead, as the stand-in for the Lecturer's early lock of Epic 8.
@@ -83,3 +85,40 @@ async def take_over_now(game_id: str, role: Role) -> DevTakeoverOut | JSONRespon
     except games_commands.CommandError as refused:
         return error_response(refused.status, refused.code, "The Takeover was refused.")
     return DevTakeoverOut(occupancy_id=occupancy)
+
+
+class DevPlayoutOut(BaseModel):
+    played_out: bool
+    """True when this call played the Game out; False when it was played out or finished."""
+
+
+@router.post(
+    "/games/{game_id}/playout",
+    response_model=DevPlayoutOut,
+    responses=documented(404, 409),
+    operation_id="devPlayOutGame",
+    dependencies=[Depends(authz.public)],  # local only: not mounted in production
+)
+async def play_out_now(game_id: str) -> DevPlayoutOut | JSONResponse:
+    """Run the Play deadline playout of one Class game (Story 8.14) as the sweep would at its
+    Class session's Play deadline: `games.commands.playout` with that deadline as the injected
+    clock, whatever the time is now, so no test waits for the deadline. 404 `not_found` for no
+    such Game or a Class session with no Play deadline; 409 with the command's refusal code."""
+    try:
+        game_uuid = uuid.UUID(game_id)
+    except ValueError:
+        return error_response(404, "not_found", "No such Game.")
+    async with get_sessionmaker()() as s:
+        head = await games_service.game_class_info(s, game_uuid)
+        row = None if head is None else await repo.session_row(s, head[0])
+    if head is None:
+        return error_response(404, "not_found", "No such Game.")
+    if row is None or row["play_deadline"] is None:
+        return error_response(404, "not_found", "No Play deadline for that Game.")
+    try:
+        played = await games_commands.playout(
+            game_id, now=row["play_deadline"], latest=row["play_deadline"]
+        )
+    except games_commands.CommandError as refused:
+        return error_response(refused.status, refused.code, "The playout was refused.")
+    return DevPlayoutOut(played_out=played)

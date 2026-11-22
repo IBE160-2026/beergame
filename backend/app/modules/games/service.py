@@ -68,7 +68,7 @@ from app.modules.games.views import (
     seat_state,
     table_status,
 )
-from app.platform import events
+from app.platform import events, jobs
 from app.platform.db import get_sessionmaker
 
 __all__ = [
@@ -132,6 +132,10 @@ __all__ = [
     "budget_scope",
     "class_game_ids",
     "due_takeovers",
+    "overdue_playouts",
+    "playout_games",
+    "sessions_with_playout_games",
+    "stalled_playout_turns",
     "takeover_of",
     "TurnReminderInfo",
     "due_turn_reminders",
@@ -274,6 +278,59 @@ async def lab_hour_changed(
             done = await commands.end_in_room(str(game_id), actor=None, lab_hour_id=lab_hour_id)
         changed += int(done)
     return changed
+
+
+async def playout_games(
+    session: AsyncSession, class_session_ids: Sequence[uuid.UUID]
+) -> list[tuple[str, uuid.UUID]]:
+    """The Play deadline playout's Games (Story 8.14, AD-9, AD-13): `(game id, Class session id)`
+    of every Game of `class_session_ids` that has neither finished nor begun its playout, where
+    `games.policy` has the playout, oldest first; read in the caller's transaction.
+    `games.commands.playout` checks again under the Game row lock."""
+    return [
+        (str(row["id"]), row["class_session_id"])
+        for row in await repo.playout_games(session, class_session_ids)
+    ]
+
+
+async def sessions_with_playout_games(session: AsyncSession) -> list[uuid.UUID]:
+    """Story 8.14: the Class sessions with a Game the Play deadline playout has still to take
+    (`playout_games` lists them), read in the caller's transaction."""
+    return await repo.sessions_with_playout_games(session)
+
+
+async def overdue_playouts(before: datetime) -> list[str]:
+    """Story 8.14 (NFR-3): the Games still playing out whose playout began at or before `before`,
+    the earliest first."""
+    async with get_sessionmaker()() as session:
+        return [str(game_id) for game_id in await repo.overdue_playouts(session, before)]
+
+
+async def stalled_playout_turns() -> list[tuple[str, str]]:
+    """Story 8.14 (AD-5, AD-9): `(game id, seat id)` of each open-Week turn of a Game playing out
+    with no Order and no live job for it on `llm-batch` (`players.llm_order_key`): its job was
+    lost, so the sweep gives the Seat its Order again. Oldest first."""
+    # `players` imports `games`: the key is built here as `players.service.llm_order_key` builds it.
+    from app.modules.players import service as players
+
+    async with get_sessionmaker()() as session:
+        turns = await repo.playout_turns_without_order(session)
+        keys = {
+            (row["game_id"], row["seat_id"]): tuple(
+                players.llm_order_key(
+                    str(row["game_id"]), row["week"], str(row["seat_id"]), playout=playout
+                )
+                for playout in (True, False)
+            )
+            for row in turns
+        }
+        # A job of the turn on `ai-orders` (deferred before the playout) is alive too.
+        alive = await jobs.live_locks(session, [key for pair in keys.values() for key in pair])
+    return [
+        (str(game), str(seat))
+        for (game, seat), pair in keys.items()
+        if not any(key in alive for key in pair)
+    ]
 
 
 async def announce(game_id: str) -> None:
@@ -452,6 +509,8 @@ class PlayStatus:
 
     status: PlayStatusName
     week: int | None
+    played_out: bool = False
+    """The Play deadline playout took the Game over (Story 8.14): it plays out, or ended so."""
 
 
 async def play_status(session: AsyncSession, game_id: uuid.UUID) -> PlayStatus:
@@ -460,12 +519,13 @@ async def play_status(session: AsyncSession, game_id: uuid.UUID) -> PlayStatus:
     if game is None:
         raise LookupError(f"no Game {game_id}")
     lifecycle = game["lifecycle"]
+    played_out = game["played_out_at"] is not None
     if lifecycle == Lifecycle.NOT_STARTED:
         return PlayStatus("ready" if game["settings"] is not None else "not_ready", None)
     if lifecycle == Lifecycle.FINISHED:
-        return PlayStatus("finished", None)
+        return PlayStatus("finished", None, played_out)
     if lifecycle in (Lifecycle.RUNNING, Lifecycle.PLAYING_OUT):
-        return PlayStatus("running", await repo.open_week(session, game_id))
+        return PlayStatus("running", await repo.open_week(session, game_id), played_out)
     raise ValueError(f"unknown lifecycle {lifecycle!r}")
 
 

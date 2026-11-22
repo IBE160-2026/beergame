@@ -40,8 +40,9 @@ export function GameEndHeading({ game }: { game: MyGame }) {
  * `GameEndHeading`, then the chain's Total cost first («Kjedens totalkostnad», the
  * total in `figure-hero`, «Fire Roller, to kostnadsarter, hele spillet.»), then Kjedens regning per
  * Role, Kjedens kostnad over tid, the line that leads to the Debrief and the screen's one primary
- * button «Gå til Debrief». No ranking, praise or celebration (UX-DR72, UX-DR78). `note` is Epic 8's
- * slot for a game that ended at the Spillfrist; nothing renders there in Epic 6. A Lecturer's test
+ * button «Gå til Debrief». No ranking, praise or celebration (UX-DR72, UX-DR78). A game the Play
+ * deadline playout ended (Story 8.14, FR-38) says so under the heading, with no blame and no count
+ * of Uker; `note` replaces that line where a caller has another. A Lecturer's test
  * Game (Story 6.20) has no Debrief: its button leads back to the Klasseøkt instead, and the heading
  * reads «Testspill».
  */
@@ -50,9 +51,10 @@ export function GameEnd({ game, result, note }: { game: MyGame; result: GameResu
   const id = useId();
   // Story 6.20: the Klasseøkt reads the finished test Game afresh, not as it stood at the start.
   const queryClient = useQueryClient();
+  const shown = note ?? (game.played_out ? <p className={`${LINE} mt-2 text-ink`}>{copy.end.playedOut}</p> : null);
   return (
     <div data-game-end="" className="max-w-md">
-      {note ? <div data-game-end-note="">{note}</div> : null}
+      {shown ? <div data-game-end-note="">{shown}</div> : null}
       <section aria-labelledby={`${id}-total`} className="mt-6">
         <h2 id={`${id}-total`} className="text-label text-ink-secondary">
           {copy.end.totalLabel}

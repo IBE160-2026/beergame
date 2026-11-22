@@ -413,6 +413,8 @@ export const nb = {
           seat_not_yours: "Setet er ikke ditt å ta tilbake.",
           game_finished: "Spillet er ferdig.",
           game_not_running: "Spillet er ikke i gang.",
+          /** Story 8.14 [ASSUMPTION] the Play deadline playout took the game over. */
+          play_deadline_passed: "Spillfristen er nådd, og KI-spillere har tatt over spillet.",
         } as Record<string, string>,
         reclaimFailed: "Setet ble ikke tatt tilbake. Prøv igjen.",
       },
@@ -445,6 +447,7 @@ export const nb = {
           seat_not_student_held: "Ingen student har dette setet nå.",
           game_not_running: "Spillet er ikke i gang.",
           takeover_not_allowed: "KI-spiller kan ikke settes inn i dette spillet.",
+          play_deadline_passed: "Spillfristen er nådd, og KI-spillere har tatt over spillet.",
         } as Record<string, string>,
         failed: "KI-spilleren ble ikke satt inn. Prøv igjen.",
       },
@@ -478,6 +481,7 @@ export const nb = {
           game_finished: "Spillet er ferdig.",
           game_not_running: "Spillet er ikke i gang.",
           pause_not_allowed: "Dette spillet kan ikke settes på pause.",
+          play_deadline_passed: "Spillfristen er nådd, og KI-spillere har tatt over spillet.",
         } as Record<string, string>,
         failed: "Spillet ble ikke satt på pause. Prøv igjen.",
       },
@@ -539,6 +543,9 @@ export const nb = {
       /** A finished game on Hjem (Story 6.18). [ASSUMPTION] draft copy: the spine names no
        * Hjem string for it; the Lenke leads to «Spillet er ferdig». */
       finished: "Spillet er ferdig.",
+      /** Story 8.14 (FR-38) [ASSUMPTION] draft copy: the Play deadline playout has taken the game
+       * over and AI players play it to the end. No blame, and never how many Uker are left. */
+      playingOut: "Spillfristen er nådd. KI-spillere spiller spillet ferdig.",
       /** [ASSUMPTION] */
       toResult: "Se kjedens totalkostnad",
       /** Spillkort (Story 6.17, UX-DR28, EXPERIENCE.md → Spillkort, State Patterns → Student game).
@@ -1723,6 +1730,10 @@ export const nb = {
         totalNote: "Fire Roller, to kostnadsarter, hele spillet.",
         why: "Hvorfor ble den slik? Det finner dere ut i Debriefen, med alle fire Rollene.",
         toDebrief: "Gå til Debrief",
+        /** Story 8.14 (FR-38, EXPERIENCE.md → Spill → Ended by playout) [ASSUMPTION] draft copy:
+         * the game ended at the Spillfrist. No blame, and never how many Uker the KI-spillere
+         * played. */
+        playedOut: "Spillet ble avsluttet ved Spillfristen. KI-spillere spilte det ferdig.",
       },
       /** Ordrefelt (Story 6.10, DESIGN.md → Ordrefelt, UX-DR20). The label is the spine's; the
        * Veiledet uke line is [ASSUMPTION] draft copy. It never says how many Veiledede uker are
@@ -2576,6 +2587,7 @@ export const nb = {
       takeover_not_allowed: "KI-spiller kan ikke settes inn i dette spillet.",
       /** The Student has ordered the game's last Uke: no Uke is left for a KI-spiller. */
       order_exists: "Studenten har bestilt, og det er ingen neste Uke.",
+      play_deadline_passed: "Spillfristen er nådd, og KI-spillere har tatt over spillet.",
     } as Record<string, string>,
     /** [ASSUMPTION] */
     failed: "KI-spilleren ble ikke satt inn. Prøv igjen.",
@@ -2656,6 +2668,7 @@ export const nb = {
         game_not_running: "Spillet er ikke i gang.",
         pause_not_allowed: "Dette spillet kan ikke settes på pause.",
         not_paused: "Spillet har ikke pause lenger.",
+        play_deadline_passed: "Spillfristen er nådd, og KI-spillere har tatt over spillet.",
       } as Record<string, string>,
       /** [ASSUMPTION] */
       failed: "Det gikk ikke. Prøv igjen.",

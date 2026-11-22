@@ -129,6 +129,10 @@ class Settings(BaseSettings):
     # by the founder: how long, in minutes, a Class game has waited for a Student's Order before
     # a `turn_reminder` digest notice is queued.
     turn_reminder_delay_minutes: int = Field(120, ge=1, le=10080)
+    # Story 8.14 (FR-38, NFR-3, spine Deferred): placeholder, an open input set after the
+    # prototype: how long, in minutes, a Class game may stay `playing_out` after the Play deadline
+    # playout took it over; a Game still playing out after it is logged as an error.
+    playout_allowed_minutes: int = Field(60, ge=1, le=10080)
 
     # Mail (AD-9, AD-17, Story 3.5). With no RESEND_API_KEY outside production every mail goes
     # to the `[email:mock]` sender; the compose file never passes a key.

@@ -418,6 +418,9 @@ class PendingTurn(BaseModel):
     """Stored on the turn when the Week opened; never recomputed."""
     ordered: bool
     """The Seat already has an Order for `week`."""
+    playout: bool = False
+    """The Game is playing out at the Play deadline (Story 8.14): an LLM Order goes to
+    `llm-batch` with no deadline."""
     ai_deadline_at: datetime | None = None
     """When the LLM player's Order is due (`games.rules.turn_times`); None: no deadline."""
     read_at: datetime | None = None

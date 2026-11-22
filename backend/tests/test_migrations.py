@@ -90,7 +90,7 @@ HEAD_TABLES = (
     | RECLAIM_TABLES
     | ADJUSTMENT_TABLES
 )
-HEAD = "0062"  # 0062 adds the turn reminder's due time (Story 8.13)
+HEAD = "0063"  # 0063 adds when the Play deadline playout took a Game over (Story 8.14)
 
 
 def reset_schema(url: str) -> None:

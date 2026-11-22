@@ -48,6 +48,7 @@ describe("Hjem's game card (Story 6.1)", () => {
       seats: [],
       obligatory: false,
       can_pause: false,
+      played_out: false,
       briefing_first: true,
       rules: {
         order_delay: 2,

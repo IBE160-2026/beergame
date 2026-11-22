@@ -4,7 +4,7 @@ topics the events registry lists for it."""
 import ast
 import inspect
 import uuid
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from sqlalchemy import event
@@ -351,6 +351,34 @@ async def _run_end_in_room() -> str:
     return game_id
 
 
+async def _run_playout() -> str:
+    """The Play deadline playout of a started Class game (Story 8.14): its Class session and both
+    Students hear of it; the Weeks it then plays emit the same topics."""
+    from tests.games.test_playout import class_game
+
+    game_id, _ = await class_game()
+    deadline = datetime(2026, 12, 1, tzinfo=UTC)
+    assert await commands.playout(game_id, now=deadline, latest=deadline)
+    return game_id
+
+
+async def _run_ensure_playout_order() -> str:
+    """A Seat of a Game playing out gets its Order again (Story 8.14): only a job row, no event.
+    The Game is put in `playing_out` directly, its Student Seats still held, so nothing is placed
+    and the Week does not advance."""
+    from tests.games.test_takeover import class_game
+    from tests.games.test_turn_reminder import seat_id
+
+    game_id, _ = await class_game()
+    execute(
+        TEST_DATABASE_URL,
+        "UPDATE games SET lifecycle = 'playing_out', played_out_at = now() WHERE id = %s",
+        (game_id,),
+    )
+    assert await commands.ensure_playout_order(game_id, seat_id(game_id, "factory"))
+    return game_id
+
+
 RUNNERS = {
     "create": _run_create,
     "assign_seat": _run_assign_seat,
@@ -375,6 +403,8 @@ RUNNERS = {
     "recompute_turn_times": _run_recompute_turn_times,
     "mark_in_room": _run_mark_in_room,
     "end_in_room": _run_end_in_room,
+    "playout": _run_playout,
+    "ensure_playout_order": _run_ensure_playout_order,
 }
 """How to run each command once; a command added without a runner fails the test below."""
 
@@ -410,6 +440,9 @@ CLASS_SETUP_EVENTS = {
     "recompute_turn_times": -4,
     "mark_in_room": -4,
     "end_in_room": -4,
+    # create 2, two Student Seats 2 each, snapshot 4, start 4: the playout and its Weeks after it.
+    "playout": 14,
+    "ensure_playout_order": 14,
 }
 """Runners on a Class game, and how many events their setup emits before the command's own."""
 
@@ -442,6 +475,8 @@ def test_every_command_is_exported_and_registered():
             "recompute_turn_times",
             "mark_in_room",
             "end_in_room",
+            "playout",
+            "ensure_playout_order",
         }
         == set(RUNNERS)
     )

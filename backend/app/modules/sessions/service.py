@@ -66,6 +66,10 @@ players through `games.commands.set_snapshot` (Story 5.12).
 notice (`DEADLINE_REMINDER_NOTICE`) per Student of `reminder_recipients`; the mail is read at send
 time by `deadline_reminder_mail_context`. A moved deadline has a new time and a new reminder.
 
+At the Play deadline the sweep's `sessions.playout` (Story 8.14) hands each unfinished Game of
+the Class session to `games.commands.playout`, one Game per transaction, which reads the Play
+deadline again (`_play_deadline_of`) so an extension made before it holds.
+
 Every mutation passes one guard, `_writable`, which asks `classes.service.is_writable` inside the
 mutation's transaction and raises `classes.service.ClassArchived` (409 `class_archived`) for an
 archived Class. Who may do what is `platform/authz`'s: `class_sessions.read`,
@@ -1405,6 +1409,7 @@ async def _game_out(
         obligatory=bool(row.get("obligatory")) and not found.test_game,
         can_pause=table.can_pause,
         pause=_pause_out(table),
+        played_out=play.played_out,
     )
 
 
@@ -3469,6 +3474,50 @@ async def reminder_recipients(
     if row is None:
         return []
     return sorted(await classes.registered_students(row["class_id"]))
+
+
+async def due_playouts(now: datetime) -> list[tuple[str, uuid.UUID]]:
+    """The sweep's `sessions.playout` finder (Story 8.14, FR-38, AD-9, AD-13): `(game id, Class
+    session id)` of every Game, where `games.policy` has the playout, that has neither finished
+    nor begun its playout in a Class session whose Play deadline lies at or before `now`, oldest
+    first. Also in an archived Class: every Class game ends."""
+    async with get_sessionmaker()() as s:
+        waiting = await games_service.sessions_with_playout_games(s)
+        passed = await repo.passed_play_deadlines(s, now, waiting)
+        return await games_service.playout_games(s, passed)
+
+
+async def playout_due(item: object, now: datetime) -> bool:
+    """The sweep's `sessions.playout` action, one Game per transaction with ids only (Story 8.14,
+    AD-9): `games.commands.playout` reads the Class session's Play deadline again in its own
+    transaction, so a deadline the Lecturer extended after the finder's read holds
+    (`play_deadline_not_passed` is skipped quietly). A Game with no snapshot (the lock never
+    succeeded) is logged as an error with its id and skipped, so the other Games play out."""
+    if not isinstance(item, tuple) or len(item) != 2:
+        raise TypeError("a playout item is (game_id, class_session_id)")
+    game_id, class_session_id = item
+    try:
+        return await games_commands.playout(
+            game_id, now=now, latest=_play_deadline_of(class_session_id)
+        )
+    except games_commands.CommandError as refused:
+        if refused.code == "play_deadline_not_passed":
+            log.info("playout_deadline_moved", game_id=game_id)
+            return False
+        # Any other refusal (no snapshot: the lock never succeeded; a snapshot this engine cannot
+        # run) leaves the Game to the next minute, logged as an error once per Game and code in
+        # this process, with its id, so the other Games play out.
+        if (game_id, refused.code) not in _refused_playouts:
+            _refused_playouts.add((game_id, refused.code))
+            event = (
+                "playout_game_not_ready" if refused.code == "game_not_ready" else "playout_refused"
+            )
+            log.error(event, game_id=game_id, code=refused.code)
+        return False
+
+
+_refused_playouts: set[tuple[str, str]] = set()
+"""(Game id, refusal code) of the playouts refused and logged as an error in this process."""
 
 
 async def due_deadline_reminders(now: datetime) -> list[tuple[uuid.UUID, DeadlineName]]:

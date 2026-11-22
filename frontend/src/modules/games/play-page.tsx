@@ -268,8 +268,10 @@ function Running({
   allRows: AllRows;
 }) {
   const seats = envelope.table_status.seats;
+  // Story 8.14: once the Play deadline playout took the game over, no Seat is the Student's to play.
+  const playedOut = game.played_out ?? false;
   const takenOver = ownSeatTakenOver(seats);
-  useGuidedView(game.id, envelope, takenOver);
+  useGuidedView(game.id, envelope, takenOver || playedOut);
   useRefetchAt(game.id, envelope);
   const now = useServerNow(envelope.server_now);
   const state = envelope.seat_state;
@@ -329,7 +331,7 @@ function Running({
               state={state}
               seatRoles={game.seats.map((seat) => seat.role)}
               typed={preview?.order}
-              byAi={takenOver}
+              byAi={takenOver || playedOut}
             />
             {/* A placed Order (a Veiledet uke's fixed Order) stands in Din ordre at nå; a typed one
                 there and at its arrival Uke. */}
@@ -358,7 +360,7 @@ function Running({
             </div>
             {/* The Ordrefelt follows the table on phone and tops the right column on laptop. A Seat
                 an AI player took over has none: the Student is told so instead (Story 8.2). */}
-            {takenOver ? (
+            {takenOver || playedOut ? (
               <div className="mt-8 mb-8 max-w-md lg:mt-0">
                 {/* Alle rader stays one tap away at every width, right-aligned over the note as over
                     the Ordrefelt (Story 8.4, the visual check of Story 8.2). */}
@@ -372,7 +374,13 @@ function Running({
                     {copy.allRows.link}
                   </button>
                 </div>
-                <TakenOverNote obligatory={game.obligatory} gameId={game.id} seats={seats} className="mt-2" />
+                {playedOut ? (
+                  <p className={`${LINE} mt-2 font-semibold text-ink`} data-playing-out="">
+                    {nb.homes.student.playingOut}
+                  </p>
+                ) : (
+                  <TakenOverNote obligatory={game.obligatory} gameId={game.id} seats={seats} className="mt-2" />
+                )}
               </div>
             ) : (
               <OrderField
@@ -425,7 +433,7 @@ function Running({
               className="mt-4"
             />
             {/* Story 6.19: the proposed time to play and «Godta tidspunktet»; proposing is on Hjem. */}
-            <TimeProposalBlock game={game} now={now} className="mt-4 max-w-md" />
+            {playedOut ? null : <TimeProposalBlock game={game} now={now} className="mt-4 max-w-md" />}
             <BackLinks game={game} />
           </div>
         </div>

@@ -42,9 +42,15 @@ const PRIMARY_ACTIONS: ReadonlySet<NextAction> = new Set(["rules", "start", "pla
 type StudentGame = NonNullable<EnrolledSession["game"]>;
 
 /** Whether the game asks for Hjem's one primary button: its next action is a control, except a
- * game the Student has ordered in, whose Spillkort has no primary action (Story 6.17, UX-DR28). */
+ * game the Student has ordered in, whose Spillkort has no primary action (Story 6.17, UX-DR28), and
+ * a game the Play deadline playout took over, which waits for nothing from them (Story 8.14). */
 function wantsPrimary(game: StudentGame): boolean {
-  return PRIMARY_ACTIONS.has(nextAction(game)) && cardState(game) !== "ordered" && !ownSeatTakenOver(game.seats);
+  return (
+    PRIMARY_ACTIONS.has(nextAction(game)) &&
+    cardState(game) !== "ordered" &&
+    !ownSeatTakenOver(game.seats) &&
+    !(game.status === "running" && game.played_out)
+  );
 }
 
 const copy = nb.homes.student;
@@ -248,7 +254,7 @@ function GameBlock({
         <PlayCard game={game} state={game.seat_state} card={card} primary={primary} titleId={`card-${session.id}`} />
       ) : null}
       {/* Story 8.2: an AI player took the Student's Seat over while the game runs. */}
-      {game.status === "running" && ownSeatTakenOver(game.seats) ? (
+      {game.status === "running" && !game.played_out && ownSeatTakenOver(game.seats) ? (
         <TakenOverNote obligatory={game.obligatory} gameId={game.id} seats={game.seats} className="mt-4" />
       ) : null}
       {/* Story 8.6: the pause line above Setestatus, as on the play screen. */}
@@ -262,14 +268,17 @@ function GameBlock({
         onFormOpen={(open) => setForms((was) => (was.pause === open ? was : { ...was, pause: open }))}
         className="mt-4"
       />
-      {/* Story 6.19: the proposed time to play, and «Foreslå tidspunkt» while the game is not over. */}
-      <TimeProposalBlock
-        game={game}
-        now={now}
-        playDeadline={session.play_deadline ?? null}
-        onFormOpen={(open) => setForms((was) => (was.proposal === open ? was : { ...was, proposal: open }))}
-        className="mt-4"
-      />
+      {/* Story 6.19: the proposed time to play, and «Foreslå tidspunkt» while the game is not over;
+          after the Play deadline playout took it over, none (Story 8.14). */}
+      {game.played_out ? null : (
+        <TimeProposalBlock
+          game={game}
+          now={now}
+          playDeadline={session.play_deadline ?? null}
+          onFormOpen={(open) => setForms((was) => (was.proposal === open ? was : { ...was, proposal: open }))}
+          className="mt-4"
+        />
+      )}
       {card ? null : <GameAction game={game} primary={primary} />}
       {/* Story 6.2: once the briefing no longer comes first, it stays a Lenke. */}
       {game.briefing_first || finished ? null : (

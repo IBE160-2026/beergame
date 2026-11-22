@@ -55,6 +55,13 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # Student's line above Setestatus read it again with the new due times.
         "games.mark_in_room": frozenset({"game", "session", "user"}),
         "games.end_in_room": frozenset({"game", "session", "user"}),
+        # The Play deadline playout took a Class game over (Story 8.14): its Class session hears
+        # of it, and every Student who ever held a Seat reads Spill and Hjem again. The Weeks it
+        # then plays emit as `advance` and `place_order` do.
+        "games.playout": frozenset({"game", "session", "user"}),
+        # A lost LLM job of a Game playing out deferred again (Story 8.14): only a job row is
+        # written, so nothing a view shows changes; the Order's own command emits.
+        "games.ensure_playout_order": frozenset(),
         # A Student opened a Guided Week (Story 6.10): only Class games take Students, so their
         # Class session hears of it; the viewer's waiting status changes, and when the view
         # completes the Week every Student of the Game sees the next one.
@@ -116,6 +123,8 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         "sessions.replace_removed_student": frozenset({"game", "session", "user"}),
         # A deadline reminder (Story 5.14): one notice per Student, which emits `user`.
         "sessions.send_deadline_reminder": frozenset({"user"}),
+        # The Play deadline playout of one Class game (Story 8.14), through `games.playout`.
+        "sessions.playout": frozenset({"game", "session", "user"}),
         # Student choice (Story 5.17). A save that opens it creates the empty Class games
         # (`game`), the staff read the session again and each registered Student's notice emits
         # `user`. A Seat taken or changed (`games.assign_seat`/`move_seat`) tells every Student

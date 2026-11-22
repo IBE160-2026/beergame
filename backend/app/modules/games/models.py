@@ -138,6 +138,10 @@ games = Table(
     Column("in_room_lab_hour_id", Uuid, nullable=True),
     Column("in_room_by", Uuid, nullable=True),
     Column("in_room_marked_at", DateTime(timezone=True), nullable=True),
+    # When the Play deadline playout took the Game over (Story 8.14, FR-38): set once by
+    # `games.commands.playout`, kept after `finish`, so «Spillet er ferdig» says it ended at the
+    # Spillfrist and a person's command answers `play_deadline_passed`.
+    Column("played_out_at", DateTime(timezone=True), nullable=True),
     CheckConstraint(_in("purpose", Purpose), name="ck_games_purpose"),
     CheckConstraint(IN_ROOM_TOGETHER, name="ck_games_in_room"),
     CheckConstraint(
@@ -162,6 +166,11 @@ games = Table(
     ),
     CheckConstraint("game_number >= 1", name="ck_games_game_number"),
     UniqueConstraint("class_session_id", "game_number", name="uq_games_class_session_number"),
+    Index(
+        "ix_games_playing_out",
+        "played_out_at",
+        postgresql_where=text("lifecycle = 'playing_out'"),
+    ),
 )
 
 seats = Table(

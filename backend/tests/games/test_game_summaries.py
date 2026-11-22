@@ -200,6 +200,34 @@ async def test_in_room_leaves_the_row_equal_to_a_recomputation(games_db, mail_db
     assert (await check(game_id))["in_room_until"] is None
 
 
+async def test_a_playout_leaves_the_row_equal_to_a_recomputation(games_db, mail_db, monkeypatch):
+    """Story 8.14: `playout` joins the recomputation test: the paused, in-room game's row loses
+    its Pause and mark in the playout's own transaction, and reads finished once it has run."""
+    from tests.games.test_in_room import mark
+    from tests.games.test_playout import class_game as started
+    from tests.games.test_staff_pause import LECTURER
+
+    game_id, _ = await started()
+    assert await mark(game_id, 10)
+    await commands.pause(game_id, actor=LECTURER, staff=True)
+    assert (await check(game_id))["status"] == "paused"
+
+    async def settle_later(game_id: str) -> None:
+        return None
+
+    monkeypatch.setattr(commands, "_settle", settle_later)
+    deadline = datetime.fromisoformat("2026-12-01T12:00:00+00:00")
+    assert await commands.playout(game_id, now=deadline, latest=deadline)
+    row = await check(game_id)  # the playout's own transaction
+    assert (row["status"], row["in_room_until"], row["waiting_for"]) == ("running", None, [])
+    assert {o["reason"] for o in row["occupants"] if o["role"] in ("retailer", "factory")} == {
+        "playout"
+    }
+    monkeypatch.undo()
+    assert await commands.advance(game_id)
+    assert (await check(game_id))["status"] == "finished"
+
+
 async def test_a_command_that_changes_nothing_writes_no_row(games_db):
     game_id = await class_game(1)
     await commands.assign_seat(game_id, "retailer", "student", user_id=A)

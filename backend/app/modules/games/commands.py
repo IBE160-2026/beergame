@@ -90,11 +90,13 @@ __all__ = [
     "create",
     "default_runtime",
     "end_in_room",
+    "ensure_playout_order",
     "finish",
     "mark_in_room",
     "move_seat",
     "pause",
     "place_order",
+    "playout",
     "propose_time",
     "queue_turn_reminder",
     "reach_agreed_time",
@@ -947,7 +949,12 @@ async def _open_week(
         seat["role"]: OccupantKind(seat["occupant_kind"] or OccupantKind.RULE_BASED)
         for seat in seats
     }
-    budget = None if week.guided_week else await _ai_order_budget(session, game, occupant.values())
+    # A Game playing out at the Play deadline waits for no AI deadline (Story 8.14, AD-5).
+    budget = (
+        None
+        if week.guided_week or game["lifecycle"] == Lifecycle.PLAYING_OUT
+        else await _ai_order_budget(session, game, occupant.values())
+    )
     inputs = rules.TurnInputs(ai_order_budget_s=budget)
     # The transaction's clock is read only when a deadline is computed from it; otherwise the
     # turns take it from the database as they are written (the same `now()`).
@@ -1048,40 +1055,8 @@ async def start(game_id: str, *, actor: uuid.UUID | str | None = None) -> int:
                 409,
                 _started_by(game, await repo.occupancy_history(session, game_uuid)),
             )
-        if game["settings"] is None:
-            raise CommandError(
-                "game_not_ready",
-                "the Game has no settings snapshot yet (it comes at the lock)",
-                409,
-            )
-        settings, params = _snapshot(game)
-        seat_rows = await repo.seats_with_occupant(session, game_uuid)
-        llm_seats = [s for s in seat_rows if s["occupant_kind"] == OccupantKind.LLM]
-        limited = bool(llm_seats) and await _cost_limited(session, game)
-        for seat in seat_rows:
-            if seat["occupant_kind"] is None:
-                await _append_initial(session, seat["id"], OccupantKind.RULE_BASED, None)
-            elif limited and seat["occupant_kind"] == OccupantKind.LLM:
-                # The cost limit was reached before the start (FR-69, AD-5).
-                await _append_initial(
-                    session, seat["id"], OccupantKind.RULE_BASED, None, OccupancyReason.COST_LIMIT
-                )
-        if limited:
-            seat_rows = await repo.seats_with_occupant(session, game_uuid)
-            log.info("seats_cost_limited", game_id=game_id, seats=len(llm_seats))
-        state = initial_state(settings, game["rules_version"])
-        await repo.set_lifecycle(session, game_uuid, Lifecycle.RUNNING.value)
-        started_at = await repo.set_started(session, game_uuid, actor_id)
-        if actor_id is not None:
-            await audit.record(
-                session,
-                actor_id,
-                GAME_STARTED,
-                {"game_id": game_uuid},
-                {"started_at": started_at.isoformat()},
-                started_at,
-            )
-        await _open_week(session, game, settings, params, [state], [], seat_rows)
+        _check_ready(game)
+        state, seat_rows = await _start_in(session, game, actor_id)
         await _commit_change(session, game_uuid)
         # Story 6.5: each Student in the Game sees it started, on Hjem too (AD-8).
         for student in sorted(
@@ -1095,6 +1070,66 @@ async def start(game_id: str, *, actor: uuid.UUID | str | None = None) -> int:
     log.info("game_started", game_id=game_id, by_person=actor_id is not None)
     await _settle(game_id)
     return state.week
+
+
+def _check_ready(game: Mapping[str, Any]) -> None:
+    if game["settings"] is None:
+        raise CommandError(
+            "game_not_ready",
+            "the Game has no settings snapshot yet (it comes at the lock)",
+            409,
+        )
+
+
+async def _start_in(
+    session: AsyncSession, game: Mapping[str, Any], actor_id: uuid.UUID | None
+) -> tuple[WeekState, list[Mapping[str, Any]]]:
+    """`start`'s writes in the caller's transaction, under its Game row lock: every free Seat gets
+    a Rule-based player (and every LLM Seat one when the cost limit was reached), `started_at` and
+    `started_by` are stored (a person's start audited), and Week 1 opens. A `not_started` Game
+    becomes `running`; any other lifecycle `game` has stays: the Play deadline playout (Story
+    8.14) has set `playing_out` before it starts a Game. Returns the Week 1 state and the Seats
+    with their occupants."""
+    game_uuid = game["id"]
+    settings, params = _snapshot(game)
+    seat_rows = await repo.seats_with_occupant(session, game_uuid)
+    llm_seats = [s for s in seat_rows if s["occupant_kind"] == OccupantKind.LLM]
+    limited = bool(llm_seats) and await _cost_limited(session, game)
+    for seat in seat_rows:
+        if seat["occupant_kind"] is None:
+            await _append_initial(session, seat["id"], OccupantKind.RULE_BASED, None)
+        elif limited and seat["occupant_kind"] == OccupantKind.LLM:
+            # The cost limit was reached before the start (FR-69, AD-5).
+            await _append_initial(
+                session, seat["id"], OccupantKind.RULE_BASED, None, OccupancyReason.COST_LIMIT
+            )
+    if limited:
+        seat_rows = await repo.seats_with_occupant(session, game_uuid)
+        log.info("seats_cost_limited", game_id=str(game_uuid), seats=len(llm_seats))
+    state = initial_state(settings, game["rules_version"])
+    if game["lifecycle"] == Lifecycle.NOT_STARTED:
+        await repo.set_lifecycle(session, game_uuid, Lifecycle.RUNNING.value)
+    started_at = await repo.set_started(session, game_uuid, actor_id)
+    if actor_id is not None:
+        await audit.record(
+            session,
+            actor_id,
+            GAME_STARTED,
+            {"game_id": game_uuid},
+            {"started_at": started_at.isoformat()},
+            started_at,
+        )
+    await _open_week(session, game, settings, params, [state], [], seat_rows)
+    return state, list(seat_rows)
+
+
+def _check_not_played_out(game: Mapping[str, Any]) -> None:
+    """Story 8.14 (AD-2): once the Play deadline playout has taken the Game over, no person's
+    command acts on it; 409 `play_deadline_passed`."""
+    if game.get("played_out_at") is not None:
+        raise CommandError(
+            "play_deadline_passed", "the Play deadline has passed: AI players finish the game", 409
+        )
 
 
 def _decided_by(value: object) -> DecidedBy:
@@ -1276,8 +1311,16 @@ async def _place(
         and await repo.has_seat_week(session, game_uuid, week, row["id"])
     )
     if stored:
-        await _check_actor(session, row, week, actor)
+        try:
+            await _check_actor(session, row, week, actor)
+        except CommandError:
+            # Story 8.14: the playout's AI player holds the Seat and placed this Order.
+            _check_not_played_out(game)
+            raise
         raise CommandError("order_exists", "the Seat has already ordered this Week", 409)
+    if actor is not None or decider is DecidedBy.STUDENT:
+        # Story 8.14: after the playout no person orders; its AI players do.
+        _check_not_played_out(game)
     if game["lifecycle"] == Lifecycle.FINISHED:
         raise CommandError("game_finished", "the Game has finished", 409)
     if open_game is not None:
@@ -1548,6 +1591,7 @@ async def view_week(game_id: str, seat: Role | str, week: int, *, actor: uuid.UU
             raise CommandError("game_not_found", f"no Game {game_id!r}", 404)
         seat_rows = await repo.seats_with_occupant(session, game_uuid)
         row = _seat_row(seat_rows, seat)
+        _check_not_played_out(game)
         if game["lifecycle"] == Lifecycle.NOT_STARTED:
             raise CommandError("game_not_started", "the Game has not started", 409)
         if game["lifecycle"] == Lifecycle.FINISHED:
@@ -1702,6 +1746,11 @@ async def _week_complete(session: AsyncSession, game: Mapping[str, Any], week: i
     return rules.week_complete(turns, guided=guided)
 
 
+ADVANCING = frozenset({Lifecycle.RUNNING, Lifecycle.PLAYING_OUT})
+"""The lifecycles in which a complete open Week advances: a Game playing out at the Play deadline
+plays on to its last Week (Story 8.14, FR-28)."""
+
+
 async def _complete_week(game_id: uuid.UUID) -> bool:
     """Whether the Game is running and its open Week is complete, read without a lock;
     refuses an unknown Game."""
@@ -1709,7 +1758,7 @@ async def _complete_week(game_id: uuid.UUID) -> bool:
         game = await repo.get_game(session, game_id)
         if game is None:
             raise CommandError("game_not_found", f"no Game {str(game_id)!r}", 404)
-        if game["lifecycle"] != Lifecycle.RUNNING:
+        if game["lifecycle"] not in ADVANCING:
             return False
         week = await repo.open_week(session, game_id)
         if week is None:
@@ -1724,7 +1773,7 @@ async def _advance_once(game_id: str) -> bool:
         return False
     async with get_sessionmaker().begin() as session:
         game = await repo.lock_game(session, game_uuid)
-        if game is None or game["lifecycle"] != Lifecycle.RUNNING:
+        if game is None or game["lifecycle"] not in ADVANCING:
             return False
         states, _ = await stored_play(session, game_uuid)
         week = states[-1].week
@@ -1874,6 +1923,7 @@ async def takeover(
             raise CommandError("game_not_found", f"no Game {game_id!r}", 404)
         seat_rows = await repo.seats_with_occupant(session, game_uuid)
         row = _seat_row(seat_rows, seat)
+        _check_not_played_out(game)
         # Story 8.8: a Student puts an AI player in only from another Seat of the same Game that
         # they hold now.
         peer_seated = actor == "peer" and any(
@@ -2028,6 +2078,7 @@ async def request_reclaim(game_id: str, seat: Role | str, *, actor: uuid.UUID | 
         if game is None:
             raise CommandError("game_not_found", f"no Game {game_id!r}", 404)
         row = _seat_row(await repo.seats_with_occupant(session, game_uuid), seat)
+        _check_not_played_out(game)
         if game["lifecycle"] == Lifecycle.FINISHED:
             raise CommandError("game_finished", "the Game has finished", 409)
         if game["lifecycle"] != Lifecycle.RUNNING:
@@ -2618,6 +2669,7 @@ async def _pausable_game(
         raise CommandError("game_not_found", f"no Game {game_id!r}", 404)
     if not _policy(game["purpose"]).pause:
         raise CommandError("pause_not_allowed", "Games of this purpose have no Pause", 409)
+    _check_not_played_out(game)
     if game["lifecycle"] == Lifecycle.FINISHED:
         raise CommandError("game_finished", "the Game has finished", 409)
     if game["lifecycle"] != Lifecycle.RUNNING:
@@ -2791,6 +2843,118 @@ Latest = datetime | Callable[[AsyncSession], Awaitable[datetime | None]] | None
 transaction, before the Game row lock (the caller's lock order: Class session, then Game)."""
 """The notice kind each other Student of a Class game gets when a time to play is proposed,
 `digest` (Story 6.19, AD-9). Its `ref` is the proposal; the mail reads it at send time."""
+
+
+async def playout(game_id: str, *, now: datetime, latest: Latest) -> bool:
+    """The Play deadline playout of one Game (Story 8.14, FR-38, AD-2, AD-5, AD-9, AD-13): AI
+    players play it to its last Week. `latest` is the Class session's Play deadline, read live in
+    this transaction before the Game row lock (the lock order: Class session, then Game), so an
+    extension made before the deadline holds and a Pause never moves it; `now` is the sweep's
+    clock.
+
+    One transaction under the Game row lock: `lifecycle = playing_out` and `played_out_at` are
+    set, the Pause and «I rommet» mark in force are cleared, queued Reclaims are dropped and the
+    open Week's reminders not queued yet are closed. A Game that never started is started first,
+    with no actor (`_start_in`). Every Seat a Student holds gets one appended AI occupant, reason
+    `playout`, no actor: `llm` per the Game's AI mode, `rule_based` where the Play guard switched
+    the Seat or the cost limit is reached (`_takeover_occupant`). A Seat that has not ordered the
+    open Week (`rules.has_ordered`) is taken from it and gets its Order from
+    `players.ensure_order` now (an LLM Order on `llm-batch`, with no deadline); one that has
+    ordered keeps its Order and is taken from the next Week, or not at all after the last one.
+    No notice is sent. The version rises once with `game:<id>`, `session:<id>` and `user:<id>`
+    for every Student who ever held a Seat of it (AD-8). After the commit the Game advances one
+    Week per transaction until `finish`, which runs the finished-game check later and records the
+    `class_game` step as after a normal end.
+
+    Returns False, writing nothing, for a Game playing out or finished already. Refuses
+    `game_not_found` (404) and 409 `playout_not_allowed` (the policy has no playout),
+    `play_deadline_not_passed` (no Play deadline, or one after `now`) and `game_not_ready` (no
+    settings snapshot: the lock never succeeded)."""
+    game_uuid = _game_uuid(game_id)
+    async with get_sessionmaker().begin() as session:
+        deadline = await latest(session) if callable(latest) else latest
+        game = await repo.lock_game(session, game_uuid)
+        if game is None:
+            raise CommandError("game_not_found", f"no Game {game_id!r}", 404)
+        if not _policy(game["purpose"]).play_deadline_playout:
+            raise CommandError(
+                "playout_not_allowed", "Games of this purpose have no Play deadline playout", 409
+            )
+        if game["lifecycle"] in (Lifecycle.PLAYING_OUT, Lifecycle.FINISHED):
+            return False
+        if deadline is None or deadline > now:
+            raise CommandError("play_deadline_not_passed", "the Play deadline has not passed", 409)
+        _check_ready(game)
+        settings, _ = _snapshot(game)
+        never_started = game["lifecycle"] == Lifecycle.NOT_STARTED
+        await repo.set_played_out(session, game_uuid)
+        if never_started:
+            played = await repo.get_game(session, game_uuid)
+            assert played is not None
+            await _start_in(session, played, None)
+        week = await repo.open_week(session, game_uuid)
+        assert week is not None  # a started Game has its open Week
+        guided = rules.guided_week(_policy(game["purpose"]), settings, week)
+        turns = {
+            turn["seat_id"]: turn
+            for turn in await repo.week_turns_with_occupant(session, game_uuid, week)
+        }
+        taken: list[uuid.UUID] = []
+        for row in await repo.seats_with_occupant(session, game_uuid):
+            if row["occupant_kind"] != OccupantKind.STUDENT:
+                continue
+            turn = turns.get(row["id"])
+            ordered = turn is not None and rules.has_ordered(turn, guided=guided)
+            if ordered and week >= settings.weeks:
+                continue  # the Student ordered the last Week: no Week is left to play
+            occupant = await _takeover_occupant(session, game, row["id"])
+            await repo.append_occupancy(
+                session,
+                {
+                    "id": uuid.uuid7(),
+                    "seat_id": row["id"],
+                    "from_week": week + 1 if ordered else week,
+                    "occupant_kind": occupant.value,
+                    "policy_id": None,
+                    "reason": OccupancyReason.PLAYOUT.value,
+                },
+            )
+            if not ordered:
+                taken.append(row["id"])
+        await repo.delete_reclaims(session, game_uuid)
+        await repo.close_reminders(session, game_uuid, week)
+        open_game = OpenGame(session=session, game_id=game_uuid)
+        for seat_id in taken:
+            await _ensure_order(open_game, seat_id)
+        await _commit_change(session, game_uuid)
+        ever = {
+            history["last_student"]
+            for history in (await repo.seat_histories(session, game_uuid)).values()
+            if history["last_student"] is not None
+        }
+        for student in sorted(ever, key=str):
+            await events.emit(session, "user", str(student))
+    log.info("game_played_out", game_id=game_id, never_started=never_started, seats=len(taken))
+    await _settle(game_id)
+    return True
+
+
+async def ensure_playout_order(game_id: str, seat_id: str) -> bool:
+    """Story 8.14 (AD-5, AD-9): give the Seat its Order for the open Week of a Game playing out
+    again, when its LLM job was lost (the sweep found no live job for it): `players.ensure_order`
+    in a transaction under the Game row lock, which defers the job on `llm-batch` (or places a
+    Rule-based Order). Only a job row is written, so the version does not rise and no event is
+    emitted; the Order's own command does both. False, writing nothing, for a Game no longer
+    playing out."""
+    game_uuid = _game_uuid(game_id)
+    async with get_sessionmaker().begin() as session:
+        game = await repo.lock_game(session, game_uuid)
+        if game is None or game["lifecycle"] != Lifecycle.PLAYING_OUT:
+            return False
+        await _ensure_order(OpenGame(session=session, game_id=game_uuid), uuid.UUID(seat_id))
+    log.info("playout_order_ensured", game_id=game_id, seat_id=seat_id)
+    await _settle(game_id)
+    return True
 
 
 async def _scheduling_game(

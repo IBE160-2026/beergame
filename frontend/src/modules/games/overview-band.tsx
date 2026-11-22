@@ -27,7 +27,8 @@ export function markBy(items: readonly OverviewGame[], gameId: string, role: str
  * consequence of a manual Takeover in caption text under it, the primary «Send Melding» to the
  * Meldingsskjema preset to the Student waited for and the secondary «Sett inn KI-spiller for Noah»
  * (Story 8.5), which Assistant lecturers have too. Below 1024 px the actions wrap under the text at
- * full width. Nothing is drawn when nothing waits, and nothing stands in its place. For a Lecturer
+ * full width; from 1024 px they stand beside it while the text keeps at least 24rem, and wrap under
+ * it otherwise, so at 200 % text the line keeps whole words instead of one letter per line. Nothing is drawn when nothing waits, and nothing stands in its place. For a Lecturer
  * the secondary «Pause spillet» (Story 8.7) opens the Lecturer's pause form under the band; while it
  * is open «Send Melding» shows as secondary, so the screen keeps one primary. A paused game leaves
  * the band at once, and the result line («Pause til to. 19:00 er satt.») stands under it.
@@ -86,13 +87,15 @@ export function OverviewBand({
       {alert ? (
         <section
           aria-labelledby={id}
-          className="mt-6 flex flex-col gap-3 bg-restordre-fill px-4 py-3 lg:flex-row lg:items-center lg:justify-between lg:gap-6"
+          className="mt-6 flex flex-col gap-3 bg-restordre-fill px-4 py-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between lg:gap-x-6"
           data-attention-band={alert.game_id}
         >
           <h2 id={id} className="sr-only">
             {nb.overview.band.label}
           </h2>
-          <div className="min-w-0">
+          {/* The text's basis is in rem, so it grows with the reader's text size: when it and the
+              buttons no longer fit one row, the buttons wrap under it (WCAG 1.4.4, 1.4.10). */}
+          <div className="min-w-0 lg:flex-[1_1_24rem]">
             <p
               className="text-body-phone font-semibold text-ink tabular-nums lining-nums [overflow-wrap:anywhere] lg:text-body"
               data-band-text=""
@@ -103,7 +106,7 @@ export function OverviewBand({
               {consequenceText("this_week", name)}
             </p>
           </div>
-          <div className="flex w-full shrink-0 flex-col gap-3 lg:w-auto lg:flex-row lg:items-start">
+          <div className="flex w-full shrink-0 flex-col gap-3 lg:w-auto lg:max-w-full lg:flex-row lg:flex-wrap lg:items-start">
             <NextLink
               href={bandMessagePath(sessionId, alert)}
               // While the pause form is open its button is the primary (UX-DR9).

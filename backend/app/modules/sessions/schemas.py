@@ -562,6 +562,10 @@ class StudentGameOut(BaseModel):
     paused, in which they hold a Seat now."""
     pause: PauseOut | None = None
     """Story 8.6: the pause line above Setestatus; None when there is none to show."""
+    played_out: bool = False
+    """Story 8.14 (FR-38): the Play deadline playout took the game over: AI players play it out,
+    or it ended so. No Ordrefelt or Spillkort then, and «Spillet er ferdig» says it ended at the
+    Spillfrist; never how many Uker the AI players played."""
 
 
 class InRoomOut(BaseModel):

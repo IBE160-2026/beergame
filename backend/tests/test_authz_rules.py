@@ -37,6 +37,8 @@ PUBLIC_ROUTES = {
     ("POST", "/api/dev/class-sessions/{class_session_id}/lock"),
     # The local dev Takeover at the stored due time (Story 8.3), likewise.
     ("POST", "/api/dev/games/{game_id}/seats/{role}/takeover"),
+    # The local dev playout at the Play deadline (Story 8.14), likewise.
+    ("POST", "/api/dev/games/{game_id}/playout"),
     # The mail provider's events (Story 4.6): admitted by their Svix signature.
     ("POST", "/api/webhooks/resend"),
     # Later stories add theirs here, and only these kinds: webhooks (signature-checked), and dev

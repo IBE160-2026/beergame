@@ -114,6 +114,21 @@ test("the band names the game that waits, «Send Melding» writes to the Student
   expect(action.x + action.width).toBeLessThanOrEqual(320);
   await expectAccessible(narrow, true);
 
+  // 1280 CSS px at 200 % text (the visual check of Story 8.12): the text keeps whole lines and
+  // the buttons wrap under it, instead of the text shrinking to one letter per line.
+  const large = await lecturerPage(browser, lecturerSession, VIEWPORTS[1]!);
+  await large.goto(overview);
+  const largeBand = large.getByRole("main").locator("[data-attention-band]");
+  const largeText = (await largeBand.locator("[data-band-text]").boundingBox())!;
+  const largeAction = (await largeBand.getByRole("link", { name: nb.messages.send }).boundingBox())!;
+  expect(largeText.width).toBeGreaterThan(600);
+  expect(largeText.height).toBeLessThan(400);
+  expect(largeAction.y).toBeGreaterThanOrEqual(largeText.y + largeText.height);
+  // The band stays a few lines tall: no longer the ~6000 px column of the 8.12 check.
+  expect((await largeBand.boundingBox())!.height).toBeLessThan(800);
+  await expectAccessible(large, false);
+  await large.context().close();
+
   // The Student orders too: nothing waits, the band goes away live and nothing takes its place.
   await untilLive(narrow);
   await orderByApi(second!, game.gameId, 1, 4);
