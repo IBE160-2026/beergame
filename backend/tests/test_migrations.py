@@ -9,7 +9,7 @@ import pytest
 from alembic import command
 from alembic.config import Config
 
-from tests.conftest import libpq_dsn
+from tests.conftest import kept_connection, libpq_dsn
 
 API_ROOT = Path(__file__).resolve().parents[1]
 GAMES_HEAD_TABLES = {
@@ -139,11 +139,8 @@ def reset_schema(url: str) -> None:
 
 
 def tables(url: str) -> set[str]:
-    with psycopg.connect(libpq_dsn(url)) as conn:
-        rows = conn.execute(
-            "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
-        ).fetchall()
-    return {r[0] for r in rows}
+    query = "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
+    return {name for (name,) in rows(url, query)}
 
 
 def config(url: str) -> Config:
@@ -154,14 +151,16 @@ def config(url: str) -> Config:
 
 
 def current_version(url: str) -> str:
-    with psycopg.connect(libpq_dsn(url)) as conn:
-        (version,) = conn.execute("SELECT version_num FROM alembic_version").fetchone()
+    [(version,)] = rows(url, "SELECT version_num FROM alembic_version")
     return version
 
 
 def rows(url: str, sql: str, params: tuple | None = None) -> list[tuple]:
-    with psycopg.connect(libpq_dsn(url)) as conn:
-        return conn.execute(sql, params).fetchall()
+    """One statement on the kept autocommit connection (`tests/conftest.py`): the walk checks
+    the catalog some 180 times, and a new connection costs about 20 ms each. A statement that
+    returns no rows answers []."""
+    cursor = kept_connection(url).execute(sql, params)
+    return cursor.fetchall() if cursor.description is not None else []
 
 
 def columns(url: str, table: str) -> set[str]:

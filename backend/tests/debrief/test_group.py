@@ -11,6 +11,8 @@ marked finished, serves each test."""
 import uuid
 from datetime import UTC, datetime
 
+import pytest
+
 from app.modules.games import commands as games_commands
 from app.modules.ops import sweep
 from app.modules.progress import service as progress
@@ -98,6 +100,7 @@ async def mail_context(who: str, session_id: str):
         )
 
 
+@pytest.mark.long
 async def test_the_group_shares_a_step_pointer(klass, emitted):
     session_id, _ = await played(klass, 3, ordering=3)
     a, b, c = email(0), email(1), email(2)

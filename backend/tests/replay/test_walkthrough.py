@@ -117,6 +117,7 @@ def forget(game_id: str, fact_set_id: str) -> None:
     execute("DELETE FROM replay_narrations WHERE fact_set_id = %s", fact_set_id)
 
 
+@pytest.mark.long
 async def test_the_walkthrough_sets_the_replay_beside_the_class_game(klass, emitted, monkeypatch):
     await seed.ensure_zero_config()  # the default mock config, now with `replay_walkthrough`
     drawn = replay_service.replay_settings

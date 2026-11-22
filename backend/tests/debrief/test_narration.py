@@ -76,6 +76,7 @@ async def reflect(me: str, path: str) -> None:
         assert answered.status_code == 200, answered.text
 
 
+@pytest.mark.long
 async def test_the_finish_defers_narration_the_job_words_it_and_the_first_view_fixes_it(klass):
     await seed.ensure_zero_config()  # the default mock config with the Debrief's prompts
     session_id, game_id, debrief, game_of, me = await played_long(klass)

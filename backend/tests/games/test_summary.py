@@ -16,6 +16,7 @@ async def finished_game(url: str, *, check: bool = True) -> str:
     return game_id
 
 
+@pytest.mark.long
 async def test_summary_numbers_equal_the_stored_tables(games_db):
     game_id = await finished_game(games_db)
     summary = await service.game_summary(game_id)

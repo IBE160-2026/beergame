@@ -9,6 +9,8 @@ move on. Presence is `debrief.commands.touch` on each heartbeat: no lock, no eve
 import uuid
 from datetime import timedelta
 
+import pytest
+
 from app.modules.debrief import commands
 from app.modules.debrief import service as debrief
 from app.modules.messaging import delivery
@@ -44,6 +46,7 @@ def seen_recently(who: str) -> bool:
     return recent
 
 
+@pytest.mark.long
 async def test_leaving_and_dropping_out_hand_the_group_on(klass, emitted):
     session_id, _ = await played(klass, 4, ordering=4)
     a, b, c, d = (email(i) for i in range(4))

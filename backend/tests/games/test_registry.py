@@ -6,6 +6,7 @@ import inspect
 import uuid
 from pathlib import Path
 
+import pytest
 from sqlalchemy import event
 
 from app.engine import GameSettings
@@ -279,6 +280,7 @@ def test_every_command_is_exported_and_registered():
     assert games_entries == found
 
 
+@pytest.mark.long
 async def test_each_command_emits_exactly_its_registered_topics(games_db):
     for name, runner in RUNNERS.items():
         with listening(games_db) as events:

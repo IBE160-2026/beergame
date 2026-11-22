@@ -333,15 +333,21 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     migration walk, programs run as processes); they must run early, or one worker is still
     running them after the others have finished. pytest-xdist's `worksteal` hands each worker one
     contiguous slice of this order (slice `i` holds `remaining // (workers - i)` items) and lets
-    the others steal from a slice's end. So the long tests are dealt round-robin to the head of
-    every slice, each followed by its share of the short ones, which even the workers out. The
+    the others steal from a slice's end. So the long tests (and those marked `long` elsewhere)
+    are dealt round-robin to the head of every slice, each followed by its share of the short
+    ones, which even the workers out. The
     migration tests stay together at the head of the first slice: run side by side, their
     schema rebuilds slowed each other several times over. Every worker computes the same order.
     Without workers the long tests simply come first. Each group keeps its collected order."""
-    top = [item for item in items if item.path.parent.name == "tests"]
+    top = [
+        item
+        for item in items
+        if item.path.parent.name == "tests" or item.get_closest_marker("long") is not None
+    ]
     migrations = [item for item in top if item.path.name == "test_migrations.py"]
     long = [item for item in top if item.path.name != "test_migrations.py"]
-    short = [item for item in items if item.path.parent.name != "tests"]
+    chosen = {id(item) for item in top}
+    short = [item for item in items if id(item) not in chosen]
     workers = int(os.environ.get("PYTEST_XDIST_WORKER_COUNT", "0"))
     if workers < 2:
         items[:] = migrations + long + short

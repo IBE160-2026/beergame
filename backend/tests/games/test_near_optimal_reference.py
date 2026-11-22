@@ -87,6 +87,7 @@ async def test_a_classic_step_game_stores_both_golden_series(games_db):
     assert {row.near_optimal_algorithm_version for row in logged} == {golden["algorithm_version"]}
 
 
+@pytest.mark.long
 async def test_the_references_coincide_in_every_stored_week_under_constant_demand(games_db):
     """All 36 Weeks, as the spec's matrix asks (the slowest test of this file)."""
     settings = GameSettings(demand=DemandStep(kind="step", start=4, new_level=4, change_week=5))
