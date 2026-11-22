@@ -3400,3 +3400,22 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den bli
 
 ### Åpne punkter
 - Issue #211: beslutninger og punkter til avslutningen (feilveier ved bygging, vekt 0, treg test).
+
+## Story 15.8: Admin ser feil, fallback og svartider per Klasseøkt (spor 1)
+
+### Oppgave
+Bygge Story 15.8 på `epic-15` i spor 1.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Den visuelle kontrollen gjøres i avslutningen av Epic 15.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-15-8-admin-sees-errors-fallback-response-times-per-class-session.md`.
+- Commit: ebc15f7. Migrasjon 0069.
+- Tabellen `error_events` samler feil fra sweepen, workeren og 5xx-svar. Siden «Drift per Klasseøkt» viser feil per time, fallback, svartider (median og p95), Play guard og KI-kostnad, med tabellvisning og ny lesing hvert 30. sekund.
+- Tester: backend 3472, Vitest 1141, tsc, `lint:colours`, `check:copy`, bygg, Playwright med axe.
+- Gjennomgang: 28 funn, 5 rettet.
+- Status: done.
+
+### Åpne punkter
+- Issue #212: beslutninger (ingen sletting av feilrader, feil uten Klasseøkt vises ikke).
