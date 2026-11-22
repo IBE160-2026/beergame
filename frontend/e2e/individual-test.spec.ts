@@ -673,8 +673,8 @@ for (const vp of TABLE_VIEWPORTS) {
       await expect(cells.nth(1)).toHaveAttribute("aria-invalid", "true");
       await expect(cells.nth(1)).toHaveValue("1,5");
       // «1» was a whole number and was saved as typed; from «1,» the Uke holds no value, and the
-      // text itself is never sent.
-      expect(saves).toEqual([
+      // text itself is never sent. The last save waits for the one before it: polled, not read once.
+      await expect.poll(() => saves).toEqual([
         { value: [8, null, null, null, null, null], revision: 1 },
         { value: [8, 1, null, null, null, null], revision: 2 },
         { value: [8, null, null, null, null, null], revision: 3 },
