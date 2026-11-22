@@ -3419,3 +3419,22 @@ Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Den visue
 
 ### Åpne punkter
 - Issue #212: beslutninger (ingen sletting av feilrader, feil uten Klasseøkt vises ikke).
+
+## Story 11.8: Les tilpassede oppgaver med naturlig ordlyd (spor 2)
+
+### Oppgave
+Bygge Story 11.8 på `epic-11` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Kun AI-mock.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-11-8-read-adapted-items-in-natural-wording.md`.
+- Commit: 48e59a1. Migrasjon 0126.
+- Sweepen forbereder de tilpassede oppgavene i bakgrunnen. KI velger én av to godkjente ordlyder per mal, og svaret kontrolleres mot faktasettet; ved feil beholdes kodeteksten. Siden merker teksten «KI-generert, kan ta feil:».
+- Tester: backend 3334, Vitest 1071, tsc, `lint:colours`, `check:copy`, bygg, Playwright 117 med axe.
+- Gjennomgang: 33 funn, 7 rettet.
+- Status: done.
+
+### Åpne punkter
+- Issue #213: beslutninger, ny tabell med persondata og at valget av ordlyd bare er testet mot mocken.
