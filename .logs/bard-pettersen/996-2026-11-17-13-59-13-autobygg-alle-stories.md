@@ -3173,3 +3173,20 @@ Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Den visue
 
 ### Åpne punkter
 - Issue #198: beslutninger og oppfølgende gjennomgang.
+
+## Avslutning av Epic 8 (spor 1)
+
+### Oppgave
+Avslutte Epic 8 på `epic-8`: hente inn `main`, visuell kontroll av 8.14 og kolonnene i 8.1, filteret «Pause n», raskere tester, UX-punktene, stabilisering, PR og CI.
+
+### Plan
+Én avslutningsagent i hovedmappa, på en egen stack (`olspillet-e8`, 8090/5434). Agenten stoppet på ukegrensen og ble gjenopptatt etter compact. Epic 10 ble merget først, så agenten hentet inn `main` to ganger.
+
+### Resultat
+- PR #199 er merget til `main` (713cbac), med grønn CI. Alembic har én head, 0064, i kjeden 0052 → 0101…0119 → 0053…0064.
+- Rettinger: «Pause n» i Status-filteret (cdba93e, migrasjon 0064); KI-spillerne i klassespill nådde aldri modellen og falt alltid tilbake til regelbasert, nå sendes den frosne modellkonfigurasjonen videre (b9400c8); «I rommet» på Hjem (98c5b51); UX-rettinger (c82083c); slug-konflikt under `studenter/` etter mergen (92bf542); `games.commands.close` avviser klassespill før den ser på tilstanden (14575cb); raskere tester (becec21); stabile e2e-tester (6cf69f3); skjermbilder 8.14 (0c0ea03).
+- Tester: backend 3426 på 134–142 s (målet på rundt 90 s er ikke nådd), Playwright 614 to ganger på rad uten feil.
+- Status: `epic-8: done`.
+
+### Åpne punkter
+- Issue #200: en tapt KI-tur uten frist blir aldri reddet, «Melding» ved 390 px, testen med 100 spill (17–29 s), en side som av og til står tom under last.
