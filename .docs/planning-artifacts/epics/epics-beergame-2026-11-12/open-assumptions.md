@@ -121,6 +121,7 @@ The final validation found gaps that the fix round closed. Story numbers below a
 
 **Replay, test and assessment**
 - The default Replay scenario for random demand keeps the mean with a spread of 2 or more; for a fixed series each Week's value becomes the level with spread 2 (10.1).
+- «Start Replay» stands on Hjem under the Class game once the quiz is passed, and is the primary button when no game action is; the started Replay shows its Setene there until Story 10.4 adds the way to play it. A Student with no Seat in the Class session (so no game of their own) gets no Replay (10.3).
 - An own Replay scenario warns when, against the Class game, a delay is shorter, the peak demand level lower, the spread smaller, a change of level gone, any Guided Weeks are set, or the starting inventory is higher; a range counts by its easier end. Only Weeks and the change Week take a range in the form; the chain, capacity and Information visibility follow the Game settings (10.2).
 - No diagram item type in v1. The Lecturer can edit the total weight of the Adapted items (11.1).
 - A Lecturer edits the descriptive text of the Scoring guide only; criterion codes, count and weights are fixed (11.2).
@@ -189,7 +190,8 @@ The stories add draft copy to `nb.ts` for these, because the UX spines have no s
 - the consequence line over «Sett inn KI-spiller i alle seter som blir ventet på» on one game (8.12);
 - the statement of the time limit on the own-work statement, and the setting on the Klasseøkt (11.12);
 - the Klasseøkt's «Replay-scenario» block: «Standard», the demand, step Week and length in words, and the line that they differ per Student and stay hidden (10.1);
-- the own Replay scenario: «Eget scenario», the help line under the Valgknapper, «Antall uker, minst/høyst» and «Endres fra uke, tidligst/senest», and the warning lines that a change probably makes the Replay easier (10.2).
+- the own Replay scenario: «Eget scenario», the help line under the Valgknapper, «Antall uker, minst/høyst» and «Endres fra uke, tidligst/senest», and the warning lines that a change probably makes the Replay easier (10.2);
+- the Replay on Hjem: the consequence line over «Start Replay», «Replay · Du er Grossist» once started, the refusal lines, and the Replay step's «ikke gjort, Testfristen er ute» when the Testfrist passed with no Replay started (10.3).
 
 ### Choices made while fixing, for the founder to confirm
 

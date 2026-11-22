@@ -167,6 +167,7 @@ from app.modules.sessions.schemas import (
     PlayTurnOut,
     ProposalPersonOut,
     ReplacedLevelOut,
+    ReplayGameOut,
     RoleCapacityOut,
     SeatChoiceGameOut,
     SeatChoiceIn,
@@ -179,6 +180,7 @@ from app.modules.sessions.schemas import (
     SettingWarning,
     StepOut,
     StudentGameOut,
+    StudentReplayOut,
     TableSeatOut,
     TableStatusOut,
     TestGameRefOut,
@@ -1261,6 +1263,12 @@ async def enrolled_sessions(user: authz.Principal) -> EnrolledSessionListOut:
             for row in locked
             if cards.get(row["id"]) is not None and cards[row["id"]].debrief == "open"
         }
+        replays = {
+            row["id"]: await _replay_out(s, user, row, now)
+            for row in locked
+            if cards.get(row["id"]) is not None
+            and progress.Step.QUIZ_PASSED in done.get(row["id"], set())
+        }
     upcoming: dict[uuid.UUID, list[EnrolledLabHourOut]] = {}
     for lab in labs:
         upcoming.setdefault(lab["class_session_id"], []).append(
@@ -1293,7 +1301,9 @@ async def enrolled_sessions(user: authz.Principal) -> EnrolledSessionListOut:
                     held=_held(cards.get(row["id"])),
                     quiz_changed=changed.get(row["id"], False),
                     group_open=grouped.get(row["id"], False),
+                    replay_closed=_replay_closed(replays.get(row["id"]), user, row, now),
                 ),
+                replay=replays.get(row["id"]),
             )
             for row in rows
             if row["class_id"] in names
@@ -1319,6 +1329,7 @@ def stegene(
     held: bool = False,
     quiz_changed: bool = False,
     group_open: bool = False,
+    replay_closed: bool = False,
 ) -> list[StepOut]:
     """The state of each of Stegene's steps (Story 6.1, AD-10): a done step is `done`; with a
     game the first step not done is `current` and the later ones `locked`; with no game (before
@@ -1327,7 +1338,8 @@ def stegene(
     be current is `locked` and says so, and no step is current until the release.
     `quiz_changed` (Story 9.10): a current Quiz step says the Lecturer has changed the quiz.
     `group_open` (Story 9.11): a current Debrief step says a Group debrief the Student can join is
-    under way."""
+    under way. `replay_closed` (Story 10.3): a current Replay step says the Test deadline has
+    passed with no Replay started; it stays not done."""
     steps: list[StepOut] = []
     current_given = not has_game
     for name, step in STEGENE:
@@ -1343,6 +1355,9 @@ def stegene(
                 continue
             if name == "debrief" and group_open:
                 steps.append(StepOut(step=name, state=state, group_open=True))
+                continue
+            if name == "replay" and replay_closed:
+                steps.append(StepOut(step=name, state=state, closed=True))
                 continue
         else:
             state = "locked"
@@ -1435,6 +1450,67 @@ async def _group_open_of(
     return await _group_open[0](s, user_id, class_session_id)
 
 
+# Story 10.3: the Student's Replay in a Class session, as `replay` stores it. `replay` imports
+# `sessions`, so it registers its lookup here instead of `sessions` importing it (AD-25).
+
+ReplayGameProvider = Callable[[AsyncSession, uuid.UUID, uuid.UUID], Awaitable[uuid.UUID | None]]
+"""`(session, user_id, class_session_id)` → the id of the Student's Replay Game, or None."""
+
+_replay_game: list[ReplayGameProvider] = []
+
+
+def register_replay_game(provider: ReplayGameProvider) -> None:
+    """`replay.service` registers its one lookup at import; another is refused."""
+    if _replay_game and _replay_game[0] is not provider:
+        raise ValueError("a Replay game provider is registered already")
+    _replay_game[:] = [provider]
+
+
+def test_deadline_passed(
+    user: authz.Principal | uuid.UUID, row: Mapping[str, Any], now: datetime
+) -> bool:
+    """Whether the Student's own Test deadline (`effective_test_deadline`) has passed at `now`
+    (Story 10.3): no Replay starts after it (FR-18)."""
+    deadline = effective_test_deadline(user, row)
+    return deadline is not None and deadline <= now
+
+
+async def _replay_out(
+    s: AsyncSession, user: authz.Principal, row: Mapping[str, Any], now: datetime
+) -> StudentReplayOut:
+    """The Replay on Hjem for a Student who has passed the Debrief quiz (Story 10.3): the started
+    Replay with its Seats as `table_status` names them (every AI player `ai`), or whether «Start
+    Replay» shows. Before `replay` has registered its lookup, no Replay is known."""
+    game_id = await _replay_game[0](s, user.id, row["id"]) if _replay_game else None
+    if game_id is None:
+        return StudentReplayOut(can_start=not test_deadline_passed(user, row, now), game=None)
+    table = await games_service.table_status(s, game_id, user.id, _names_in(row["class_id"], s))
+    play = await games_service.play_status(s, game_id)
+    seats = _seats_out(table)
+    role = next(seat.role for seat in seats if seat.mine)
+    return StudentReplayOut(
+        # A Replay stored but not started (its start failed after the commit) starts on the
+        # next press, which `replay.start` allows.
+        can_start=play.status == "ready" and not test_deadline_passed(user, row, now),
+        game=ReplayGameOut(
+            id=game_id,
+            role=role,
+            status=play.status,
+            week=play.week,
+            seats=seats,
+            server_now=await games_service.database_now(s),
+        ),
+    )
+
+
+def _replay_closed(
+    replay: StudentReplayOut | None, user: authz.Principal, row: Mapping[str, Any], now: datetime
+) -> bool:
+    """Stegene's Replay step says the Test deadline has passed (Story 10.3): the quiz is passed,
+    no Replay was started and the deadline is behind."""
+    return replay is not None and replay.game is None and test_deadline_passed(user, row, now)
+
+
 async def group_debrief_opened_mail_context(
     session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
 ) -> Mapping[str, object] | None:
@@ -1489,16 +1565,40 @@ class DebriefSession:
     """Story 9.11: the Class session's Debrief mode is Group debrief."""
 
 
+async def enrolled_locked_row(
+    s: AsyncSession, user: authz.Principal, class_session_id: uuid.UUID
+) -> Mapping[str, Any] | None:
+    """The Class session row, read in `s`, when it is one of the User's own as a Student
+    (`authz.classes_enrolled_by`), in a Class Hjem lists, and locked; None for every other case
+    alike (FR-5). The Debrief (Story 9.2) and the Replay (Story 10.3) are reached only so."""
+    listed = {item.id for item in (await classes.enrolled_classes(user, session=s)).items}
+    rows = {row["id"]: row for row in await repo.enrolled_sessions(s, user)}
+    row = rows.get(class_session_id)
+    if row is None or row["class_id"] not in listed or not is_locked(row):
+        return None
+    return row
+
+
+async def replay_session_of(
+    s: AsyncSession, user: authz.Principal, class_session_id: uuid.UUID
+) -> Mapping[str, Any] | None:
+    """The whole Class session row for the Student's Replay (Story 10.3), read in `s` and
+    share-locked, so its snapshot and Test deadline hold while the Replay is made; under
+    `enrolled_locked_row`'s checks (None for every other case alike, FR-5). The caller reads it
+    only through `replay_template`, `test_deadline_passed` and its frozen `snapshot`."""
+    if await enrolled_locked_row(s, user, class_session_id) is None:
+        return None
+    return await repo.session_row(s, class_session_id, share=True)
+
+
 async def debrief_session_of(
     s: AsyncSession, user: authz.Principal, class_session_id: uuid.UUID
 ) -> DebriefSession | None:
     """The Class session for the User's Debrief, read in `s`: one of their own
     (`authz.classes_enrolled_by`), in a Class Hjem lists, and locked; None for every other case
     alike (FR-5), as `_own_locked_game` judges a game."""
-    listed = {item.id for item in (await classes.enrolled_classes(user, session=s)).items}
-    rows = {row["id"]: row for row in await repo.enrolled_sessions(s, user)}
-    row = rows.get(class_session_id)
-    if row is None or row["class_id"] not in listed or not is_locked(row):
+    row = await enrolled_locked_row(s, user, class_session_id)
+    if row is None:
         return None
     return DebriefSession(
         id=row["id"],

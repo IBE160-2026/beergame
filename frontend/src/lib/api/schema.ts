@@ -2116,6 +2116,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/class-sessions/{session_id}/replay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start My Replay
+         * @description «Start Replay» (Story 10.3, FR-48): the Student's one Replay in the Class session, made in
+         *     the Role of their own game against three AI players and started at once; 201 with the new
+         *     Game, 200 with the one they have already (also when two starts run at once). 403
+         *     `quiz_required` before the Debrief quiz is passed, 409 `test_deadline_passed` after the
+         *     Student's Test deadline, 403 `forbidden` for any session that is not theirs (FR-5).
+         */
+        post: operations["startMyReplay"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me/class-sessions/{session_id}/seat-choice": {
         parameters: {
             query?: never;
@@ -3472,6 +3496,7 @@ export interface components {
             obligatory: boolean;
             /** Play Deadline */
             play_deadline: string | null;
+            replay?: components["schemas"]["StudentReplayOut"] | null;
             /**
              * Seat Choice Open
              * @default false
@@ -5001,6 +5026,34 @@ export interface components {
             values: number[];
         };
         /**
+         * ReplayGameOut
+         * @description The Student's started Replay on Hjem (Story 10.3, FR-48, FR-34): its Role and Seats, every
+         *     AI player as `ai` (named «KI-spiller») from the first view, and where it stands. Never the
+         *     number of Weeks, the demand or the scenario (FR-49).
+         */
+        ReplayGameOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            role: components["schemas"]["Role"];
+            /** Seats */
+            seats: components["schemas"]["TableSeatOut"][];
+            /**
+             * Server Now
+             * Format: date-time
+             */
+            server_now: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "not_ready" | "ready" | "running" | "finished";
+            /** Week */
+            week: number | null;
+        };
+        /**
          * ReplayRandom
          * @description Demand around `mean` with variation of `spread` each Week (a `random` pattern).
          */
@@ -5026,6 +5079,17 @@ export interface components {
             replay_template: {
                 [key: string]: unknown;
             };
+        };
+        /**
+         * ReplayStartOut
+         * @description The Student's Replay Game: the one this request made (201) or the one they had (200).
+         */
+        ReplayStartOut: {
+            /**
+             * Game Id
+             * Format: uuid
+             */
+            game_id: string;
         };
         /**
          * ReplayStep
@@ -5949,6 +6013,11 @@ export interface components {
          */
         StepOut: {
             /**
+             * Closed
+             * @default false
+             */
+            closed: boolean;
+            /**
              * Group Open
              * @default false
              */
@@ -6020,6 +6089,15 @@ export interface components {
             turn: components["schemas"]["PlayTurnOut"] | null;
             /** Week */
             week: number | null;
+        };
+        /**
+         * StudentReplayOut
+         * @description The Replay on Hjem (Story 10.3): only once the Student has passed the Debrief quiz.
+         */
+        StudentReplayOut: {
+            /** Can Start */
+            can_start: boolean;
+            game: components["schemas"]["ReplayGameOut"] | null;
         };
         /**
          * SumTermOut
@@ -11762,6 +11840,73 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    startMyReplay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplayStartOut"];
+                };
+            };
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplayStartOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

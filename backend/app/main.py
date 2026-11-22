@@ -19,6 +19,7 @@ from app.modules.identity import service as identity_service
 from app.modules.messaging import message_routes
 from app.modules.messaging import routes as messaging_routes
 from app.modules.messaging import webhooks as messaging_webhooks
+from app.modules.replay import routes as replay_routes
 from app.modules.sessions import dev as sessions_dev
 from app.modules.sessions import routes as sessions_routes
 from app.modules.tests import routes as tests_routes
@@ -109,6 +110,7 @@ def create_app() -> FastAPI:
     app.include_router(tests_routes.router)  # the Starting task (Story 6.3)
     app.include_router(debrief_routes.router)  # the Debrief (Story 9.2)
     app.include_router(message_routes.router)  # Messages from staff (Story 7.9)
+    app.include_router(replay_routes.router)  # the Student's Replay (Story 10.3)
     app.include_router(messaging_webhooks.router)  # the provider's events (Story 4.6), signed
     if get_settings().app_env != "production":
         app.include_router(messaging_routes.router)  # the dev mailbox (Story 3.6), local only

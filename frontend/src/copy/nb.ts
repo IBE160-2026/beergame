@@ -433,6 +433,24 @@ export const nb = {
       /** Story 9.11: the current Debrief step while a Group debrief of the Student's game is under
        * way that they have not joined; its link leads there. [ASSUMPTION] */
       groupOpen: "pågår, Gruppedebriefen er i gang",
+      /** Story 10.3: the current Replay step after the Student's Testfrist with no Replay
+       * started; it is not done. [ASSUMPTION] */
+      replayClosed: "ikke gjort, Testfristen er ute",
+      /** Story 10.3 (FR-48): the Replay on Hjem once the Debrief quiz is passed. «Replay» is the
+       * spine's; the rest is [ASSUMPTION] draft copy for the founder's review. */
+      replay: {
+        /** «Replay · Du er Grossist», once started. */
+        title: (role: string) => `Replay · Du er ${role}`,
+        heading: "Replay",
+        /** The consequence, above «Start Replay», before it is pressed. */
+        consequence: "Du spiller én runde alene, i samme Rolle, mot tre KI-spillere. Etterspørselen er en annen enn i Klassespillet.",
+        start: "Start Replay",
+        failed: "Replay ble ikke startet. Prøv igjen.",
+        errors: {
+          quiz_required: "Bestå Debrief-quizen først.",
+          test_deadline_passed: "Testfristen er ute. Replay kan ikke startes.",
+        },
+      },
       nextDeadline: "Neste frist",
       /** «Spillfrist ti. 8. des.» */
       deadline: (kind: string, day: string) => `${kind} ${day}`,

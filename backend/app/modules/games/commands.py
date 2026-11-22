@@ -538,9 +538,9 @@ async def assign_seat(
     `rule_based`, `scripted` (with a policy id), `llm`, which needs a Game whose
     `SessionRuntime` holds a model config (`model_config_required`; `game_not_ready` before its
     snapshot), or `student` with the Student's `user_id` (Story 5.9), where the purpose's policy
-    allows Students. A Student holds at most one Seat per Class session
-    (`student_already_seated`); the caller that seats a Class session's Students holds that
-    session's lock, so two of them never race.
+    allows Students. A Student holds at most one Seat among a Class session's Class games
+    (`student_already_seated`; a Replay is no Class game, Story 10.3); the caller that seats a
+    Class session's Students holds that session's lock, so two of them never race.
 
     Returns the occupancy row id. An occupied Seat answers `seat_occupied`, unless `replace` is
     given (Story 5.12): then the new occupant is appended after the Seat's current one, whose row
@@ -600,6 +600,9 @@ async def _assign(
     if (
         student is not None
         and game["class_session_id"] is not None
+        # One Seat per Class session among its Class games (the overview's Games); a Replay
+        # seats the Student again beside their Class game Seat (Story 10.3).
+        and _policy(game["purpose"]).lecturer_overview
         and await repo.student_seated(session, game["class_session_id"], student)
     ):
         raise CommandError(

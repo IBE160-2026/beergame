@@ -614,6 +614,34 @@ class StepOut(BaseModel):
     group_open: bool = False
     """Story 9.11: the current Debrief step, while a Group debrief of the Student's game is under
     way that they have not joined; Stegene says so and its link leads there to join."""
+    closed: bool = False
+    """Story 10.3: the current Replay step after the Student's Test deadline with no Replay
+    started: it is not done, and it can no longer start (FR-18)."""
+
+
+class ReplayGameOut(BaseModel):
+    """The Student's started Replay on Hjem (Story 10.3, FR-48, FR-34): its Role and Seats, every
+    AI player as `ai` (named «KI-spiller») from the first view, and where it stands. Never the
+    number of Weeks, the demand or the scenario (FR-49)."""
+
+    id: uuid.UUID
+    role: Role
+    status: GamePlayStatus
+    week: int | None
+    """The open Week while `running`, else None."""
+    seats: list[TableSeatOut]
+    server_now: AwareDatetime
+    """The database clock when the Replay was read: the Seats' waits count from it."""
+
+
+class StudentReplayOut(BaseModel):
+    """The Replay on Hjem (Story 10.3): only once the Student has passed the Debrief quiz."""
+
+    can_start: bool
+    """«Start Replay» shows: no Replay yet, or one stored but not started, and the Student's Test
+    deadline has not passed."""
+    game: ReplayGameOut | None
+    """The Student's Replay once started; None before."""
 
 
 class EnrolledSessionOut(BaseModel):
@@ -647,6 +675,8 @@ class EnrolledSessionOut(BaseModel):
     steps: list[StepOut] = []
     """Story 6.1: Stegene's six steps in order, Klassespill first. With no game every step not
     done is `locked`; with one, the first step not done is `current`."""
+    replay: StudentReplayOut | None = None
+    """Story 10.3: the Replay, once the Student has passed the Debrief quiz; None before."""
 
 
 class EnrolledSessionListOut(BaseModel):

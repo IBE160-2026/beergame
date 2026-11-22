@@ -66,6 +66,23 @@ def test_games_has_no_llm_or_provider_import():
             ), f"{path.name}:{line} imports {name}"
 
 
+def test_replay_reaches_other_modules_only_through_their_service_and_the_games_commands():
+    """Story 10.3 (AD-2): `modules/replay` writes no game table; it makes Games through
+    `games.commands`, the one write path, and reads everything else through a `service.py`."""
+    allowed = (
+        "app.modules.games.service",
+        "app.modules.games.commands",
+        "app.modules.sessions.service",
+        "app.modules.progress.service",
+    )
+    found = imports(APP / "modules" / "replay")
+    assert found
+    for path, line, name in found:
+        if name.startswith("app.modules.") and not name.startswith("app.modules.replay"):
+            assert name in allowed, f"{path.name}:{line} imports {name}"
+        assert not name.startswith(LLM_IMPORTS), f"{path.name}:{line} imports {name}"
+
+
 def test_progress_imports_no_feature_module():
     """AD-16: any module records and reads steps through `progress`, so `progress` imports no
     other module (Story 6.1)."""

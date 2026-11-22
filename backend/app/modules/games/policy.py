@@ -49,6 +49,9 @@ class GamePolicy(BaseModel):
     played_by_staff: bool
     """Whether a Lecturer of the Class session plays it in a Student Seat (Story 6.20, FR-87): it
     is reached from the Klasseøkt, labelled «Testspill», and its end leads back there."""
+    projection: bool
+    """Whether the play screen draws the projection of net stock at nå + delay horizon (Story 10.3
+    adds the column, Story 10.4 draws it, UX-DR19): only the Replay."""
 
 
 POLICIES: Mapping[Purpose, GamePolicy] = MappingProxyType(
@@ -67,6 +70,7 @@ POLICIES: Mapping[Purpose, GamePolicy] = MappingProxyType(
             pre_play_gate=False,
             game_number=False,
             played_by_staff=False,
+            projection=False,
         ),
         # A Class game (Story 5.9): created when the allocation is confirmed, its snapshot taken
         # at the Class session's lock.
@@ -84,6 +88,7 @@ POLICIES: Mapping[Purpose, GamePolicy] = MappingProxyType(
             pre_play_gate=True,
             game_number=True,
             played_by_staff=False,
+            projection=False,
         ),
         # A Lecturer's private test Game (Story 6.20, FR-87): snapshot of its Class session's
         # current settings at creation, the Lecturer in one Seat and AI players in the others. It
@@ -103,6 +108,28 @@ POLICIES: Mapping[Purpose, GamePolicy] = MappingProxyType(
             pre_play_gate=False,
             game_number=False,
             played_by_staff=True,
+            projection=False,
+        ),
+        # A Student's Replay (Story 10.3, FR-48, AD-13): one round alone in the Class game's Role
+        # against three AI players, on the Class session's frozen runtime with its own drawn
+        # settings, snapshotted at creation. It belongs to the Class session (its budget) but is no
+        # Class game: no number, not on the overview, no `class_game` step, no gate. Nobody waits on
+        # the Student, so no Takeover, Pause or playout; Guided Weeks only where its settings say.
+        Purpose.REPLAY: GamePolicy(
+            inactivity_takeover=False,
+            pause=False,
+            play_deadline_playout=False,
+            lecturer_overview=False,
+            guided_weeks="settings",
+            scripted_occupants=False,
+            snapshot="at_creation",
+            student_occupants=True,
+            class_session_game=True,
+            records_class_game_step=False,
+            pre_play_gate=False,
+            game_number=False,
+            played_by_staff=False,
+            projection=True,
         ),
     }
 )
@@ -120,6 +147,7 @@ BoolColumn = Literal[
     "pre_play_gate",
     "game_number",
     "played_by_staff",
+    "projection",
 ]
 
 

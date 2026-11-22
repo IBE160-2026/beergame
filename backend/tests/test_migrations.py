@@ -99,6 +99,8 @@ GAME_SUMMARY_TABLES = {"game_summaries"}
 """The tables of revision 0051 (Story 7.1)."""
 MESSAGE_TABLES = {"messages", "message_recipients"}
 """The tables of revision 0052 (Story 7.9)."""
+REPLAY_TABLES = {"replays"}
+"""The tables of revision 0116 (Story 10.3)."""
 HEAD_TABLES = (
     PRE_SESSION_TABLES
     | SESSION_TABLES
@@ -119,8 +121,9 @@ HEAD_TABLES = (
     | FOLLOW_UP_TABLES
     | GAME_SUMMARY_TABLES
     | MESSAGE_TABLES
+    | REPLAY_TABLES
 )
-HEAD = "0115"  # 0115 stores a Class session's own Replay scenario (Story 10.2)
+HEAD = "0116"  # 0116 names each Student's Replay (Story 10.3)
 
 
 def reset_schema(url: str) -> None:
@@ -309,6 +312,11 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     # 0111 (Story 9.12): presence, the Students who go on alone and the 48-hour fallback.
     assert "last_seen_at" in columns(url, "debrief_members")
     assert {"fallback_due_at", "fallback_at"} <= columns(url, "debrief_sessions")
+
+    # 0116 (Story 10.3): each Student's one Replay in a Class session.
+    assert {"user_id", "class_session_id", "game_id"} <= columns(url, "replays")
+    command.downgrade(cfg, "0115")
+    assert REPLAY_TABLES.isdisjoint(tables(url))
 
     # 0115 (Story 10.2): an own Replay scenario, its template there exactly when chosen.
     assert "replay_template" in columns(url, "class_sessions")

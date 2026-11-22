@@ -33,9 +33,10 @@ export function holderText(seat: TableSeat): string {
  * so (Story 9.2); the current Debrief step leads to the Debrief of `sessionId`, the current Quiz
  * step to its step 5, the Debrief quiz (Story 9.9), and says when the Faglærer has changed the quiz
  * (Story 9.10). A current Debrief step says when a Group debrief the Student can join is under way
- * (Story 9.11); its link is the way in. */
+ * (Story 9.11); its link is the way in. A current Replay step says when the Testfrist has passed
+ * with no Replay started (Story 10.3). */
 export function stepItems(steps: EnrolledSession["steps"], sessionId?: string): StegeneItem[] {
-  return (steps ?? []).map(({ step, state, held, quiz_changed, group_open }) => ({
+  return (steps ?? []).map(({ step, state, held, quiz_changed, group_open, closed }) => ({
     key: step,
     name: copy.stepNames[step],
     state,
@@ -45,7 +46,9 @@ export function stepItems(steps: EnrolledSession["steps"], sessionId?: string): 
           ? copy.quizChanged
           : group_open && step === "debrief"
             ? copy.groupOpen
-            : copy.current
+            : closed && step === "replay"
+              ? copy.replayClosed
+              : copy.current
         : state === "done"
           ? copy.done
           : held && step === "debrief"
