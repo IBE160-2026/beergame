@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-17-2026 12:28
-last_updated: 11-22-2026 15:03
+last_updated: 11-22-2026 15:31
 project: beergame
 project_key: NOKEY
 tracking_system: file-system
@@ -210,7 +210,7 @@ development_status:
   11-3-open-the-individual-test-with-the-own-work-statement: done
   11-4-answer-multiple-choice-items-with-autosave: done
   11-5-answer-table-and-number-interactive-items: done
-  11-6-write-long-answers-with-autosave: in-progress
+  11-6-write-long-answers-with-autosave: done
   11-7-get-adapted-items-from-my-own-game-and-replay: backlog
   11-8-read-adapted-items-in-natural-wording: backlog
   11-9-preview-the-adapted-item-templates-with-a-sample-student: backlog
