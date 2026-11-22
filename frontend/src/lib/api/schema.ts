@@ -6436,6 +6436,7 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            in_room?: components["schemas"]["InRoomOut"] | null;
             /** Number */
             number: number | null;
             /**

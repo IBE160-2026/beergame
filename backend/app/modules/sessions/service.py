@@ -1674,8 +1674,11 @@ async def _game_out(
     row: Mapping[str, Any],
     done: set[progress.Step],
 ) -> StudentGameOut:
+    # Story 8.11: the reader's own Tilrettelegging factor gives their own «I rommet» minutes, the
+    # line Hjem shows as Spill does (Epic 8 close-out).
+    own_factor = (await time_factors(s, found.class_session_id, [user_id])).get(user_id)
     table = await games_service.table_status(
-        s, found.game_id, user_id, _names_in(row["class_id"], s)
+        s, found.game_id, user_id, _names_in(row["class_id"], s), factor=own_factor
     )
     play = await games_service.play_status(s, found.game_id)
     state: games_service.SeatState | None = None
@@ -1705,6 +1708,7 @@ async def _game_out(
         obligatory=bool(row.get("obligatory")) and not found.test_game,
         can_pause=table.can_pause,
         pause=_pause_out(table),
+        in_room=_in_room_out(table),
         played_out=play.played_out,
         # Story 9.2: a Lecturer's test Game has no Debrief (Story 6.20).
         debrief=None if found.test_game else await _debrief_of(s, user_id, row),
@@ -1745,6 +1749,13 @@ async def _own_week(
     return state, PlayTurnOut(
         guided=turn.guided, order=turn.order, viewed=turn.viewed_at is not None
     )
+
+
+def _in_room_out(table: games_service.TableStatus) -> InRoomOut | None:
+    """The «I rommet» line (Story 8.11) with the reader's own minutes; None while not marked."""
+    if table.in_room is None:
+        return None
+    return InRoomOut(until=table.in_room.until, minutes=table.in_room.minutes)
 
 
 def _pause_out(table: games_service.TableStatus) -> PauseOut | None:
@@ -1875,9 +1886,7 @@ async def student_play_of(user: authz.Principal, game_id: str) -> PlayOut | None
             seats=_seats_out(table),
             can_pause=table.can_pause,
             pause=_pause_out(table),
-            in_room=None
-            if table.in_room is None
-            else InRoomOut(until=table.in_room.until, minutes=table.in_room.minutes),
+            in_room=_in_room_out(table),
         ),
         server_now=now,
         # Read again when an AI player's Order falls due (AD-8, AD-20); one already past is the

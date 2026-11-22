@@ -8480,6 +8480,16 @@
             "title": "Id",
             "type": "string"
           },
+          "in_room": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InRoomOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "number": {
             "anyOf": [
               {

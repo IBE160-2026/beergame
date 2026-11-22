@@ -30,6 +30,7 @@ import {
   stepItems,
   toWeekText,
 } from "./home";
+import { InRoomLine } from "./in-room-view";
 import { ownSeatTakenOver, useServerNow } from "./seat-status";
 import { PauseControl, PauseLine } from "./pause-view";
 import { GameSeatStatus, TakenOverNote } from "./seat-status-view";
@@ -259,6 +260,8 @@ function GameBlock({
       ) : null}
       {/* Story 8.6: the pause line above Setestatus, as on the play screen. */}
       {finished ? null : <PauseLine gameId={game.id} pause={game.pause} className="mt-4" />}
+      {/* Story 8.11: the «I rommet» line above Setestatus, as on Spill (Epic 8 close-out). */}
+      {finished ? null : <InRoomLine inRoom={game.in_room} className="mt-4" />}
       {/* Story 6.14: the Setestatus, as on the play screen. */}
       <GameSeatStatus gameId={game.id} seats={seats} now={now} titleId={seatsId} level={4} className="mt-4" />
       {/* Story 8.6: «Ta pause» under Setestatus, and the Pausevalg in place. */}

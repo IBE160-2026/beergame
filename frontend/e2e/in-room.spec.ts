@@ -103,12 +103,20 @@ test("a Lecturer marks a game «I rommet» in a Labtime, the Students read it, a
   const done = block.locator("[data-in-room-result]");
   await expect(done).toHaveText(copy.done(until));
   await expect(done).toBeFocused();
+  await expect(done).toHaveClass(/sr-only/); // the marked line says it; not shown twice
   await expect(block.locator("[data-in-room-marked]")).toHaveText(copy.marked(until, 10));
   await expect(block.getByRole("button", { name: copy.end })).toBeVisible();
   await expectAccessible(page, false);
 
   // The Student's line above Setestatus comes live, in its polite region.
   await expect(line.locator("p")).toHaveText(nb.homes.student.inRoom.line(until, 10), { timeout: 10_000 });
+  // Hjem shows the same line above Setestatus (Epic 8 close-out).
+  const hjem = await play.context().newPage();
+  await hjem.goto("/hjem");
+  await expect(hjem.getByRole("main").locator('[data-in-room-line="on"] p')).toHaveText(
+    nb.homes.student.inRoom.line(until, 10),
+  );
+  await hjem.close();
 
   // The wall's row label carries «I rommet».
   const board = await lecturerPage(browser, lecturerSession, VIEWPORTS[2]!);

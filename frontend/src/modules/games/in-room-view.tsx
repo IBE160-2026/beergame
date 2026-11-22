@@ -217,14 +217,16 @@ export function InRoomStyring({ data }: { data: GameInsight }) {
         </>
       )}
       <ActionError message={ending.errorMessage} />
-      <InRoomResult text={result.text} n={result.n} />
+      {/* While marked, the line above says the same: the result is read and focused, not shown
+          twice (Epic 8 close-out, from the 8.11 visual check). */}
+      <InRoomResult text={result.text} n={result.n} quiet={marked !== null} />
     </div>
   );
 }
 
 /** The result line that replaces a closed form and takes focus (`tabindex="-1"`, `role="status"`),
- * as the Pause's in the same block. */
-function InRoomResult({ text, n }: { text: string; n: number }) {
+ * as the Pause's in the same block; `quiet` keeps it for screen readers only. */
+function InRoomResult({ text, n, quiet = false }: { text: string; n: number; quiet?: boolean }) {
   const ref = useRef<HTMLParagraphElement>(null);
   useEffect(() => {
     if (n > 0) ref.current?.focus();
@@ -235,7 +237,7 @@ function InRoomResult({ text, n }: { text: string; n: number }) {
       tabIndex={-1}
       role="status"
       data-in-room-result=""
-      className={cn("text-body-phone text-ink focus:outline-none lg:text-body", !text && "sr-only")}
+      className={cn("text-body-phone text-ink focus:outline-none lg:text-body", (!text || quiet) && "sr-only")}
     >
       {text}
     </p>

@@ -543,6 +543,15 @@ class PauseOut(BaseModel):
     faglæreren.» Only a Lecturer's agreed time ever shows here (UX-DR62)."""
 
 
+class InRoomOut(BaseModel):
+    """«I rommet til kl. 16:00. En KI-spiller tar setet etter 10 min uten ordre.» (Story 8.11,
+    FR-36, UX-DR62): until when, and the reader's own whole minutes (Tilrettelegging included,
+    never another Student's)."""
+
+    until: AwareDatetime
+    minutes: int
+
+
 class StudentGameOut(BaseModel):
     """The Student's Class game on Hjem (Story 6.1): «Spill 17 · Du er Grossist» and the four
     Seats, Fabrikk first (UX-DR73). Only from the Start date (`is_locked`)."""
@@ -588,19 +597,13 @@ class StudentGameOut(BaseModel):
     paused, in which they hold a Seat now."""
     pause: PauseOut | None = None
     """Story 8.6: the pause line above Setestatus; None when there is none to show."""
+    in_room: InRoomOut | None = None
+    """Story 8.11: the «I rommet» line above Setestatus, as on Spill (Epic 8 close-out); None
+    while the game is not marked."""
     played_out: bool = False
     """Story 8.14 (FR-38): the Play deadline playout took the game over: AI players play it out,
     or it ended so. No Ordrefelt or Spillkort then, and «Spillet er ferdig» says it ended at the
     Spillfrist; never how many Uker the AI players played."""
-
-
-class InRoomOut(BaseModel):
-    """«I rommet til kl. 16:00. En KI-spiller tar setet etter 10 min uten ordre.» (Story 8.11,
-    FR-36, UX-DR62): until when, and the reader's own whole minutes (Tilrettelegging included,
-    never another Student's)."""
-
-    until: AwareDatetime
-    minutes: int
 
 
 class TableStatusOut(BaseModel):

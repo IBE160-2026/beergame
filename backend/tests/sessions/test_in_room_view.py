@@ -20,6 +20,7 @@ from tests.sessions.test_lab_hours import add, change, remove
 from tests.sessions.test_orders import code, order
 from tests.sessions.test_overview import overview
 from tests.sessions.test_pause_view import three_students_in_uke_2
+from tests.sessions.test_student_home import home
 
 __all__ = ["_empty", "clock", "klass"]
 
@@ -97,6 +98,9 @@ async def test_a_lecturer_marks_a_game_in_a_lab_hour_and_ends_it(klass):
     for who, minutes in ((sara, 10), (third, 10), (jonas, 20)):
         line = (await play(who, game_id))["table_status"]["in_room"]
         assert (parse(line["until"]), line["minutes"]) == (ENDS, minutes)
+    # Hjem carries the same line (Epic 8 close-out).
+    jonas_home = (await home(jonas))["game"]["in_room"]
+    assert (parse(jonas_home["until"]), jonas_home["minutes"]) == (ENDS, 20)
     assert code(await mark(LECTURER, game_id, 20)) == (409, "already_in_room")
 
     # The Lab hour moves: the mark follows its new end. Removed: the mark ends.
@@ -109,6 +113,7 @@ async def test_a_lecturer_marks_a_game_in_a_lab_hour_and_ends_it(klass):
     assert (await insight(LECTURER, game_id)).json()["in_room"] is None
     assert due_of(game_id, user_id(third)) == (wait, wait + timedelta(hours=24))
     assert (await play(sara, game_id))["table_status"]["in_room"] is None
+    assert (await home(sara))["game"]["in_room"] is None
 
     # Marked again in a new Lab hour, then «Ikke i rommet lenger» by the Lecturer.
     assert (await add(session_id, starts=NOW - MINUTE, ends=ENDS)).status_code == 201
