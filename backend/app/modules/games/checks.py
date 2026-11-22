@@ -24,6 +24,7 @@ from app.platform.db import get_sessionmaker
 __all__ = [
     "as_game_check",
     "finished_game_ids",
+    "replay_check",
     "rules_versions_without_package",
     "verify_finished",
 ]
@@ -60,18 +61,7 @@ async def verify_finished(game_id: str) -> GameCheck:
         stored = await repo.game_check(session, game_uuid)
         if stored is not None:
             return as_game_check(stored)
-        game = await repo.get_game(session, game_uuid)
-        if game is None:
-            raise ViewError("game_not_found", f"no Game {game_id!r}", 404)
-        # A Game `close` ended at the Test deadline (Story 10.6) has no last Week to check.
-        if game["lifecycle"] != Lifecycle.FINISHED or game["end_reason"] is not None:
-            raise ViewError("game_not_finished", "only a finished Game is checked", 409)
-        version = game["rules_version"]
-        if not rules.has_version(version):
-            raise ViewError(
-                "rules_version_unsupported", f"no rules package for rules version {version}", 409
-            )
-        violations = await _violations(session, game_uuid, game, version)
+        version, violations = await replay_check(session, game_uuid)
         check_id = uuid.uuid7()
         row = await repo.insert_game_check(
             session,
@@ -96,6 +86,27 @@ async def verify_finished(game_id: str) -> GameCheck:
     else:
         log.info("game_check_passed", game_id=game_id, check_id=str(check_id))
     return as_game_check(row)
+
+
+async def replay_check(session: AsyncSession, game_id: uuid.UUID) -> tuple[int, list[Violation]]:
+    """Replay a finished Game at its stored `rules_version` and check its books and its Decision
+    log, reading only: `(rules_version, violations)`, nothing stored. `verify_finished` stores
+    the result; `python -m app.ops.verify_restore` reads a restored copy with it (Story 15.11).
+
+    Refuses (`ViewError`): `game_not_found` 404, `game_not_finished` 409,
+    `rules_version_unsupported` 409 when the stored version has no rules package."""
+    game = await repo.get_game(session, game_id)
+    if game is None:
+        raise ViewError("game_not_found", f"no Game {game_id}", 404)
+    # A Game `close` ended at the Test deadline (Story 10.6) has no last Week to check.
+    if game["lifecycle"] != Lifecycle.FINISHED or game["end_reason"] is not None:
+        raise ViewError("game_not_finished", "only a finished Game is checked", 409)
+    version = game["rules_version"]
+    if not rules.has_version(version):
+        raise ViewError(
+            "rules_version_unsupported", f"no rules package for rules version {version}", 409
+        )
+    return version, await _violations(session, game_id, game, version)
 
 
 async def _violations(

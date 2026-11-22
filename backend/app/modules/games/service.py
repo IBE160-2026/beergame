@@ -17,6 +17,7 @@ from app.modules.games import repo, rules
 from app.modules.games.batches import create_batch, get_batch
 from app.modules.games.checks import (
     finished_game_ids,
+    replay_check,
     rules_versions_without_package,
     verify_finished,
 )
@@ -189,6 +190,8 @@ __all__ = [
     "table_status",
     "decision_log",
     "finished_game_ids",
+    "finished_game_ids_in",
+    "replay_check",
     "game_summary",
     "get_batch",
     "get_game",
@@ -209,6 +212,12 @@ __all__ = [
     "class_session_of",
     "session_ai_figures",
 ]
+
+
+async def finished_game_ids_in(session: AsyncSession) -> list[uuid.UUID]:
+    """Every finished Game's id, oldest first, read on `session` (a restored copy's, Story
+    15.11); a Game `close` ended is not one."""
+    return await repo.finished_game_ids(session)
 
 
 async def unchecked_finished_game_ids(

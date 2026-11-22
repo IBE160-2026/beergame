@@ -172,6 +172,9 @@ POLICIES: dict[str, frozenset[str]] = {
     # «Drift» (Story 15.8, NFR-8): the Admin reads error counts, fallback, response times, the Play
     # guard share and AI cost per Class session. Counts and timings only, no Student data (FR-5).
     "operations.read": frozenset({ADMIN}),
+    # A deliberate error for one Class session (Story 15.11, NFR-4): the Admin checks that an
+    # error reaches the error tracker and «Drift». It records the error and changes nothing else.
+    "operations.test_error": frozenset({ADMIN}),
     # FR-5: no account role grants these. Epic 4+ adds the Class-scoped grants.
     "student_answers.read": frozenset(),
     "ai_assessments.read": frozenset(),

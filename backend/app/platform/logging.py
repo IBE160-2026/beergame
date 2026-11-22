@@ -16,6 +16,8 @@ from typing import IO, Any
 import structlog
 from structlog.types import EventDict, WrappedLogger
 
+from app.platform import error_reporting
+
 # Only ids, codes, numbers and fixed technical values. Never add a name,
 # email or free-text field here.
 ALLOWED_FIELDS: frozenset[str] = frozenset(
@@ -162,6 +164,14 @@ class RequestLogMiddleware:
             await self.app(scope, receive, send_wrapper)
         except asyncio.CancelledError:
             cancelled = True  # a dropped connection or shutdown: no answer, so no 5xx
+            raise
+        except Exception as exc:
+            # The error tracker gets its class, stack and ids, never its text (Story 15.11); the
+            # 5xx hook below counts the same error per Class session under the same request id.
+            ids = _path_ids(scope)
+            if "class_session_id" not in ids and "session_id" in ids:
+                ids["class_session_id"] = ids["session_id"]  # named either way, as the hook does
+            error_reporting.capture(exc, request_id=request_id, status=status, **ids)
             raise
         finally:
             self.log.info(

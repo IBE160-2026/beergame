@@ -87,6 +87,12 @@ async def list_sessions(now: datetime) -> OperationsSessionListOut:
     )
 
 
+async def session_exists(class_session_id: uuid.UUID) -> bool:
+    """Whether a Class session of that id exists (the deliberate test error's 404)."""
+    async with get_sessionmaker()() as s:
+        return bool(await sessions.evaluation_sessions(s, [class_session_id]))
+
+
 async def session_figures(class_session_id: uuid.UUID, now: datetime) -> OperationsOut | None:
     """The operations figures of one Class session, or None when there is no such session."""
     first_hour = _hour_start(now) - timedelta(hours=HOURS - 1)

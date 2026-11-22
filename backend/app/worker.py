@@ -13,7 +13,7 @@ import asyncio
 import sys
 from collections.abc import Sequence
 
-from app.platform import jobs
+from app.platform import error_reporting, jobs
 from app.platform.config import get_settings
 from app.platform.logging import configure_logging
 
@@ -97,6 +97,7 @@ async def _start(names: Sequence[str], *, concurrency: int) -> None:
     from app.modules.ops import service as ops_service
 
     await seed.ensure_zero_config_logged()
+    error_reporting.log_start(get_settings())  # Story 15.11: the tracker, or that none is set
     await ops_service.report_connections(
         ops_service.worker_process(list(names)), get_settings(), concurrency=concurrency
     )

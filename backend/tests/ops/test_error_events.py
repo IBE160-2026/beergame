@@ -212,8 +212,10 @@ async def test_a_failing_5xx_hook_changes_nothing_and_the_app_counts_through_ops
     with capture_logs() as logs:
         async with httpx.AsyncClient(transport=transport, base_url="http://t") as c:
             assert (await c.get(f"/x/class-sessions/{uuid.uuid7()}")).status_code == 500
+    # Beside the error tracker's mock line (Story 15.11), the hook's failure by type only.
     assert [e["event"] for e in logs if e.get("exc_type") == "RuntimeError"] == [
-        "server_error_hook_failed"
+        "[errors:mock]",
+        "server_error_hook_failed",
     ]
     # The app factory hands the request log the hook of `ops.service` (platform imports no module).
     [middleware] = [m for m in create_app().user_middleware if m.cls is RequestLogMiddleware]

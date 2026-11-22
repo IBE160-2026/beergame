@@ -477,6 +477,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/operations/class-sessions/{class_session_id}/test-error": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Error
+         * @description Raise a deliberate error in one Class session (Story 15.11, NFR-4): the answer is 500, the
+         *     error tracker gets a report of type `DeliberateTestError`, and «Drift» counts one `api_error`
+         *     for the session. The readiness record's check of the tracker in production. 404 `not_found`
+         *     for an unknown Class session; nothing else is changed.
+         */
+        post: operations["raiseOperationsTestError"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/operations/connections": {
         parameters: {
             query?: never;
@@ -9702,6 +9725,64 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OperationsOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    raiseOperationsTestError: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Unauthorized */

@@ -7,6 +7,7 @@ secret is missing or still has its built-in local default.
 
 import base64
 import ipaddress
+from dataclasses import dataclass
 from decimal import Decimal
 from email.utils import parseaddr
 from functools import lru_cache
@@ -176,6 +177,14 @@ class Settings(BaseSettings):
     # Comma-separated networks whose `X-Forwarded-For` the api believes (Story 3.14).
     trusted_proxy_cidrs: str = LOCAL_TRUSTED_PROXY_CIDRS
 
+    # The error tracker (Story 15.11, AD-17, issue #28): a DSN in the Sentry form
+    # `https://<key>@<host>/<project>`, which Sentry, GlitchTip and Bugsink accept. The tool is
+    # the founder's open decision: empty outside production keeps every report in the recording
+    # mock; empty in production only logs that reports are not sent.
+    error_tracker_dsn: str = ""
+    # The deployed commit, which Railway sets; sent with each report as its release.
+    railway_git_commit_sha: str = ""
+
     @field_validator("log_level", mode="before")
     @classmethod
     def _lower_level(cls, v: object) -> object:
@@ -199,6 +208,14 @@ class Settings(BaseSettings):
     @classmethod
     def _networks(cls, v: str) -> str:
         trusted_networks(v)  # a malformed entry refuses at load, naming the variable
+        return v
+
+    @field_validator("error_tracker_dsn")
+    @classmethod
+    def _dsn(cls, v: str) -> str:
+        v = v.strip()
+        if v:
+            parse_dsn(v)  # a malformed DSN refuses at load, naming the variable, not its value
         return v
 
     def production_problems(self) -> list[str]:
@@ -247,6 +264,8 @@ class Settings(BaseSettings):
         networks = trusted_networks(self.trusted_proxy_cidrs)
         if not networks or any(net.prefixlen == 0 for net in networks):
             bad.append("trusted_proxy_cidrs")
+        if self.error_tracker_dsn and parse_dsn(self.error_tracker_dsn).scheme != "https":
+            bad.append("error_tracker_dsn")  # reports leave only over TLS (NFR-7)
         return bad
 
     def check_production(self) -> None:
@@ -268,6 +287,48 @@ class Settings(BaseSettings):
 def trusted_networks(value: str) -> list[ipaddress.IPv4Network | ipaddress.IPv6Network]:
     """The networks of a comma-separated CIDR list; raises ValueError on a malformed entry."""
     return [ipaddress.ip_network(part.strip()) for part in value.split(",") if part.strip()]
+
+
+@dataclass(frozen=True)
+class Dsn:
+    """An error tracker's DSN, read: where its envelopes go and the key that signs them."""
+
+    scheme: str
+    public_key: str
+    host: str
+    """The host with its port, when the DSN names one."""
+    prefix: str
+    """The path before the project id, without a trailing slash (empty for most trackers)."""
+    project_id: str
+
+    @property
+    def envelope_url(self) -> str:
+        return f"{self.scheme}://{self.host}{self.prefix}/api/{self.project_id}/envelope/"
+
+
+def parse_dsn(value: str) -> Dsn:
+    """Read `<scheme>://<key>@<host>[:port][/<prefix>]/<project_id>`; raises ValueError naming
+    no part of the value (it holds the key)."""
+    parts = urlsplit(value.strip())
+    try:
+        port = parts.port
+    except ValueError:
+        raise ValueError("the DSN's port is not a number") from None
+    path = parts.path.rstrip("/")
+    prefix, _, project_id = path.rpartition("/")
+    if (
+        parts.scheme not in ("http", "https")
+        or not parts.username
+        or not parts.hostname
+        or not project_id
+        or parts.query
+        or parts.fragment
+    ):
+        raise ValueError("not a DSN of the form <scheme>://<key>@<host>/<project>")
+    host = f"[{parts.hostname}]" if ":" in parts.hostname else parts.hostname  # IPv6
+    if port is not None:
+        host = f"{host}:{port}"
+    return Dsn(parts.scheme, parts.username, host, prefix, project_id)
 
 
 def webhook_key(secret: str) -> bytes | None:

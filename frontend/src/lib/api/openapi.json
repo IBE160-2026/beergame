@@ -13921,6 +13921,78 @@
         ]
       }
     },
+    "/api/admin/operations/class-sessions/{class_session_id}/test-error": {
+      "post": {
+        "description": "Raise a deliberate error in one Class session (Story 15.11, NFR-4): the answer is 500, the\nerror tracker gets a report of type `DeliberateTestError`, and «Drift» counts one `api_error`\nfor the session. The readiness record's check of the tracker in production. 404 `not_found`\nfor an unknown Class session; nothing else is changed.",
+        "operationId": "raiseOperationsTestError",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Class Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Test Error",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/admin/operations/connections": {
       "get": {
         "description": "The database connection budget (Story 15.9, NFR-3, NFR-4): per process its written budget\nand what its latest start reported, the sums against the budget and a deploy overlap, and the\npooler check (`DB_POOLER_SIZE` against twice the budget plus the migration's connection; not\nchecked while it is unset).",

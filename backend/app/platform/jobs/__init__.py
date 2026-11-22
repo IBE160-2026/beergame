@@ -16,6 +16,7 @@ per-minute `ops.sweep` (AD-9). Later epics add theirs. Alembic owns the procrast
 
 import asyncio
 import importlib
+import uuid
 from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
 
 import procrastinate
@@ -24,6 +25,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.platform import error_reporting
 from app.platform.config import get_settings
 
 __all__ = [
@@ -174,6 +176,17 @@ JobFailureHook = Callable[[str, Mapping[str, object], object], Awaitable[object]
 """`(task name, task arguments, job id)`: told when a job failed for good (Story 15.8)."""
 
 
+def _job_ids(kwargs: Mapping[str, object]) -> dict[str, str]:
+    """A job's Class session and Game, when its arguments name them as UUIDs."""
+    found = {}
+    for name in ("class_session_id", "game_id"):
+        try:
+            found[name] = str(uuid.UUID(str(kwargs[name])))
+        except KeyError, ValueError, TypeError:
+            continue
+    return found
+
+
 def failure_middleware(on_failure: JobFailureHook):
     """A procrastinate worker middleware that tells `on_failure` about a job that raised and that
     its task will not retry, then lets the job fail as before. A failing hook is logged by type
@@ -192,6 +205,10 @@ def failure_middleware(on_failure: JobFailureHook):
             task = worker.app.tasks.get(job.task_name)
             retry = task.get_retry_exception(exception=exc, job=job) if task else None
             if retry is None:
+                # The error tracker gets its class, stack and ids, never its text (Story 15.11).
+                error_reporting.capture(
+                    exc, job_id=job.id, task=job.task_name, **_job_ids(job.task_kwargs)
+                )
                 try:
                     await asyncio.wait_for(
                         on_failure(job.task_name, dict(job.task_kwargs), job.id), HOOK_TIMEOUT_S

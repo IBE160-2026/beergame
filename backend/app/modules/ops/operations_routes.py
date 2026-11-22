@@ -51,6 +51,28 @@ async def session_figures(class_session_id: uuid.UUID, _: Reader) -> Response:
     return JSONResponse(found.model_dump(mode="json"))
 
 
+class DeliberateTestError(RuntimeError):
+    """Raised on purpose by the Admin's test error, so it reaches the tracker and «Drift»."""
+
+
+TestErrorAdmin = Annotated[authz.Principal, Depends(authz.require("operations.test_error"))]
+
+
+@router.post(
+    "/class-sessions/{class_session_id}/test-error",
+    responses=documented(401, 403, 404),
+    operation_id="raiseOperationsTestError",
+)
+async def test_error(class_session_id: uuid.UUID, _: TestErrorAdmin) -> Response:
+    """Raise a deliberate error in one Class session (Story 15.11, NFR-4): the answer is 500, the
+    error tracker gets a report of type `DeliberateTestError`, and «Drift» counts one `api_error`
+    for the session. The readiness record's check of the tracker in production. 404 `not_found`
+    for an unknown Class session; nothing else is changed."""
+    if not await operations.session_exists(class_session_id):
+        return error_response(404, "not_found", "No such Class session.")
+    raise DeliberateTestError("deliberate test error")
+
+
 @router.get(
     "/connections",
     response_model=ConnectionBudgetOut,

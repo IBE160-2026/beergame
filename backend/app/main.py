@@ -28,7 +28,7 @@ from app.modules.replay import routes as replay_routes
 from app.modules.sessions import dev as sessions_dev
 from app.modules.sessions import routes as sessions_routes
 from app.modules.tests import routes as tests_routes
-from app.platform import audit, auth, authz, db
+from app.platform import audit, auth, authz, db, error_reporting
 from app.platform.auth import CsrfMiddleware
 from app.platform.config import get_settings
 from app.platform.errors import error_response
@@ -55,6 +55,7 @@ async def health():
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()  # refuses to start on a bad production config
     log.info("startup", app_env=settings.app_env)
+    error_reporting.log_start(settings)  # Story 15.11: the tracker, or that none is set yet
     from app.ai import seed
 
     await seed.ensure_zero_config_logged()  # AD-17: a default model config with zero keys
