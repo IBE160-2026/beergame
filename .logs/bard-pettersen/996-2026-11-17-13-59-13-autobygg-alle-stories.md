@@ -3037,3 +3037,22 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet; orkestr
 
 ### Åpne punkter
 - Issue #190: beslutninger (når en Replay stenges, KI-ordre før sweepen, etiketter i grafen).
+
+## Story 8.13: Få e-post når spillet venter på ordren din (spor 1)
+
+### Oppgave
+Bygge Story 8.13 på `epic-8` i spor 1.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet i to runder. Ingen skjerm ble endret, så ingen visuell kontroll.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-8-13-get-an-email-when-the-game-waits-for-your-order.md`.
+- Commit: 351d946. Migrasjon 0062.
+- En student som spillet venter på, får én påminnelse på e-post to timer etter at ventingen begynte, i den daglige samlemeldingen. Ingen påminnelse under pause, før andre har bestilt, eller når spillet ikke lenger venter på studenten.
+- Tester: backend 3081, Vitest 902, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 47. `test_pause_view` feilet én gang i en full kjøring og passerte alene og i neste kjøring.
+- Gjennomgang: første runde sendte specen tilbake én gang (pause etter at påminnelsen var lagt i kø); andre runde ga tre små rettinger.
+- Status: done.
+
+### Åpne punkter
+- Issue #191: beslutninger (påminnelse under pause, ingen endring med tilrettelegging eller «I rommet», ingen utfylling bakover).
