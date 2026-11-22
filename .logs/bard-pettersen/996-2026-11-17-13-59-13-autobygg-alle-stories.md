@@ -3553,3 +3553,23 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den vis
 
 ### Åpne punkter
 - Issue #219: beslutninger og ny tabell med persondata.
+
+## Story 15.13: Publiser erklæringen om tilgjengelighet og samsvarsrapporten (spor 1)
+
+### Oppgave
+Bygge Story 15.13 på `epic-15` i spor 1. En uavhengig gjennomgangsagent sjekker tastatur, fokus og tilgjengelighet i stedet for grunnleggeren.
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter og én agent som sjekket med Playwright CLI og axe.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-15-13-publish-accessibility-statement-and-conformance-report.md`.
+- Commit: 054e662.
+- Erklæringen ligger på `/tilgjengelighet` med lenke i bunnen av alle sider. `npm run conformance` sjekker 24 skjermer i seks størrelser, og rapporten for 2026-11-22 har 144 av 144 sjekker bestått. Tre sider som rullet sidelengs ved 320 px og 200 % tekst, er rettet.
+- Tester: backend 3534, Vitest 1158, tsc, `check:copy`, `lint:colours`, hele Playwright-pakken 638 før de siste rettingene.
+- Gjennomgang: 31 funn, 28 rettet, 1 utsatt.
+- Status: done.
+- Spor 1 har ingen flere stories i Epic 15 som kan bygges nå (15.1, 15.3, 15.6 og 15.12 venter på Epic 12 og 13). En visuell kontroll av skjermene i Epic 15 kjører mens spor 1 venter.
+
+### Åpne punkter
+- Issue #220: beslutninger, fire kontroller grunnleggeren må gjøre selv, og kontaktadressen som er en plassholder.
