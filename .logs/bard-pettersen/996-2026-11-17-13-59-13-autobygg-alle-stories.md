@@ -3115,3 +3115,22 @@ Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Den visue
 
 ### Åpne punkter
 - Issue #194: beslutninger (visninger følger ikke klasseøkta etter lagring, ingen advarsel ved færre visninger).
+
+## Story 8.14: Gjør ferdig alle klassespill ved Spillfristen (spor 1)
+
+### Oppgave
+Bygge Story 8.14 på `epic-8` i spor 1, den siste storyen i Epic 8, og rette at Varselbåndet ble klemt sammen ved 200 % tekst.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den visuelle kontrollen gjøres i avslutningen av Epic 8.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-8-14-finish-every-unfinished-class-game-at-the-play-deadline.md`.
+- Commit: 62e0feb. Migrasjon 0063.
+- Ved Spillfristen spiller sweepen ferdig alle klassespill som ikke er ferdige; etterpå avvises kommandoer fra personer med 409. Spill og Hjem sier at spillet ble spilt ferdig. Varselbåndet bryter knappene under teksten ved 200 % tekst. En tilbakeholdt Debrief frigjøres når alle spill er ferdige (Issue #180).
+- Tester: backend 3095 på 145 s, Vitest 905, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 101 med axe ved 320 px, 200 % tekst og 1440 px, ingen ustabile tester. Testen med 100 spill tar 27–33 s.
+- Gjennomgang: 36 funn, 15 rettet, 1 utsatt; oppfølgende gjennomgang anbefalt.
+- Status: done.
+
+### Åpne punkter
+- Issue #195: beslutninger, oppfølgende gjennomgang og den trege testen.
