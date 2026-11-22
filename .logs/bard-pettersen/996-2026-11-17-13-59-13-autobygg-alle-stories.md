@@ -3134,3 +3134,22 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den vis
 
 ### Åpne punkter
 - Issue #195: beslutninger, oppfølgende gjennomgang og den trege testen.
+
+## Avslutning av Epic 10 (spor 2)
+
+### Oppgave
+Avslutte Epic 10 på `epic-10`: visuell kontroll av 10.9, punktene som må gjøres fra storyene, stabilisering, PR og CI.
+
+### Plan
+Én avslutningsagent i worktreet for spor 2, parallelt med avslutningen av Epic 8. Agenten stoppet på ukegrensen og ble gjenopptatt etter compact.
+
+### Resultat
+- PR #196 er merget til `main` (e9817a0), med grønn CI på begge kjøringene. Epic 10 ble merget før Epic 8, slik at spor 2 kunne starte Epic 12. Epic 8 kobler migrasjonene sine etter 0119.
+- Rettinger: alle feil i eget Replay-scenario vises samtidig (17447ec); spillskjermen ved 200 % tekst, gjennomgangsgrafen, «Send svar»-navn, Hjem og ordrefeltet (25f6b6d); raskere tester (3dec467); blokkbredde (7756e14); e2e-rettinger (63aad61, 5c59e1f); skjermbilder (45d6ceb, 9bc51c6).
+- Ikke nådd: backend-pakken ble bare litt raskere (117–139 s), og det ble aldri to grønne Playwright-kjøringer på rad lokalt. Feilene var tidsavbrudd under last, ingen feil i innhold.
+- Minnemangel på maskinen under avslutningen: Docker-maskinen holdt 26 GB filmellomlager. Mellomlageret ble tømt og 429 gamle `tail`-prosesser stoppet.
+- Status: `epic-10: done`.
+
+### Åpne punkter
+- Issue #197: testfart, ustabile Playwright-kjøringer under last, lave funn fra gjennomgangen av 10.1 og eldre UX-punkter.
+- Story 10.7 står som review.
