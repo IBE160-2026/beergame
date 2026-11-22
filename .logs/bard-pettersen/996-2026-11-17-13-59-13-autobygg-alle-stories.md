@@ -2873,3 +2873,24 @@ Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Etter sto
 
 ### Åpne punkter
 - Issue #182: beslutninger (advarsler, spenn, eget scenario følger spillinnstillingene).
+
+## Story 8.9: Gi én student mer tid med Tilrettelegging (spor 1)
+
+### Oppgave
+Bygge Story 8.9 på `epic-8` i spor 1, og lukke det utsatte punktet fra 8.1 om nærmeste frist per spill.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet, én med vinkel på personvern. Neste byggeagent startet med en gang, og den visuelle kontrollen gikk samtidig med eget compose-prosjekt.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-8-9-give-one-student-more-time-with-tilrettelegging.md`.
+- Commit: ffc06e1. Migrasjon 0059.
+- Studentside bare for faglærere med blokken «Tilrettelegging» (faktor 1, 1,5, 2 eller 3), fristene i åpen uke flyttes når faktoren lagres, linje i Spillstyring for faglæreren og to linjer på Hjem for studenten selv. Andre studenter ser ingenting.
+- Tester: backend 3032, Vitest 880, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 185. En test i `test_turn_clock.py` ble rettet (ikke ustabil); én mellomkjøring etterlot 20 feilede tester som passerte ved ny kjøring.
+- Gjennomgang: 41 funn, 1 middels og 13 lave rettet.
+- En tom fil `policy.py` dukket opp i roten av repoet under kjøringen; den er ikke committet.
+- Visuell kontroll (Sonnet, bare rapport, eget compose-prosjekt): skjermbilder i `screenshots/8.9/`, ingen klare feil. Bekreftet at Tilrettelegging aldri vises for andre studenter, og at assistenten får 403.
+- Status: done.
+
+### Åpne punkter
+- Issue #183: beslutninger (faktorer, tilgang bare for faglærere, gulvet fra FR-89).
