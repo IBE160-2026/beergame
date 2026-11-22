@@ -83,8 +83,9 @@ export function capacityText(settings: GameSettings): string {
   return capped.map(([role, units]) => v.capacityRoles(formatNumber(units), roleName(role))).join("; ");
 }
 
-/** Information visibility in words for the settings list (Story 5.16): «Av», one view, or both. */
-export function infoVisibilityText(settings: GameSettings): string {
+/** Information visibility in words for the settings list (Story 5.16) and an own Replay scenario
+ * (Story 10.9): «Av», one view, or both. */
+export function infoVisibilityText(settings: Pick<GameSettings, "info_visibility">): string {
   const v = copy.values;
   const { upstream: up, downstream: down } = settings.info_visibility;
   if (up && down) return v.infoVisibilityBoth;

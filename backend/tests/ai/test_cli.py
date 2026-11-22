@@ -130,6 +130,7 @@ def test_the_cli_reports_other_database_errors(capsys, monkeypatch):
     assert err.strip() == "error db_error: Exception"
 
 
+@pytest.mark.long
 def test_the_cli_as_a_program_prints_only_the_report_on_stdout(ai_db):
     import os
     import subprocess

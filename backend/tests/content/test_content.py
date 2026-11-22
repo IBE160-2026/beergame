@@ -90,7 +90,10 @@ async def test_the_lock_pins_the_latest_starting_task_version():
         "debrief_quiz": {"version": 1},
         "narration_templates": {"version": 2},
         "debrief_ai_text": {"enabled": False, "model_config_id": None, "effort_level": None},
+        # Story 10.1: the default Replay scenario of the frozen settings.
+        "replay_template": pins["replay_template"],
     }
+    assert pins["replay_template"]["weeks"] == {"minimum": 30, "maximum": 40}
     assert sessions._pin_providers["reflection_questions"] is content.reflection_questions_pin
     assert sessions._pin_providers["moment_templates"] is content.moment_templates_pin
     assert sessions._pin_providers["debrief_quiz"] is content.debrief_quiz_pin

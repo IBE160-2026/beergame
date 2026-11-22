@@ -253,8 +253,13 @@ async def save(
     required_share_percent: int,
     inactivity_limit_hours: int,
     allocation_method: str | None = None,
+    replay: tuple[str, dict[str, Any] | None] | None = None,
 ) -> None:
+    """`replay`, when given, is the Replay scenario choice and its own template (None for the
+    default, Story 10.2); None keeps both."""
     values: dict[str, Any] = {**(dates or {})}
+    if replay is not None:
+        values["replay_scenario"], values["replay_template"] = replay
     if game_settings is not None:
         values["game_settings"] = game_settings
     if allocation_method is not None:

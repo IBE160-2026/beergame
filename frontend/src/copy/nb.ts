@@ -37,6 +37,16 @@ const START_DATE_LINE = "Du får Rolle og spill på startdatoen.";
  * (UX-DR70); never «Demodata». [ASSUMPTION] draft copy, not in the spine. */
 const TEST_GAME = "Testspill";
 
+/** «fire uker», «to uker»: a number of Uker in words, as the projection's sentence says it (Story
+ * 10.4); the delays make it 2 to 6, a larger one stays a figure. */
+const WEEK_WORDS = ["null uker", "én uke", "to uker", "tre uker", "fire uker", "fem uker", "seks uker"];
+const weeksInWords = (weeks: number) => WEEK_WORDS[weeks] ?? `${weeks} uker`;
+
+/** A sum kept on one line: its spaces made non-breaking, so «−4 − 4 × 10 = −44» never breaks
+ * inside (the projection's sentence, Story 10.6 fix of the 10.4 visual check). Where a line is
+ * narrower than the sum, the sentence's `overflow-wrap` breaks it rather than the page scroll. */
+const formula = (sum: string) => sum.replaceAll(" ", " ");
+
 /** «Spill 17», or «Testspill» for a test Game, which has no number (Story 6.20). */
 const gameName = (number: number | null) => (number === null ? TEST_GAME : `Spill ${number}`);
 
@@ -433,6 +443,37 @@ export const nb = {
       /** Story 9.11: the current Debrief step while a Group debrief of the Student's game is under
        * way that they have not joined; its link leads there. [ASSUMPTION] */
       groupOpen: "pågår, Gruppedebriefen er i gang",
+      /** Story 10.3: the current Replay step after the Student's Testfrist with no Replay
+       * started; it is not done. [ASSUMPTION] */
+      replayClosed: "ikke gjort, Testfristen er ute",
+      /** Story 10.6: the current Replay step once a started Replay was closed at the Testfrist
+       * unfinished. [ASSUMPTION] */
+      replayClosedUnfinished: "stengt ved Testfristen, ikke fullført",
+      /** Story 10.4 (UX-DR64, EXPERIENCE.md → Replay in progress): the current Replay step while
+       * the Replay runs; its link leads to the play screen. The spine's line. */
+      replayResume: (week: number) => `Fortsett Replay, Uke ${week}.`,
+      /** Story 10.3 (FR-48): the Replay on Hjem once the Debrief quiz is passed. «Replay» is the
+       * spine's; the rest is [ASSUMPTION] draft copy for the founder's review. */
+      replay: {
+        /** «Replay · Du er Grossist», once started. */
+        title: (role: string) => `Replay · Du er ${role}`,
+        heading: "Replay",
+        /** The consequence, above «Start Replay», before it is pressed. */
+        consequence: "Du spiller én runde alene, i samme Rolle, mot tre KI-spillere. Etterspørselen er en annen enn i Klassespillet.",
+        start: "Start Replay",
+        /** Story 10.4: the way to the running Replay, at its open Uke; the spine's line as a
+         * button label, without the full stop. */
+        resume: (week: number) => `Fortsett Replay, Uke ${week}`,
+        /** Story 10.5: the finished Replay, read again on its own screen. [ASSUMPTION] */
+        view: "Se Replay",
+        /** Story 10.6: a Replay closed at the Testfrist unfinished, on Hjem. [ASSUMPTION] */
+        closed: "Replay ble stengt ved Testfristen og er ikke fullført.",
+        failed: "Replay ble ikke startet. Prøv igjen.",
+        errors: {
+          quiz_required: "Bestå Debrief-quizen først.",
+          test_deadline_passed: "Testfristen er ute. Replay kan ikke startes.",
+        },
+      },
       nextDeadline: "Neste frist",
       /** «Spillfrist ti. 8. des.» */
       deadline: (kind: string, day: string) => `${kind} ${day}`,
@@ -878,6 +919,8 @@ export const nb = {
       refused: "Spillinnstillingene ble ikke lagret. Se feltene.",
       errors: {
         outOfRange: (min: string, max: string) => `Må være fra ${min} til ${max}.`,
+        // Story 10.2: an own Replay scenario's range typed the wrong way round, under its second field.
+        rangeInverted: (low: string) => `Må være ${low} eller mer, ikke lavere enn det første tallet.`,
         wholeNumber: (min: string, max: string) => `Skriv et helt tall fra ${min} til ${max}.`,
         amount: (min: string, max: string) => `Skriv et beløp fra ${min} til ${max}, med komma.`,
         decimals: (places: number, min: string, max: string) =>
@@ -1107,6 +1150,76 @@ export const nb = {
       // [ASSUMPTION] the save of a level the model config no longer offers (`invalid_effort_level`).
       effortRefused: "Innsatsnivået kan ikke velges lenger. Last siden på nytt og velg et annet.",
     },
+    /** The Klasseøkt's Replay scenario (Story 10.1, FR-49, FR-72): the default, described in
+     * words; the drawn values stay hidden from the Students. [ASSUMPTION] draft copy. */
+    replay: {
+      title: "Replay-scenario",
+      standard: "Standard",
+      demand: "Etterspørsel",
+      changeWeek: "Uke for endring",
+      weeks: "Antall uker",
+      guidedWeeks: "Veiledede uker",
+      rest: "Resten",
+      restValue: "Som Spillinnstillingene",
+      none: "Ingen",
+      stepDemand: (start: number, newLevel: number) => `${start}, deretter ${newLevel}`,
+      randomDemand: (mean: number) => `Rundt ${mean}`,
+      fixedDemand: "Serien i Spillinnstillingene, siste verdi videre",
+      /** Appended to the demand once it varies: «4, deretter 8, ± 2 hver uke». */
+      spread: (demand: string, spread: number) => `${demand}, ± ${spread} hver uke`,
+      range: (minimum: number, maximum: number) => `${minimum} til ${maximum}`,
+      weekRange: (minimum: number, maximum: number) => `Uke ${minimum} til ${maximum}`,
+      week: (week: number) => `Uke ${week}`,
+      /** Under the list: what is drawn per Student, by which values are ranges. */
+      hiddenBoth:
+        "Uka for endringen og antall uker trekkes for hver student og vises ikke for studentene. Hver student får sin egen etterspørsel, med samme nivåer som i Klassespillet.",
+      hiddenWeeks:
+        "Antall uker trekkes for hver student og vises ikke for studentene. Hver student får sin egen etterspørsel, med samme nivåer som i Klassespillet.",
+      hiddenNone: "Hver student får sin egen etterspørsel, med samme nivåer som i Klassespillet.",
+      /** Story 10.2 (FR-49, UX-DR12, UX-DR48): the own scenario. [ASSUMPTION] draft copy. */
+      choice: "Scenario",
+      own: "Eget scenario",
+      choiceHelp: "Gjelder alle Replay i Klasseøkta. Valget tar effekt når du lagrer Klasseøkta.",
+      ownLead: "Starter fra Spillinnstillingene. Endre det du vil; Replay bruker verdiene her.",
+      weeksFrom: "Antall uker, minst",
+      weeksTo: "Antall uker, høyst",
+      changeWeekFrom: "Endres fra uke, tidligst",
+      changeWeekTo: "Endres fra uke, senest",
+      toHint: "Tom gir samme verdi for alle. Et høyere tall gir et spenn, og hver student får sin egen verdi.",
+      refused: "Replay-scenariet ble ikke lagret. Se feltene over.",
+      ownFixedDemand: (weeks: number) => `Fast serie på ${weeks} uker, siste verdi videre`,
+      hiddenChange:
+        "Uka for endringen trekkes for hver student og vises ikke for studentene. Antall uker vises ikke heller.",
+      hiddenOwnNone:
+        "Alle studenter får de samme verdiene. Antall uker og uka for endringen vises ikke for studentene.",
+      hiddenOwnNoise:
+        "Alle studenter får de samme verdiene, men sin egen etterspørsel rundt nivåene. Antall uker og uka for endringen vises ikke for studentene.",
+      warnings: {
+        easier: "Det gjør trolig Replay lettere.",
+        inventory: (replay: string, classGame: string) =>
+          `Advarsel: Startlager (${replay}) er høyere enn i Klassespillet (${classGame}).`,
+        delay: (label: string, replay: string, classGame: string) =>
+          `Advarsel: ${label} (${replay}) er kortere enn i Klassespillet (${classGame}).`,
+        guided: (replay: string) =>
+          `Advarsel: Veiledede uker (opptil ${replay}) gir hjelp som Standard-scenariet ikke gir.`,
+        lower: (replay: string, classGame: string) =>
+          `Advarsel: Høyeste nivå i etterspørselen (${replay}) er lavere enn i Klassespillet (${classGame}).`,
+        lessVariable: (replay: string, classGame: string) =>
+          `Advarsel: Spredningen (${replay}) er mindre enn i Klassespillet (${classGame}).`,
+        noChange: "Advarsel: Etterspørselen skifter ikke nivå, slik den gjorde i Klassespillet.",
+        // Story 10.9 (FR-83): a neighbour's view the Class games do not show.
+        upstreamVisible:
+          "Advarsel: Replay viser lager og restordre hos leddet oppstrøms, som Klassespillene ikke viser.",
+        downstreamVisible:
+          "Advarsel: Replay viser lager og restordre hos leddet nedstrøms, som Klassespillene ikke viser.",
+        other: "Advarsel: Endringen kan gjøre Replay lettere.",
+      },
+      /** Story 10.9 (cut list, FEATURE_INFO_VISIBILITY, FR-83, UX-DR12): the Replay's own
+       * Information visibility, shown only while the flag is on. [ASSUMPTION] draft copy. */
+      infoVisibilityHelp:
+        "Gjelder bare Replay, for alle studentene i Klasseøkta, også KI-spillerne. Starter som i Spillinnstillingene, og kan settes annerledes enn i Klassespillene. " +
+        "Fabrikken har ingen nabo oppstrøms, og Detaljisten ingen nedstrøms.",
+    },
     save: "Lagre Klasseøkt",
     saving: "Lagrer …",
     saveHint: "Du kan lagre uten å endre noe.",
@@ -1136,9 +1249,9 @@ export const nb = {
     lock: {
       /** Under the title once the lock has frozen the session; `when` as «ti. 24. nov. kl. 10:00». */
       lockedAt: (when: string) =>
-        `Låst ${when}. Spillinnstillinger, etterspørsel, KI-modus, Innsatsnivå, Debrief-modus, Obligatorisk og ventetid er frosset.`,
+        `Låst ${when}. Spillinnstillinger, etterspørsel, KI-modus, Innsatsnivå, Debrief-modus, Replay-scenario, Obligatorisk og ventetid er frosset.`,
       /** The Start date has passed but the lock has not run yet (each minute) or was refused. */
-      pending: "Startdatoen er passert. Spillinnstillinger, etterspørsel, KI-modus, Innsatsnivå, Debrief-modus, Obligatorisk og ventetid kan ikke endres.",
+      pending: "Startdatoen er passert. Spillinnstillinger, etterspørsel, KI-modus, Innsatsnivå, Debrief-modus, Replay-scenario, Obligatorisk og ventetid kan ikke endres.",
       // [ASSUMPTION] GitHub issue 109: the lock was refused, LLM players and no provider key.
       refused:
         "Klasseøkten kan ikke starte: KI-leverandøren for LLM-spillerne er ikke satt opp. Be en Admin ordne det. Låsen prøves igjen hvert minutt.",
@@ -1636,6 +1749,8 @@ export const nb = {
     play: {
       week: (week: number) => `Uke ${week}`,
       roleGame: (role: string, number: number | null) => `${role}, ${gameName(number)}`,
+      /** Story 10.4: «Grossist, Replay» under the Uke in the Replay's Topplinje. [ASSUMPTION] */
+      roleReplay: (role: string) => `${role}, Replay`,
       /** Story 6.20: a test Game leads back to where it was started. [ASSUMPTION] */
       toClassSession: "Tilbake til Klasseøkta",
       /** «Spillet er ferdig» (Story 6.18, FR-28, UX-DR30, EXPERIENCE.md → Spillet er ferdig): the
@@ -1649,6 +1764,21 @@ export const nb = {
         /** Story 9.2: the Faglærer holds the Debriefs until all Class games have finished; never
          * how many remain. [ASSUMPTION] */
         held: "Debriefen åpner når alle Klassespillene er ferdige.",
+      },
+      /** «Replay er ferdig» (Story 10.5, FR-50, UX-DR64, EXPERIENCE.md → Replay, Finished): the
+       * spine's title, «Totalkostnad» and button; the note under the total is [ASSUMPTION]. */
+      replayEnd: {
+        title: "Replay er ferdig",
+        totalLabel: "Totalkostnad",
+        totalNote: (role: string) => `${role}, to kostnadsarter, hele Replay.`,
+        toWalkthrough: "Gå til gjennomgangen",
+      },
+      /** A Replay closed at the Testfrist without its last Uke (Story 10.6, FR-18, EXPERIENCE.md →
+       * Replay): not finished, no Totalkostnad, no walkthrough. [ASSUMPTION] */
+      replayClosed: {
+        title: "Replay stengt",
+        lead: "Testfristen er ute. Replay ble stengt før siste uke og er ikke fullført.",
+        kept: "Ordrene du la inn, er lagret som de var.",
       },
       /** Ordrefelt (Story 6.10, DESIGN.md → Ordrefelt, UX-DR20). The label is the spine's; the
        * Veiledet uke line is [ASSUMPTION] draft copy. It never says how many Veiledede uker are
@@ -1689,6 +1819,8 @@ export const nb = {
         reconnected: "Tilkoblet igjen. Ordren er ikke sendt ennå.",
         weekGone: (week: number, value: string) => `Uke ${week} er over. Ordren på ${value} ble ikke sendt.`,
         seatGone: (value: string) => `Du har ikke dette setet lenger. Ordren på ${value} ble ikke sendt.`,
+        /** Story 10.6: `409 test_deadline_passed`, a Replay past the Testfrist. [ASSUMPTION] */
+        deadlineGone: (value: string) => `Testfristen er ute. Ordren på ${value} ble ikke sendt.`,
       },
       /** The Uke-overgang (Story 6.15, EXPERIENCE.md → Uke-overgang, UX-DR23): «Uke 11 er ferdig
        * regnet», «Restordre 13 blir 20», «Denne uka: 20 restordre × 1,00 = 20,00 kr» and «Hopp
@@ -1820,6 +1952,14 @@ export const nb = {
         netMiniAxisSvg: "Akse for Netto lager, i enheter.",
         costSvg: "Graf over Kost per uke, lagerkostnad nederst og restordrekostnad øverst. Tallene står i raden Kost, kr.",
         costAxisSvg: "Akse for Kost per uke, i kroner.",
+        /** Story 10.4 (UX-DR19, EXPERIENCE.md → Hidden information): the projection's sentence,
+         * the dashed line's text alternative, under the table in the Replay only. The form with an
+         * Order is the spine's; the one with nothing typed is [ASSUMPTION] draft copy. Numbers come
+         * formatted («−5»); `weeks` is the delay horizon. */
+        projection: (weeks: number, position: string, order: string | null, horizon: string, incoming: string, value: string) =>
+          order === null
+            ? `Den stiplede linja viser netto lager om ${weeksInWords(weeks)}: ${formula(`${position} − ${horizon} × ${incoming} = ${value}`)} hvis du ikke bestiller og ordre inn holder seg. Ikke garantert.`
+            : `Den stiplede linja viser netto lager om ${weeksInWords(weeks)}: ${formula(`${position} + ${order} − ${horizon} × ${incoming} = ${value}`)} hvis ordre inn holder seg. Ikke garantert.`,
       },
       /** Kjedebånd (Story 6.9, DESIGN.md → Kjedebånd, UX-DR14, UX-DR73). The labels («Ordre inn
        * 8», «Din ordre», «Levering 4», «Sendt 4», «Lager 12», «Restordre 13», «På vei 16») and the
@@ -2531,11 +2671,93 @@ export const nb = {
     },
   },
 
+  /** The Replay after the Debrief (Epic 10). */
+  replay: {
+    /** Replay-gjennomgang (Story 10.7, FR-50, UX-DR64, EXPERIENCE.md → Replay-gjennomgang,
+     * `09-alle-sider.png`). «Gjennomgangen lages.» and «Ikke like for like.» are the spine's; every
+     * other line is [ASSUMPTION] draft copy (open-assumptions.md). No line ranks, praises or says
+     * which run was better (UX-DR72). */
+    walkthrough: {
+      title: "Replay-gjennomgang",
+      roleReplay: (role: string) => `${role}, Replay`,
+      pending: "Gjennomgangen lages.",
+      totalLabel: "Totalkostnad, Replay",
+      classTotalLabel: (number: number | null) =>
+        number === null ? "Totalkostnad, Klassespillet" : `Totalkostnad, Klassespillet (${gameName(number)})`,
+      chartTitle: "Netto lager, Replay og Klassespillet på samme ukeakse",
+      chartTitleAlone: "Netto lager, Replay",
+      legend: "Farget linje og flate: Replay. Grå linje: Klassespillet.",
+      chartSvg: "Graf over netto lager i hver uke: Replay med farget linje, Klassespillet med grå linje.",
+      chartSvgAlone: "Graf over netto lager i hver uke av Replay.",
+      week: (week: number) => `Uke ${week}`,
+      showTable: "Vis som tabell",
+      showChart: "Vis som graf",
+      tableCaption: "Replay og Klassespillet uke for uke: netto lager, din ordre og kostnad så langt, i kroner",
+      tableCaptionAlone: "Replay uke for uke: netto lager, din ordre og kostnad så langt, i kroner",
+      columnNet: (run: string) => `Netto lager, ${run}`,
+      /** «Ordre», not «Din ordre»: in the Class game a KI-spiller may have ordered for the Seat. */
+      columnOrder: (run: string) => `Ordre, ${run}`,
+      columnCost: (run: string) => `Kostnad så langt, ${run}`,
+      /** A cell of an Uke the shorter run did not have. */
+      noWeek: "–",
+      runReplay: "Replay",
+      runClass: "Klassespill",
+      /** «Ikke like for like.» and why, in words (FR-50, UX-DR70). */
+      unlike: "Ikke like for like.",
+      unlikeNeighbours: "I Replay var de tre andre Rollene KI-spillere.",
+      unlikeDemand: "Kundene etterspurte andre mengder enn i Klassespillet.",
+      unlikeWeeks: (replay: number, klass: number) =>
+        replay === klass ? `Begge hadde ${replay} uker.` : `Replay hadde ${replay} uker, Klassespillet ${klass}.`,
+      mostlyAi: "Klassespillet ditt ble spilt mest av KI-spillere, så det står ikke ved siden av Replay her.",
+      momentsTitle: "Øyeblikk fra din Replay",
+      narration: "Slik henger øyeblikkene sammen",
+      noMoments: "Replay hadde for få av dine egne ordrer til å velge øyeblikk.",
+      reckoned: "Dette regnet du",
+      later: "Dette kostet det senere",
+      pattern: "Mønster",
+      /** The Replay has not finished: no walkthrough yet. */
+      notFinished: "Gjennomgangen kommer når Replay er ferdig.",
+      toReplay: "Til Replay",
+      loadFailed: "Gjennomgangen kunne ikke hentes.",
+    },
+    /** The two optional questions after the walkthrough (Story 10.8, FR-50, FR-70); the
+     * believability one is `nb.believability`. [ASSUMPTION] draft copy (open-assumptions.md). */
+    questions: {
+      title: "Frivillige spørsmål",
+      anotherRound: "Ville du spilt en runde til?",
+      yes: "Ja",
+      no: "Nei",
+      send: "Send svar",
+      /** The button's accessible name: its visible words first, then its question (WCAG 2.5.3). */
+      sendName: "Send svar om en runde til",
+      saved: (yes: boolean) => (yes ? "Takk. Du svarte ja." : "Takk. Du svarte nei."),
+      failed: "Svaret ble ikke sendt. Prøv igjen.",
+    },
+  },
+
   /** Quizvalg's marks on a scored question (UX-DR37): in text, never by colour alone. The spine's
    * words. */
   quizChoice: {
     wrong: "Ditt svar, ikke riktig",
     right: "Riktig",
+  },
+
+  /** The believability question (Story 10.8, FR-70, UX-DR76): on «Spillet er ferdig» after a
+   * Class game with an AI player, and after the Replay-gjennomgang. Optional, never blocking; the
+   * answer is never shown to staff beside a name. Every line is [ASSUMPTION] draft copy
+   * (open-assumptions.md). */
+  believability: {
+    title: "Et frivillig spørsmål",
+    legend: "Hvor troverdige var KI-spillernes ordrer?",
+    /** The end points of the five-point scale, in words. */
+    low: "1: ikke troverdige",
+    high: "5: svært troverdige",
+    note: "Frivillig. Faglærerne ser aldri svaret ditt med navnet ditt.",
+    send: "Send svar",
+    /** The button's accessible name: its visible words first, then its question (WCAG 2.5.3). */
+    sendName: "Send svar om troverdighet",
+    saved: (rating: number) => `Takk. Du svarte ${rating} av 5.`,
+    failed: "Svaret ble ikke sendt. Prøv igjen.",
   },
 
   /** The Oversikt of a Class session (Story 7.1, FR-39, UX-DR40). The headline form, «Oppdatert»,
@@ -2775,12 +2997,16 @@ export const nb = {
     crumb: (game: string) => game,
     /** «Spill 2» as the page heading and tab title. */
     title: (number: number | null) => gameName(number),
+    /** Story 10.5 (FR-34): a Student's Replay on Spillinnsikt, labelled as one. [ASSUMPTION] */
+    replayTitle: "Replay",
     status: {
       waiting: "Venter",
       running: "Pågår",
       not_started: "Ikke startet",
       finished: "Ferdig",
     },
+    /** Story 10.6: a Replay closed at the Testfrist unfinished, in place of «Ferdig». [ASSUMPTION] */
+    closedAtTestDeadline: "Stengt ved Testfristen, ikke fullført",
     /** Read before the status word. */
     statusLabel: "Status",
     seatsTitle: "Setene",
@@ -2796,6 +3022,8 @@ export const nb = {
     links: {
       explanation: "Forklaring",
       debrief_summary: "Debrief-sammendrag",
+      /** Story 10.5: the Student's Replay, from their Seat on the Class game. */
+      replay: "Replay",
     } as Record<string, string>,
     /** A link kind with no words of its own yet. [ASSUMPTION] */
     otherLink: "Åpne",

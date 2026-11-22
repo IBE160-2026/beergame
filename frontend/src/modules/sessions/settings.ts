@@ -290,6 +290,9 @@ export function problemText(problem: SettingProblem): string {
     case "too_many_decimal_places":
       if (ranged && places !== undefined) return e.decimals(places, min, max);
       break;
+    case "range_inverted":
+      if (min !== null) return e.rangeInverted(min);
+      break;
   }
   return ranged ? e.outOfRange(min, max) : e.other;
 }

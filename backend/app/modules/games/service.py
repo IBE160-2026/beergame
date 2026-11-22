@@ -33,9 +33,12 @@ from app.modules.games.insight import (
 )
 from app.modules.games.marks import seat_mark
 from app.modules.games.policy import GamePolicy, PurposeNotSupportedError, policy, purposes_with
+from app.modules.games.ratings import BelievabilityRefused, believability, rate_believability
 from app.modules.games.schemas import (
+    Believability,
     DecidedBy,
     DecisionLogRow,
+    EndReason,
     Fallback,
     GameCheck,
     GameOverview,
@@ -72,6 +75,10 @@ from app.modules.games.views import (
 from app.platform.db import get_sessionmaker
 
 __all__ = [
+    "Believability",
+    "BelievabilityRefused",
+    "believability",
+    "rate_believability",
     "GameInsight",
     "InsightLink",
     "InsightLinkProvider",
@@ -93,7 +100,12 @@ __all__ = [
     "cost_parts",
     "DecidedBy",
     "DecisionLogRow",
+    "EndReason",
     "Fallback",
+    "TestDeadlineProvider",
+    "past_test_deadline",
+    "register_test_deadline",
+    "due_test_deadline_closes",
     "GameCheck",
     "GameOverview",
     "GamePolicy",
@@ -275,6 +287,11 @@ class StudentGame:
     test_game: bool = False
     """Whether a Lecturer of the Class session plays it as a test (`games.policy`
     `played_by_staff`, Story 6.20): reached from the Klasseøkt, never from Hjem."""
+    replay: bool = False
+    """Whether it is the Student's own round outside the Class games: a Game of the Class session
+    without a number that no Lecturer plays, the Replay (Story 10.4). Never `student_game`."""
+    projection: bool = False
+    """Whether the play screen draws the projection (`games.policy`, Story 10.4, UX-DR19)."""
 
 
 async def student_game(
@@ -340,6 +357,9 @@ class PlayStatus:
 
     status: PlayStatusName
     week: int | None
+    end_reason: EndReason | None = None
+    """Story 10.6: with `finished`, why the Game ended without its last Week (`close`): it is then
+    not finished in any result's sense, and no screen may show it as such."""
 
 
 async def play_status(session: AsyncSession, game_id: uuid.UUID) -> PlayStatus:
@@ -351,7 +371,8 @@ async def play_status(session: AsyncSession, game_id: uuid.UUID) -> PlayStatus:
     if lifecycle == Lifecycle.NOT_STARTED:
         return PlayStatus("ready" if game["settings"] is not None else "not_ready", None)
     if lifecycle == Lifecycle.FINISHED:
-        return PlayStatus("finished", None)
+        reason = game["end_reason"]
+        return PlayStatus("finished", None, EndReason(reason) if reason is not None else None)
     if lifecycle in (Lifecycle.RUNNING, Lifecycle.PLAYING_OUT):
         return PlayStatus("running", await repo.open_week(session, game_id))
     raise ValueError(f"unknown lifecycle {lifecycle!r}")
@@ -434,6 +455,12 @@ async def game_class_info(
     return game["class_session_id"], game["game_number"], game["lifecycle"] == Lifecycle.FINISHED
 
 
+def _own_round(rules: GamePolicy) -> bool:
+    """Whether Games of this policy are a Student's own round outside the Class games: of a Class
+    session, without a number, and no Lecturer plays it — the Replay (Stories 10.4, 10.5)."""
+    return rules.class_session_game and not rules.game_number and not rules.played_by_staff
+
+
 async def own_game(
     session: AsyncSession, user_id: uuid.UUID, game_id: uuid.UUID
 ) -> StudentGame | None:
@@ -444,9 +471,9 @@ async def own_game(
     if game is None or game["class_session_id"] is None:
         return None
     rules = policy(game["purpose"])
-    if rules.played_by_staff:
-        # A Lecturer's test Game (Story 6.20): theirs while they hold its Seat; no Class game of
-        # the session is ever one (`student_game` leaves it out).
+    if rules.played_by_staff or _own_round(rules):
+        # A Lecturer's test Game (Story 6.20) or a Student's Replay (Story 10.4): theirs while they
+        # hold its Seat; no Class game of the session is ever one (`student_game` leaves it out).
         role = await repo.held_role(session, game_id, user_id)
         if role is None:
             return None
@@ -456,7 +483,9 @@ async def own_game(
             number=game["game_number"],
             role=role,
             pre_play_gate=rules.pre_play_gate,
-            test_game=True,
+            test_game=rules.played_by_staff,
+            replay=_own_round(rules),
+            projection=rules.projection,
         )
     found = await student_game(session, user_id, game["class_session_id"])
     if found is None or found.game_id != game_id:
@@ -512,6 +541,7 @@ async def get_game(game_id: str) -> GameOverview | None:
             )
             for seat in seats
         ),
+        end_reason=game["end_reason"],
     )
 
 
@@ -614,6 +644,52 @@ async def complete_running_games() -> list[str]:
     process stopped between an Order and the advance (NFR-4)."""
     async with get_sessionmaker()() as session:
         return [str(game_id) for game_id in await repo.complete_running_games(session)]
+
+
+# Story 10.6: a Student's Test deadline, as `sessions` reads it. `sessions` imports `games`, so it
+# registers its reader here instead of `games` importing it (AD-25), as the finish hooks do.
+
+type TestDeadlineProvider = Callable[
+    [AsyncSession, uuid.UUID, uuid.UUID], Awaitable[datetime | None]
+]
+"""`(session, user_id, class_session_id)` → `sessions.service.effective_test_deadline` of the
+Student in the Class session, or None (no such session, or no Test deadline)."""
+
+_test_deadline: list[TestDeadlineProvider] = []
+
+
+def register_test_deadline(provider: TestDeadlineProvider) -> None:
+    """`sessions.service` registers its one reader at import; another is refused."""
+    if _test_deadline and _test_deadline[0] is not provider:
+        raise ValueError("a Test deadline provider is registered already")
+    _test_deadline[:] = [provider]
+
+
+async def past_test_deadline(session: AsyncSession, game: Mapping[str, Any], at: datetime) -> bool:
+    """Whether the Game's Test deadline has passed at `at` (Story 10.6, FR-18): the Game belongs
+    to a Class session and the deadline of every Student its occupancy history names is set and
+    no later than `at`. False while no reader is registered, so nothing is judged without one.
+    `at` is the app's clock (`auth.utcnow()`, or the sweep's `now`), the one the deadline is set
+    and judged on elsewhere (`replay.start`), never the database clock (Issue #63)."""
+    if not _test_deadline or game["class_session_id"] is None:
+        return False
+    students = await repo.named_students(session, game["id"])
+    if not students:
+        return False
+    for user_id in students:
+        deadline = await _test_deadline[0](session, user_id, game["class_session_id"])
+        if deadline is None or deadline > at:
+            return False
+    return True
+
+
+async def due_test_deadline_closes(now: datetime) -> list[str]:
+    """The sweep's finder for `games.close_at_test_deadline` (Story 10.6, AD-9): every Game of a
+    purpose whose policy closes it at the Test deadline (`closes_at_test_deadline`), not finished,
+    whose Test deadline has passed at `now`, oldest first. Ids only."""
+    async with get_sessionmaker()() as session:
+        rows = await repo.unfinished_games(session, purposes_with("closes_at_test_deadline"))
+        return [str(row["id"]) for row in rows if await past_test_deadline(session, row, now)]
 
 
 # The finish hooks (Story 9.14, AD-9): the pattern of the lock's pin providers (Story 5.11).
@@ -793,6 +869,10 @@ class ClassGameHead:
     class_session_id: uuid.UUID | None
     listed: bool
     version: int
+    insight: bool = False
+    """Whether its Class's staff open it on Spillinnsikt (`games.policy` `staff_insight`)."""
+    replay: bool = False
+    """Whether it is a Student's Replay, labelled so on Spillinnsikt (Story 10.5)."""
 
 
 @dataclass(frozen=True)
@@ -820,11 +900,14 @@ async def class_game_head(session: AsyncSession, game_id: uuid.UUID) -> ClassGam
     game = await repo.get_game(session, game_id)
     if game is None:
         return None
+    rules = policy(game["purpose"])
     return ClassGameHead(
         game_id=game["id"],
         class_session_id=game["class_session_id"],
-        listed=str(game["purpose"]) in purposes_with("lecturer_overview"),
+        listed=rules.lecturer_overview,
         version=game["version"],
+        insight=rules.staff_insight,
+        replay=_own_round(rules),
     )
 
 

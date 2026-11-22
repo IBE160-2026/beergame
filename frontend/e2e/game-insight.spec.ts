@@ -64,6 +64,7 @@ test("Spillinnsikt opens from the wall and the table, shows every Week as stored
   browser,
   lecturerSession,
 }) => {
+  test.slow(); // two Invitations through the worker, a Class session, a lock and a live game
   const game = await liveClassGame(browser, lecturerSession, 2, { aiMode: "rule_based" });
   const [first, second] = game.students;
   await orderByApi(first!, game.gameId, 1, 4);
@@ -154,6 +155,7 @@ test("Spillinnsikt opens from the wall and the table, shows every Week as stored
 });
 
 test("at 320 px only the per-Role tables and the charts scroll sideways, each in its own region", async ({ browser, lecturerSession }) => {
+  test.slow(); // an Invitation through the worker, a Class session, a lock and a live game
   const game = await liveClassGame(browser, lecturerSession, 1, { aiMode: "rule_based" });
   await orderByApi(game.students[0]!, game.gameId, 1, 4);
   const page = await lecturerPage(browser, lecturerSession, VIEWPORTS[0]!);

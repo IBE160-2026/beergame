@@ -1,0 +1,6 @@
+{
+  "seed": 1,
+  "games": 10,
+  "seats": "rule_based",
+  "scenario": "replay_default"
+}

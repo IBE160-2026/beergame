@@ -45,6 +45,8 @@ async def links(session: AsyncSession, game_id: uuid.UUID) -> Sequence[DebriefLi
         found is None
         or found.class_session_id is None
         or found.lifecycle != games.Lifecycle.FINISHED
+        # A Replay's Spillinnsikt (Story 10.5) has no Debrief of its own to link to.
+        or not games.policy(found.purpose).lecturer_overview
     ):
         return []
     offered = []

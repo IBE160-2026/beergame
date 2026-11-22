@@ -116,6 +116,9 @@ class GameInsight:
     """(Week, the customer demand the first Role received that Week), per opened Week."""
     seats: tuple[InsightSeat, ...]
     roles: tuple[InsightRole, ...]
+    end_reason: str | None = None
+    """Story 10.6: why a `finished` Game ended without its last Week (`test_deadline`); else
+    None."""
 
 
 def _in_force(history: Sequence[Mapping[str, Any]], week: int) -> Mapping[str, Any] | None:
@@ -229,4 +232,5 @@ async def game_insight(session: AsyncSession, game_id: uuid.UUID) -> GameInsight
             for seat in held
         ),
         roles=tuple(roles),
+        end_reason=game["end_reason"],
     )

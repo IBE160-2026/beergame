@@ -24,7 +24,7 @@ import { roleName } from "@/modules/sessions/sessions";
 
 import { type GameInsight, gameInsightKey, type InsightSeat, useGameInsight } from "./api";
 import { InsightCharts } from "./insight-charts";
-import { hasWeeks, holderText, linkTexts, roleTables, seatsUpstreamFirst, type WeekRow } from "./insight";
+import { hasWeeks, holderText, linkTexts, roleTables, seatsUpstreamFirst, statusText, type WeekRow } from "./insight";
 
 const copy = nb.insight;
 
@@ -77,7 +77,8 @@ function InsightView({
   if ((found.error instanceof ApiRequestError && found.error.code === "forbidden") || elsewhere) {
     return <AccessDenied user={user} updatedAt={updatedAt} />;
   }
-  const title = data ? copy.title(data.game_number ?? null) : undefined;
+  // Story 10.5 (FR-34): a Student's Replay, reached from their Seat on the Class game, reads «Replay».
+  const title = data ? (data.replay ? copy.replayTitle : copy.title(data.game_number ?? null)) : undefined;
   const crumbs =
     data && title
       ? ([
@@ -110,17 +111,19 @@ function InsightHeader({ data, title, sessionId }: { data: GameInsight; title: s
       <h1 className="text-title-phone text-ink lg:text-title-page">{title}</h1>
       <p className="text-body-phone text-ink-secondary lg:text-body" data-status={data.status}>
         <span className="sr-only">{copy.statusLabel}: </span>
-        {copy.status[data.status]}
+        {statusText(data)}
       </p>
-      {/* A Message to every Student of this Class game (Story 7.9). */}
-      <Link
-        href={messagePath(sessionId, { game: data.game_id })}
-        aria-label={nb.messages.toGameLabel(data.game_number ?? null)}
-        data-message-game=""
-        standalone
-      >
-        {nb.messages.toGame}
-      </Link>
+      {/* A Message to every Student of this Class game (Story 7.9); a Replay is no Class game. */}
+      {data.replay ? null : (
+        <Link
+          href={messagePath(sessionId, { game: data.game_id })}
+          aria-label={nb.messages.toGameLabel(data.game_number ?? null)}
+          data-message-game=""
+          standalone
+        >
+          {nb.messages.toGame}
+        </Link>
+      )}
     </header>
   );
 }
@@ -140,7 +143,13 @@ export function InsightBody({ data }: { data: GameInsight }) {
           data-insight-seats=""
         >
           {seatsUpstreamFirst(data).map((seat) => (
-            <SeatItem key={seat.role} seat={seat} sessionId={data.class_session_id} gameId={data.game_id} />
+            <SeatItem
+              key={seat.role}
+              seat={seat}
+              sessionId={data.class_session_id}
+              gameId={data.game_id}
+              replay={data.replay}
+            />
           ))}
         </ol>
       </section>
@@ -163,15 +172,25 @@ export function InsightBody({ data }: { data: GameInsight }) {
   );
 }
 
-function SeatItem({ seat, sessionId, gameId }: { seat: InsightSeat; sessionId: string; gameId: string }) {
-  const links = linkTexts(seat);
+function SeatItem({
+  seat,
+  sessionId,
+  gameId,
+  replay,
+}: {
+  seat: InsightSeat;
+  sessionId: string;
+  gameId: string;
+  replay: boolean;
+}) {
+  const links = linkTexts(seat, replay);
   return (
     <li className="min-w-0" data-role={seat.role}>
       <p className="text-label text-ink">{roleName(seat.role)}</p>
       <p className="flex flex-wrap items-baseline gap-x-3 text-body-phone text-ink [overflow-wrap:anywhere] lg:text-body">
         <span>{holderText(seat)}</span>
         {/* A Message to the Student of this Seat (Story 7.9), titled with the game. */}
-        {seat.holder === "student" && seat.user_id && seat.name ? (
+        {seat.holder === "student" && seat.user_id && seat.name && !replay ? (
           <Link
             href={messagePath(sessionId, { game: gameId, student: seat.user_id })}
             aria-label={nb.messages.toStudentLabel(seat.name)}

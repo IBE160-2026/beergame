@@ -143,6 +143,12 @@ def _noise(seed: int, week: int, spread: int) -> int:
     return int.from_bytes(digest, "big") % (2 * spread + 1) - spread
 
 
+def week_noise(seed: int, week: int, spread: int) -> int:
+    """The variation `seed` draws for `week`: from `-spread` to `spread`, the same draw a seeded
+    pattern adds to its level (the Replay scenario's fixed series uses it, Story 10.1)."""
+    return _noise(seed, week, spread)
+
+
 def series(pattern: DemandPattern, weeks: int, seed: int | None = None) -> tuple[int, ...]:
     """The customer demand of Weeks 1 to `weeks`, one whole number per Week.
 

@@ -87,13 +87,24 @@ from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai import budget, config
-from app.engine import RULES_VERSION, GameSettings
+from app.engine import (
+    RULES_VERSION,
+    GameSettings,
+    ReplayFixed,
+    ReplayRandom,
+    ReplayStep,
+    ReplayTemplate,
+    default_replay_template,
+    validate_template,
+)
 from app.engine.demand import DemandFixed, DemandRandom, DemandStep, DemandStepNoise, new_seed
+from app.engine.scenario import RANGED_FIELDS, Ranged
 from app.engine.settings import (
     CAPACITY_RANGE,
     DEMAND_RANGES,
     RANGES,
     ROLES,
+    InfoVisibility,
     Range,
     Role,
     demand_series,
@@ -157,6 +168,7 @@ from app.modules.sessions.schemas import (
     PlayTurnOut,
     ProposalPersonOut,
     ReplacedLevelOut,
+    ReplayGameOut,
     RoleCapacityOut,
     SeatChoiceGameOut,
     SeatChoiceIn,
@@ -169,6 +181,7 @@ from app.modules.sessions.schemas import (
     SettingWarning,
     StepOut,
     StudentGameOut,
+    StudentReplayOut,
     TableSeatOut,
     TableStatusOut,
     TestGameRefOut,
@@ -328,6 +341,18 @@ class InvalidSettings(Exception):
     setting, with the range that applies."""
 
     code = "invalid_settings"
+
+    def __init__(self, problems: dict[str, SettingProblem]) -> None:
+        super().__init__(sorted(problems))
+        self.problems = problems
+
+
+class InvalidReplayScenario(Exception):
+    """An own Replay scenario breaks the engine's rules (422 `invalid_replay_scenario`, Story
+    10.2): one problem per setting, keyed as the Game settings' (`weeks`, `demand.start`), with
+    the range that applies; `replay_template` `required` for `own` with no template at all."""
+
+    code = "invalid_replay_scenario"
 
     def __init__(self, problems: dict[str, SettingProblem]) -> None:
         super().__init__(sorted(problems))
@@ -813,6 +838,7 @@ async def get_session(user: authz.Principal, session_id: uuid.UUID) -> ClassSess
     offered = await config.offered_effort_levels(config_id) if config_id is not None else []
     llm = row["ai_mode"] == AiMode.llm.value
     settings = GameSettings.model_validate(row["game_settings"])
+    in_force = replay_template(row)
     now = auth.utcnow()
     copied_from, effort_level_replaced = await _copy_notes(user, row)
     return ClassSessionOut(
@@ -826,6 +852,14 @@ async def get_session(user: authz.Principal, session_id: uuid.UUID) -> ClassSess
         debrief_mode=DebriefMode(row["debrief_mode"]),
         debrief_release=DebriefRelease(row["debrief_release"]),
         debrief_ai_text=row["debrief_ai_text"],
+        replay_scenario=row["replay_scenario"],
+        replay_template=in_force,
+        replay_default=default_replay_template(settings),
+        replay_warnings=(
+            replay_warnings(in_force, settings, info_visibility_enabled=info_visibility_enabled())
+            if row["replay_scenario"] == "own"
+            else []
+        ),
         inactivity_limit_hours=row["inactivity_limit_hours"],
         obligatory=row["obligatory"],
         required_share_percent=row["required_share_percent"],
@@ -906,6 +940,8 @@ async def save_session(
     required_share_percent: int | None = None,
     inactivity_limit_hours: int | None = None,
     allocation_method: AllocationMethod | None = None,
+    replay_scenario: str | None = None,
+    replay_template: Mapping[str, Any] | None = None,
 ) -> ClassSessionOut | None:
     """«Lagre Klasseøkt»: saves the Class session as it stands and emits `session:<id>`. LLM
     players on a Class session with no model config take the active default and its budget row
@@ -923,7 +959,9 @@ async def save_session(
     Debrief mode, Debrief release, Debrief AI text, Game settings, obligatory mark, share or
     Inactivity limit raise `SessionLocked`. `allocation_method` (Story 5.17), None, keeps the
     method; a change to `student_choice` is judged by `_judge_method` and opens the choice
-    (`_open_student_choice`).
+    (`_open_student_choice`). `replay_scenario` (Story 10.2), None, keeps the Replay scenario;
+    `own` with `replay_template` stores the own template judged by `judge_replay_template` for
+    the Game settings as saved, or raises `InvalidReplayScenario` (`_replay_to_store`).
     None when the User may not manage the Class; raises `ClassArchived`."""
     async with get_sessionmaker().begin() as s:
         row = await repo.session_row(s, session_id)
@@ -993,6 +1031,20 @@ async def save_session(
             _judge_values(row, share, limit)
             if game_settings is not None:
                 new_settings = _settings_to_store(row, game_settings, locked=locked)
+            # An own template follows changed Game settings even when the scenario is not sent.
+            if replay_scenario is None and new_settings and row["replay_scenario"] == "own":
+                replay_scenario = "own"
+            replay = (
+                _replay_to_store(
+                    row,
+                    new_settings or GameSettings.model_validate(row["game_settings"]),
+                    replay_scenario,
+                    replay_template,
+                    locked=locked,
+                )
+                if replay_scenario is not None
+                else None
+            )
             if dates is not None:
                 changed = judge_dates(row, dates, now=now, locked=locked)
                 if row["locked_at"] is not None and "start_at" in changed:
@@ -1017,7 +1069,7 @@ async def save_session(
                 level = effort_level if effort_level is not None else in_force
                 if level != in_force and level not in {o.name for o in offered}:
                     raise InvalidEffortLevel({"effort_level": "not_offered"})
-        except InvalidSettings as refused:
+        except (InvalidSettings, InvalidReplayScenario) as refused:
             log.info(
                 "class_session_refused",
                 class_session_id=str(session_id),
@@ -1049,6 +1101,7 @@ async def save_session(
             required_share_percent=share,
             inactivity_limit_hours=limit,
             allocation_method=method if switching else None,
+            replay=replay,
         )
         if switching and method == "student_choice":
             await _open_student_choice(s, session_id, user.id, students, now)
@@ -1073,6 +1126,7 @@ async def save_session(
         class_session_id=str(session_id),
         dates=sorted(changed),
         settings_changed=new_settings is not None,
+        replay_scenario=replay[0] if replay else None,
         obligatory_switched_on=switched_on,
         students_told=len(students) if switched_on else 0,
         student_choice_opened=switching,
@@ -1212,6 +1266,12 @@ async def enrolled_sessions(user: authz.Principal) -> EnrolledSessionListOut:
             for row in locked
             if cards.get(row["id"]) is not None and cards[row["id"]].debrief == "open"
         }
+        replays = {
+            row["id"]: await _replay_out(s, user, row, now)
+            for row in locked
+            if cards.get(row["id"]) is not None
+            and progress.Step.QUIZ_PASSED in done.get(row["id"], set())
+        }
     upcoming: dict[uuid.UUID, list[EnrolledLabHourOut]] = {}
     for lab in labs:
         upcoming.setdefault(lab["class_session_id"], []).append(
@@ -1244,7 +1304,9 @@ async def enrolled_sessions(user: authz.Principal) -> EnrolledSessionListOut:
                     held=_held(cards.get(row["id"])),
                     quiz_changed=changed.get(row["id"], False),
                     group_open=grouped.get(row["id"], False),
+                    replay_closed=_replay_closed(replays.get(row["id"]), user, row, now),
                 ),
+                replay=replays.get(row["id"]),
             )
             for row in rows
             if row["class_id"] in names
@@ -1270,6 +1332,7 @@ def stegene(
     held: bool = False,
     quiz_changed: bool = False,
     group_open: bool = False,
+    replay_closed: bool = False,
 ) -> list[StepOut]:
     """The state of each of Stegene's steps (Story 6.1, AD-10): a done step is `done`; with a
     game the first step not done is `current` and the later ones `locked`; with no game (before
@@ -1278,7 +1341,8 @@ def stegene(
     be current is `locked` and says so, and no step is current until the release.
     `quiz_changed` (Story 9.10): a current Quiz step says the Lecturer has changed the quiz.
     `group_open` (Story 9.11): a current Debrief step says a Group debrief the Student can join is
-    under way."""
+    under way. `replay_closed` (Story 10.3): a current Replay step says the Test deadline has
+    passed with no Replay started; it stays not done."""
     steps: list[StepOut] = []
     current_given = not has_game
     for name, step in STEGENE:
@@ -1294,6 +1358,9 @@ def stegene(
                 continue
             if name == "debrief" and group_open:
                 steps.append(StepOut(step=name, state=state, group_open=True))
+                continue
+            if name == "replay" and replay_closed:
+                steps.append(StepOut(step=name, state=state, closed=True))
                 continue
         else:
             state = "locked"
@@ -1386,6 +1453,84 @@ async def _group_open_of(
     return await _group_open[0](s, user_id, class_session_id)
 
 
+# Story 10.3: the Student's Replay in a Class session, as `replay` stores it. `replay` imports
+# `sessions`, so it registers its lookup here instead of `sessions` importing it (AD-25).
+
+ReplayGameProvider = Callable[[AsyncSession, uuid.UUID, uuid.UUID], Awaitable[uuid.UUID | None]]
+"""`(session, user_id, class_session_id)` → the id of the Student's Replay Game, or None."""
+
+_replay_game: list[ReplayGameProvider] = []
+
+
+def register_replay_game(provider: ReplayGameProvider) -> None:
+    """`replay.service` registers its one lookup at import; another is refused."""
+    if _replay_game and _replay_game[0] is not provider:
+        raise ValueError("a Replay game provider is registered already")
+    _replay_game[:] = [provider]
+
+
+def test_deadline_passed(
+    user: authz.Principal | uuid.UUID, row: Mapping[str, Any], now: datetime
+) -> bool:
+    """Whether the Student's own Test deadline (`effective_test_deadline`) has passed at `now`
+    (Story 10.3): no Replay starts after it (FR-18)."""
+    deadline = effective_test_deadline(user, row)
+    return deadline is not None and deadline <= now
+
+
+async def _test_deadline_of(
+    s: AsyncSession, user_id: uuid.UUID, class_session_id: uuid.UUID
+) -> datetime | None:
+    """The Student's `effective_test_deadline` in the Class session, read in `s`; None for no such
+    session. What `games` judges a Replay's close and its Orders by (Story 10.6, FR-18)."""
+    row = await repo.session_row(s, class_session_id)
+    return None if row is None else effective_test_deadline(user_id, row)
+
+
+games_service.register_test_deadline(_test_deadline_of)
+
+
+async def _replay_out(
+    s: AsyncSession, user: authz.Principal, row: Mapping[str, Any], now: datetime
+) -> StudentReplayOut:
+    """The Replay on Hjem for a Student who has passed the Debrief quiz (Story 10.3): the started
+    Replay with its Seats as `table_status` names them (every AI player `ai`), or whether «Start
+    Replay» shows. Before `replay` has registered its lookup, no Replay is known."""
+    game_id = await _replay_game[0](s, user.id, row["id"]) if _replay_game else None
+    if game_id is None:
+        return StudentReplayOut(can_start=not test_deadline_passed(user, row, now), game=None)
+    table = await games_service.table_status(s, game_id, user.id, _names_in(row["class_id"], s))
+    play = await games_service.play_status(s, game_id)
+    seats = _seats_out(table)
+    role = next(seat.role for seat in seats if seat.mine)
+    return StudentReplayOut(
+        # A Replay stored but not started (its start failed after the commit) starts on the
+        # next press, which `replay.start` allows.
+        can_start=play.status == "ready" and not test_deadline_passed(user, row, now),
+        game=ReplayGameOut(
+            id=game_id,
+            role=role,
+            status=play.status,
+            end_reason=play.end_reason,
+            week=play.week,
+            seats=seats,
+            server_now=await games_service.database_now(s),
+        ),
+    )
+
+
+def _replay_closed(
+    replay: StudentReplayOut | None, user: authz.Principal, row: Mapping[str, Any], now: datetime
+) -> bool:
+    """Stegene's Replay step says the Test deadline has passed (Story 10.3): the quiz is passed,
+    the deadline is behind, and no Replay was started or the started one was closed there
+    unfinished (Story 10.6). A Replay still running in the minute before the sweep closes it reads
+    as running, as Hjem's Replay block does."""
+    if replay is None or not test_deadline_passed(user, row, now):
+        return False
+    return replay.game is None or replay.game.end_reason is not None
+
+
 async def group_debrief_opened_mail_context(
     session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
 ) -> Mapping[str, object] | None:
@@ -1440,16 +1585,40 @@ class DebriefSession:
     """Story 9.11: the Class session's Debrief mode is Group debrief."""
 
 
+async def enrolled_locked_row(
+    s: AsyncSession, user: authz.Principal, class_session_id: uuid.UUID
+) -> Mapping[str, Any] | None:
+    """The Class session row, read in `s`, when it is one of the User's own as a Student
+    (`authz.classes_enrolled_by`), in a Class Hjem lists, and locked; None for every other case
+    alike (FR-5). The Debrief (Story 9.2) and the Replay (Story 10.3) are reached only so."""
+    listed = {item.id for item in (await classes.enrolled_classes(user, session=s)).items}
+    rows = {row["id"]: row for row in await repo.enrolled_sessions(s, user)}
+    row = rows.get(class_session_id)
+    if row is None or row["class_id"] not in listed or not is_locked(row):
+        return None
+    return row
+
+
+async def replay_session_of(
+    s: AsyncSession, user: authz.Principal, class_session_id: uuid.UUID
+) -> Mapping[str, Any] | None:
+    """The whole Class session row for the Student's Replay (Story 10.3), read in `s` and
+    share-locked, so its snapshot and Test deadline hold while the Replay is made; under
+    `enrolled_locked_row`'s checks (None for every other case alike, FR-5). The caller reads it
+    only through `replay_template`, `test_deadline_passed` and its frozen `snapshot`."""
+    if await enrolled_locked_row(s, user, class_session_id) is None:
+        return None
+    return await repo.session_row(s, class_session_id, share=True)
+
+
 async def debrief_session_of(
     s: AsyncSession, user: authz.Principal, class_session_id: uuid.UUID
 ) -> DebriefSession | None:
     """The Class session for the User's Debrief, read in `s`: one of their own
     (`authz.classes_enrolled_by`), in a Class Hjem lists, and locked; None for every other case
     alike (FR-5), as `_own_locked_game` judges a game."""
-    listed = {item.id for item in (await classes.enrolled_classes(user, session=s)).items}
-    rows = {row["id"]: row for row in await repo.enrolled_sessions(s, user)}
-    row = rows.get(class_session_id)
-    if row is None or row["class_id"] not in listed or not is_locked(row):
+    row = await enrolled_locked_row(s, user, class_session_id)
+    if row is None:
         return None
     return DebriefSession(
         id=row["id"],
@@ -1616,6 +1785,7 @@ async def _game_out(
         number=found.number,
         role=found.role,
         test_game=found.test_game,
+        replay=found.replay,
         class_session_id=found.class_session_id,
         seats=_seats_out(table),
         # Story 6.2: the briefing comes first until the Starting task is done (AD-16), where
@@ -1623,13 +1793,14 @@ async def _game_out(
         briefing_first=found.pre_play_gate and progress.Step.STARTING_TASK not in done,
         rules=game_rules(row),
         status=play.status,
+        end_reason=play.end_reason,
         week=play.week,
         server_now=await games_service.database_now(s),
         seat_state=state,
         turn=turn,
         time_proposal=await _time_proposal_out(s, user_id, found.game_id, row["class_id"]),
-        # Story 9.2: a Lecturer's test Game has no Debrief (Story 6.20).
-        debrief=None if found.test_game else await _debrief_of(s, user_id, row),
+        # Story 9.2: a Lecturer's test Game has no Debrief (Story 6.20), nor has a Replay (10.4).
+        debrief=None if found.test_game or found.replay else await _debrief_of(s, user_id, row),
     )
 
 
@@ -1706,6 +1877,15 @@ async def _own_locked_game(
     row = rows.get(found.class_session_id)
     if row is None or row["class_id"] not in listed or not is_locked(row):
         return None
+    if found.replay:
+        # The Replay (Story 10.4) runs on its own drawn settings: its rules are the Game's own,
+        # never the Class game's (`game_rules`). The read opens a session of its own, so `s`'s
+        # connection goes back first (`db.reading`).
+        await s.commit()
+        game = await games_service.get_game(str(found.game_id))
+        if game is None or game.settings is None:
+            return None
+        return found, {**row, "snapshot_settings": game.settings.model_dump(mode="json")}
     return found, row
 
 
@@ -1774,6 +1954,8 @@ async def student_play_of(user: authz.Principal, game_id: str) -> PlayOut | None
         # Read again when an AI player's Order falls due (AD-8, AD-20); one already past is the
         # rescue loop's to place, and its event says so.
         next_change_at=next((due for due in table.due_times if due > now), None),
+        # Story 10.4 (UX-DR19): the policy says whether the screen draws the projection.
+        projection=found.projection,
     )
 
 
@@ -1800,6 +1982,39 @@ async def student_result_of(user: authz.Principal, game_id: str) -> GameResultOu
             return None
         raise
     return result
+
+
+BelievabilityRefused = games_service.BelievabilityRefused
+
+
+async def _own_game_id(user: authz.Principal, game_id: str) -> uuid.UUID | None:
+    async with get_sessionmaker()() as s:
+        own = await _own_locked_game(s, user, game_id)
+    return None if own is None else own[0].game_id
+
+
+async def student_believability_of(
+    user: authz.Principal, game_id: str
+) -> games_service.Believability | None:
+    """The believability question of the Student's own game (Story 10.8, FR-70), under
+    `student_game_of`'s checks (None for every other id alike): whether they are asked and their
+    own answer. Only ever the reader's own answer."""
+    own = await _own_game_id(user, game_id)
+    if own is None:
+        return None
+    return await games_service.believability(own, user.id)
+
+
+async def rate_own_believability(
+    user: authz.Principal, game_id: str, rating: int
+) -> games_service.Believability | None:
+    """Store the Student's believability answer for their own game once (Story 10.8, FR-70),
+    under `student_game_of`'s checks (None for every other id alike). Raises
+    `games_service.BelievabilityRefused` (`not_offered`, `already_answered`)."""
+    own = await _own_game_id(user, game_id)
+    if own is None:
+        return None
+    return await games_service.rate_believability(own, user.id, rating)
 
 
 class ViewRefused(Exception):
@@ -1934,7 +2149,7 @@ async def propose_own_time(
     async with get_sessionmaker()() as s:
         own = await _own_locked_game(s, user, game_id)
     # A test Game has no group to agree a time with (Story 6.20).
-    if own is None or own[0].test_game:
+    if own is None or own[0].test_game or own[0].replay:
         return None
     found, row = own
     try:
@@ -1967,7 +2182,7 @@ async def accept_own_time(
     alike). An acceptance already stored counts as done. Returns the game as it now stands."""
     async with get_sessionmaker()() as s:
         own = await _own_locked_game(s, user, game_id)
-    if own is None or own[0].test_game:
+    if own is None or own[0].test_game or own[0].replay:
         return None
     found, _ = own
     try:
@@ -2035,7 +2250,7 @@ async def own_game_session(user: authz.Principal, game_id: str) -> OwnGameSessio
     async with get_sessionmaker()() as s:
         own = await _own_locked_game(s, user, game_id)
         # A test Game has no Starting task, and no step is ever recorded for it (Story 6.20).
-        if own is None or own[0].test_game:
+        if own is None or own[0].test_game or own[0].replay:
             return None
         session_id = own[1]["id"]
         pins = await repo.session_pins(s, session_id)
@@ -2986,6 +3201,323 @@ async def debrief_ai_text_pin(session: AsyncSession, class_session: Mapping[str,
 
 
 register_pin_provider(DEBRIEF_AI_TEXT_PIN, debrief_ai_text_pin)
+
+
+REPLAY_TEMPLATE_PIN = "replay_template"
+"""The pin of the Replay scenario template in `SessionRuntime.pins` (Story 10.1): the only template
+a Replay of the Class session reads."""
+
+
+def replay_template(class_session: Mapping[str, Any]) -> ReplayTemplate:
+    """The Replay scenario template of a Class session row (Stories 10.1 and 10.2, FR-49, AD-4):
+    once locked the one its lock pinned; otherwise, and for a session locked before Story 10.1,
+    the own template when one is chosen, else the default derived from its Game settings, so an
+    edit before the Start date never leaves a stale default."""
+    snapshot = class_session.get("snapshot")
+    pins = ((snapshot or {}).get("session_runtime") or {}).get("pins") or {}
+    pinned = pins.get(REPLAY_TEMPLATE_PIN)
+    if pinned is not None:
+        return ReplayTemplate.model_validate(pinned)
+    own = class_session.get("replay_template")
+    if own is not None:
+        return ReplayTemplate.model_validate(own)
+    return default_replay_template(GameSettings.model_validate(class_session["game_settings"]))
+
+
+async def replay_template_pin(session: AsyncSession, class_session: Mapping[str, Any]) -> Any:
+    """The lock's pin provider (Stories 10.1 and 10.2, AD-4): the template in force as JSON, the
+    own one where chosen and the default derived from the Game settings being frozen otherwise."""
+    choice = class_session.get("replay_scenario", "default")
+    if choice == "own":
+        own = ReplayTemplate.model_validate(class_session["replay_template"])
+        return own.model_dump(mode="json")
+    if choice != "default":
+        raise ValueError(f"unknown Replay scenario {choice!r}")
+    settings = GameSettings.model_validate(class_session["game_settings"])
+    return default_replay_template(settings).model_dump(mode="json")
+
+
+REPLAY_EDITABLE = frozenset(
+    {*RANGED_FIELDS, "demand", "holding_cost", "backorder_cost", "info_visibility"}
+)
+"""The template fields a Lecturer sets in an own Replay scenario (Story 10.2): every Game setting
+the Klasseøkt edits, the seed aside (each Replay draws its own). The chain and capacity are the
+Class session's. Information visibility is the Replay's own (Story 10.9), switched on only while
+`FEATURE_INFO_VISIBILITY` is on."""
+
+
+def class_game_template(settings: GameSettings) -> ReplayTemplate:
+    """The Class game's exact settings as a template with no range (Story 10.2, FR-49): what an
+    own scenario starts from, and what a draft that leaves a field out falls back to. A `step` or
+    `step+noise` pattern is a template `step` with its spread (0 for `step`); a fixed series has
+    no spread."""
+    pattern = settings.demand
+    demand: ReplayStep | ReplayRandom | ReplayFixed
+    if isinstance(pattern, DemandStep | DemandStepNoise):
+        demand = ReplayStep(
+            kind="step",
+            start=pattern.start,
+            new_level=pattern.new_level,
+            change_week=pattern.change_week,
+            spread=getattr(pattern, "spread", 0),
+        )
+    elif isinstance(pattern, DemandRandom):
+        demand = ReplayRandom(kind="random", mean=pattern.mean, spread=pattern.spread)
+    else:
+        demand = ReplayFixed(kind="fixed", values=pattern.values, spread=0)
+    return default_replay_template(settings).model_copy(
+        update={"demand": demand, "weeks": settings.weeks, "guided_weeks": settings.guided_weeks}
+    )
+
+
+def _low(value: Ranged) -> int:
+    return value if isinstance(value, int) else value.minimum
+
+
+def _high(value: Ranged) -> int:
+    return value if isinstance(value, int) else value.maximum
+
+
+def _peak(pattern: object) -> int:
+    """The highest demand level of a Game's or a template's pattern, before any variation."""
+    if isinstance(pattern, DemandStep | DemandStepNoise | ReplayStep):
+        return max(pattern.start, pattern.new_level)
+    if isinstance(pattern, DemandRandom | ReplayRandom):
+        return pattern.mean
+    assert isinstance(pattern, DemandFixed | ReplayFixed)
+    return max(pattern.values)
+
+
+def _spread(pattern: object) -> int:
+    """The variation each Week: a Game's fixed series and `step` have none."""
+    return 0 if isinstance(pattern, DemandFixed) else getattr(pattern, "spread", 0)
+
+
+def _changes_level(pattern: object) -> bool:
+    """Whether the demand level moves during the Game: a step to another level, a fixed series
+    with more than one value. Random demand varies around one mean."""
+    if isinstance(pattern, DemandStep | DemandStepNoise | ReplayStep):
+        return pattern.start != pattern.new_level
+    if isinstance(pattern, DemandFixed | ReplayFixed):
+        return len(set(pattern.values)) > 1
+    return False
+
+
+def replay_warnings(
+    template: ReplayTemplate, settings: GameSettings, *, info_visibility_enabled: bool = False
+) -> list[SettingWarning]:
+    """The changes of an own Replay scenario that probably make the Replay easier than the Class
+    game with `settings` (Story 10.2, FR-49, UX-DR48), one warning per change. A ranged value
+    counts by its easier end: a delay by its lowest, Guided Weeks and starting inventory by their
+    highest. The rules: a higher starting inventory (`replay_inventory_higher`); a delay shorter
+    than the Class game's (`replay_delay_shorter`, per delay); any Guided Weeks, which the
+    default never has (`replay_guided_weeks`); a lower peak demand level (`replay_demand_lower`);
+    less variation each Week (`replay_demand_less_variable`); no change of level where the Class
+    game had one (`replay_demand_no_change`); and, only while `FEATURE_INFO_VISIBILITY` is on
+    (`info_visibility_enabled`, Story 10.9), each neighbour's view the Replay shows and the Class
+    games do not (`replay_neighbour_visible`, `values` `{"view": "upstream"|"downstream"}`). They
+    never block a save."""
+    found: list[SettingWarning] = []
+
+    def warn(code: str, field: str, replay: int, class_game: int) -> None:
+        values = {"replay": str(replay), "class_game": str(class_game)}
+        found.append(SettingWarning(code=code, field=field, values=values))
+
+    inventory = _high(template.starting_inventory)
+    if inventory > settings.starting_inventory:
+        warn(
+            "replay_inventory_higher", "starting_inventory", inventory, settings.starting_inventory
+        )
+    for field in ("order_delay", "shipping_delay", "production_delay"):
+        delay = _low(getattr(template, field))
+        if delay < getattr(settings, field):
+            warn("replay_delay_shorter", field, delay, getattr(settings, field))
+    guided = _high(template.guided_weeks)
+    if guided > 0:
+        warn("replay_guided_weeks", "guided_weeks", guided, settings.guided_weeks)
+    demand, pattern = template.demand, settings.demand
+    if _peak(demand) < _peak(pattern):
+        warn("replay_demand_lower", "demand", _peak(demand), _peak(pattern))
+    if demand.spread < _spread(pattern):
+        warn("replay_demand_less_variable", "demand", demand.spread, _spread(pattern))
+    if _changes_level(pattern) and not _changes_level(demand):
+        warn("replay_demand_no_change", "demand", _peak(demand), _peak(pattern))
+    if info_visibility_enabled:
+        replay_views, class_views = template.info_visibility, settings.info_visibility
+        for side in VIEWS:
+            if getattr(replay_views, side) and not getattr(class_views, side):
+                found.append(
+                    SettingWarning(
+                        code="replay_neighbour_visible",
+                        field="info_visibility",
+                        values={"view": side},
+                    )
+                )
+    return found
+
+
+def judge_replay_template(
+    settings: GameSettings,
+    draft: Mapping[str, Any],
+    *,
+    kept_views: InfoVisibility | None = None,
+) -> tuple[ReplayTemplate | None, dict[str, SettingProblem], list[SettingWarning]]:
+    """An own Replay scenario `draft` judged for a Class session with `settings` (Story 10.2,
+    FR-12, FR-49): the template (None when it does not parse or the engine refuses it), the
+    errors keyed as the Game settings' with their range, and the warnings of `replay_warnings`
+    on settings without an error. The draft is laid over the Class game's exact settings
+    (`class_game_template`); a key outside `REPLAY_EDITABLE` is `not_editable`. The chain and
+    the capacity are always the Class session's, which `judge_settings` judged under its flag.
+
+    Information visibility (Story 10.9, FR-83) is the Replay's own: the draft's, else
+    `kept_views` (a stored own template's), else the Class session's. While
+    `FEATURE_INFO_VISIBILITY` is off a draft that switches on a view that is off there is
+    `info_visibility` `feature_disabled` (as `judge_settings`); switching a view off, or sending
+    it back as it was, is always allowed."""
+    base = class_game_template(settings).model_dump(mode="json")
+    if kept_views is not None:
+        base["info_visibility"] = kept_views.model_dump(mode="json")
+    problems: dict[str, SettingProblem] = {
+        key: _problem("not_editable", key) for key in draft if key not in REPLAY_EDITABLE
+    }
+    views_flag = info_visibility_enabled()
+    if not views_flag and _shows_a_new_neighbour(
+        draft.get("info_visibility"), base["info_visibility"]
+    ):
+        problems["info_visibility"] = _problem("feature_disabled", "info_visibility")
+    data = {
+        **base,
+        **{
+            key: value
+            for key, value in draft.items()
+            if key in REPLAY_EDITABLE and key not in problems
+        },
+    }
+    # Fields that do not parse are judged no further; the others are judged with them at the
+    # Class game's values, so one mistyped field hides no error elsewhere (as `judge_settings`).
+    unreadable: set[str] = set()
+    try:
+        template = ReplayTemplate.model_validate(data)
+    except ValidationError as exc:
+        for error in exc.errors():
+            if error["loc"]:
+                unreadable.add(str(error["loc"][0]))
+            field, found = _parse_problem(error, data, settings)
+            problems.setdefault(field, found)
+        try:
+            judged = ReplayTemplate.model_validate(
+                {key: base[key] if key in unreadable else value for key, value in data.items()}
+            )
+        except ValidationError:
+            return None, problems, []
+    else:
+        judged = template
+    for error in validate_template(judged, capacity_enabled=True, info_visibility_enabled=True):
+        if error.field.split(".")[0] not in unreadable:
+            problems.setdefault(
+                error.field, _problem(error.code, error.field, error.minimum, error.maximum)
+            )
+    if unreadable:
+        return None, problems, []
+    template = judged
+    risky = [
+        w
+        for w in replay_warnings(template, settings, info_visibility_enabled=views_flag)
+        if not any(key == w.field or key.startswith(f"{w.field}.") for key in problems)
+    ]
+    return (None if problems else template), problems, risky
+
+
+def _replay_to_store(
+    row: Mapping[str, Any],
+    settings: GameSettings,
+    choice: str,
+    draft: Mapping[str, Any] | None,
+    *,
+    locked: bool,
+) -> tuple[str, dict[str, Any] | None] | None:
+    """The Replay scenario choice and own template to store (Story 10.2), or None when they do
+    not change. `own` with no draft keeps the stored own template's fields, judged again for
+    `settings` so its chain and capacity follow the Game settings; its Information visibility is
+    its own and kept (Story 10.9). Raises
+    `SessionLocked` for a change once locked and `InvalidReplayScenario` for a template the
+    engine refuses; an unchanged scenario is never refused, so a locked session saves as it
+    stands."""
+    stored = row["replay_template"]
+    stored_template = ReplayTemplate.model_validate(stored) if stored is not None else None
+    if choice == "default":
+        if row["replay_scenario"] == "default":
+            return None
+        if locked:
+            raise SessionLocked({"replay_scenario": "locked"})
+        return "default", None
+    if draft is None:
+        if stored_template is None:
+            if locked:
+                raise SessionLocked({"replay_scenario": "locked"})
+            raise InvalidReplayScenario(
+                {"replay_template": _problem("required", "replay_template")}
+            )
+        own = stored_template.model_dump(mode="json")
+        draft = {key: value for key, value in own.items() if key in REPLAY_EDITABLE}
+    kept = stored_template.info_visibility if stored_template is not None else None
+    judged, problems, _ = judge_replay_template(settings, draft, kept_views=kept)
+    if judged is None:
+        if locked:
+            raise SessionLocked({"replay_scenario": "locked"})
+        raise InvalidReplayScenario(problems)
+    template = judged
+    if row["replay_scenario"] == "own" and template == stored_template:
+        return None
+    if locked:
+        raise SessionLocked({"replay_scenario": "locked"})
+    return "own", template.model_dump(mode="json")
+
+
+async def check_replay_scenario(
+    user: authz.Principal, session_id: uuid.UUID, draft: Mapping[str, Any], *, now: datetime
+) -> SettingsCheckOut | None:
+    """What the engine says of a draft of an own Replay scenario, as the Lecturer leaves a field
+    (Story 10.2, FR-12, FR-49): errors, and warnings of changes that probably make the Replay
+    easier; nothing stored. Raises `SessionLocked` once locked. None when the User may not
+    manage the Class."""
+    async with get_sessionmaker().begin() as s:
+        row = await repo.session_row(s, session_id)
+    if row is None or await _class_for(user, row["class_id"], "class_sessions.manage") is None:
+        return None
+    if is_locked(row, now=now):
+        raise SessionLocked({"replay_scenario": "locked"})
+    settings = GameSettings.model_validate(row["game_settings"])
+    stored = row["replay_template"]
+    kept = ReplayTemplate.model_validate(stored).info_visibility if stored is not None else None
+    _, problems, risky = judge_replay_template(settings, draft, kept_views=kept)
+    return SettingsCheckOut(errors=problems, warnings=risky)
+
+
+def _copied_replay(
+    source: Mapping[str, Any], settings: GameSettings, source_id: uuid.UUID
+) -> tuple[str, dict[str, Any] | None]:
+    """The source's Replay scenario for a copy (Stories 5.18 and 10.2, FR-66): the default as it
+    is; an own template judged again for the copy's Game settings, whose chain and capacity it
+    takes. Its Information visibility is copied while `FEATURE_INFO_VISIBILITY` is on and left
+    out (both views off) while it is off, as `_copied_settings` (Story 10.9). A template the
+    engine now refuses is not copied: the copy gets the default, and the refusal is logged."""
+    if source["replay_scenario"] != "own":
+        return "default", None
+    own = ReplayTemplate.model_validate(source["replay_template"]).model_dump(mode="json")
+    editable = {key: value for key, value in own.items() if key in REPLAY_EDITABLE}
+    if not info_visibility_enabled():
+        editable["info_visibility"] = InfoVisibility().model_dump(mode="json")
+    template, problems, _ = judge_replay_template(settings, editable)
+    if template is None:
+        log.info(
+            "class_session_copy_replay_default", source_id=str(source_id), fields=sorted(problems)
+        )
+        return "default", None
+    return "own", template.model_dump(mode="json")
+
+
+register_pin_provider(REPLAY_TEMPLATE_PIN, replay_template_pin)
 
 
 class ProviderKeyMissing(Exception):
@@ -4296,8 +4828,9 @@ async def copy_from(
     «Lag Klasseøkt» does. Dates, Lab hours, the Roster, the allocation and the obligatory mark
     with its share are not copied. Raises `FeatureDisabled` while `FEATURE_RERUN` is off,
     `InvalidSettings`, `ClassArchived`; None when the User may not manage the target Class or may
-    not read the source. It copies the settings of Epic 5 only; the later stories that own more
-    session settings (FR-66) add theirs here."""
+    not read the source. It copies the settings of Epic 5 and the Replay scenario
+    (`_copied_replay`, Story 10.2); the later stories that own more session settings (FR-66) add
+    theirs here."""
     if not rerun_enabled():
         raise FeatureDisabled(dict(RERUN_DISABLED))
     if await _class_for(user, target_class_id, "class_sessions.manage") is None:
@@ -4325,6 +4858,7 @@ async def copy_from(
                 fields=sorted(refused.problems),
             )
             raise
+        replay_choice, own_template = _copied_replay(source, settings, source_id)
         default = await config.active_default(session=s)
         offered = await config.offered_effort_levels(default.id, session=s) if default else []
         llm = source["ai_mode"] == AiMode.llm.value and default is not None
@@ -4353,6 +4887,8 @@ async def copy_from(
             created_at=now,
             copied_from=source_id,
             effort_level_replaced=replaced,
+            replay_scenario=replay_choice,
+            replay_template=own_template,
         )
         if default is not None:
             await budget.set_budget(budget.BudgetScope.class_session(session_id), session=s)

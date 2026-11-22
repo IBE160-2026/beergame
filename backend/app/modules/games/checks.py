@@ -63,7 +63,8 @@ async def verify_finished(game_id: str) -> GameCheck:
         game = await repo.get_game(session, game_uuid)
         if game is None:
             raise ViewError("game_not_found", f"no Game {game_id!r}", 404)
-        if game["lifecycle"] != Lifecycle.FINISHED:
+        # A Game `close` ended at the Test deadline (Story 10.6) has no last Week to check.
+        if game["lifecycle"] != Lifecycle.FINISHED or game["end_reason"] is not None:
             raise ViewError("game_not_finished", "only a finished Game is checked", 409)
         version = game["rules_version"]
         if not rules.has_version(version):

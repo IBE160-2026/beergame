@@ -26,6 +26,10 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # reads Hjem again. A simulation emits `game` alone.
         "games.advance": frozenset({"game", "session", "user"}),
         "games.switch_to_rule_based": frozenset({"game"}),
+        # An unfinished Replay closed at its Student's Test deadline (Story 10.6, AD-9 sweep): the
+        # Student's Hjem and play screen read it again. No Lecturer overview lists a purpose this
+        # closes, so no `session`.
+        "games.close": frozenset({"game", "user"}),
         # A Student opened a Guided Week (Story 6.10): only Class games take Students, so their
         # Class session hears of it; the viewer's waiting status changes, and when the view
         # completes the Week every Student of the Game sees the next one.
@@ -146,6 +150,20 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # Class session row locked; its staff read the block again (`session`), and each Student
         # whose last attempt it now covers gets a `quiz_changed` notice, which emits `user`.
         "debrief.set_quiz_exclusions": frozenset({"session", "user"}),
+        # A Student's Replay made and started (Story 10.3, FR-48): its Game is created, seated and
+        # started through `games.commands` (`game`), and the Student's Hjem reads it again
+        # (`user`). No Lecturer overview lists a Replay, so no `session`.
+        "replay.start": frozenset({"game", "user"}),
+        # A finished Replay's walkthrough line stored by the `llm-batch` job (Story 10.7): the
+        # Student's waiting walkthrough page reads again (`user`).
+        "replay.store_narration": frozenset({"user"}),
+        # A Student's walkthrough stored at their first ready view (Story 10.7): no event, the
+        # viewing page has it and no other reader sees it.
+        "replay.record_walkthrough": frozenset(),
+        # A Student's answer after their Replay-gjennomgang (Story 10.8, FR-50): whether they would
+        # have played another round. No event: the page that sent it has it, and no other reader
+        # may see it. (The believability answer is no `games.commands` command and emits none.)
+        "replay.answer_another_round": frozenset(),
     }
 )
 """`<module>.<command>` -> topics. Commands on a Game the Lecturer overview lists will add

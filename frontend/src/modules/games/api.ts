@@ -292,3 +292,27 @@ export function useGameResult(gameId: string, enabled: boolean) {
     retry: false,
   });
 }
+
+/** The believability question of the Student's own game (Story 10.8): whether they are asked and
+ * their own answer. */
+export type Believability = components["schemas"]["Believability"];
+
+export const believabilityKey = (id: string) => ["games", "mine", id, "believability"] as const;
+
+/** `GET /api/me/games/{id}/believability`, asked only once the game has finished (`enabled`). */
+export function useBelievability(gameId: string, enabled = true) {
+  return useQuery({
+    queryKey: believabilityKey(gameId),
+    queryFn: () =>
+      request(() => api.GET("/api/me/games/{game_id}/believability", { params: { path: { game_id: gameId } } })),
+    enabled,
+    retry: false,
+  });
+}
+
+/** «Send svar» (Story 10.8, FR-70): stored once; 409 `already_answered` or `not_offered`. */
+export function rateBelievability(gameId: string, rating: number) {
+  return request(() =>
+    api.POST("/api/me/games/{game_id}/believability", { params: { path: { game_id: gameId } }, body: { rating } }),
+  );
+}

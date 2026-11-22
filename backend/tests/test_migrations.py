@@ -9,7 +9,7 @@ import pytest
 from alembic import command
 from alembic.config import Config
 
-from tests.conftest import libpq_dsn
+from tests.conftest import kept_connection, libpq_dsn
 
 API_ROOT = Path(__file__).resolve().parents[1]
 GAMES_HEAD_TABLES = {
@@ -99,6 +99,12 @@ GAME_SUMMARY_TABLES = {"game_summaries"}
 """The tables of revision 0051 (Story 7.1)."""
 MESSAGE_TABLES = {"messages", "message_recipients"}
 """The tables of revision 0052 (Story 7.9)."""
+REPLAY_TABLES = {"replays"}
+"""The tables of revision 0116 (Story 10.3)."""
+WALKTHROUGH_TABLES = {"replay_narrations", "replay_walkthroughs"}
+"""The tables of revision 0118 (Story 10.7)."""
+RATING_TABLES = {"believability_ratings", "replay_another_round"}
+"""The tables of revision 0119 (Story 10.8)."""
 HEAD_TABLES = (
     PRE_SESSION_TABLES
     | SESSION_TABLES
@@ -119,8 +125,11 @@ HEAD_TABLES = (
     | FOLLOW_UP_TABLES
     | GAME_SUMMARY_TABLES
     | MESSAGE_TABLES
+    | REPLAY_TABLES
+    | WALKTHROUGH_TABLES
+    | RATING_TABLES
 )
-HEAD = "0113"  # 0113 stores the Debrief's follow-up questions and their hints (Story 9.15)
+HEAD = "0119"  # 0119 stores the answers after the game (Story 10.8)
 
 
 def reset_schema(url: str) -> None:
@@ -130,11 +139,8 @@ def reset_schema(url: str) -> None:
 
 
 def tables(url: str) -> set[str]:
-    with psycopg.connect(libpq_dsn(url)) as conn:
-        rows = conn.execute(
-            "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
-        ).fetchall()
-    return {r[0] for r in rows}
+    query = "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
+    return {name for (name,) in rows(url, query)}
 
 
 def config(url: str) -> Config:
@@ -145,14 +151,16 @@ def config(url: str) -> Config:
 
 
 def current_version(url: str) -> str:
-    with psycopg.connect(libpq_dsn(url)) as conn:
-        (version,) = conn.execute("SELECT version_num FROM alembic_version").fetchone()
+    [(version,)] = rows(url, "SELECT version_num FROM alembic_version")
     return version
 
 
 def rows(url: str, sql: str, params: tuple | None = None) -> list[tuple]:
-    with psycopg.connect(libpq_dsn(url)) as conn:
-        return conn.execute(sql, params).fetchall()
+    """One statement on the kept autocommit connection (`tests/conftest.py`): the walk checks
+    the catalog some 180 times, and a new connection costs about 20 ms each. A statement that
+    returns no rows answers []."""
+    cursor = kept_connection(url).execute(sql, params)
+    return cursor.fetchall() if cursor.description is not None else []
 
 
 def columns(url: str, table: str) -> set[str]:
@@ -309,6 +317,49 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     # 0111 (Story 9.12): presence, the Students who go on alone and the 48-hour fallback.
     assert "last_seen_at" in columns(url, "debrief_members")
     assert {"fallback_due_at", "fallback_at"} <= columns(url, "debrief_sessions")
+
+    # 0119 (Story 10.8): a believability answer per Student and Game (1 to 5), an another-round
+    # answer per Student and Class session, each stored once.
+    assert "<= 5" in definition(url, "ck_believability_ratings_rating")
+    assert {"purpose", "ai_mode", "rating"} <= columns(url, "believability_ratings")
+    assert function_names(url, "believability_ratings_immutable")
+    assert function_names(url, "replay_another_round_immutable")
+    command.downgrade(cfg, "0118")
+    assert RATING_TABLES.isdisjoint(tables(url))
+    assert not function_names(url, "replay_another_round_immutable")
+
+    # 0118 (Story 10.7): the Replay walkthrough's line and record, each stored once.
+    assert {"replay_fact_set_id", "compared_fact_set_id"} <= columns(url, "replay_walkthroughs")
+    assert function_names(url, "replay_narrations_immutable")
+    assert function_names(url, "replay_walkthroughs_immutable")
+    command.downgrade(cfg, "0117")
+    assert WALKTHROUGH_TABLES.isdisjoint(tables(url))
+    assert not function_names(url, "replay_walkthroughs_immutable")
+
+    # 0117 (Story 10.6): why a Game ended without its last Week, only on a finished Game.
+    assert "end_reason" in columns(url, "games")
+    assert "'test_deadline'" in definition(url, "ck_games_end_reason")
+    assert "finished" in definition(url, "ck_games_end_reason_finished")
+    command.downgrade(cfg, "0116")
+    assert "end_reason" not in columns(url, "games")
+
+    # 0116 (Story 10.3): each Student's one Replay in a Class session.
+    assert {"user_id", "class_session_id", "game_id"} <= columns(url, "replays")
+    command.downgrade(cfg, "0115")
+    assert REPLAY_TABLES.isdisjoint(tables(url))
+
+    # 0115 (Story 10.2): an own Replay scenario, its template there exactly when chosen.
+    assert "replay_template" in columns(url, "class_sessions")
+    assert "'own'" in definition(url, "ck_class_sessions_replay_scenario")
+    assert "replay_template" in definition(url, "ck_class_sessions_replay_template")
+    command.downgrade(cfg, "0114")
+    assert "replay_template" not in columns(url, "class_sessions")
+
+    # 0114 (Story 10.1): the Replay scenario choice, `default` only, never a template.
+    assert "replay_scenario" in columns(url, "class_sessions")
+    assert "'default'" in definition(url, "ck_class_sessions_replay_scenario")
+    command.downgrade(cfg, "0113")
+    assert "replay_scenario" not in columns(url, "class_sessions")
 
     # 0113 (Story 9.15): version 2 of the narration templates with the hints, the follow-up
     # questions (stored once) and their closures.

@@ -12,9 +12,10 @@ import { nb } from "@/copy/nb";
 import { KRONER } from "@/lib/number-format";
 import { classSessionPath, DEBRIEF_PATH, HOME_PATH } from "@/modules/identity/homes";
 import { classSessionKey } from "@/modules/sessions/api";
-import { roleName } from "@/modules/sessions/sessions";
 
 import type { GameResult, MyGame } from "./api";
+import { BelievabilityBlock } from "./believability";
+import { roleGameText } from "./home";
 import { gameEnd } from "./result";
 
 const copy = nb.games.play;
@@ -22,16 +23,23 @@ const LINE = "text-body-phone lg:text-body";
 
 /** The hero total with a plain space before «kr», so at 200 % text on a phone «kr» wraps to the
  * next line instead of pushing the page sideways; the number itself never breaks. */
-function heroTotal(total: string) {
+export function heroTotal(total: string) {
   return total.endsWith(KRONER) ? `${total.slice(0, -KRONER.length)} kr` : total;
 }
 
-/** The page's heading: «Spillet er ferdig» over «Grossist, Spill 17», as the Topplinje stands. */
+/** The page's heading: «Spillet er ferdig» over «Grossist, Spill 17», as the Topplinje stands; a
+ * Replay's reads «Replay er ferdig» over «Grossist, Replay» (Story 10.5), or «Replay stengt» once
+ * closed at the Testfrist unfinished (Story 10.6). */
+export function endTitle(game: Pick<MyGame, "replay" | "end_reason">): string {
+  if (game.end_reason === "test_deadline") return copy.replayClosed.title;
+  return game.replay ? copy.replayEnd.title : copy.end.title;
+}
+
 export function GameEndHeading({ game }: { game: MyGame }) {
   return (
     <div className="min-w-0">
-      <h1 className="text-title-phone text-ink lg:text-title-page">{copy.end.title}</h1>
-      <p className={`${LINE} mt-1 text-ink-secondary`}>{copy.roleGame(roleName(game.role), game.number)}</p>
+      <h1 className="text-title-phone text-ink lg:text-title-page">{endTitle(game)}</h1>
+      <p className={`${LINE} mt-1 text-ink-secondary`}>{roleGameText(game)}</p>
     </div>
   );
 }
@@ -46,7 +54,8 @@ export function GameEndHeading({ game }: { game: MyGame }) {
  * Game (Story 6.20) has no Debrief: its button leads back to the Klasseøkt instead, and the heading
  * reads «Testspill». While the Faglærer holds the Debriefs until every Class game has finished
  * (`debrief: "held"`, Story 9.2) the button gives way to that line and a Lenke to Hjem, where
- * Stegene says the same; the release's `user` event brings the button back without reload.
+ * Stegene says the same; the release's `user` event brings the button back without reload. Below
+ * it, once, the optional believability question when an AI player held a Seat (Story 10.8).
  */
 export function GameEnd({ game, result, note }: { game: MyGame; result: GameResult; note?: ReactNode }) {
   const model = gameEnd(result, game.role);
@@ -92,6 +101,8 @@ export function GameEnd({ game, result, note }: { game: MyGame; result: GameResu
           )}
         </div>
       )}
+      {/* Story 10.8 (FR-70): once, below «Gå til Debrief», when an AI player held a Seat. */}
+      {game.test_game ? null : <BelievabilityBlock gameId={game.id} titled />}
     </div>
   );
 }

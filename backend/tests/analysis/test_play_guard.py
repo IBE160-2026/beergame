@@ -10,7 +10,8 @@ from pydantic import ValidationError
 
 from app.analysis import play_guard
 from app.analysis.play_guard import GuardDecision, GuardRow, evaluate, is_calibrated
-from app.engine import GameSettings
+from app.engine import GameSettings, default_replay_template, replay_settings
+from app.modules.games import commands
 from app.platform.parameter_sets import read_parameter_set
 from tests.engine.test_purity import FORBIDDEN_STDLIB, imported_roots
 
@@ -147,6 +148,30 @@ def test_classic_settings_are_calibrated_whatever_the_seed():
     assert not is_calibrated(GameSettings(capacity={"factory": 6}), PARAMS)
     # A neighbour's numbers change what a player sees, so it is not the calibrated profile.
     assert not is_calibrated(GameSettings(info_visibility={"upstream": True}), PARAMS)
+
+
+def test_the_default_set_calibrates_the_default_replay_scenario():
+    """Story 10.1 (FR-79, AD-22): `placeholder-1` holds `placeholder-0`'s values plus the default
+    Replay scenario of the Classic settings, and is the set new Games freeze."""
+    params = play_guard.parse_params(
+        read_parameter_set("play_guard", "placeholder-1"), "placeholder-1"
+    )
+    assert commands.DEFAULT_PLAY_GUARD_SET == "placeholder-1"
+    assert params.version == 1
+    template = default_replay_template(GameSettings())
+    assert params.calibrated_profiles == {"classic": GameSettings(), "replay_default": template}
+    assert params.model_dump(exclude={"id", "source", "calibrated_profiles"}) == PARAMS.model_dump(
+        exclude={"id", "source", "calibrated_profiles"}
+    )
+    # Every default Replay counts; the Classic game still does.
+    assert all(is_calibrated(replay_settings(template, seed), params) for seed in range(50))
+    assert is_calibrated(GameSettings(demand_seed=3), params)
+    assert not is_calibrated(replay_settings(template, 1), PARAMS)
+    # An own scenario with other settings does not.
+    own = template.model_copy(update={"shipping_delay": 3})
+    assert not is_calibrated(replay_settings(own, 1), params)
+    slower = default_replay_template(GameSettings(production_delay=3))
+    assert not is_calibrated(replay_settings(slower, 1), params)
 
 
 def test_a_new_profile_is_data_in_a_new_version_of_the_set():

@@ -9,6 +9,7 @@ plays the Classic 36 Weeks."""
 import json
 import uuid
 
+import pytest
 from structlog.testing import capture_logs
 
 from app.modules.games import commands
@@ -145,6 +146,7 @@ async def test_the_result_is_the_chain_per_role_and_week_only_once_finished_and_
     assert again["games.verify_finished"] == 0
 
 
+@pytest.mark.long
 async def test_a_student_moved_before_the_start_finishes_in_the_new_game_and_both_are_checked(
     klass,
 ):

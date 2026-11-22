@@ -77,6 +77,48 @@ export function labelProblems(page: Page) {
   });
 }
 
+/** The direct labels of the visible Netto lager graph that the Replay's projection runs through
+ * (Story 10.6): its dashed line, sampled every px, or its end dot inside a label's text box. */
+export function projectionCrossings(page: Page) {
+  return page.evaluate(() => {
+    const svg = [...document.querySelectorAll<SVGSVGElement>('svg[data-chart="net"]')].find((s) => s.getClientRects().length > 0);
+    const mark = svg?.querySelector<SVGGElement>("[data-mark=projection]");
+    if (!svg || !mark) return ["no projection"];
+    const path = mark.querySelector("path")!;
+    const matrix = path.getScreenCTM()!;
+    const points: { x: number; y: number }[] = [];
+    for (let at = 0; at <= path.getTotalLength(); at += 1) {
+      const p = path.getPointAtLength(at).matrixTransform(matrix);
+      points.push({ x: p.x, y: p.y });
+    }
+    const dot = mark.querySelector("circle")?.getBoundingClientRect();
+    const problems: string[] = [];
+    for (const label of svg.querySelectorAll<SVGTextElement>("text[data-label=net], text[data-label=position]")) {
+      const box = label.getBoundingClientRect();
+      const inside = (x: number, y: number) => x > box.left + 0.5 && x < box.right - 0.5 && y > box.top + 0.5 && y < box.bottom - 0.5;
+      if (points.some((p) => inside(p.x, p.y))) problems.push(`the line crosses ${label.textContent}`);
+      if (dot && Math.min(dot.right, box.right) > Math.max(dot.left, box.left) && Math.min(dot.bottom, box.bottom) > Math.max(dot.top, box.top)) {
+        problems.push(`the dot meets ${label.textContent}`);
+      }
+    }
+    return problems;
+  });
+}
+
+/** How many lines the projection sentence's sum takes (Story 10.6): the text from after «: » to
+ * before « hvis», measured by its line boxes. */
+export function projectionSumLines(page: Page) {
+  return page.evaluate(() => {
+    const sentence = document.querySelector<HTMLElement>("[data-projection-sentence]")!;
+    const node = [...sentence.childNodes].find((n) => n.nodeType === 3 && n.textContent!.includes(": "))!;
+    const text = node.textContent!;
+    const range = document.createRange();
+    range.setStart(node, text.indexOf(": ") + 2);
+    range.setEnd(node, text.indexOf(" hvis"));
+    return new Set([...range.getClientRects()].filter((r) => r.width > 0).map((r) => Math.round(r.top))).size;
+  });
+}
+
 /** No text in the page below 13 px (SVG text included) and no table cell whose text is cut off.
  * The Matrisevegg's cells are the one place allowed 9 px (DESIGN.md → Typography → Floors). */
 export async function textReadable(page: Page) {

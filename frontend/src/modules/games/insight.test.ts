@@ -16,6 +16,7 @@ import {
   orderTableRows,
   roleTables,
   seatsUpstreamFirst,
+  statusText,
   stockRoles,
   stockTableRows,
   weekRow,
@@ -46,6 +47,7 @@ const insight = (weeks: InsightWeek[][]): GameInsight => ({
   class_name: "class-of-2026",
   session_number: 1,
   game_number: 2,
+  replay: false,
   status: "running",
   version: 7,
   weeks_total: 36,
@@ -84,7 +86,11 @@ describe("Spillinnsikt's words (Story 7.7)", () => {
     expect(linkTexts(retailer!)).toBe(copy.noLinks);
     expect(linkTexts(wholesaler!)).toBeNull();
     expect(linkTexts(distributor!)).toBeNull();
-  });
+    // Story 10.5: a Replay has no Explanation or Debrief of its own, so no «kommer» line.
+    expect(linkTexts(retailer!, true)).toBeNull();
+    expect(linkTexts({ ...retailer!, links: [{ kind: "replay", href: "/r" }] })).toEqual([
+      { kind: "replay", text: "Replay", href: "/r" },
+    ]);  });
 
   it("words every mark of the one mapping, never a bare code", () => {
     const all = Object.keys(copy.marks) as SeatMark[];
@@ -118,6 +124,14 @@ describe("Spillinnsikt's words (Story 7.7)", () => {
     ]);
     expect(hasWeeks(insight([]))).toBe(false);
     expect(hasWeeks(insight([[week(1)]]))).toBe(true);
+  });
+});
+
+describe("Spillinnsikt's status word (Story 10.6)", () => {
+  it("names a Replay closed at the Testfrist as such, never «Ferdig»", () => {
+    expect(statusText({ status: "finished", end_reason: "test_deadline" })).toBe("Stengt ved Testfristen, ikke fullført");
+    expect(statusText({ status: "finished", end_reason: null })).toBe(copy.status.finished);
+    expect(statusText({ status: "running" })).toBe(copy.status.running);
   });
 });
 

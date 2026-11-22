@@ -15,6 +15,7 @@ from datetime import datetime, timedelta
 import structlog
 
 from app.modules.debrief import service as debrief
+from app.modules.games import commands as games_commands
 from app.modules.games import service as games
 from app.modules.identity import service as identity
 from app.modules.messaging import service as messaging
@@ -110,6 +111,14 @@ async def _verify_finished(game_id: object, now: datetime) -> object:
     return checked
 
 
+async def _close_at_test_deadline(game_id: object, now: datetime) -> bool:
+    """Close one unfinished Game at its Test deadline (Story 10.6): `games.commands.close`, which
+    judges the deadline again at `now` under the Game row lock and does nothing to a Game already
+    finished, so a repeat or a late item is harmless."""
+    assert isinstance(game_id, str)
+    return await games_commands.close(game_id, games.EndReason.TEST_DEADLINE, due=now)
+
+
 DUE_ACTIONS: tuple[DueAction, ...] = (
     # The first due action (Story 3.5): claim due notices into mails and defer their `mail` jobs.
     DueAction("messaging.mail", messaging.due_items, messaging.claim),  # type: ignore[arg-type]
@@ -142,6 +151,11 @@ DUE_ACTIONS: tuple[DueAction, ...] = (
     # Story 6.18: the finished-game check (FR-29, NFR-9, AD-4): replay each finished Game that
     # has no `game_checks` row yet, one Game per transaction, so the end screen never waits.
     DueAction("games.verify_finished", _unchecked_finished_games, _verify_finished),
+    # Story 10.6 (FR-18, AD-13): close each unfinished Replay once its Student's Test deadline has
+    # passed (`effective_test_deadline`), never played out; one Game per transaction.
+    DueAction(
+        "games.close_at_test_deadline", games.due_test_deadline_closes, _close_at_test_deadline
+    ),
     # Story 9.2: release the Debriefs of a held Class session once its last Class game has
     # finished (by the last Week or the playout), and tell each seated Student (AD-9).
     DueAction("debrief.release", debrief.due_releases, debrief.release_due),
