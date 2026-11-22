@@ -3706,3 +3706,22 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
 
 ### Åpne punkter
 - Issue #228: beslutninger og den trege testen.
+
+## Story 13.1: Fullføring beregnes ett sted og vises for studenten (spor 2)
+
+### Oppgave
+Bygge Story 13.1 på `epic-13` i spor 2, den første storyen i Epic 13.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den visuelle kontrollen gjøres i avslutningen av Epic 13.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-13-1-completion-computed-in-one-place-shown-on-hjem.md`. Epic-konteksten `epic-13-context.md` ble laget.
+- Commit: 6c6850d. Ingen migrasjon.
+- Ren beregning av fullføring i `analysis.completion` og en ny modul `reports`. Hjem viser for hvert steg om det teller, med grunn, og om kravet er oppfylt. Trakten på Oversikten går gjennom `reports.funnel`.
+- Tester: backend 3717, Vitest 1186, tsc, `lint:colours`, `check:copy`, bygg, Playwright 54 med axe.
+- Gjennomgang: 3 lave rettet, 1 middels utsatt.
+- Status: done.
+
+### Åpne punkter
+- Issue #229: beslutninger, det utsatte funnet og sømmer mot Epic 12 og 15.
