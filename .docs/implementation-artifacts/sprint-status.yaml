@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-17-2026 12:28
-last_updated: 11-23-2026 00:14
+last_updated: 11-23-2026 00:44
 project: beergame
 project_key: NOKEY
 tracking_system: file-system
@@ -229,7 +229,7 @@ development_status:
   12-5-flag-feedback-and-read-assessments-as-staff: done
   12-6-show-the-indicative-letter-where-it-is-allowed: done
   12-7-set-up-a-control-test-in-the-operator-s-own-institution: done
-  12-8-invite-test-students-who-consent-before-they-take-part: in-progress
+  12-8-invite-test-students-who-consent-before-they-take-part: done
   12-9-score-control-test-answers-blind: backlog
   12-10-compare-human-and-ai-scores-and-mark-the-scoring-guide-as-ch: backlog
   epic-12-retrospective: optional
