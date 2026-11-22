@@ -1244,13 +1244,21 @@ async def set_flag(attempt_id: uuid.UUID, item_id: str, flagged: bool, *, now: d
     """Store (`flagged`) or remove the Student's «Marker som feil» on the written feedback of one
     item of the attempt's assessment (FR-55), idempotently, in a transaction of its own; it emits
     `user:<student>` and `session:<id>` so the Student's other tabs and the Class's staff read it
-    again (AD-8). The caller has judged that the Student's view shows that feedback now. False
-    when the attempt has no assessment or the item no stored score (nothing is stored)."""
+    again (AD-8). False when the attempt has no assessment or the item no stored score (nothing
+    is stored). A flag is stored only while the Student's view shows that feedback, judged again in
+    this transaction with the switch row share-locked (a stop waits for it): the item has written
+    feedback, the switch is on, and the assessment has a finished run and is ready, or incomplete
+    and not stopped. Removing a flag needs only the stored score."""
     async with get_sessionmaker().begin() as s:
         row = (
             await s.execute(
                 select(
-                    ai_assessments.c.id, ai_assessments.c.user_id, ai_assessments.c.class_session_id
+                    ai_assessments.c.id,
+                    ai_assessments.c.user_id,
+                    ai_assessments.c.class_session_id,
+                    ai_assessments.c.status,
+                    ai_assessments.c.runs,
+                    ai_item_scores.c.feedback,
                 )
                 .join(ai_item_scores, ai_item_scores.c.assessment_id == ai_assessments.c.id)
                 .where(
@@ -1261,6 +1269,15 @@ async def set_flag(attempt_id: uuid.UUID, item_id: str, flagged: bool, *, now: d
         if row is None:
             return False
         if flagged:
+            switch = await switch_of(s, row.class_session_id, share=True)
+            shown = (
+                row.feedback is not None
+                and switch.enabled
+                and row.runs > 0
+                and (row.status == "ready" or (row.status == "incomplete" and not switch.stopped))
+            )
+            if not shown:
+                return False
             changed = await s.execute(
                 insert(ai_feedback_flags)
                 .values(assessment_id=row.id, item_id=item_id, flagged_at=now)

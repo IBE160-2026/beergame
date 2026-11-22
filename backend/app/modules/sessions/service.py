@@ -2120,6 +2120,10 @@ async def student_target(
     anything else (FR-5, AD-12). The Studentside (Story 8.9; `student_pages.read` from Story
     12.5), a deadline extension (Story 11.13) and the staff's AI assessment (Story 12.5,
     `ai_assessments.read`) are reached only so."""
+    if action not in authz.CLASS_STAFF_ROLES:
+        # A Class action only; an unknown one refuses (one answer) rather than raise.
+        log.warning("student_target_unknown_action", action=action)
+        return None
     async with get_sessionmaker()() as s:
         row = await repo.session_row(s, class_session_id)
     if row is None:

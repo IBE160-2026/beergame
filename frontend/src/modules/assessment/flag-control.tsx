@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useId } from "react";
 
 import { ActionError } from "@/components/action-error";
 import { nb } from "@/copy/nb";
@@ -21,20 +22,22 @@ const TEXT_BUTTON =
  * «Angre», which takes the flag back. The same button keeps focus. A failed request says «Det ble
  * ikke lagret. Prøv igjen.» beside it, and the button stays active (UX-DR59). The api's answer is
  * the view as it now stands, which replaces the page's copy; a 409 (the view changed meanwhile)
- * reads the view again. `describedBy` names the item heading, so each toggle says which feedback it
- * marks.
+ * reads the view again. `itemHeadingId` names the item heading: the accessible name is the
+ * button's own words followed by it («Marker som feil Oppgave 3 · Langsvar»), so each toggle says
+ * which feedback it marks.
  */
 export function FlagControl({
   classSessionId,
   itemId,
   flagged,
-  describedBy,
+  itemHeadingId,
 }: {
   classSessionId: string;
   itemId: string;
   flagged: boolean;
-  describedBy?: string;
+  itemHeadingId?: string;
 }) {
+  const ownId = useId();
   const queryClient = useQueryClient();
   const toggle = useMutation({
     mutationFn: (next: boolean) => setFeedbackFlag(classSessionId, itemId, next),
@@ -52,8 +55,9 @@ export function FlagControl({
       </p>
       <button
         type="button"
+        id={ownId}
         aria-pressed={flagged}
-        aria-describedby={describedBy}
+        aria-labelledby={itemHeadingId ? `${ownId} ${itemHeadingId}` : undefined}
         className={TEXT_BUTTON}
         onClick={() => {
           if (!toggle.isPending) toggle.mutate(!flagged);

@@ -160,7 +160,7 @@ function Item({
           classSessionId={classSessionId}
           itemId={item.id}
           flagged={Boolean(item.ai?.flagged)}
-          describedBy={headingId}
+          itemHeadingId={headingId}
         />
       ) : null}
       {feedback && viewer === "staff" && item.ai?.flagged ? (

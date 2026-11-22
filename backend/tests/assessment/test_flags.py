@@ -7,10 +7,13 @@ owners and Assistant lecturers) read the Student's assessment with those flags o
 count on the Klasseøkt (`GET /api/class-sessions/{id}/assessments`). On the mock provider."""
 
 import uuid
+from types import SimpleNamespace
 
 from app.ai import seed
 from app.modules.assessment import service as assessment
 from app.modules.identity.schemas import AccountRole
+from app.modules.sessions import service as sessions
+from app.modules.tests import assessed
 from app.platform.db import get_sessionmaker
 from app.platform.events.registry import COMMAND_TOPICS
 from tests.assessment.test_assess import (
@@ -251,3 +254,39 @@ async def test_summaries_for_session_counts_flags_per_student(klass, monkeypatch
     # A flag goes with its assessment.
     execute("DELETE FROM ai_assessments")
     assert flags() == []
+
+
+async def test_the_write_itself_refuses_a_flag_the_view_would_not_show(klass, monkeypatch):
+    """The check and the write in one transaction: `assessment.set_flag` judges again."""
+    session_id = await ready(klass, monkeypatch)
+    attempt_id = attempt_id_of(session_id)
+    execute("UPDATE ai_assessments SET status = 'incomplete'")
+    await assessment.stop_for_session(uuid.UUID(session_id), None, now=TEST + HOUR)
+    assert await assessment.set_flag(attempt_id, ITEM, True, now=TEST + HOUR) is False
+    assert flags() == []
+    # A ready assessment stays flaggable through a stop; dropped feedback never is.
+    execute("UPDATE ai_assessments SET status = 'ready'")
+    assert await assessment.set_flag(attempt_id, ITEM, True, now=TEST + HOUR) is True
+    execute(
+        "UPDATE ai_item_scores SET feedback = NULL, feedback_note = 'dropped' WHERE item_id = %s",
+        LONG[1],
+    )
+    assert await assessment.set_flag(attempt_id, LONG[1], True, now=TEST + HOUR) is False
+    assert flags() == [(ITEM,)]
+
+
+def test_an_unmapped_status_reads_as_not_ready():
+    on = assessment.Switch(enabled=True, pinned_at=TEST)
+    assert assessed._state_of(on, True, "something_new", 1) == "not_ready"
+    assert assessed._state_of(on, True, "ready", 1) == "ready"
+
+
+async def test_an_unknown_action_refuses_the_student_target(klass, monkeypatch):
+    session_id = await ready(klass, monkeypatch)
+    found = await sessions.student_target(
+        SimpleNamespace(id=user_id(LECTURER), roles=("lecturer",)),
+        uuid.UUID(session_id),
+        user_id(email(0)),
+        "no.such_action",
+    )
+    assert found is None

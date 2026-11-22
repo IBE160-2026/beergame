@@ -264,7 +264,8 @@ def _state_of(
         return "switched_off"
     if not closed or status is None or (status == "incomplete" and runs == 0):
         return "not_ready"
-    return status
+    # Only the states a view knows; anything else reads as not ready, never a 500 for the list.
+    return status if status in ("incomplete", "ready", "failed") else "not_ready"
 
 
 async def _view(

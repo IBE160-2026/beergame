@@ -160,3 +160,13 @@ Status: done
 
 **Personal data.**
 - New table `ai_feedback_flags` (`assessment_id`, `item_id`, `flagged_at`): no `user_id` column, but each row is a Student's own judgment, tied to them through `ai_assessments.user_id`. It holds no text the User wrote. Lane 1's registry (Story 15.2) should list it.
+
+**Follow-up fixes from the blind review (2026-11-22, on the lead's request).** I reconsidered four blind rows that were rejected in the first pass and patched them:
+- The flag check and the write now run in one transaction. `assessment.set_flag` judges again, with the switch row share-locked, that the feedback is shown: the item has feedback, the switch is on, there is a finished run, and the assessment is ready, or incomplete and not stopped.
+- `_state_of` maps any unknown status to `not_ready`, so the staff list can never answer 500.
+- `student_target` refuses (returns None, which gives a 403) for an action that is not a Class action, instead of raising `KeyError`.
+- `FlagControl`'s accessible name is now its own words followed by its item heading (`aria-labelledby`), for example «Marker som feil Oppgave 3 · Langsvar». This replaces the first pass's `aria-describedby`.
+
+Unchanged from the first pass: `can_manage` stays required. Norwegian sort order and the nested-schema rows stay rejected, for the reasons in the triage log.
+
+New tests in `test_flags.py`: the write refuses during a stop and on dropped feedback, an unmapped status reads as not ready, and an unknown action is refused. The touched backend tests pass (88), as do `tsc`, Vitest and Playwright (`ai-assessment`, `tilrettelegging`: 33 passed).
