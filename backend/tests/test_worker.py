@@ -100,6 +100,9 @@ def test_the_worker_knows_the_llm_order_task_by_its_name():
     # Story 9.14: the Debrief's narration job, on `llm-batch` (`worker-batch`).
     assert "app.modules.debrief.jobs" in jobs.TASK_MODULES
     assert jobs.app.tasks["debrief.narrate"].queue == jobs.LLM_BATCH
+    # Story 11.8: the Individual test's prepare job, on `llm-batch` too.
+    assert "app.modules.tests.jobs" in jobs.TASK_MODULES
+    assert jobs.app.tasks["tests.prepare_adapted"].queue == jobs.LLM_BATCH
 
 
 async def test_run_until_idle_returns_when_no_job_waits(games_db):

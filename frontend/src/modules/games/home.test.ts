@@ -89,6 +89,14 @@ describe("Hjem's game card (Story 6.1)", () => {
 });
 
 describe("Stegene's items (Story 6.1, AD-10)", () => {
+  it("says a current test step is not done once the Testfrist passed without a hand-in, and still leads there (Story 11.11)", () => {
+    const [closed] = stepItems([{ step: "test", state: "current", held: false, quiz_changed: false, group_open: false, closed: true }], "s1");
+    expect(closed!.note).toBe("ikke gjort, Testfristen er ute");
+    expect(closed!.href).toBeDefined();
+    const [open] = stepItems([{ step: "test", state: "current", held: false, quiz_changed: false, group_open: false, closed: false }], "s1");
+    expect(open!.note).toBe("pågår");
+  });
+
   it("puts the api's states in words: «pågår», «ferdig» and what opens a later step", () => {
     const items = stepItems([
       { step: "class_game", state: "done", held: false, quiz_changed: false, group_open: false, closed: false },

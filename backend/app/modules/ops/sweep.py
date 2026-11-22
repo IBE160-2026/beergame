@@ -20,6 +20,10 @@ from app.modules.games import service as games
 from app.modules.identity import service as identity
 from app.modules.messaging import service as messaging
 from app.modules.sessions import service as sessions
+from app.modules.tests import commands as tests_commands
+from app.modules.tests import guide as _scoring_guide  # noqa: F401  (registers its Test pin)
+from app.modules.tests import prepare as tests_prepare
+from app.modules.tests import selection as _question_set  # noqa: F401  (registers its pin)
 from app.platform import ratelimit
 from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker
@@ -299,11 +303,23 @@ DUE_ACTIONS: tuple[DueAction, ...] = (
     DueAction("games.playout_orders", _stalled_playout_turns, _ensure_playout_order),
     DueAction("games.playout_overdue", _overdue_playouts, _log_overdue_playout),
     DueAction("games.verify_finished", _unchecked_finished_games, _verify_finished),
+    # Story 11.12 (FR-51, AD-9): hand in each open Individual test attempt whose timed sitting
+    # ended before its Test deadline, one per transaction. Before the lock and the close, so a
+    # late sweep hands it in as of the sitting's end; it closes nothing (`close_attempt` does).
+    DueAction("tests.end_sitting", tests_commands.due_sitting_ends, tests_commands.end_due),
     # Story 10.6 (FR-18, AD-13): close each unfinished Replay once its Student's Test deadline has
     # passed (`effective_test_deadline`), never played out; one Game per transaction.
     DueAction(
         "games.close_at_test_deadline", games.due_test_deadline_closes, _close_at_test_deadline
     ),
+    # Story 12.1 (AD-9, FR-61): the Test-deadline lock pins the «KI-vurdering» switch of each
+    # Class session whose original Test deadline has passed, once, and the Scoring guide in force
+    # (Story 11.2, FR-81).
+    DueAction("sessions.lock_test", sessions.due_test_locks, sessions.lock_test_due),
+    # Story 11.11 (FR-51, AD-9): only after that lock, close each Individual test attempt whose
+    # `effective_deadline` has passed, handed in or not, one per transaction: an open one is
+    # auto-submitted with its saved answers. Epic 12 starts the AI assessment there.
+    DueAction("tests.close_attempt", tests_commands.due_closes, tests_commands.close_due),
     # Story 9.2: release the Debriefs of a held Class session once its last Class game has
     # finished (by the last Week or the playout), and tell each seated Student (AD-9).
     DueAction("debrief.release", debrief.due_releases, debrief.release_due),
@@ -315,12 +331,22 @@ DUE_ACTIONS: tuple[DueAction, ...] = (
     # Story 9.14 (AD-9): defer the narration job of a Seat again when it was lost (no narration
     # stored ten minutes after its Class game finished).
     DueAction("debrief.narration", debrief.due_narrations, debrief.narrate_due),
+    # Story 11.8 (AD-9): prepare the Adapted items of each Student through the Replay who has not
+    # opened the Individual test, on `llm-batch`, so opening never waits on an LLM call.
+    DueAction("tests.prepare_adapted", tests_prepare.due_prepares, tests_prepare.prepare_due),
     # Story 5.14: remind every Student of a Play, Debrief or Test deadline 24 hours ahead, once
     # per deadline time (FR-18). The reminders join the next minute's digest claim.
     DueAction(
         "sessions.send_deadline_reminder",
         sessions.due_deadline_reminders,
         sessions.send_deadline_reminder_due,
+    ),
+    # Story 11.13: remind a Student with their own Test deadline of their own Debrief and Test
+    # deadlines 24 hours ahead, once per time; the Class session's reminders leave them out.
+    DueAction(
+        "sessions.send_own_deadline_reminder",
+        sessions.due_own_deadline_reminders,
+        sessions.send_own_deadline_reminder_due,
     ),
 )
 

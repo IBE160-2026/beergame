@@ -1,0 +1,5446 @@
+{
+  "roles": [
+    "retailer",
+    "wholesaler",
+    "distributor",
+    "factory"
+  ],
+  "rows": [
+    {
+      "week": 1,
+      "role": "retailer",
+      "order": 4,
+      "decided_by": "guided",
+      "occupant_kind": "student",
+      "state_seen": {
+        "role": "retailer",
+        "week": 1,
+        "backlog": 0,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 24,
+          "supply_line_base": 12,
+          "order_arrival_week": 5
+        },
+        "shipped": 4,
+        "position": 24,
+        "inventory": 12,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "6.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 12,
+            "amount": "6.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 0,
+            "amount": "0.00"
+          }
+        ],
+        "total_cost": "6.00",
+        "supply_line": 12,
+        "net_inventory": 12,
+        "order_history": [],
+        "incoming_order": 4,
+        "schema_version": 4,
+        "incoming_orders": [
+          4
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 2
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 3
+          },
+          {
+            "stage": "ordered",
+            "quantity": 4,
+            "arrival_week": 4
+          }
+        ],
+        "total_holding_cost": "6.00",
+        "total_backorder_cost": "0.00"
+      }
+    },
+    {
+      "week": 1,
+      "role": "wholesaler",
+      "order": 4,
+      "decided_by": "guided",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "wholesaler",
+        "week": 1,
+        "backlog": 0,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 24,
+          "supply_line_base": 12,
+          "order_arrival_week": 5
+        },
+        "shipped": 4,
+        "position": 24,
+        "inventory": 12,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "6.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 12,
+            "amount": "6.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 0,
+            "amount": "0.00"
+          }
+        ],
+        "total_cost": "6.00",
+        "supply_line": 12,
+        "net_inventory": 12,
+        "order_history": [],
+        "incoming_order": 4,
+        "schema_version": 4,
+        "incoming_orders": [
+          4
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 2
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 3
+          },
+          {
+            "stage": "ordered",
+            "quantity": 4,
+            "arrival_week": 4
+          }
+        ],
+        "total_holding_cost": "6.00",
+        "total_backorder_cost": "0.00"
+      }
+    },
+    {
+      "week": 1,
+      "role": "distributor",
+      "order": 4,
+      "decided_by": "guided",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "distributor",
+        "week": 1,
+        "backlog": 0,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 24,
+          "supply_line_base": 12,
+          "order_arrival_week": 5
+        },
+        "shipped": 4,
+        "position": 24,
+        "inventory": 12,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "6.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 12,
+            "amount": "6.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 0,
+            "amount": "0.00"
+          }
+        ],
+        "total_cost": "6.00",
+        "supply_line": 12,
+        "net_inventory": 12,
+        "order_history": [],
+        "incoming_order": 4,
+        "schema_version": 4,
+        "incoming_orders": [
+          4
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 2
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 3
+          },
+          {
+            "stage": "ordered",
+            "quantity": 4,
+            "arrival_week": 4
+          }
+        ],
+        "total_holding_cost": "6.00",
+        "total_backorder_cost": "0.00"
+      }
+    },
+    {
+      "week": 1,
+      "role": "factory",
+      "order": 4,
+      "decided_by": "guided",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "factory",
+        "week": 1,
+        "backlog": 0,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 24,
+          "supply_line_base": 12,
+          "order_arrival_week": 5
+        },
+        "shipped": 4,
+        "position": 24,
+        "inventory": 12,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "6.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 12,
+            "amount": "6.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 0,
+            "amount": "0.00"
+          }
+        ],
+        "total_cost": "6.00",
+        "supply_line": 12,
+        "net_inventory": 12,
+        "order_history": [],
+        "incoming_order": 4,
+        "schema_version": 4,
+        "incoming_orders": [
+          4
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_production",
+            "quantity": 4,
+            "arrival_week": 2
+          },
+          {
+            "stage": "in_production",
+            "quantity": 4,
+            "arrival_week": 3
+          },
+          {
+            "stage": "ordered",
+            "quantity": 4,
+            "arrival_week": 4
+          }
+        ],
+        "total_holding_cost": "6.00",
+        "total_backorder_cost": "0.00"
+      }
+    },
+    {
+      "week": 2,
+      "role": "retailer",
+      "order": 4,
+      "decided_by": "guided",
+      "occupant_kind": "student",
+      "state_seen": {
+        "role": "retailer",
+        "week": 2,
+        "backlog": 0,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 24,
+          "supply_line_base": 12,
+          "order_arrival_week": 6
+        },
+        "shipped": 4,
+        "position": 24,
+        "inventory": 12,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "6.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 12,
+            "amount": "6.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 0,
+            "amount": "0.00"
+          }
+        ],
+        "total_cost": "12.00",
+        "supply_line": 12,
+        "net_inventory": 12,
+        "order_history": [
+          4
+        ],
+        "incoming_order": 4,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 3
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 4
+          },
+          {
+            "stage": "ordered",
+            "quantity": 4,
+            "arrival_week": 5
+          }
+        ],
+        "total_holding_cost": "12.00",
+        "total_backorder_cost": "0.00"
+      }
+    },
+    {
+      "week": 2,
+      "role": "wholesaler",
+      "order": 4,
+      "decided_by": "guided",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "wholesaler",
+        "week": 2,
+        "backlog": 0,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 24,
+          "supply_line_base": 12,
+          "order_arrival_week": 6
+        },
+        "shipped": 4,
+        "position": 24,
+        "inventory": 12,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "6.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 12,
+            "amount": "6.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 0,
+            "amount": "0.00"
+          }
+        ],
+        "total_cost": "12.00",
+        "supply_line": 12,
+        "net_inventory": 12,
+        "order_history": [
+          4
+        ],
+        "incoming_order": 4,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 3
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 4
+          },
+          {
+            "stage": "ordered",
+            "quantity": 4,
+            "arrival_week": 5
+          }
+        ],
+        "total_holding_cost": "12.00",
+        "total_backorder_cost": "0.00"
+      }
+    },
+    {
+      "week": 2,
+      "role": "distributor",
+      "order": 4,
+      "decided_by": "guided",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "distributor",
+        "week": 2,
+        "backlog": 0,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 24,
+          "supply_line_base": 12,
+          "order_arrival_week": 6
+        },
+        "shipped": 4,
+        "position": 24,
+        "inventory": 12,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "6.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 12,
+            "amount": "6.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 0,
+            "amount": "0.00"
+          }
+        ],
+        "total_cost": "12.00",
+        "supply_line": 12,
+        "net_inventory": 12,
+        "order_history": [
+          4
+        ],
+        "incoming_order": 4,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 3
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 4
+          },
+          {
+            "stage": "ordered",
+            "quantity": 4,
+            "arrival_week": 5
+          }
+        ],
+        "total_holding_cost": "12.00",
+        "total_backorder_cost": "0.00"
+      }
+    },
+    {
+      "week": 2,
+      "role": "factory",
+      "order": 4,
+      "decided_by": "guided",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "factory",
+        "week": 2,
+        "backlog": 0,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 24,
+          "supply_line_base": 12,
+          "order_arrival_week": 6
+        },
+        "shipped": 4,
+        "position": 24,
+        "inventory": 12,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "6.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 12,
+            "amount": "6.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 0,
+            "amount": "0.00"
+          }
+        ],
+        "total_cost": "12.00",
+        "supply_line": 12,
+        "net_inventory": 12,
+        "order_history": [
+          4
+        ],
+        "incoming_order": 4,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_production",
+            "quantity": 4,
+            "arrival_week": 3
+          },
+          {
+            "stage": "in_production",
+            "quantity": 4,
+            "arrival_week": 4
+          },
+          {
+            "stage": "ordered",
+            "quantity": 4,
+            "arrival_week": 5
+          }
+        ],
+        "total_holding_cost": "12.00",
+        "total_backorder_cost": "0.00"
+      }
+    },
+    {
+      "week": 3,
+      "role": "retailer",
+      "order": 4,
+      "decided_by": "student",
+      "occupant_kind": "student",
+      "state_seen": {
+        "role": "retailer",
+        "week": 3,
+        "backlog": 0,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 24,
+          "supply_line_base": 12,
+          "order_arrival_week": 7
+        },
+        "shipped": 4,
+        "position": 24,
+        "inventory": 12,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "6.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 12,
+            "amount": "6.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 0,
+            "amount": "0.00"
+          }
+        ],
+        "total_cost": "18.00",
+        "supply_line": 12,
+        "net_inventory": 12,
+        "order_history": [
+          4,
+          4
+        ],
+        "incoming_order": 4,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 4
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 5
+          },
+          {
+            "stage": "ordered",
+            "quantity": 4,
+            "arrival_week": 6
+          }
+        ],
+        "total_holding_cost": "18.00",
+        "total_backorder_cost": "0.00"
+      }
+    },
+    {
+      "week": 3,
+      "role": "wholesaler",
+      "order": 4,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "wholesaler",
+        "week": 3,
+        "backlog": 0,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 24,
+          "supply_line_base": 12,
+          "order_arrival_week": 7
+        },
+        "shipped": 4,
+        "position": 24,
+        "inventory": 12,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "6.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 12,
+            "amount": "6.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 0,
+            "amount": "0.00"
+          }
+        ],
+        "total_cost": "18.00",
+        "supply_line": 12,
+        "net_inventory": 12,
+        "order_history": [
+          4,
+          4
+        ],
+        "incoming_order": 4,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 4
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 5
+          },
+          {
+            "stage": "ordered",
+            "quantity": 4,
+            "arrival_week": 6
+          }
+        ],
+        "total_holding_cost": "18.00",
+        "total_backorder_cost": "0.00"
+      }
+    },
+    {
+      "week": 3,
+      "role": "distributor",
+      "order": 4,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "distributor",
+        "week": 3,
+        "backlog": 0,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 24,
+          "supply_line_base": 12,
+          "order_arrival_week": 7
+        },
+        "shipped": 4,
+        "position": 24,
+        "inventory": 12,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "6.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 12,
+            "amount": "6.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 0,
+            "amount": "0.00"
+          }
+        ],
+        "total_cost": "18.00",
+        "supply_line": 12,
+        "net_inventory": 12,
+        "order_history": [
+          4,
+          4
+        ],
+        "incoming_order": 4,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 4
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 5
+          },
+          {
+            "stage": "ordered",
+            "quantity": 4,
+            "arrival_week": 6
+          }
+        ],
+        "total_holding_cost": "18.00",
+        "total_backorder_cost": "0.00"
+      }
+    },
+    {
+      "week": 3,
+      "role": "factory",
+      "order": 4,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "factory",
+        "week": 3,
+        "backlog": 0,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 24,
+          "supply_line_base": 12,
+          "order_arrival_week": 7
+        },
+        "shipped": 4,
+        "position": 24,
+        "inventory": 12,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "6.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 12,
+            "amount": "6.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 0,
+            "amount": "0.00"
+          }
+        ],
+        "total_cost": "18.00",
+        "supply_line": 12,
+        "net_inventory": 12,
+        "order_history": [
+          4,
+          4
+        ],
+        "incoming_order": 4,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_production",
+            "quantity": 4,
+            "arrival_week": 4
+          },
+          {
+            "stage": "in_production",
+            "quantity": 4,
+            "arrival_week": 5
+          },
+          {
+            "stage": "ordered",
+            "quantity": 4,
+            "arrival_week": 6
+          }
+        ],
+        "total_holding_cost": "18.00",
+        "total_backorder_cost": "0.00"
+      }
+    },
+    {
+      "week": 4,
+      "role": "retailer",
+      "order": 6,
+      "decided_by": "student",
+      "occupant_kind": "student",
+      "state_seen": {
+        "role": "retailer",
+        "week": 4,
+        "backlog": 0,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 24,
+          "supply_line_base": 12,
+          "order_arrival_week": 8
+        },
+        "shipped": 4,
+        "position": 24,
+        "inventory": 12,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "6.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 12,
+            "amount": "6.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 0,
+            "amount": "0.00"
+          }
+        ],
+        "total_cost": "24.00",
+        "supply_line": 12,
+        "net_inventory": 12,
+        "order_history": [
+          4,
+          4,
+          4
+        ],
+        "incoming_order": 4,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 5
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 6
+          },
+          {
+            "stage": "ordered",
+            "quantity": 4,
+            "arrival_week": 7
+          }
+        ],
+        "total_holding_cost": "24.00",
+        "total_backorder_cost": "0.00"
+      }
+    },
+    {
+      "week": 4,
+      "role": "wholesaler",
+      "order": 4,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "wholesaler",
+        "week": 4,
+        "backlog": 0,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 24,
+          "supply_line_base": 12,
+          "order_arrival_week": 8
+        },
+        "shipped": 4,
+        "position": 24,
+        "inventory": 12,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "6.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 12,
+            "amount": "6.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 0,
+            "amount": "0.00"
+          }
+        ],
+        "total_cost": "24.00",
+        "supply_line": 12,
+        "net_inventory": 12,
+        "order_history": [
+          4,
+          4,
+          4
+        ],
+        "incoming_order": 4,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 5
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 6
+          },
+          {
+            "stage": "ordered",
+            "quantity": 4,
+            "arrival_week": 7
+          }
+        ],
+        "total_holding_cost": "24.00",
+        "total_backorder_cost": "0.00"
+      }
+    },
+    {
+      "week": 4,
+      "role": "distributor",
+      "order": 4,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "distributor",
+        "week": 4,
+        "backlog": 0,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 24,
+          "supply_line_base": 12,
+          "order_arrival_week": 8
+        },
+        "shipped": 4,
+        "position": 24,
+        "inventory": 12,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "6.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 12,
+            "amount": "6.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 0,
+            "amount": "0.00"
+          }
+        ],
+        "total_cost": "24.00",
+        "supply_line": 12,
+        "net_inventory": 12,
+        "order_history": [
+          4,
+          4,
+          4
+        ],
+        "incoming_order": 4,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 5
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 6
+          },
+          {
+            "stage": "ordered",
+            "quantity": 4,
+            "arrival_week": 7
+          }
+        ],
+        "total_holding_cost": "24.00",
+        "total_backorder_cost": "0.00"
+      }
+    },
+    {
+      "week": 4,
+      "role": "factory",
+      "order": 4,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "factory",
+        "week": 4,
+        "backlog": 0,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 24,
+          "supply_line_base": 12,
+          "order_arrival_week": 8
+        },
+        "shipped": 4,
+        "position": 24,
+        "inventory": 12,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "6.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 12,
+            "amount": "6.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 0,
+            "amount": "0.00"
+          }
+        ],
+        "total_cost": "24.00",
+        "supply_line": 12,
+        "net_inventory": 12,
+        "order_history": [
+          4,
+          4,
+          4
+        ],
+        "incoming_order": 4,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_production",
+            "quantity": 4,
+            "arrival_week": 5
+          },
+          {
+            "stage": "in_production",
+            "quantity": 4,
+            "arrival_week": 6
+          },
+          {
+            "stage": "ordered",
+            "quantity": 4,
+            "arrival_week": 7
+          }
+        ],
+        "total_holding_cost": "24.00",
+        "total_backorder_cost": "0.00"
+      }
+    },
+    {
+      "week": 5,
+      "role": "retailer",
+      "order": 12,
+      "decided_by": "student",
+      "occupant_kind": "student",
+      "state_seen": {
+        "role": "retailer",
+        "week": 5,
+        "backlog": 0,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 22,
+          "supply_line_base": 14,
+          "order_arrival_week": 9
+        },
+        "shipped": 8,
+        "position": 22,
+        "inventory": 8,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "4.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 8,
+            "amount": "4.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 0,
+            "amount": "0.00"
+          }
+        ],
+        "total_cost": "28.00",
+        "supply_line": 14,
+        "net_inventory": 8,
+        "order_history": [
+          4,
+          4,
+          4,
+          6
+        ],
+        "incoming_order": 8,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          8
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 6
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 7
+          },
+          {
+            "stage": "ordered",
+            "quantity": 6,
+            "arrival_week": 8
+          }
+        ],
+        "total_holding_cost": "28.00",
+        "total_backorder_cost": "0.00"
+      }
+    },
+    {
+      "week": 5,
+      "role": "wholesaler",
+      "order": 4,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "wholesaler",
+        "week": 5,
+        "backlog": 0,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 24,
+          "supply_line_base": 12,
+          "order_arrival_week": 9
+        },
+        "shipped": 4,
+        "position": 24,
+        "inventory": 12,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "6.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 12,
+            "amount": "6.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 0,
+            "amount": "0.00"
+          }
+        ],
+        "total_cost": "30.00",
+        "supply_line": 12,
+        "net_inventory": 12,
+        "order_history": [
+          4,
+          4,
+          4,
+          4
+        ],
+        "incoming_order": 4,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          4
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 6
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 7
+          },
+          {
+            "stage": "ordered",
+            "quantity": 4,
+            "arrival_week": 8
+          }
+        ],
+        "total_holding_cost": "30.00",
+        "total_backorder_cost": "0.00"
+      }
+    },
+    {
+      "week": 5,
+      "role": "distributor",
+      "order": 4,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "distributor",
+        "week": 5,
+        "backlog": 0,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 24,
+          "supply_line_base": 12,
+          "order_arrival_week": 9
+        },
+        "shipped": 4,
+        "position": 24,
+        "inventory": 12,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "6.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 12,
+            "amount": "6.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 0,
+            "amount": "0.00"
+          }
+        ],
+        "total_cost": "30.00",
+        "supply_line": 12,
+        "net_inventory": 12,
+        "order_history": [
+          4,
+          4,
+          4,
+          4
+        ],
+        "incoming_order": 4,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          4
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 6
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 7
+          },
+          {
+            "stage": "ordered",
+            "quantity": 4,
+            "arrival_week": 8
+          }
+        ],
+        "total_holding_cost": "30.00",
+        "total_backorder_cost": "0.00"
+      }
+    },
+    {
+      "week": 5,
+      "role": "factory",
+      "order": 4,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "factory",
+        "week": 5,
+        "backlog": 0,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 24,
+          "supply_line_base": 12,
+          "order_arrival_week": 9
+        },
+        "shipped": 4,
+        "position": 24,
+        "inventory": 12,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "6.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 12,
+            "amount": "6.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 0,
+            "amount": "0.00"
+          }
+        ],
+        "total_cost": "30.00",
+        "supply_line": 12,
+        "net_inventory": 12,
+        "order_history": [
+          4,
+          4,
+          4,
+          4
+        ],
+        "incoming_order": 4,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          4
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_production",
+            "quantity": 4,
+            "arrival_week": 6
+          },
+          {
+            "stage": "in_production",
+            "quantity": 4,
+            "arrival_week": 7
+          },
+          {
+            "stage": "ordered",
+            "quantity": 4,
+            "arrival_week": 8
+          }
+        ],
+        "total_holding_cost": "30.00",
+        "total_backorder_cost": "0.00"
+      }
+    },
+    {
+      "week": 6,
+      "role": "retailer",
+      "order": 16,
+      "decided_by": "student",
+      "occupant_kind": "student",
+      "state_seen": {
+        "role": "retailer",
+        "week": 6,
+        "backlog": 0,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 26,
+          "supply_line_base": 22,
+          "order_arrival_week": 10
+        },
+        "shipped": 8,
+        "position": 26,
+        "inventory": 4,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "2.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 4,
+            "amount": "2.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 0,
+            "amount": "0.00"
+          }
+        ],
+        "total_cost": "30.00",
+        "supply_line": 22,
+        "net_inventory": 4,
+        "order_history": [
+          4,
+          4,
+          4,
+          6,
+          12
+        ],
+        "incoming_order": 8,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          8,
+          8
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 7
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 6,
+            "arrival_week": 8
+          },
+          {
+            "stage": "ordered",
+            "quantity": 12,
+            "arrival_week": 9
+          }
+        ],
+        "total_holding_cost": "30.00",
+        "total_backorder_cost": "0.00"
+      }
+    },
+    {
+      "week": 6,
+      "role": "wholesaler",
+      "order": 7,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "wholesaler",
+        "week": 6,
+        "backlog": 0,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 22,
+          "supply_line_base": 12,
+          "order_arrival_week": 10
+        },
+        "shipped": 6,
+        "position": 22,
+        "inventory": 10,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "5.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 10,
+            "amount": "5.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 0,
+            "amount": "0.00"
+          }
+        ],
+        "total_cost": "35.00",
+        "supply_line": 12,
+        "net_inventory": 10,
+        "order_history": [
+          4,
+          4,
+          4,
+          4,
+          4
+        ],
+        "incoming_order": 6,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          6
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 7
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 8
+          },
+          {
+            "stage": "ordered",
+            "quantity": 4,
+            "arrival_week": 9
+          }
+        ],
+        "total_holding_cost": "35.00",
+        "total_backorder_cost": "0.00"
+      }
+    },
+    {
+      "week": 6,
+      "role": "distributor",
+      "order": 4,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "distributor",
+        "week": 6,
+        "backlog": 0,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 24,
+          "supply_line_base": 12,
+          "order_arrival_week": 10
+        },
+        "shipped": 4,
+        "position": 24,
+        "inventory": 12,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "6.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 12,
+            "amount": "6.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 0,
+            "amount": "0.00"
+          }
+        ],
+        "total_cost": "36.00",
+        "supply_line": 12,
+        "net_inventory": 12,
+        "order_history": [
+          4,
+          4,
+          4,
+          4,
+          4
+        ],
+        "incoming_order": 4,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 7
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 8
+          },
+          {
+            "stage": "ordered",
+            "quantity": 4,
+            "arrival_week": 9
+          }
+        ],
+        "total_holding_cost": "36.00",
+        "total_backorder_cost": "0.00"
+      }
+    },
+    {
+      "week": 6,
+      "role": "factory",
+      "order": 4,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "factory",
+        "week": 6,
+        "backlog": 0,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 24,
+          "supply_line_base": 12,
+          "order_arrival_week": 10
+        },
+        "shipped": 4,
+        "position": 24,
+        "inventory": 12,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "6.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 12,
+            "amount": "6.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 0,
+            "amount": "0.00"
+          }
+        ],
+        "total_cost": "36.00",
+        "supply_line": 12,
+        "net_inventory": 12,
+        "order_history": [
+          4,
+          4,
+          4,
+          4,
+          4
+        ],
+        "incoming_order": 4,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_production",
+            "quantity": 4,
+            "arrival_week": 7
+          },
+          {
+            "stage": "in_production",
+            "quantity": 4,
+            "arrival_week": 8
+          },
+          {
+            "stage": "ordered",
+            "quantity": 4,
+            "arrival_week": 9
+          }
+        ],
+        "total_holding_cost": "36.00",
+        "total_backorder_cost": "0.00"
+      }
+    },
+    {
+      "week": 7,
+      "role": "retailer",
+      "order": 16,
+      "decided_by": "student",
+      "occupant_kind": "student",
+      "state_seen": {
+        "role": "retailer",
+        "week": 7,
+        "backlog": 0,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 34,
+          "supply_line_base": 34,
+          "order_arrival_week": 11
+        },
+        "shipped": 8,
+        "position": 34,
+        "inventory": 0,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "0.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 0,
+            "amount": "0.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 0,
+            "amount": "0.00"
+          }
+        ],
+        "total_cost": "30.00",
+        "supply_line": 34,
+        "net_inventory": 0,
+        "order_history": [
+          4,
+          4,
+          4,
+          6,
+          12,
+          16
+        ],
+        "incoming_order": 8,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          8,
+          8,
+          8
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 6,
+            "arrival_week": 8
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 12,
+            "arrival_week": 9
+          },
+          {
+            "stage": "ordered",
+            "quantity": 16,
+            "arrival_week": 10
+          }
+        ],
+        "total_holding_cost": "30.00",
+        "total_backorder_cost": "0.00"
+      }
+    },
+    {
+      "week": 7,
+      "role": "wholesaler",
+      "order": 16,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "wholesaler",
+        "week": 7,
+        "backlog": 0,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 17,
+          "supply_line_base": 15,
+          "order_arrival_week": 11
+        },
+        "shipped": 12,
+        "position": 17,
+        "inventory": 2,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "1.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 2,
+            "amount": "1.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 0,
+            "amount": "0.00"
+          }
+        ],
+        "total_cost": "36.00",
+        "supply_line": 15,
+        "net_inventory": 2,
+        "order_history": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          7
+        ],
+        "incoming_order": 12,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          6,
+          12
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 8
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 9
+          },
+          {
+            "stage": "ordered",
+            "quantity": 7,
+            "arrival_week": 10
+          }
+        ],
+        "total_holding_cost": "36.00",
+        "total_backorder_cost": "0.00"
+      }
+    },
+    {
+      "week": 7,
+      "role": "distributor",
+      "order": 4,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "distributor",
+        "week": 7,
+        "backlog": 0,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 24,
+          "supply_line_base": 12,
+          "order_arrival_week": 11
+        },
+        "shipped": 4,
+        "position": 24,
+        "inventory": 12,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "6.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 12,
+            "amount": "6.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 0,
+            "amount": "0.00"
+          }
+        ],
+        "total_cost": "42.00",
+        "supply_line": 12,
+        "net_inventory": 12,
+        "order_history": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4
+        ],
+        "incoming_order": 4,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 8
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 9
+          },
+          {
+            "stage": "ordered",
+            "quantity": 4,
+            "arrival_week": 10
+          }
+        ],
+        "total_holding_cost": "42.00",
+        "total_backorder_cost": "0.00"
+      }
+    },
+    {
+      "week": 7,
+      "role": "factory",
+      "order": 4,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "factory",
+        "week": 7,
+        "backlog": 0,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 24,
+          "supply_line_base": 12,
+          "order_arrival_week": 11
+        },
+        "shipped": 4,
+        "position": 24,
+        "inventory": 12,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "6.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 12,
+            "amount": "6.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 0,
+            "amount": "0.00"
+          }
+        ],
+        "total_cost": "42.00",
+        "supply_line": 12,
+        "net_inventory": 12,
+        "order_history": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4
+        ],
+        "incoming_order": 4,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_production",
+            "quantity": 4,
+            "arrival_week": 8
+          },
+          {
+            "stage": "in_production",
+            "quantity": 4,
+            "arrival_week": 9
+          },
+          {
+            "stage": "ordered",
+            "quantity": 4,
+            "arrival_week": 10
+          }
+        ],
+        "total_holding_cost": "42.00",
+        "total_backorder_cost": "0.00"
+      }
+    },
+    {
+      "week": 8,
+      "role": "retailer",
+      "order": 12,
+      "decided_by": "student",
+      "occupant_kind": "student",
+      "state_seen": {
+        "role": "retailer",
+        "week": 8,
+        "backlog": 2,
+        "history": [],
+        "overdue": 10,
+        "preview": {
+          "position_base": 42,
+          "supply_line_base": 44,
+          "order_arrival_week": 12
+        },
+        "shipped": 6,
+        "position": 42,
+        "inventory": 0,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "2.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 0,
+            "amount": "0.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 2,
+            "amount": "2.00"
+          }
+        ],
+        "total_cost": "32.00",
+        "supply_line": 44,
+        "net_inventory": -2,
+        "order_history": [
+          4,
+          4,
+          4,
+          6,
+          12,
+          16,
+          16
+        ],
+        "incoming_order": 8,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          8,
+          8,
+          8,
+          8
+        ],
+        "incoming_delivery": 6,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 12,
+            "arrival_week": 9
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 6,
+            "arrival_week": 10
+          },
+          {
+            "stage": "ordered",
+            "quantity": 16,
+            "arrival_week": 11
+          }
+        ],
+        "total_holding_cost": "30.00",
+        "total_backorder_cost": "2.00"
+      }
+    },
+    {
+      "week": 8,
+      "role": "wholesaler",
+      "order": 26,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "wholesaler",
+        "week": 8,
+        "backlog": 10,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 17,
+          "supply_line_base": 27,
+          "order_arrival_week": 12
+        },
+        "shipped": 6,
+        "position": 17,
+        "inventory": 0,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "10.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 0,
+            "amount": "0.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 10,
+            "amount": "10.00"
+          }
+        ],
+        "total_cost": "46.00",
+        "supply_line": 27,
+        "net_inventory": -10,
+        "order_history": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          7,
+          16
+        ],
+        "incoming_order": 16,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          6,
+          12,
+          16
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 9
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 7,
+            "arrival_week": 10
+          },
+          {
+            "stage": "ordered",
+            "quantity": 16,
+            "arrival_week": 11
+          }
+        ],
+        "total_holding_cost": "36.00",
+        "total_backorder_cost": "10.00"
+      }
+    },
+    {
+      "week": 8,
+      "role": "distributor",
+      "order": 8,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "distributor",
+        "week": 8,
+        "backlog": 0,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 21,
+          "supply_line_base": 12,
+          "order_arrival_week": 12
+        },
+        "shipped": 7,
+        "position": 21,
+        "inventory": 9,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "4.50",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 9,
+            "amount": "4.50"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 0,
+            "amount": "0.00"
+          }
+        ],
+        "total_cost": "46.50",
+        "supply_line": 12,
+        "net_inventory": 9,
+        "order_history": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4
+        ],
+        "incoming_order": 7,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          7
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 9
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 10
+          },
+          {
+            "stage": "ordered",
+            "quantity": 4,
+            "arrival_week": 11
+          }
+        ],
+        "total_holding_cost": "46.50",
+        "total_backorder_cost": "0.00"
+      }
+    },
+    {
+      "week": 8,
+      "role": "factory",
+      "order": 4,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "factory",
+        "week": 8,
+        "backlog": 0,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 24,
+          "supply_line_base": 12,
+          "order_arrival_week": 12
+        },
+        "shipped": 4,
+        "position": 24,
+        "inventory": 12,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "6.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 12,
+            "amount": "6.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 0,
+            "amount": "0.00"
+          }
+        ],
+        "total_cost": "48.00",
+        "supply_line": 12,
+        "net_inventory": 12,
+        "order_history": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4
+        ],
+        "incoming_order": 4,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_production",
+            "quantity": 4,
+            "arrival_week": 9
+          },
+          {
+            "stage": "in_production",
+            "quantity": 4,
+            "arrival_week": 10
+          },
+          {
+            "stage": "ordered",
+            "quantity": 4,
+            "arrival_week": 11
+          }
+        ],
+        "total_holding_cost": "48.00",
+        "total_backorder_cost": "0.00"
+      }
+    },
+    {
+      "week": 9,
+      "role": "retailer",
+      "order": 8,
+      "decided_by": "student",
+      "occupant_kind": "student",
+      "state_seen": {
+        "role": "retailer",
+        "week": 9,
+        "backlog": 0,
+        "history": [],
+        "overdue": 22,
+        "preview": {
+          "position_base": 46,
+          "supply_line_base": 44,
+          "order_arrival_week": 13
+        },
+        "shipped": 10,
+        "position": 46,
+        "inventory": 2,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "1.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 2,
+            "amount": "1.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 0,
+            "amount": "0.00"
+          }
+        ],
+        "total_cost": "33.00",
+        "supply_line": 44,
+        "net_inventory": 2,
+        "order_history": [
+          4,
+          4,
+          4,
+          6,
+          12,
+          16,
+          16,
+          12
+        ],
+        "incoming_order": 8,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          8,
+          8,
+          8,
+          8,
+          8
+        ],
+        "incoming_delivery": 12,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 6,
+            "arrival_week": 10
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 11
+          },
+          {
+            "stage": "ordered",
+            "quantity": 12,
+            "arrival_week": 12
+          }
+        ],
+        "total_holding_cost": "31.00",
+        "total_backorder_cost": "2.00"
+      }
+    },
+    {
+      "week": 9,
+      "role": "wholesaler",
+      "order": 29,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "wholesaler",
+        "week": 9,
+        "backlog": 22,
+        "history": [],
+        "overdue": 3,
+        "preview": {
+          "position_base": 27,
+          "supply_line_base": 49,
+          "order_arrival_week": 13
+        },
+        "shipped": 4,
+        "position": 27,
+        "inventory": 0,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "22.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 0,
+            "amount": "0.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 22,
+            "amount": "22.00"
+          }
+        ],
+        "total_cost": "68.00",
+        "supply_line": 49,
+        "net_inventory": -22,
+        "order_history": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          7,
+          16,
+          26
+        ],
+        "incoming_order": 16,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          6,
+          12,
+          16,
+          16
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 7,
+            "arrival_week": 10
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 13,
+            "arrival_week": 11
+          },
+          {
+            "stage": "ordered",
+            "quantity": 26,
+            "arrival_week": 12
+          }
+        ],
+        "total_holding_cost": "36.00",
+        "total_backorder_cost": "32.00"
+      }
+    },
+    {
+      "week": 9,
+      "role": "distributor",
+      "order": 22,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "distributor",
+        "week": 9,
+        "backlog": 3,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 13,
+          "supply_line_base": 16,
+          "order_arrival_week": 13
+        },
+        "shipped": 13,
+        "position": 13,
+        "inventory": 0,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "3.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 0,
+            "amount": "0.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 3,
+            "amount": "3.00"
+          }
+        ],
+        "total_cost": "49.50",
+        "supply_line": 16,
+        "net_inventory": -3,
+        "order_history": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          8
+        ],
+        "incoming_order": 16,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          7,
+          16
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 10
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 11
+          },
+          {
+            "stage": "ordered",
+            "quantity": 8,
+            "arrival_week": 12
+          }
+        ],
+        "total_holding_cost": "46.50",
+        "total_backorder_cost": "3.00"
+      }
+    },
+    {
+      "week": 9,
+      "role": "factory",
+      "order": 4,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "factory",
+        "week": 9,
+        "backlog": 0,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 24,
+          "supply_line_base": 12,
+          "order_arrival_week": 13
+        },
+        "shipped": 4,
+        "position": 24,
+        "inventory": 12,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "6.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 12,
+            "amount": "6.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 0,
+            "amount": "0.00"
+          }
+        ],
+        "total_cost": "54.00",
+        "supply_line": 12,
+        "net_inventory": 12,
+        "order_history": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4
+        ],
+        "incoming_order": 4,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_production",
+            "quantity": 4,
+            "arrival_week": 10
+          },
+          {
+            "stage": "in_production",
+            "quantity": 4,
+            "arrival_week": 11
+          },
+          {
+            "stage": "ordered",
+            "quantity": 4,
+            "arrival_week": 12
+          }
+        ],
+        "total_holding_cost": "54.00",
+        "total_backorder_cost": "0.00"
+      }
+    },
+    {
+      "week": 10,
+      "role": "retailer",
+      "order": 2,
+      "decided_by": "student",
+      "occupant_kind": "student",
+      "state_seen": {
+        "role": "retailer",
+        "week": 10,
+        "backlog": 0,
+        "history": [],
+        "overdue": 27,
+        "preview": {
+          "position_base": 46,
+          "supply_line_base": 46,
+          "order_arrival_week": 14
+        },
+        "shipped": 8,
+        "position": 46,
+        "inventory": 0,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "0.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 0,
+            "amount": "0.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 0,
+            "amount": "0.00"
+          }
+        ],
+        "total_cost": "33.00",
+        "supply_line": 46,
+        "net_inventory": 0,
+        "order_history": [
+          4,
+          4,
+          4,
+          6,
+          12,
+          16,
+          16,
+          12,
+          8
+        ],
+        "incoming_order": 8,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8
+        ],
+        "incoming_delivery": 6,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 11
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 7,
+            "arrival_week": 12
+          },
+          {
+            "stage": "ordered",
+            "quantity": 8,
+            "arrival_week": 13
+          }
+        ],
+        "total_holding_cost": "31.00",
+        "total_backorder_cost": "2.00"
+      }
+    },
+    {
+      "week": 10,
+      "role": "wholesaler",
+      "order": 25,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "wholesaler",
+        "week": 10,
+        "backlog": 27,
+        "history": [],
+        "overdue": 25,
+        "preview": {
+          "position_base": 44,
+          "supply_line_base": 71,
+          "order_arrival_week": 14
+        },
+        "shipped": 7,
+        "position": 44,
+        "inventory": 0,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "27.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 0,
+            "amount": "0.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 27,
+            "amount": "27.00"
+          }
+        ],
+        "total_cost": "95.00",
+        "supply_line": 71,
+        "net_inventory": -27,
+        "order_history": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          7,
+          16,
+          26,
+          29
+        ],
+        "incoming_order": 12,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          6,
+          12,
+          16,
+          16,
+          12
+        ],
+        "incoming_delivery": 7,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 13,
+            "arrival_week": 11
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 12
+          },
+          {
+            "stage": "ordered",
+            "quantity": 29,
+            "arrival_week": 13
+          }
+        ],
+        "total_holding_cost": "36.00",
+        "total_backorder_cost": "59.00"
+      }
+    },
+    {
+      "week": 10,
+      "role": "distributor",
+      "order": 42,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "distributor",
+        "week": 10,
+        "backlog": 25,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 9,
+          "supply_line_base": 34,
+          "order_arrival_week": 14
+        },
+        "shipped": 4,
+        "position": 9,
+        "inventory": 0,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "25.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 0,
+            "amount": "0.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 25,
+            "amount": "25.00"
+          }
+        ],
+        "total_cost": "74.50",
+        "supply_line": 34,
+        "net_inventory": -25,
+        "order_history": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          8,
+          22
+        ],
+        "incoming_order": 26,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          7,
+          16,
+          26
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 11
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 8,
+            "arrival_week": 12
+          },
+          {
+            "stage": "ordered",
+            "quantity": 22,
+            "arrival_week": 13
+          }
+        ],
+        "total_holding_cost": "46.50",
+        "total_backorder_cost": "28.00"
+      }
+    },
+    {
+      "week": 10,
+      "role": "factory",
+      "order": 10,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "factory",
+        "week": 10,
+        "backlog": 0,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 20,
+          "supply_line_base": 12,
+          "order_arrival_week": 14
+        },
+        "shipped": 8,
+        "position": 20,
+        "inventory": 8,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "4.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 8,
+            "amount": "4.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 0,
+            "amount": "0.00"
+          }
+        ],
+        "total_cost": "58.00",
+        "supply_line": 12,
+        "net_inventory": 8,
+        "order_history": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4
+        ],
+        "incoming_order": 8,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          8
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_production",
+            "quantity": 4,
+            "arrival_week": 11
+          },
+          {
+            "stage": "in_production",
+            "quantity": 4,
+            "arrival_week": 12
+          },
+          {
+            "stage": "ordered",
+            "quantity": 4,
+            "arrival_week": 13
+          }
+        ],
+        "total_holding_cost": "58.00",
+        "total_backorder_cost": "0.00"
+      }
+    },
+    {
+      "week": 11,
+      "role": "retailer",
+      "order": 0,
+      "decided_by": "student",
+      "occupant_kind": "student",
+      "state_seen": {
+        "role": "retailer",
+        "week": 11,
+        "backlog": 4,
+        "history": [],
+        "overdue": 22,
+        "preview": {
+          "position_base": 40,
+          "supply_line_base": 44,
+          "order_arrival_week": 15
+        },
+        "shipped": 4,
+        "position": 40,
+        "inventory": 0,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "4.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 0,
+            "amount": "0.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 4,
+            "amount": "4.00"
+          }
+        ],
+        "total_cost": "37.00",
+        "supply_line": 44,
+        "net_inventory": -4,
+        "order_history": [
+          4,
+          4,
+          4,
+          6,
+          12,
+          16,
+          16,
+          12,
+          8,
+          2
+        ],
+        "incoming_order": 8,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 7,
+            "arrival_week": 12
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 13,
+            "arrival_week": 13
+          },
+          {
+            "stage": "ordered",
+            "quantity": 2,
+            "arrival_week": 14
+          }
+        ],
+        "total_holding_cost": "31.00",
+        "total_backorder_cost": "6.00"
+      }
+    },
+    {
+      "week": 11,
+      "role": "wholesaler",
+      "order": 15,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "wholesaler",
+        "week": 11,
+        "backlog": 22,
+        "history": [],
+        "overdue": 50,
+        "preview": {
+          "position_base": 61,
+          "supply_line_base": 83,
+          "order_arrival_week": 15
+        },
+        "shipped": 13,
+        "position": 61,
+        "inventory": 0,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "22.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 0,
+            "amount": "0.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 22,
+            "amount": "22.00"
+          }
+        ],
+        "total_cost": "117.00",
+        "supply_line": 83,
+        "net_inventory": -22,
+        "order_history": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          7,
+          16,
+          26,
+          29,
+          25
+        ],
+        "incoming_order": 8,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          6,
+          12,
+          16,
+          16,
+          12,
+          8
+        ],
+        "incoming_delivery": 13,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 12
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 13
+          },
+          {
+            "stage": "ordered",
+            "quantity": 25,
+            "arrival_week": 14
+          }
+        ],
+        "total_holding_cost": "36.00",
+        "total_backorder_cost": "81.00"
+      }
+    },
+    {
+      "week": 11,
+      "role": "distributor",
+      "order": 54,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "distributor",
+        "week": 11,
+        "backlog": 50,
+        "history": [],
+        "overdue": 10,
+        "preview": {
+          "position_base": 22,
+          "supply_line_base": 72,
+          "order_arrival_week": 15
+        },
+        "shipped": 4,
+        "position": 22,
+        "inventory": 0,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "50.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 0,
+            "amount": "0.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 50,
+            "amount": "50.00"
+          }
+        ],
+        "total_cost": "124.50",
+        "supply_line": 72,
+        "net_inventory": -50,
+        "order_history": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          8,
+          22,
+          42
+        ],
+        "incoming_order": 29,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          7,
+          16,
+          26,
+          29
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 8,
+            "arrival_week": 12
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 12,
+            "arrival_week": 13
+          },
+          {
+            "stage": "ordered",
+            "quantity": 42,
+            "arrival_week": 14
+          }
+        ],
+        "total_holding_cost": "46.50",
+        "total_backorder_cost": "78.00"
+      }
+    },
+    {
+      "week": 11,
+      "role": "factory",
+      "order": 31,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "factory",
+        "week": 11,
+        "backlog": 10,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 8,
+          "supply_line_base": 18,
+          "order_arrival_week": 15
+        },
+        "shipped": 12,
+        "position": 8,
+        "inventory": 0,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "10.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 0,
+            "amount": "0.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 10,
+            "amount": "10.00"
+          }
+        ],
+        "total_cost": "68.00",
+        "supply_line": 18,
+        "net_inventory": -10,
+        "order_history": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          10
+        ],
+        "incoming_order": 22,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          8,
+          22
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_production",
+            "quantity": 4,
+            "arrival_week": 12
+          },
+          {
+            "stage": "in_production",
+            "quantity": 4,
+            "arrival_week": 13
+          },
+          {
+            "stage": "ordered",
+            "quantity": 10,
+            "arrival_week": 14
+          }
+        ],
+        "total_holding_cost": "58.00",
+        "total_backorder_cost": "10.00"
+      }
+    },
+    {
+      "week": 12,
+      "role": "retailer",
+      "order": 4,
+      "decided_by": "student",
+      "occupant_kind": "student",
+      "state_seen": {
+        "role": "retailer",
+        "week": 12,
+        "backlog": 5,
+        "history": [],
+        "overdue": 20,
+        "preview": {
+          "position_base": 32,
+          "supply_line_base": 37,
+          "order_arrival_week": 16
+        },
+        "shipped": 7,
+        "position": 32,
+        "inventory": 0,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "5.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 0,
+            "amount": "0.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 5,
+            "amount": "5.00"
+          }
+        ],
+        "total_cost": "42.00",
+        "supply_line": 37,
+        "net_inventory": -5,
+        "order_history": [
+          4,
+          4,
+          4,
+          6,
+          12,
+          16,
+          16,
+          12,
+          8,
+          2,
+          0
+        ],
+        "incoming_order": 8,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8
+        ],
+        "incoming_delivery": 7,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 13,
+            "arrival_week": 13
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 14
+          },
+          {
+            "stage": "ordered",
+            "quantity": 0,
+            "arrival_week": 15
+          }
+        ],
+        "total_holding_cost": "31.00",
+        "total_backorder_cost": "11.00"
+      }
+    },
+    {
+      "week": 12,
+      "role": "wholesaler",
+      "order": 3,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "wholesaler",
+        "week": 12,
+        "backlog": 20,
+        "history": [],
+        "overdue": 67,
+        "preview": {
+          "position_base": 74,
+          "supply_line_base": 94,
+          "order_arrival_week": 16
+        },
+        "shipped": 4,
+        "position": 74,
+        "inventory": 0,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "20.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 0,
+            "amount": "0.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 20,
+            "amount": "20.00"
+          }
+        ],
+        "total_cost": "137.00",
+        "supply_line": 94,
+        "net_inventory": -20,
+        "order_history": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          7,
+          16,
+          26,
+          29,
+          25,
+          15
+        ],
+        "incoming_order": 2,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          6,
+          12,
+          16,
+          16,
+          12,
+          8,
+          2
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 13
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 8,
+            "arrival_week": 14
+          },
+          {
+            "stage": "ordered",
+            "quantity": 15,
+            "arrival_week": 15
+          }
+        ],
+        "total_holding_cost": "36.00",
+        "total_backorder_cost": "101.00"
+      }
+    },
+    {
+      "week": 12,
+      "role": "distributor",
+      "order": 53,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "distributor",
+        "week": 12,
+        "backlog": 67,
+        "history": [],
+        "overdue": 48,
+        "preview": {
+          "position_base": 51,
+          "supply_line_base": 118,
+          "order_arrival_week": 16
+        },
+        "shipped": 8,
+        "position": 51,
+        "inventory": 0,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "67.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 0,
+            "amount": "0.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 67,
+            "amount": "67.00"
+          }
+        ],
+        "total_cost": "191.50",
+        "supply_line": 118,
+        "net_inventory": -67,
+        "order_history": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          8,
+          22,
+          42,
+          54
+        ],
+        "incoming_order": 25,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          7,
+          16,
+          26,
+          29,
+          25
+        ],
+        "incoming_delivery": 8,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 12,
+            "arrival_week": 13
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 14
+          },
+          {
+            "stage": "ordered",
+            "quantity": 54,
+            "arrival_week": 15
+          }
+        ],
+        "total_holding_cost": "46.50",
+        "total_backorder_cost": "145.00"
+      }
+    },
+    {
+      "week": 12,
+      "role": "factory",
+      "order": 68,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "factory",
+        "week": 12,
+        "backlog": 48,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": -3,
+          "supply_line_base": 45,
+          "order_arrival_week": 16
+        },
+        "shipped": 4,
+        "position": -3,
+        "inventory": 0,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "48.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 0,
+            "amount": "0.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 48,
+            "amount": "48.00"
+          }
+        ],
+        "total_cost": "116.00",
+        "supply_line": 45,
+        "net_inventory": -48,
+        "order_history": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          10,
+          31
+        ],
+        "incoming_order": 42,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          8,
+          22,
+          42
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_production",
+            "quantity": 4,
+            "arrival_week": 13
+          },
+          {
+            "stage": "in_production",
+            "quantity": 10,
+            "arrival_week": 14
+          },
+          {
+            "stage": "ordered",
+            "quantity": 31,
+            "arrival_week": 15
+          }
+        ],
+        "total_holding_cost": "58.00",
+        "total_backorder_cost": "58.00"
+      }
+    },
+    {
+      "week": 13,
+      "role": "retailer",
+      "order": 8,
+      "decided_by": "student",
+      "occupant_kind": "student",
+      "state_seen": {
+        "role": "retailer",
+        "week": 13,
+        "backlog": 0,
+        "history": [],
+        "overdue": 16,
+        "preview": {
+          "position_base": 28,
+          "supply_line_base": 28,
+          "order_arrival_week": 17
+        },
+        "shipped": 13,
+        "position": 28,
+        "inventory": 0,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "0.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 0,
+            "amount": "0.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 0,
+            "amount": "0.00"
+          }
+        ],
+        "total_cost": "42.00",
+        "supply_line": 28,
+        "net_inventory": 0,
+        "order_history": [
+          4,
+          4,
+          4,
+          6,
+          12,
+          16,
+          16,
+          12,
+          8,
+          2,
+          0,
+          4
+        ],
+        "incoming_order": 8,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8
+        ],
+        "incoming_delivery": 13,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 14
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 15
+          },
+          {
+            "stage": "ordered",
+            "quantity": 4,
+            "arrival_week": 16
+          }
+        ],
+        "total_holding_cost": "31.00",
+        "total_backorder_cost": "11.00"
+      }
+    },
+    {
+      "week": 13,
+      "role": "wholesaler",
+      "order": 0,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "wholesaler",
+        "week": 13,
+        "backlog": 16,
+        "history": [],
+        "overdue": 70,
+        "preview": {
+          "position_base": 77,
+          "supply_line_base": 93,
+          "order_arrival_week": 17
+        },
+        "shipped": 4,
+        "position": 77,
+        "inventory": 0,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "16.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 0,
+            "amount": "0.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 16,
+            "amount": "16.00"
+          }
+        ],
+        "total_cost": "153.00",
+        "supply_line": 93,
+        "net_inventory": -16,
+        "order_history": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          7,
+          16,
+          26,
+          29,
+          25,
+          15,
+          3
+        ],
+        "incoming_order": 0,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          6,
+          12,
+          16,
+          16,
+          12,
+          8,
+          2,
+          0
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 8,
+            "arrival_week": 14
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 12,
+            "arrival_week": 15
+          },
+          {
+            "stage": "ordered",
+            "quantity": 3,
+            "arrival_week": 16
+          }
+        ],
+        "total_holding_cost": "36.00",
+        "total_backorder_cost": "117.00"
+      }
+    },
+    {
+      "week": 13,
+      "role": "distributor",
+      "order": 36,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "distributor",
+        "week": 13,
+        "backlog": 70,
+        "history": [],
+        "overdue": 98,
+        "preview": {
+          "position_base": 89,
+          "supply_line_base": 159,
+          "order_arrival_week": 17
+        },
+        "shipped": 12,
+        "position": 89,
+        "inventory": 0,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "70.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 0,
+            "amount": "0.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 70,
+            "amount": "70.00"
+          }
+        ],
+        "total_cost": "261.50",
+        "supply_line": 159,
+        "net_inventory": -70,
+        "order_history": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          8,
+          22,
+          42,
+          54,
+          53
+        ],
+        "incoming_order": 15,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          7,
+          16,
+          26,
+          29,
+          25,
+          15
+        ],
+        "incoming_delivery": 12,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 14
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 15
+          },
+          {
+            "stage": "ordered",
+            "quantity": 53,
+            "arrival_week": 16
+          }
+        ],
+        "total_holding_cost": "46.50",
+        "total_backorder_cost": "215.00"
+      }
+    },
+    {
+      "week": 13,
+      "role": "factory",
+      "order": 100,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "factory",
+        "week": 13,
+        "backlog": 98,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 11,
+          "supply_line_base": 109,
+          "order_arrival_week": 17
+        },
+        "shipped": 4,
+        "position": 11,
+        "inventory": 0,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "98.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 0,
+            "amount": "0.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 98,
+            "amount": "98.00"
+          }
+        ],
+        "total_cost": "214.00",
+        "supply_line": 109,
+        "net_inventory": -98,
+        "order_history": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          10,
+          31,
+          68
+        ],
+        "incoming_order": 54,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          8,
+          22,
+          42,
+          54
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_production",
+            "quantity": 10,
+            "arrival_week": 14
+          },
+          {
+            "stage": "in_production",
+            "quantity": 31,
+            "arrival_week": 15
+          },
+          {
+            "stage": "ordered",
+            "quantity": 68,
+            "arrival_week": 16
+          }
+        ],
+        "total_holding_cost": "58.00",
+        "total_backorder_cost": "156.00"
+      }
+    },
+    {
+      "week": 14,
+      "role": "retailer",
+      "order": 8,
+      "decided_by": "student",
+      "occupant_kind": "student",
+      "state_seen": {
+        "role": "retailer",
+        "week": 14,
+        "backlog": 4,
+        "history": [],
+        "overdue": 12,
+        "preview": {
+          "position_base": 28,
+          "supply_line_base": 32,
+          "order_arrival_week": 18
+        },
+        "shipped": 4,
+        "position": 28,
+        "inventory": 0,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "4.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 0,
+            "amount": "0.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 4,
+            "amount": "4.00"
+          }
+        ],
+        "total_cost": "46.00",
+        "supply_line": 32,
+        "net_inventory": -4,
+        "order_history": [
+          4,
+          4,
+          4,
+          6,
+          12,
+          16,
+          16,
+          12,
+          8,
+          2,
+          0,
+          4,
+          8
+        ],
+        "incoming_order": 8,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 15
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 8,
+            "arrival_week": 16
+          },
+          {
+            "stage": "ordered",
+            "quantity": 8,
+            "arrival_week": 17
+          }
+        ],
+        "total_holding_cost": "31.00",
+        "total_backorder_cost": "15.00"
+      }
+    },
+    {
+      "week": 14,
+      "role": "wholesaler",
+      "order": 0,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "wholesaler",
+        "week": 14,
+        "backlog": 12,
+        "history": [],
+        "overdue": 69,
+        "preview": {
+          "position_base": 73,
+          "supply_line_base": 85,
+          "order_arrival_week": 18
+        },
+        "shipped": 8,
+        "position": 73,
+        "inventory": 0,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "12.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 0,
+            "amount": "0.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 12,
+            "amount": "12.00"
+          }
+        ],
+        "total_cost": "165.00",
+        "supply_line": 85,
+        "net_inventory": -12,
+        "order_history": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          7,
+          16,
+          26,
+          29,
+          25,
+          15,
+          3,
+          0
+        ],
+        "incoming_order": 4,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          6,
+          12,
+          16,
+          16,
+          12,
+          8,
+          2,
+          0,
+          4
+        ],
+        "incoming_delivery": 8,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 12,
+            "arrival_week": 15
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 16
+          },
+          {
+            "stage": "ordered",
+            "quantity": 0,
+            "arrival_week": 17
+          }
+        ],
+        "total_holding_cost": "36.00",
+        "total_backorder_cost": "129.00"
+      }
+    },
+    {
+      "week": 14,
+      "role": "distributor",
+      "order": 13,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "distributor",
+        "week": 14,
+        "backlog": 69,
+        "history": [],
+        "overdue": 141,
+        "preview": {
+          "position_base": 122,
+          "supply_line_base": 191,
+          "order_arrival_week": 18
+        },
+        "shipped": 4,
+        "position": 122,
+        "inventory": 0,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "69.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 0,
+            "amount": "0.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 69,
+            "amount": "69.00"
+          }
+        ],
+        "total_cost": "330.50",
+        "supply_line": 191,
+        "net_inventory": -69,
+        "order_history": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          8,
+          22,
+          42,
+          54,
+          53,
+          36
+        ],
+        "incoming_order": 3,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          7,
+          16,
+          26,
+          29,
+          25,
+          15,
+          3
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 15
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 10,
+            "arrival_week": 16
+          },
+          {
+            "stage": "ordered",
+            "quantity": 36,
+            "arrival_week": 17
+          }
+        ],
+        "total_holding_cost": "46.50",
+        "total_backorder_cost": "284.00"
+      }
+    },
+    {
+      "week": 14,
+      "role": "factory",
+      "order": 109,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "factory",
+        "week": 14,
+        "backlog": 141,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 58,
+          "supply_line_base": 199,
+          "order_arrival_week": 18
+        },
+        "shipped": 10,
+        "position": 58,
+        "inventory": 0,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "141.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 0,
+            "amount": "0.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 141,
+            "amount": "141.00"
+          }
+        ],
+        "total_cost": "355.00",
+        "supply_line": 199,
+        "net_inventory": -141,
+        "order_history": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          10,
+          31,
+          68,
+          100
+        ],
+        "incoming_order": 53,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          8,
+          22,
+          42,
+          54,
+          53
+        ],
+        "incoming_delivery": 10,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_production",
+            "quantity": 31,
+            "arrival_week": 15
+          },
+          {
+            "stage": "in_production",
+            "quantity": 68,
+            "arrival_week": 16
+          },
+          {
+            "stage": "ordered",
+            "quantity": 100,
+            "arrival_week": 17
+          }
+        ],
+        "total_holding_cost": "58.00",
+        "total_backorder_cost": "297.00"
+      }
+    },
+    {
+      "week": 15,
+      "role": "retailer",
+      "order": 15,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "retailer",
+        "week": 15,
+        "backlog": 8,
+        "history": [],
+        "overdue": 8,
+        "preview": {
+          "position_base": 28,
+          "supply_line_base": 36,
+          "order_arrival_week": 19
+        },
+        "shipped": 4,
+        "position": 28,
+        "inventory": 0,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "8.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 0,
+            "amount": "0.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 8,
+            "amount": "8.00"
+          }
+        ],
+        "total_cost": "54.00",
+        "supply_line": 36,
+        "net_inventory": -8,
+        "order_history": [
+          4,
+          4,
+          4,
+          6,
+          12,
+          16,
+          16,
+          12,
+          8,
+          2,
+          0,
+          4,
+          8,
+          8
+        ],
+        "incoming_order": 8,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 8,
+            "arrival_week": 16
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 12,
+            "arrival_week": 17
+          },
+          {
+            "stage": "ordered",
+            "quantity": 8,
+            "arrival_week": 18
+          }
+        ],
+        "total_holding_cost": "31.00",
+        "total_backorder_cost": "23.00"
+      }
+    },
+    {
+      "week": 15,
+      "role": "wholesaler",
+      "order": 2,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "wholesaler",
+        "week": 15,
+        "backlog": 8,
+        "history": [],
+        "overdue": 65,
+        "preview": {
+          "position_base": 65,
+          "supply_line_base": 73,
+          "order_arrival_week": 19
+        },
+        "shipped": 12,
+        "position": 65,
+        "inventory": 0,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "8.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 0,
+            "amount": "0.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 8,
+            "amount": "8.00"
+          }
+        ],
+        "total_cost": "173.00",
+        "supply_line": 73,
+        "net_inventory": -8,
+        "order_history": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          7,
+          16,
+          26,
+          29,
+          25,
+          15,
+          3,
+          0,
+          0
+        ],
+        "incoming_order": 8,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          6,
+          12,
+          16,
+          16,
+          12,
+          8,
+          2,
+          0,
+          4,
+          8
+        ],
+        "incoming_delivery": 12,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 16
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 17
+          },
+          {
+            "stage": "ordered",
+            "quantity": 0,
+            "arrival_week": 18
+          }
+        ],
+        "total_holding_cost": "36.00",
+        "total_backorder_cost": "137.00"
+      }
+    },
+    {
+      "week": 15,
+      "role": "distributor",
+      "order": 0,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "distributor",
+        "week": 15,
+        "backlog": 65,
+        "history": [],
+        "overdue": 146,
+        "preview": {
+          "position_base": 135,
+          "supply_line_base": 200,
+          "order_arrival_week": 19
+        },
+        "shipped": 4,
+        "position": 135,
+        "inventory": 0,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "65.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 0,
+            "amount": "0.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 65,
+            "amount": "65.00"
+          }
+        ],
+        "total_cost": "395.50",
+        "supply_line": 200,
+        "net_inventory": -65,
+        "order_history": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          8,
+          22,
+          42,
+          54,
+          53,
+          36,
+          13
+        ],
+        "incoming_order": 0,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          7,
+          16,
+          26,
+          29,
+          25,
+          15,
+          3,
+          0
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 10,
+            "arrival_week": 16
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 31,
+            "arrival_week": 17
+          },
+          {
+            "stage": "ordered",
+            "quantity": 13,
+            "arrival_week": 18
+          }
+        ],
+        "total_holding_cost": "46.50",
+        "total_backorder_cost": "349.00"
+      }
+    },
+    {
+      "week": 15,
+      "role": "factory",
+      "order": 82,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "factory",
+        "week": 15,
+        "backlog": 146,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 131,
+          "supply_line_base": 277,
+          "order_arrival_week": 19
+        },
+        "shipped": 31,
+        "position": 131,
+        "inventory": 0,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "146.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 0,
+            "amount": "0.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 146,
+            "amount": "146.00"
+          }
+        ],
+        "total_cost": "501.00",
+        "supply_line": 277,
+        "net_inventory": -146,
+        "order_history": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          10,
+          31,
+          68,
+          100,
+          109
+        ],
+        "incoming_order": 36,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          8,
+          22,
+          42,
+          54,
+          53,
+          36
+        ],
+        "incoming_delivery": 31,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_production",
+            "quantity": 68,
+            "arrival_week": 16
+          },
+          {
+            "stage": "in_production",
+            "quantity": 100,
+            "arrival_week": 17
+          },
+          {
+            "stage": "ordered",
+            "quantity": 109,
+            "arrival_week": 18
+          }
+        ],
+        "total_holding_cost": "58.00",
+        "total_backorder_cost": "443.00"
+      }
+    },
+    {
+      "week": 16,
+      "role": "retailer",
+      "order": 13,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "retailer",
+        "week": 16,
+        "backlog": 8,
+        "history": [],
+        "overdue": 12,
+        "preview": {
+          "position_base": 35,
+          "supply_line_base": 43,
+          "order_arrival_week": 20
+        },
+        "shipped": 8,
+        "position": 35,
+        "inventory": 0,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "8.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 0,
+            "amount": "0.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 8,
+            "amount": "8.00"
+          }
+        ],
+        "total_cost": "62.00",
+        "supply_line": 43,
+        "net_inventory": -8,
+        "order_history": [
+          4,
+          4,
+          4,
+          6,
+          12,
+          16,
+          16,
+          12,
+          8,
+          2,
+          0,
+          4,
+          8,
+          8,
+          15
+        ],
+        "incoming_order": 8,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8
+        ],
+        "incoming_delivery": 8,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 12,
+            "arrival_week": 17
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 18
+          },
+          {
+            "stage": "ordered",
+            "quantity": 15,
+            "arrival_week": 19
+          }
+        ],
+        "total_holding_cost": "31.00",
+        "total_backorder_cost": "31.00"
+      }
+    },
+    {
+      "week": 16,
+      "role": "wholesaler",
+      "order": 6,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "wholesaler",
+        "week": 16,
+        "backlog": 12,
+        "history": [],
+        "overdue": 55,
+        "preview": {
+          "position_base": 59,
+          "supply_line_base": 71,
+          "order_arrival_week": 20
+        },
+        "shipped": 4,
+        "position": 59,
+        "inventory": 0,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "12.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 0,
+            "amount": "0.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 12,
+            "amount": "12.00"
+          }
+        ],
+        "total_cost": "185.00",
+        "supply_line": 71,
+        "net_inventory": -12,
+        "order_history": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          7,
+          16,
+          26,
+          29,
+          25,
+          15,
+          3,
+          0,
+          0,
+          2
+        ],
+        "incoming_order": 8,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          6,
+          12,
+          16,
+          16,
+          12,
+          8,
+          2,
+          0,
+          4,
+          8,
+          8
+        ],
+        "incoming_delivery": 4,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 4,
+            "arrival_week": 17
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 10,
+            "arrival_week": 18
+          },
+          {
+            "stage": "ordered",
+            "quantity": 2,
+            "arrival_week": 19
+          }
+        ],
+        "total_holding_cost": "36.00",
+        "total_backorder_cost": "149.00"
+      }
+    },
+    {
+      "week": 16,
+      "role": "distributor",
+      "order": 0,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "distributor",
+        "week": 16,
+        "backlog": 55,
+        "history": [],
+        "overdue": 91,
+        "preview": {
+          "position_base": 135,
+          "supply_line_base": 190,
+          "order_arrival_week": 20
+        },
+        "shipped": 10,
+        "position": 135,
+        "inventory": 0,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "55.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 0,
+            "amount": "0.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 55,
+            "amount": "55.00"
+          }
+        ],
+        "total_cost": "450.50",
+        "supply_line": 190,
+        "net_inventory": -55,
+        "order_history": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          8,
+          22,
+          42,
+          54,
+          53,
+          36,
+          13,
+          0
+        ],
+        "incoming_order": 0,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          7,
+          16,
+          26,
+          29,
+          25,
+          15,
+          3,
+          0,
+          0
+        ],
+        "incoming_delivery": 10,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_transit",
+            "quantity": 31,
+            "arrival_week": 17
+          },
+          {
+            "stage": "in_transit",
+            "quantity": 68,
+            "arrival_week": 18
+          },
+          {
+            "stage": "ordered",
+            "quantity": 0,
+            "arrival_week": 19
+          }
+        ],
+        "total_holding_cost": "46.50",
+        "total_backorder_cost": "404.00"
+      }
+    },
+    {
+      "week": 16,
+      "role": "factory",
+      "order": 26,
+      "decided_by": "rule_based",
+      "occupant_kind": "rule_based",
+      "state_seen": {
+        "role": "factory",
+        "week": 16,
+        "backlog": 91,
+        "history": [],
+        "overdue": 0,
+        "preview": {
+          "position_base": 200,
+          "supply_line_base": 291,
+          "order_arrival_week": 20
+        },
+        "shipped": 68,
+        "position": 200,
+        "inventory": 0,
+        "max_order": 999,
+        "min_order": 0,
+        "week_cost": "91.00",
+        "cost_lines": [
+          {
+            "kind": "holding",
+            "rate": "0.50",
+            "units": 0,
+            "amount": "0.00"
+          },
+          {
+            "kind": "backorder",
+            "rate": "1.00",
+            "units": 91,
+            "amount": "91.00"
+          }
+        ],
+        "total_cost": "592.00",
+        "supply_line": 291,
+        "net_inventory": -91,
+        "order_history": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          10,
+          31,
+          68,
+          100,
+          109,
+          82
+        ],
+        "incoming_order": 13,
+        "schema_version": 4,
+        "incoming_orders": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          8,
+          22,
+          42,
+          54,
+          53,
+          36,
+          13
+        ],
+        "incoming_delivery": 68,
+        "neighbour_numbers": [],
+        "supply_line_slots": [
+          {
+            "stage": "in_production",
+            "quantity": 100,
+            "arrival_week": 17
+          },
+          {
+            "stage": "in_production",
+            "quantity": 109,
+            "arrival_week": 18
+          },
+          {
+            "stage": "ordered",
+            "quantity": 82,
+            "arrival_week": 19
+          }
+        ],
+        "total_holding_cost": "58.00",
+        "total_backorder_cost": "534.00"
+      }
+    }
+  ]
+}

@@ -32,6 +32,9 @@ PURPOSES: dict[str, Purpose] = {
     # Story 10.7 (FR-50, AD-7): the Replay walkthrough's line, worded on `llm-batch` once the
     # Replay finishes. One attempt; the caller shows the code text instead.
     "replay_walkthrough": Purpose("replay_walkthrough", attempt_limit=1, player=False),
+    # Story 11.8 (FR-53, AD-7): an Adapted item's wording, one of its template's approved
+    # phrasings, chosen on `llm-batch` before the test opens. One attempt; the code text stays.
+    "adapted_item_wording": Purpose("adapted_item_wording", attempt_limit=1, player=False),
 }
 
 

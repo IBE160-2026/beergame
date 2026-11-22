@@ -11,7 +11,8 @@ export type ColumnRow = { label: string; value: number };
  * `restordre` border and the reason sits under the table, tied to the field and announced as it
  * appears (`role="alert"`, on leaving the field or pressing the button). Once answered, the field
  * gives way to the answer, and `result` (the right or wrong line, in words) sits under the table;
- * `resultRef` takes focus there. Epic 11 renders no result.
+ * `resultRef` takes focus there. Epic 11 renders no result, and names a scroll region by the
+ * caption (`${id}-caption`).
  */
 export function ColumnItem({
   id,
@@ -55,7 +56,9 @@ export function ColumnItem({
   return (
     <div className="flex flex-col gap-2">
       <table className="w-full max-w-xs border-collapse text-left text-table-cell text-ink lg:text-table-cell-laptop">
-        <caption className="mb-2 text-left text-label font-semibold text-ink">{caption}</caption>
+        <caption id={`${id}-caption`} className="mb-2 text-left text-label font-semibold text-ink">
+          {caption}
+        </caption>
         <tbody>
           {rows.map((row, index) => (
             <tr key={index} className="border-b border-hairline">

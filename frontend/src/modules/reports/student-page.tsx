@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import { nb } from "@/copy/nb";
 import { ApiRequestError } from "@/lib/api/client";
 import { usePageState } from "@/lib/page-state";
@@ -10,14 +12,19 @@ import { PageShell } from "@/modules/identity/page-shell";
 
 import { AdjustmentBlock } from "./adjustment-block";
 import { type StudentPage, studentPageKey, useStudentPage } from "./api";
+import { DeadlineBlock } from "./deadline-block";
+
+/** The Studentside's in-place forms: one open at a time (EXPERIENCE.md → Studentside, «One
+ * panel»); opening another closes the first and keeps nothing. */
+type Editing = "adjustment" | "deadline" | null;
 
 /** The shape of an id (a UUID). */
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * The Studentside (Story 8.9, UX-DR53, EXPERIENCE.md → Studentside): one Student of a Class
- * session, as a page of blocks for the Lecturers of its Class. For now it holds the block
- * «Tilrettelegging» only; Story 13.2 adds its own blocks here. Reached from the Student's name on
+ * session, as a page of blocks for the Lecturers of its Class: «Tilrettelegging» and «Frister»
+ * (Story 11.13); Story 13.2 adds its own blocks here. Reached from the Student's name on
  * Spillinnsikt. Anyone else, an Assistant lecturer included, sees the permission-denied page (FR-5,
  * AD-12).
  */
@@ -49,6 +56,9 @@ function StudentPageBody({
   updatedAt: number;
 }) {
   const found = useStudentPage(sessionId, userId);
+  const [editing, setEditing] = useState<Editing>(null);
+  const toggle = (block: Exclude<Editing, null>) => (open: boolean) =>
+    setEditing((now) => (open ? block : now === block ? null : now));
   const { phase, retry } = usePageState(found, studentPageKey(sessionId, userId));
   const data: StudentPage | undefined = found.data;
   if (found.error instanceof ApiRequestError && found.error.code === "forbidden") {
@@ -82,7 +92,12 @@ function StudentPageBody({
         ) : undefined
       }
     >
-      {data ? <AdjustmentBlock data={data} /> : null}
+      {data ? (
+        <>
+          <AdjustmentBlock data={data} open={editing === "adjustment"} onOpenChange={toggle("adjustment")} />
+          <DeadlineBlock data={data} open={editing === "deadline"} onOpenChange={toggle("deadline")} />
+        </>
+      ) : null}
     </PageShell>
   );
 }

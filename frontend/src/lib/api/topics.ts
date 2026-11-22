@@ -11,6 +11,7 @@ import {
   enrolledSessionsKey,
   lecturerHomeKey,
 } from "@/modules/sessions/api";
+import { myTestsKey } from "@/modules/tests/api";
 
 /**
  * The only map from a change event's topic to TanStack Query keys (AD-8, Story 6.4). Push
@@ -37,6 +38,8 @@ export function topicKeys(event: ChangeEvent): QueryKey[] {
         myMessagesKey,
         // Story 9.2: a held Debrief released by the sweep opens on the Debrief page too.
         debriefsKey,
+        // Story 11.3: the Individual test opened on another device shows its items here too.
+        myTestsKey,
       ];
     // A Class session, for its staff: the Klasseøkt, its allocation block, the Lærerhjem parts of
     // Stories 5.2 and 5.9, the Class page's list of its sessions, its Oversikt (Story 7.1) and its

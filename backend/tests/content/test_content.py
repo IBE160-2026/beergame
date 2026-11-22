@@ -10,6 +10,7 @@ from pydantic import ValidationError
 from app.modules.content import __main__ as cli
 from app.modules.content import service as content
 from app.modules.sessions import service as sessions
+from app.modules.tests import selection  # noqa: F401  (registers the question set pin)
 from tests.classes.test_invitation_counts import execute
 
 SHIPPED = "01a1f9a0-0000-7000-8000-"
@@ -92,7 +93,18 @@ async def test_the_lock_pins_the_latest_starting_task_version():
         "debrief_ai_text": {"enabled": False, "model_config_id": None, "effort_level": None},
         # Story 10.1: the default Replay scenario of the frozen settings.
         "replay_template": pins["replay_template"],
+        # Story 11.1: the question set selection in force, the defaults of the latest version
+        # (version 2 since Story 11.5).
+        "question_set": {
+            "version": 2,
+            "excluded": [],
+            "weights": pins["question_set"]["weights"],
+            "adapted_weight": 30,
+        },
+        # Story 11.7: the Adapted item templates (version 2, with wordings, since Story 11.8).
+        "adapted_templates": {"version": 2},
     }
+    assert sessions._pin_providers["adapted_templates"] is content.adapted_templates_pin
     assert pins["replay_template"]["weeks"] == {"minimum": 30, "maximum": 40}
     assert sessions._pin_providers["reflection_questions"] is content.reflection_questions_pin
     assert sessions._pin_providers["moment_templates"] is content.moment_templates_pin
@@ -178,3 +190,17 @@ def _session_row() -> dict:
 def test_the_cli_needs_a_kind_and_a_file(capsys):
     assert cli.main([]) == 2
     assert "usage" in capsys.readouterr().err
+
+
+def test_the_cli_loads_a_folder_with_load(capsys, tmp_path, monkeypatch):
+    seen = []
+
+    async def fake(folder):
+        seen.append(folder)
+        return ["question_set unchanged"], []
+
+    monkeypatch.setattr(cli, "load", fake)
+    assert cli.main(["load", str(tmp_path)]) == 0
+    assert cli.main(["load"]) == 0
+    assert seen == [tmp_path, cli.SHIPPED]
+    assert "question_set unchanged" in capsys.readouterr().out

@@ -12,7 +12,8 @@ import { CostDistribution, distributionAxis } from "./cost-distribution";
 import { DemandBand, demandAxis } from "./demand-band";
 import { NetGraph, type NetPoint } from "./net-graph";
 import { NetOverGame, weekLabels } from "./net-over-game";
-import { costAxisTop, netDomain, netTicks, spreadLabels, totalAxisTop } from "./scales";
+import { PointGraph } from "./point-graph";
+import { costAxisTop, netDomain, netTicks, niceTicks, scaleY, spreadLabels, totalAxisTop } from "./scales";
 
 describe("the Kost per uke axis (Issue #126)", () => {
   it("starts at 20 kr and grows 20 kr at a time to hold the highest Uke", () => {
@@ -522,5 +523,62 @@ describe("Kostnadsfordeling (Story 7.6)", () => {
         expect(Number(x) + textWidth(text!, 13, weight === "600" ? 600 : 400)).toBeLessThanOrEqual(width + 0.5);
       }
     }
+  });
+});
+
+describe("niceTicks (Story 11.14)", () => {
+  it("labels steps of 1, 2 or 5 × 10ⁿ at least 1.4 lines apart", () => {
+    // 0–40 on 140 px at 13 px: 10 units is 35 px (≥ 18.2 px), 5 units 17.5 px is too close.
+    expect(niceTicks([0, 40], 140, 13)).toEqual([0, 10, 20, 30, 40]);
+    expect(niceTicks([0, 40], 200, 13)).toEqual([0, 5, 10, 15, 20, 25, 30, 35, 40]);
+    expect(niceTicks([-5, 60], 140, 13)).toEqual([0, 10, 20, 30, 40, 50, 60]);
+    expect(niceTicks([0, 1000], 100, 13)).toEqual([0, 200, 400, 600, 800, 1000]);
+    expect(niceTicks([3, 3], 100, 13)).toEqual([3]);
+    // A range too small for its step labels its ends; no measured font size draws no ticks loop.
+    expect(niceTicks([1, 4], 10, 13)).toEqual([1, 4]);
+    expect(niceTicks([0, 1_000_000], 100, 0)).toEqual([0]);
+    expect(niceTicks([0, 1_000_000], 100, Number.NaN)).toEqual([0]);
+  });
+
+  it("scaleY puts the high end at the top and the low end at the bottom", () => {
+    const y = scaleY([0, 40], 10, 110);
+    expect([y(40), y(20), y(0)]).toEqual([10, 60, 110]);
+    expect(scaleY([5, 5], 10, 110)(5)).toBe(110);
+  });
+});
+
+describe("PointGraph (Story 11.14)", () => {
+  const props = {
+    width: 300,
+    height: 120,
+    xs: [50, 150, 250],
+    starts: [0, 12, 0],
+    domain: [0, 40] as const,
+    top: 10,
+    bottom: 110,
+    title: "Graf",
+    label: "Graf over tabellen",
+    names: ["Uke 1", "Uke 2", "Uke 3"],
+    ticks: [0, 20, 40],
+    onKey: () => null,
+    onPointer: () => {},
+    onPlace: () => {},
+  };
+
+  it("draws an 8 px point per answered Uke, a 2 px line between answered neighbours, a slider per Uke", () => {
+    const html = renderToStaticMarkup(
+      <PointGraph {...props} values={[12, 20, null]} valueText={(i) => (i === 2 ? "Uke 3: ikke besvart" : `Uke ${i + 1}`)} />,
+    );
+    const points = [...html.matchAll(/<circle data-mark="point" data-week="(\d)"[^>]*r="4"/g)].map((m) => m[1]);
+    expect(points).toEqual(["1", "2"]);
+    expect(html).toMatch(/data-mark="line" d="M50,80L150,60"[^>]*stroke-width="2"/);
+    expect(html.match(/role="slider"/g)).toHaveLength(3);
+    expect(html).toContain('aria-valuetext="Uke 3: ikke besvart"');
+    expect(html).toContain("<title>Graf</title>");
+  });
+
+  it("draws no line across an unanswered Uke", () => {
+    const html = renderToStaticMarkup(<PointGraph {...props} values={[12, null, 20]} valueText={() => ""} />);
+    expect(html).not.toContain('data-mark="line"');
   });
 });

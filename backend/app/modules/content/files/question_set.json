@@ -1,0 +1,397 @@
+{
+  "status": "draft",
+  "adapted_weight": 30,
+  "items": [
+    {
+      "id": "startoppgave-sende",
+      "type": "number",
+      "title": "Utkast: Startoppgaven, enheter å sende",
+      "weight": 3,
+      "options": [],
+      "answer_key": null,
+      "scoring_rule": "starting-task-sum",
+      "tags": [
+        "quantity"
+      ],
+      "starting_task_item": "to-ship",
+      "interactive": null
+    },
+    {
+      "id": "startoppgave-restordre",
+      "type": "number",
+      "title": "Utkast: Startoppgaven, restordre etter uka",
+      "weight": 3,
+      "options": [],
+      "answer_key": null,
+      "scoring_rule": "starting-task-sum",
+      "tags": [
+        "quantity"
+      ],
+      "starting_task_item": "backlog",
+      "interactive": null
+    },
+    {
+      "id": "startoppgave-posisjon",
+      "type": "number",
+      "title": "Utkast: Startoppgaven, posisjonen for én uke",
+      "weight": 4,
+      "options": [],
+      "answer_key": null,
+      "scoring_rule": "starting-task-sum",
+      "tags": [
+        "quantity"
+      ],
+      "starting_task_item": "position",
+      "interactive": null
+    },
+    {
+      "id": "flervalg-forklaring",
+      "type": "choice",
+      "title": "Utkast: flervalg med ordene fra Forklaringen",
+      "weight": 5,
+      "options": [
+        "a",
+        "b",
+        "c"
+      ],
+      "answer_key": "b",
+      "scoring_rule": null,
+      "tags": [
+        "explanation-wording"
+      ],
+      "starting_task_item": null,
+      "interactive": null
+    },
+    {
+      "id": "flervalg-arsaker",
+      "type": "choice",
+      "title": "Utkast: flervalg om årsaker",
+      "weight": 5,
+      "options": [
+        "a",
+        "b",
+        "c",
+        "d"
+      ],
+      "answer_key": "c",
+      "scoring_rule": null,
+      "tags": [],
+      "starting_task_item": null,
+      "interactive": null
+    },
+    {
+      "id": "tabell-nytt-monster",
+      "type": "table",
+      "title": "Utkast: tabell med et etterspørselsmønster du ikke har sett",
+      "weight": 10,
+      "options": [],
+      "answer_key": null,
+      "scoring_rule": "units-balance",
+      "tags": [
+        "unseen-demand",
+        "quantity"
+      ],
+      "starting_task_item": null,
+      "interactive": {
+        "prompt": "Utkast: Etterspørselen følger et mønster du ikke har sett. Fyll inn hvor mange enheter som mangler ved slutten av hver uke.",
+        "hint": null,
+        "caption": "Utkast: Etterspørsel, levert og mangler per uke, i enheter",
+        "rows": [
+          "Uke 1",
+          "Uke 2",
+          "Uke 3",
+          "Uke 4",
+          "Uke 5",
+          "Uke 6"
+        ],
+        "given": [
+          {
+            "key": "ettersporsel",
+            "label": "Etterspørsel",
+            "values": [
+              4,
+              4,
+              8,
+              8,
+              4,
+              4
+            ]
+          },
+          {
+            "key": "levert",
+            "label": "Levert",
+            "values": [
+              4,
+              4,
+              4,
+              4,
+              8,
+              8
+            ]
+          }
+        ],
+        "asked": "Mangler",
+        "negative": false,
+        "criteria": [
+          {
+            "code": "K1",
+            "weight": 50,
+            "check": {
+              "kind": "flow",
+              "inflow": "ettersporsel",
+              "outflow": "levert",
+              "start": 0
+            }
+          },
+          {
+            "code": "K2",
+            "weight": 25,
+            "check": {
+              "kind": "cell",
+              "row": 3,
+              "value": 8
+            }
+          },
+          {
+            "code": "K3",
+            "weight": 25,
+            "check": {
+              "kind": "cell",
+              "row": 5,
+              "value": 0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "tabell-annen-bransje",
+      "type": "table",
+      "title": "Utkast: tabell fra en annen bransje",
+      "weight": 10,
+      "options": [],
+      "answer_key": null,
+      "scoring_rule": "stock-flow",
+      "tags": [
+        "other-business",
+        "quantity"
+      ],
+      "starting_task_item": null,
+      "interactive": {
+        "prompt": "Utkast: Et bakeri har 10 enheter på lager før uke 1. Fyll inn lageret ved slutten av hver uke.",
+        "hint": null,
+        "caption": "Utkast: Bakeriets lager per uke, i enheter",
+        "rows": [
+          "Uke 1",
+          "Uke 2",
+          "Uke 3",
+          "Uke 4",
+          "Uke 5"
+        ],
+        "given": [
+          {
+            "key": "inn",
+            "label": "Inn",
+            "values": [
+              20,
+              20,
+              25,
+              25,
+              20
+            ]
+          },
+          {
+            "key": "ut",
+            "label": "Ut",
+            "values": [
+              22,
+              24,
+              20,
+              18,
+              25
+            ]
+          }
+        ],
+        "asked": "Lager",
+        "negative": false,
+        "criteria": [
+          {
+            "code": "K1",
+            "weight": 60,
+            "check": {
+              "kind": "flow",
+              "inflow": "inn",
+              "outflow": "ut",
+              "start": 10
+            }
+          },
+          {
+            "code": "K2",
+            "weight": 40,
+            "check": {
+              "kind": "cell",
+              "row": 4,
+              "value": 11
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "tall-annen-bransje",
+      "type": "number",
+      "title": "Utkast: tall fra en annen bransje",
+      "weight": 10,
+      "options": [],
+      "answer_key": null,
+      "scoring_rule": "units-balance",
+      "tags": [
+        "other-business"
+      ],
+      "starting_task_item": null,
+      "interactive": {
+        "prompt": "Utkast: Et verksted mangler deler i fire uker. Hvor mange enheter må legges til for å dekke alt som mangler?",
+        "hint": null,
+        "caption": "Utkast: Mangler per uke, i enheter",
+        "rows": [
+          "Uke 1",
+          "Uke 2",
+          "Uke 3",
+          "Uke 4"
+        ],
+        "given": [
+          {
+            "key": "mangler",
+            "label": "Mangler",
+            "values": [
+              3,
+              5,
+              2,
+              6
+            ]
+          }
+        ],
+        "asked": "Legg til",
+        "negative": false,
+        "criteria": [
+          {
+            "code": "K1",
+            "weight": 100,
+            "check": {
+              "kind": "balance",
+              "added": "answer",
+              "missing": "mangler"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "langsvar-forsinkelse",
+      "type": "long",
+      "title": "Utkast: langsvar om forsinkelse",
+      "weight": 10,
+      "options": [],
+      "answer_key": null,
+      "scoring_rule": "guide-langsvar-forsinkelse",
+      "tags": [],
+      "starting_task_item": null,
+      "interactive": null
+    },
+    {
+      "id": "langsvar-informasjon",
+      "type": "long",
+      "title": "Utkast: langsvar om informasjon i kjeden",
+      "weight": 10,
+      "options": [],
+      "answer_key": null,
+      "scoring_rule": "guide-langsvar-informasjon",
+      "tags": [],
+      "starting_task_item": null,
+      "interactive": null
+    }
+  ],
+  "replacements": [
+    {
+      "id": "erstatning-tabell",
+      "type": "table",
+      "title": "Utkast: erstatningsoppgave, tabell",
+      "weight": 15,
+      "options": [],
+      "answer_key": null,
+      "scoring_rule": "units-balance",
+      "tags": [
+        "quantity"
+      ],
+      "starting_task_item": null,
+      "interactive": {
+        "prompt": "Utkast: Fyll inn hvor mange enheter som mangler ved slutten av hver uke.",
+        "hint": null,
+        "caption": "Utkast: Bestilt, mottatt og mangler per uke, i enheter",
+        "rows": [
+          "Uke 1",
+          "Uke 2",
+          "Uke 3",
+          "Uke 4"
+        ],
+        "given": [
+          {
+            "key": "bestilt",
+            "label": "Bestilt",
+            "values": [
+              5,
+              5,
+              5,
+              5
+            ]
+          },
+          {
+            "key": "mottatt",
+            "label": "Mottatt",
+            "values": [
+              3,
+              4,
+              6,
+              7
+            ]
+          }
+        ],
+        "asked": "Mangler",
+        "negative": false,
+        "criteria": [
+          {
+            "code": "K1",
+            "weight": 50,
+            "check": {
+              "kind": "flow",
+              "inflow": "bestilt",
+              "outflow": "mottatt",
+              "start": 0
+            }
+          },
+          {
+            "code": "K2",
+            "weight": 50,
+            "check": {
+              "kind": "cell",
+              "row": 3,
+              "value": 0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "erstatning-langsvar",
+      "type": "long",
+      "title": "Utkast: erstatningsoppgave, langsvar",
+      "weight": 15,
+      "options": [],
+      "answer_key": null,
+      "scoring_rule": "guide-erstatning-langsvar",
+      "tags": [],
+      "starting_task_item": null,
+      "interactive": null
+    }
+  ]
+}

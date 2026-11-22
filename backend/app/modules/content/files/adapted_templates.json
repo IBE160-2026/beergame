@@ -1,0 +1,41 @@
+{
+  "status": "draft",
+  "templates": [
+    {
+      "id": "tilpasset-eget-spill",
+      "source": "game",
+      "fact": "moment",
+      "pick": 1,
+      "share": 50,
+      "text": "Utkast: I uke {week} av Klassespillet var du {role}. Du fikk inn en ordre på {incoming_order} enheter, hadde {inventory} enheter på lager, {backlog} enheter i restordre og {supply_line} enheter på vei, og du bestilte {order} enheter. Forklar hva du la vekt på da du bestilte, og hva som skjedde i kjeden de neste ukene.",
+      "wordings": [
+        {
+          "id": "tilpasset-eget-spill-sporsmal",
+          "text": "Utkast: Du var {role} i Klassespillet. Hva la du vekt på da du bestilte {order} enheter i uke {week}, med en ordre inn på {incoming_order} enheter, {inventory} enheter på lager, {backlog} enheter i restordre og {supply_line} enheter på vei? Hva skjedde i kjeden de neste ukene?"
+        },
+        {
+          "id": "tilpasset-eget-spill-vei",
+          "text": "Utkast: I uke {week} av Klassespillet hadde du som {role} {supply_line} enheter på vei, {inventory} enheter på lager og {backlog} enheter i restordre, og ordren inn var {incoming_order} enheter. Du bestilte {order} enheter. Hva la du vekt på, og hva skjedde i kjeden de neste ukene?"
+        }
+      ]
+    },
+    {
+      "id": "tilpasset-replay",
+      "source": "replay",
+      "fact": "outcome",
+      "pick": 1,
+      "share": 50,
+      "text": "Utkast: I Replay var du {role} i {weeks} uker. Kostnaden din ble {total_cost} kr, {holding_cost} kr for lager og {backorder_cost} kr for restordre. Sammenlign med Klassespillet og forklar hva du gjorde annerledes.",
+      "wordings": [
+        {
+          "id": "tilpasset-replay-sporsmal",
+          "text": "Utkast: Du var {role} i Replay i {weeks} uker, og kostnaden din ble {total_cost} kr: {holding_cost} kr for lager og {backorder_cost} kr for restordre. Hva gjorde du annerledes enn i Klassespillet?"
+        },
+        {
+          "id": "tilpasset-replay-fordelt",
+          "text": "Utkast: Hva gjorde du annerledes i Replay enn i Klassespillet? Der var du {role} i {weeks} uker, med {holding_cost} kr i lagerkostnad og {backorder_cost} kr i restordrekostnad, til sammen {total_cost} kr."
+        }
+      ]
+    }
+  ]
+}

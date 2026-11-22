@@ -100,6 +100,16 @@ async def test_two_sweeps_over_a_due_session_lock_it_once(klass, emitted):
             "debrief_ai_text": {"enabled": False, "model_config_id": None, "effort_level": None},
             # Story 10.1: the Replay scenario template derived from the frozen settings.
             "replay_template": default_replay_template(settings).model_dump(mode="json"),
+            # Story 11.1: the question set selection in force, the latest version's defaults
+            # (version 2 since Story 11.5).
+            "question_set": {
+                "version": 2,
+                "excluded": [],
+                "weights": runtime["pins"]["question_set"]["weights"],
+                "adapted_weight": 30,
+            },
+            # Story 11.7: the Adapted item templates (version 2, with wordings, since Story 11.8).
+            "adapted_templates": {"version": 2},
         },
     )
     assert runtime["rule_based_params"] and runtime["play_guard_params"]

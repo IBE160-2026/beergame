@@ -88,6 +88,9 @@ export const messagePath = (sessionId: string, to: { game?: string; student?: st
 /** «Meldinger» (Story 7.10): the Messages a Class session was sent, for its staff. */
 export const sentMessagesPath = (sessionId: string) => `${classSessionPath(sessionId)}/meldinger`;
 
+/** The Adapted item preview with a sample Student (Story 11.9), for the Class session's staff. */
+export const adaptedPreviewPath = (sessionId: string) => `${classSessionPath(sessionId)}/tilpassede-oppgaver`;
+
 /** A Student's «Velg spill og sete» in a Class session with Student choice (Story 5.17). */
 export const seatChoicePath = (id: string) => `${classSessionPath(id)}/velg-sete`;
 
@@ -102,6 +105,10 @@ export const walkthroughPath = (id: string) => `${gamePath(id)}/gjennomgang`;
 /** The Student's Debrief in a Class session (Story 9.2): where «Gå til Debrief» on «Spillet er
  * ferdig» and Stegene's Debrief step lead. One Debrief per Student and Class session. */
 export const DEBRIEF_PATH = (classSessionId: string) => `/debrief/${encodeURIComponent(classSessionId)}`;
+
+/** The Student's Individual test in a Class session (Story 11.3): where Stegene's current test
+ * step leads. One attempt per Student and Class session. */
+export const TEST_PATH = (classSessionId: string) => `/individuell-test/${encodeURIComponent(classSessionId)}`;
 
 /** A Student's Explanation and Debrief summary for the Class's staff (Story 9.8), where
  * Spillinnsikt's links lead (`debrief.insight` in the api builds the same path). */

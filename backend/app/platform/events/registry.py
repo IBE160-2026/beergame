@@ -119,6 +119,10 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # a missing provider key tells each owner and Admin once, which emits `user`. With no
         # confirmed allocation the lock allocates and seats the Students (`game`, Story 5.12).
         "sessions.lock": frozenset({"game", "session", "user"}),
+        # The Test-deadline lock (Story 12.1, the seam of Epic 11's `lock_test`, AD-9): it pins
+        # the «KI-vurdering» switch, so the staff read the Klasseøkt again. A second run emits
+        # nothing.
+        "sessions.lock_test": frozenset({"session"}),
         # A late registrant seated, or a removed Student's Seat given to an AI player (Story
         # 5.13): the Seat changes through `games.assign_seat` (`game`), the staff read the
         # session again, and the Students of that game (and the one seated, with the allocation
@@ -127,6 +131,8 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         "sessions.replace_removed_student": frozenset({"game", "session", "user"}),
         # A deadline reminder (Story 5.14): one notice per Student, which emits `user`.
         "sessions.send_deadline_reminder": frozenset({"user"}),
+        # One Student's reminder of their own Debrief or Test deadline (Story 11.13), likewise.
+        "sessions.send_own_deadline_reminder": frozenset({"user"}),
         # The Play deadline playout of one Class game (Story 8.14), through `games.playout`.
         "sessions.playout": frozenset({"game", "session", "user"}),
         # Student choice (Story 5.17). A save that opens it creates the empty Class games
@@ -191,6 +197,34 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # Class session row locked; its staff read the block again (`session`), and each Student
         # whose last attempt it now covers gets a `quiz_changed` notice, which emits `user`.
         "debrief.set_quiz_exclusions": frozenset({"session", "user"}),
+        # A Class session's question set selection saved, «Lagre vekter» (Story 11.1, FR-52): its
+        # staff read the block again.
+        "tests.save_question_set": frozenset({"session"}),
+        # A Class session's Scoring guide edited, «Lagre sensorveiledning» (Story 11.2, FR-81):
+        # its staff read the block again.
+        "tests.save_scoring_guide": frozenset({"session"}),
+        # A Student accepted the own-work statement and opened their Individual test (Story 11.3,
+        # FR-51): their other devices read the test again (`user`); the Debrief follow-up closed in
+        # the same transaction emits `user` as well. Opening the one they have emits nothing.
+        "tests.open_attempt": frozenset({"user"}),
+        # A Student's answer autosaved (Story 11.4, AD-10): no event, the saving page has it and
+        # another device reads it when it reads the test again; a save per click would refetch
+        # the whole test on the saving device.
+        "tests.save_answer": frozenset(),
+        # A Student handed in their Individual test, «Lever testen» (Story 11.10, FR-51): the
+        # `test_submitted` step recorded in the same transaction emits `user` (their Hjem and
+        # other devices) and `session` (the Class session's overview). A repeat emits nothing.
+        "tests.submit": frozenset({"session", "user"}),
+        # An Individual test attempt closed at its Test deadline by the sweep (Story 11.11,
+        # FR-51): an open one is auto-submitted and its `test_submitted` step emits `user` and
+        # `session`, as at a hand-in; closing one handed in earlier emits nothing.
+        "tests.close_attempt": frozenset({"session", "user"}),
+        # A timed sitting ended before the Test deadline (Story 11.12, FR-51): the sweep hands the
+        # attempt in, and its `test_submitted` step emits `user` and `session`, as at a hand-in.
+        "tests.end_sitting": frozenset({"session", "user"}),
+        # A Student's own Test deadline saved, «Lagre frist» (Story 11.13, FR-18): the Student's
+        # Hjem and test read their own date (`user`), the Studentside reads its block (`session`).
+        "tests.extend_deadline": frozenset({"session", "user"}),
         # A Student's Replay made and started (Story 10.3, FR-48): its Game is created, seated and
         # started through `games.commands` (`game`), and the Student's Hjem reads it again
         # (`user`). No Lecturer overview lists a Replay, so no `session`.

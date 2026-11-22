@@ -41,7 +41,7 @@ export function TextField({
   const describedBy = [hint ? hintId : "", error ? errorId : "", ...noteIds].filter(Boolean).join(" ") || undefined;
   return (
     <div className={cn("flex flex-col gap-field-gap", className)}>
-      <label htmlFor={id} className="text-label text-ink">
+      <label id={`${id}-label`} htmlFor={id} className="text-label text-ink">
         {label}
       </label>
       <input

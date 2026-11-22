@@ -9,6 +9,7 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 
 import app.ai.models  # noqa: F401  (registers the model config and budget tables)
+import app.modules.assessment.models  # noqa: F401  (assessment_switches)
 import app.modules.classes.models  # noqa: F401  (classes, class_staff)
 import app.modules.content.models  # noqa: F401  (content_records)
 import app.modules.debrief.models  # noqa: F401  (debrief_sessions, _releases, _explanations)

@@ -144,6 +144,9 @@ POLICIES: dict[str, frozenset[str]] = {
     # The Starting task in the Student's own Class game (Story 6.3): any User, held to
     # `own_seat` like the game itself.
     "starting_task.answer_own": frozenset({ANY_USER}),
+    # The Student's own Individual test (Story 11.3, FR-51): any User, held to their own locked
+    # Class session (`sessions.individual_test_session_of`); every other session is refused alike.
+    "tests.take_own": frozenset({ANY_USER}),
     # The Student's own Debrief (Story 9.2): any User, held to `own_seat` through
     # `games.service.student_game`; the service refuses every other Debrief alike.
     "debriefs.own": frozenset({ANY_USER}),
@@ -156,6 +159,17 @@ POLICIES: dict[str, frozenset[str]] = {
     # AD-12): its owners and Assistant lecturers read it; only its owners take questions out.
     "debrief_quiz.read": frozenset({LECTURER, ASSISTANT}),
     "debrief_quiz.exclude": frozenset({LECTURER}),
+    # The «KI-vurdering» switch of a Class session (Story 12.1, FR-61, AD-12): its Class's staff
+    # read it with the Class session (`class_sessions.read`); only its owners change it.
+    "ai_assessment.change": frozenset({LECTURER}),
+    # The question set selection of a Class session, «Spørsmål og vekter» (Story 11.1, FR-52,
+    # AD-12): its Class's staff read it with the Class session (`class_sessions.read`); only its
+    # owners change it.
+    "question_set.change": frozenset({LECTURER}),
+    # The Scoring guide of a Class session, «Sensorveiledning» (Story 11.2, FR-81, AD-12): its
+    # Class's staff read it with the Class session (`class_sessions.read`); only its owners edit
+    # it.
+    "scoring_guide.change": frozenset({LECTURER}),
     # The own session.
     "session.read": frozenset({ANY_USER}),
     # The live event stream (Story 6.4, AD-8): any User; the scope decides which topics it sends.
@@ -181,6 +195,9 @@ CLASS_STAFF_ROLES: dict[str, frozenset[str]] = {
     "debrief_summaries.read": frozenset({OWNER, ASSISTANT_STAFF}),
     "debrief_quiz.read": frozenset({OWNER, ASSISTANT_STAFF}),
     "debrief_quiz.exclude": frozenset({OWNER}),
+    "ai_assessment.change": frozenset({OWNER}),
+    "question_set.change": frozenset({OWNER}),
+    "scoring_guide.change": frozenset({OWNER}),
     "class_sessions.overview": frozenset({OWNER, ASSISTANT_STAFF}),
     "games.insight": frozenset({OWNER, ASSISTANT_STAFF}),
     "games.takeover": frozenset({OWNER, ASSISTANT_STAFF}),

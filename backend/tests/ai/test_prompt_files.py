@@ -24,6 +24,7 @@ def test_the_repository_prompts_match_their_lock(monkeypatch):
 
 def test_lock_records_new_files_and_check_finds_every_breach(prompts):
     unlocked = [
+        "adapted_item_wording",
         "debrief_follow_up",
         "debrief_narration",
         "player_order",
@@ -65,6 +66,7 @@ def test_prompts_check_runs_over_stored_configs(ai_db, prompts, capsys, tmp_path
     capsys.readouterr()
     assert main(["prompts", "lock"]) == 0
     assert capsys.readouterr().out.splitlines() == [
+        "locked adapted_item_wording/v1",
         "locked debrief_follow_up/v1",
         "locked debrief_narration/v1",
         "locked player_order/v1",
@@ -73,7 +75,7 @@ def test_prompts_check_runs_over_stored_configs(ai_db, prompts, capsys, tmp_path
         "locked replay_walkthrough/v1",
     ]
     assert main(["prompts", "check"]) == 0
-    assert capsys.readouterr().out.splitlines() == ["prompts ok: 6 locked, 1 referenced"]
+    assert capsys.readouterr().out.splitlines() == ["prompts ok: 7 locked, 1 referenced"]
 
     (prompts / "player_order" / "v1.md").unlink()
     assert main(["prompts", "lock"]) == 1  # locking reports what it cannot fix

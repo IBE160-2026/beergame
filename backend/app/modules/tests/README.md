@@ -13,3 +13,271 @@ Class session and item, with the content version (`content`, AD-23). The final q
 - An answer is stored once; a repeat keeps the first. The final question needs every item
   answered (409 `items_open`) and records `progress` `starting_task` in the same transaction.
 - The game's status is not asked: a finished game with no Orders still offers the task (FR-85).
+
+## The question set selection, «Spørsmål og vekter» (Story 11.1)
+
+`test_selections`: one row per Class session, the question set version it was saved on, the items
+taken out, each Core item's weight and the Adapted total weight (`selection.py`).
+
+- `GET /api/class-sessions/{id}/question-set` (owners and Assistant lecturers) and `PUT …`
+  («Lagre vekter», owners only, `question_set.change`). The weights of the items left in plus the
+  Adapted total must be 100 (422 `weights_not_100`); 409 `session_locked` from the Start date,
+  `class_archived` for an archived Class. A save is audited and emits `session:<id>`.
+- The selection in force is the row when it was saved on the latest version, else the latest
+  version's defaults (`outdated`). The Start-date lock pins exactly that under
+  `SessionRuntime.pins["question_set"]` (`question_set_pin`, registered with `sessions`); in
+  production a `draft` version refuses the lock (`sessions.PinRefused`, `question_set_draft`, told
+  to the owners like a missing provider key). `copy_selection` (registered with `sessions`) copies
+  the selection, or the pin of a locked source, into a copy (FR-66).
+
+## The Scoring guide, «Sensorveiledning» (Story 11.2)
+
+`test_scoring_guides`: one row per Class session that edited its Scoring guide (or was pinned or
+copied): the version in force (`scoring_guide_id`, a `content` record), the default it derives
+from (`base_id`) and when the Test-deadline lock pinned it (`guide.py`). No row reads as the
+latest default. A trigger refuses any change of a pinned row.
+
+- `GET /api/class-sessions/{id}/scoring-guide` (owners and Assistant lecturers) and `PUT …`
+  («Lagre sensorveiledning», owners only, `scoring_guide.change`) with the changed texts only
+  (`{guides: {question_id: text}}`). A save publishes a new version made for the Class session
+  through the content load's validation; the criteria, the scale and the titles never change. A
+  question whose text differs from its base default is «Endret». 409 `scoring_guide_locked` from
+  the original Test deadline (also before the sweep has run), `class_archived` for an archived
+  Class; 422 `validation_error` for an unknown question or a text the record refuses. A save is
+  audited (ids only) and emits `session:<id>`; an unchanged save stores nothing.
+- `sessions.lock_test` runs `pin_guide` (registered with `register_test_pinner`) in its
+  transaction: the version in force is pinned as of the Test deadline, on the latest default when
+  the session never edited it. `copy_guide` (registered with `register_copier`) carries an edited
+  version into a copy by its id, never its pin (FR-66).
+- Whether the version is checked is asked of `content.service.is_checked` only; the block shows
+  «Ikke kontrollert med en Kontrolltest.» while it is False.
+
+## The Individual test: opening it with the own-work statement (Story 11.3)
+
+`test_attempts`: one per Student and Class session, made when the Student accepts the own-work
+statement (`statement_accepted_at`): the question set version and selection it opened on (the
+Start-date lock's pin; the selection in force for a session locked before the pin existed), the
+frozen ordered item list (`[{id, type, weight}]`, the Core items left in, in the set's order;
+then the Adapted items or their replacement items, Story 11.7), `effective_deadline`
+(`sessions.effective_test_deadline` at opening) and the status `open` / `submitted` /
+`auto_submitted`. `test_answers`: one row per
+attempt and item with its revision (written from Story 11.4). Both hold personal data (a User's
+attempt, text a Student wrote).
+
+**The write path (`commands.py`).** `tests.commands` is the only writer of an attempt and its
+answers, with the commands `open_attempt` (11.3), `save_answer` (11.4), `submit` (11.10),
+`close_attempt` (11.11), `extend_deadline` (11.13) and `end_sitting` (11.12). Every command that
+acts on an existing attempt takes `SELECT … FOR UPDATE` on the attempt row and runs in one
+transaction; `save_answer` and `submit` on an attempt that is not `open` fail with
+`attempt_submitted`, and on an open attempt after its `effective_deadline` with
+`test_deadline_passed`. Where no attempt row exists yet the lock is named: `open_attempt` relies on
+the unique key on User and Class session and returns the existing attempt on a conflict;
+`extend_deadline` locks the Student's extension row in `modules/sessions`, and the attempt row too
+when there is one. A change of the Class session's Test deadline moves `effective_deadline` of its
+attempts not yet closed (open or handed in early, Story 11.11) in the save's transaction
+(`move_deadline`, `sessions.register_test_deadline_mover`); a Student with their own extension
+(Story 11.13) keeps the later of it and the new date.
+
+- Routes: `GET /api/me/class-sessions/{id}/test` (`statement`, `open` with the items, `closed`
+  when the Test deadline passed with no attempt) and `POST …` (accept the statement: 201 made, 200
+  the one the Student has). 403 `replay_required` before `progress.has_step(…, replay)`; 409
+  `test_deadline_passed`; 403 `forbidden` for every session that is not the Student's own locked
+  one, whether or not an attempt exists (FR-5). No item is served before the statement; no weight
+  or answer key is ever sent to the Student.
+- `open_attempt` runs under the Class session row's share lock and closes the Student's Debrief
+  follow-up questions in the same transaction (`debrief.service.close_follow_up`, FR-45); it emits
+  `user:<id>`. No answer text is logged.
+
+## Answering multiple-choice items with autosave (Story 11.4)
+
+- Route: `PUT /api/me/class-sessions/{id}/test/answers/{item_id}` with `{value, revision}`
+  (`saveMyTestAnswer`). `commands.save_answer` locks the attempt row `FOR UPDATE` and upserts the
+  answer only when `revision` is above the stored one (AD-10); the stored answer
+  (`{item_id, value, revision, saved_at}`) comes back either way, so a late save from a second
+  device is no error. 409 `attempt_submitted`, 409 `test_deadline_passed`, 422 `unknown_item`,
+  422 `invalid_answer` (a choice item: not one of its option ids; table and number items: see
+  Story 11.5; long answers: Story 11.6), 403 `forbidden` for any
+  session that is not the Student's own or a test not yet opened. No event; no value logged.
+- `GET`/`POST …/test` items carry `options` (a choice item's option ids) and `answer` (the saved
+  `{value, revision, saved_at}` or null). No score and no right or wrong state is sent (FR-54).
+- Scoring: `analysis.scoring.score_choice(answer, key)`, pure; the AI assessment (Epic 12) reads
+  it. The web app computes no score.
+
+## Answering table and number Interactive items (Story 11.5)
+
+- Content: question set version 2 (migration 0124) gives every table item and every number item
+  that is not a Starting task item its own table and computed rule (`interactive`, shaped by
+  `analysis.scoring.InteractiveRule`). Attempts pinned to version 1 show those items by title and
+  refuse their answers.
+- Items out carry `table` (prompt, hint, caption, one row label per Uke, the given columns, the
+  asked column's label, `negative`) or `column` (a number item's given rows and asked row; a
+  Starting task item's from the Class session's pinned Starting task, `starting_task: true`).
+  Never a criterion, an expected value or a score.
+- Saves go through `save_answer` (Story 11.4's path): a table answer is one whole number or null
+  per row, a number answer a whole number or null; |value| at most 1 000 000; negative only where
+  the item allows it (a Starting task item always does). Anything else is 422 `invalid_answer`.
+- Scoring: `tests.scoring.score_answer(item, value, starting_task)` picks the pure rule:
+  `score_choice`, `score_sum` for a Starting task item (FR-85), and `score_interactive` for a
+  table or number item, partial credit per coded criterion with its explanation (FR-80). Epic 12
+  reads it; the web app computes no score.
+
+## Writing long answers with autosave (Story 11.6)
+
+- A long-answer item's answer is its text as typed, stored unchanged through `save_answer`: a
+  string of at most `commands.LONG_ANSWER_MAX` (20 000) characters, `""` once emptied. Anything
+  else, a NUL character (JSONB cannot hold it) or a lone surrogate is 422 `invalid_answer`.
+- Items out stay as they are: the question is the item's `title` from the attempt's pinned
+  question set version, shown as-is (so the item tagged `explanation-wording` keeps the
+  Explanation's wording, FR-52).
+- No LLM call and no score: `tests.scoring.score_answer` returns None for a long answer; the
+  Scoring guide scores it in Epic 12. No answer text is logged.
+- The page keeps every keystroke on the device (`lib/drafts.ts`) and saves when typing pauses
+  (`LONG_ANSWER_PAUSE_MS` in `frontend/src/modules/tests/autosave.ts`, a placeholder), when the
+  field loses focus and when the page is hidden.
+
+## Adapted items from the Student's own game and Replay (Story 11.7)
+
+- `adapted.build`, called by `open_attempt` in its transaction, appends the Student's Adapted
+  items to the frozen list, so opening never waits on a job or an LLM call. The templates are the
+  content kind `adapted_templates` at the version the Start-date lock pinned
+  (`pins["adapted_templates"]`), so every Student of the Class session gets the same templates (a
+  session locked before that pin reads the latest version at each open).
+- Each template is filled by `analysis.adapted.fill` from one stored facts set: the Student's
+  Seat in their own Class game (`games.service.student_game`) or in their Replay
+  (`replay.service.replay_game_of`, the same Role), read through `games.service.fact_set`. A
+  frozen Adapted item is `{id, type: "adapted", weight, template_version, source, fact,
+  fact_set_id, fact_ids, text: {text, ai_generated: false, llm_call_id: null}}`; code renders
+  every number, Week and Role. The items carry the selection's `adapted_weight` between them,
+  split by the templates' shares into whole numbers (`analysis.adapted.apportion`).
+- Fewer than 10 own Orders in the own game (the facts set's `decided_by = student` count, AD-15)
+  gives the question set's replacement Core items instead, scaled to the same total, each frozen
+  with `replaces: "few_orders"`. So does an own game, Replay or facts set that cannot be read
+  (`no_game`, `no_replay`, `facts_unavailable`) or a template that finds no fact (`unfilled`); the
+  reason is logged with ids only. An Adapted total of 0 serves neither.
+- An Adapted item is answered as a long answer (Story 11.6's validation and autosave). The page
+  gets `type: "adapted"`, its frozen text as `title` and as `wording` (`{text, ai_generated,
+  llm_call_id}`), never its facts or weight. The items never change once frozen: a second open
+  returns them as stored, whatever template version is newer.
+
+## Adapted items in natural wording, prepared before the test opens (Story 11.8)
+
+The Deferred item "Timing of Adapted items", closed here (`prepare.py`, `jobs.py`):
+
+- `ops.sweep`'s due action `tests.prepare_adapted` finds each Student with the `replay` step
+  (within `PREPARE_WINDOW`, 30 days), no attempt and no prepared set, at most 50 a minute, and
+  defers the idempotent job `tests.prepare_adapted(user_id, class_session_id)` on `llm-batch`
+  (queueing lock `adapted:<user>:<session>`, ids only).
+- The job builds the items exactly as opening would (`adapted.build_with_sets`), then, when the
+  Class session's pinned Debrief AI-text switch is on with a model config, makes one
+  `adapted_item_wording` call per Adapted item whose template has `wordings` (version 2 on),
+  through `app.ai.text.worded` with the Class session as budget scope. The output names a wording
+  id and the item's fact id only; `analysis.adapted.validate_wording` checks it against the facts
+  set whose id the item stores, and code renders the text. A rejection or a typed failure keeps
+  the code text; the call is never retried. The set is stored once in `test_prepared_items` (its
+  question set version and Adapted total with it), and not at all when the Student opened the
+  test meanwhile.
+- `open_attempt` freezes the prepared items when they were prepared for the selection it opens
+  on; otherwise it builds them as in Story 11.7, so opening never waits on an LLM call. A frozen
+  attempt never changes, whatever a later or repeated job does.
+- The page shows an AI-worded item's label as «KI-generert, kan ta feil: «…»» with
+  `data-ai-generated="true"`, taken from `wording.ai_generated` only.
+
+## The Adapted item preview with a sample Student (Story 11.9)
+
+`preview.py`: `GET /api/class-sessions/{id}/adapted-preview` (owners and Assistant lecturers,
+`class_sessions.read`; 403 `forbidden` for everyone else and for a session that does not exist).
+
+- Each template of the version the Class session pins (the lock's pin; the latest before the
+  lock) is filled by `analysis.adapted.fill` from one static sample facts set, with its share of
+  the Adapted total in force (the pinned selection, else the one «Spørsmål og vekter» shows).
+  `text` is null for a template whose fact the sample lacks.
+- The sample is `files/sample_facts.json`: the Retailer of Story 9.1's Takeover golden Game (a
+  Student placed the Orders of Weeks 3-14), built by `analysis.facts` from the fixture
+  `tests/golden/facts/takeover-seat-weeks.json` with Detected patterns v1 and no simulated rows.
+  Both template sources read it. `tests/individual_test/test_preview.py` rebuilds it and
+  compares (rewrite with `UPDATE_GOLDEN=1`); `tests/games/test_facts.py` checks the fixture
+  against the played Game.
+- No Game row, no stored facts set, no LLM call and no write.
+
+## Reviewing and submitting the Individual test (Story 11.10)
+
+- Route: `POST /api/me/class-sessions/{id}/test/submit` (`submitMyTest`): 200 with the test in
+  state `submitted` and `submitted_at`. 409 `attempt_submitted` when it was handed in already
+  (nothing changes), 409 `test_deadline_passed` after the Student's `effective_deadline` (the sweep
+  of Story 11.11 hands it in), 403 `forbidden` for a session that is not theirs or a test not yet
+  opened.
+- `commands.submit` locks the attempt row `FOR UPDATE` and, in one transaction, scores the saved
+  answers (`commands.score_answers`: `tests.scoring.score_answer` per choice, table and number
+  answer, stored in `test_answers.score` with `scored_version`, the question set version; long
+  answers and Adapted items keep `score` null for Epic 12; an item with no saved answer has no
+  row), sets `status = 'submitted'` and `submitted_at`, and records `test_submitted` through
+  `progress.record_step`, which emits `user:<id>` and `session:<id>` (`tests.submit` in the
+  registry). The command returns an attempt handed in already unchanged; the route answers that
+  with `attempt_submitted`. Stories 11.11 and 11.12 reuse `score_answers`.
+- `GET …/test` on a handed-in attempt answers `submitted` (or `auto_submitted`, Story 11.11) with
+  the items and saved answers, read-only on the page; never a score (FR-54).
+- `sessions.service.reminder_recipients` leaves Students with `test_submitted` out of the Test
+  deadline reminder (FR-18).
+
+## Saved answers handed in at the Test deadline (Story 11.11)
+
+- The order at the Test deadline (AD-9): the sweep's `sessions.lock_test` pins the Scoring guide
+  in force and the «KI-vurdering» switch; the next due action, `tests.close_attempt`, then closes
+  each attempt whose `effective_deadline` has passed, one per transaction with its id
+  (`commands.due_closes`, at most 200 a sweep, only in Class sessions `lock_test` has run for;
+  `commands.close_due`).
+- `commands.close_attempt(attempt_id, now)` share-locks the Class session row through
+  `sessions.test_locked_session` (None before the lock: nothing happens), then the attempt row
+  `FOR UPDATE`. An `open` attempt becomes `auto_submitted`, its saved answers scored exactly as at a
+  hand-in (`score_answers`), `submitted_at` = its `effective_deadline`, and `test_submitted` is
+  recorded as of the deadline (`user:<id>`, `session:<id>`; `tests.close_attempt` in the
+  registry). An attempt handed in earlier keeps everything and emits nothing. Either way
+  `test_attempts.closed_at` (migration 0128) is set once, so a repeat changes nothing. This is the
+  one place Epic 12 starts the AI assessment.
+- A save between the deadline and the sweep is refused with `test_deadline_passed`, so what is
+  handed in is what was saved by the deadline. A Student who never opened the test gets no
+  attempt: `GET …/test` answers `closed`, `POST …/test` 409 `test_deadline_passed`, and Hjem's test
+  step stays current and not done with `closed` («ikke gjort, Testfristen er ute»).
+- `service.parts_with_content(user_id, class_session_id)` tells Completion (Epic 13, FR-17) for
+  each part among the attempt's items (`choice`, `interactive`, `long`, `adapted`) whether any
+  item holds a saved answer with content; None without an attempt.
+
+## One timed sitting (Story 11.12)
+
+- `test_sittings` (migration 0129): a Class session's time limit in whole minutes; a row means
+  the test is taken in one timed sitting, no row that it is not. «Lagre Klasseøkt» sends
+  `test_sitting: {minutes}` (null: off); `sessions.save_session` judges the configured range
+  (`test_sitting_min_minutes`/`test_sitting_max_minutes`, PLACEHOLDERS; 422
+  `invalid_session_values` `test_sitting_minutes`), refuses a change once the Class session is
+  locked (409 `session_locked` `test_sitting`) and stores it through `tests.service`, which
+  registers `sitting.minutes_of`/`sitting.write` with `sessions.register_test_sitting` and
+  `sitting.copy_sitting` with `register_copier` (FR-66). `ClassSessionOut.test_sitting` reads it.
+- `open_attempt` sets `test_attempts.sitting_ends_at` = opening time + limit × the Student's time
+  factor (`sitting.time_factor`: Story 8.9's `sessions.get_adjustment` above 1, else 1).
+  `effective_deadline` never changes. `rules.answering_ends_at` is the earlier of the two;
+  `save_answer` and `submit` answer 409 `sitting_ended` once the sitting ended before the deadline
+  (`rules.sitting_ended`), else `test_deadline_passed`.
+- The sweep's `tests.end_sitting` (before the Test-deadline actions) finds the open attempts whose
+  sitting ended before their deadline (`commands.due_sitting_ends`, at most 200 a sweep) and runs
+  `commands.end_sitting`: under the Class session's share lock and the attempt row lock it scores
+  the saved answers, sets `auto_submitted` with `submitted_at` = `sitting_ends_at` and records
+  `test_submitted` (`user`, `session`). It sets no `closed_at` and starts nothing else:
+  `close_attempt` still runs at the attempt's `effective_deadline`, after `sessions.lock_test`.
+  A sitting that would end at or after the deadline ends with it, through `close_attempt`.
+- `GET …/test` carries `time_limit_minutes` (also on the statement), `sitting_ends_at`,
+  `answering_ends_at`, `server_now` and `sitting_ended`; the page counts «Tid igjen N min» from
+  them.
+
+## One Student's own Test deadline (Story 11.13, FR-18)
+
+- `PUT /api/class-sessions/{id}/students/{user_id}/deadline` («Lagre frist» on the Studentside,
+  operation `extendTestDeadline`, `class_sessions.manage`) runs `commands.extend_deadline`: target
+  through `sessions.student_target` (a Lecturer of the Class, the User a Student of it now; else
+  403 `forbidden`), then one transaction: the Class session share-locked (`sessions.test_session`),
+  the attempt `FOR UPDATE` (handed in: 409 `attempt_submitted`, nothing stored),
+  `sessions.save_extension` (422 `invalid_extension` `not_later`/`passed`/`no_test_deadline`,
+  409 `class_archived`; the extension row locked and upserted, audited), the open attempt's
+  `effective_deadline` set to the Student's `effective_test_deadline` (`sitting_ends_at` untouched),
+  `user:<student>` and `session:<id>` emitted. Answers `sessions.StudentDeadlinesOut`.
+- The sweep's `close_attempt` reads `effective_deadline`, so the extended Student's attempt closes at
+  their own date; `sessions.lock_test` still runs at the Class session's original Test deadline.

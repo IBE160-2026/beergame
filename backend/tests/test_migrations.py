@@ -105,6 +105,20 @@ WALKTHROUGH_TABLES = {"replay_narrations", "replay_walkthroughs"}
 """The tables of revision 0118 (Story 10.7)."""
 RATING_TABLES = {"believability_ratings", "replay_another_round"}
 """The tables of revision 0119 (Story 10.8)."""
+ASSESSMENT_SWITCH_TABLES = {"assessment_switches"}
+"""The tables of revision 0120 (Story 12.1)."""
+QUESTION_SET_TABLES = {"test_selections"}
+"""The tables of revision 0121 (Story 11.1)."""
+SCORING_GUIDE_TABLES = {"test_scoring_guides"}
+"""The tables of revision 0122 (Story 11.2)."""
+ATTEMPT_TABLES = {"test_attempts", "test_answers"}
+"""The tables of revision 0123 (Story 11.3)."""
+PREPARED_TABLES = {"test_prepared_items"}
+"""The tables of revision 0126 (Story 11.8)."""
+SITTING_TABLES = {"test_sittings"}
+"""The tables of revision 0129 (Story 11.12)."""
+EXTENSION_TABLES = {"student_deadline_extensions"}
+"""The table of revision 0130 (Story 11.13)."""
 RECLAIM_TABLES = {"seat_reclaims"}
 """The table of revision 0055 (Story 8.4)."""
 ADJUSTMENT_TABLES = {"student_adjustments"}
@@ -132,10 +146,17 @@ HEAD_TABLES = (
     | REPLAY_TABLES
     | WALKTHROUGH_TABLES
     | RATING_TABLES
+    | ASSESSMENT_SWITCH_TABLES
+    | QUESTION_SET_TABLES
+    | SCORING_GUIDE_TABLES
+    | ATTEMPT_TABLES
+    | PREPARED_TABLES
+    | SITTING_TABLES
+    | EXTENSION_TABLES
     | RECLAIM_TABLES
     | ADJUSTMENT_TABLES
 )
-HEAD = "0064"  # 0064 adds the agreed Pause time to the Oversikt summaries (Story 8.7)
+HEAD = "0130"  # 0130 adds one Student's own Test deadline (11.13); 0120-0130 follow main's 0064
 
 
 def reset_schema(url: str) -> None:
@@ -238,7 +259,7 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     assert "'student_choice'" in sessions["ck_class_sessions_allocation_method"]
     reminders = constraints(url, "deadline_reminders")
     assert "'test_deadline'" in reminders["ck_deadline_reminders_deadline"]
-    assert "deadline, deadline_at)" in reminders["uq_deadline_reminders_deadline"]
+    assert "deadline, deadline_at, user_id)" in reminders["uq_deadline_reminders_deadline"]
     assert "ON DELETE SET NULL" in definition(url, "fk_class_sessions_copied_from")
     steps = constraints(url, "progress_steps")
     assert "UNIQUE (user_id, class_session_id, step)" in steps["uq_progress_steps_step"]
@@ -268,19 +289,6 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     sent = constraints(url, "messages")
     assert "UNIQUE (key)" in sent["messages_key_key"]
     assert "'class_session'" in sent["ck_messages_recipient_kind"]
-
-    # 0064 (Story 8.7, Epic 8 close-out): the agreed Pause time on the summaries.
-    assert "resume_at" in columns(url, "game_summaries")
-    command.downgrade(cfg, "0063")
-    assert "resume_at" not in columns(url, "game_summaries")
-    # 0055 (Story 8.4): at most one queued Reclaim per Seat.
-    assert definition(url, "seat_reclaims_pkey") == "PRIMARY KEY (seat_id)"
-    command.downgrade(cfg, "0054")
-    assert RECLAIM_TABLES.isdisjoint(tables(url))
-    # Epic 8's revisions follow Epics 9 and 10 (0053's down_revision is 0119 since the merges of
-    # main).
-    command.downgrade(cfg, "0119")
-    assert "takeover_due_at" not in columns(url, "seat_turns")
 
     # 0101 (Story 9.1): version 1 of the Detected patterns; a facts set is never changed.
     [(patterns,)] = rows(url, "SELECT body FROM content_records WHERE kind = 'detected_patterns'")
@@ -336,6 +344,113 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     # 0111 (Story 9.12): presence, the Students who go on alone and the 48-hour fallback.
     assert "last_seen_at" in columns(url, "debrief_members")
     assert {"fallback_due_at", "fallback_at"} <= columns(url, "debrief_sessions")
+
+    # 0130 (Story 11.13): one Student's own Test deadline, and a reminder row may name a Student.
+    assert {"test_deadline", "debrief_deadline", "updated_by"} <= columns(
+        url, "student_deadline_extensions"
+    )
+    assert "NULLS NOT DISTINCT" in definition(url, "uq_deadline_reminders_deadline")
+    command.downgrade(cfg, "0129")
+    assert EXTENSION_TABLES.isdisjoint(tables(url))
+    assert "user_id" not in columns(url, "deadline_reminders")
+    assert "deadline, deadline_at)" in definition(url, "uq_deadline_reminders_deadline")
+
+    # 0129 (Story 11.12): a Class session's one timed sitting.
+    assert {"minutes", "updated_by", "updated_at"} <= columns(url, "test_sittings")
+    command.downgrade(cfg, "0128")
+    assert "test_sittings" not in tables(url)
+
+    # 0128 (Story 11.11): when the Test-deadline close ran for an attempt.
+    assert "closed_at" in columns(url, "test_attempts")
+    command.downgrade(cfg, "0127")
+    assert "closed_at" not in columns(url, "test_attempts")
+
+    # 0127 (Story 11.10): the computed score of each test answer and its question set version.
+    assert {"score", "scored_version"} <= columns(url, "test_answers")
+    command.downgrade(cfg, "0126")
+    assert {"score", "scored_version"}.isdisjoint(columns(url, "test_answers"))
+
+    # 0126 (Story 11.8): version 2 of the Adapted item templates, with their wordings, and the
+    # prepared sets.
+    templates = (
+        "SELECT version, body->>'status' FROM content_records WHERE kind = 'adapted_templates' "
+        "ORDER BY version"
+    )
+    assert rows(url, templates) == [(1, "draft"), (2, "draft")]
+    assert {"items", "adapted_weight"} <= columns(url, "test_prepared_items")
+    command.downgrade(cfg, "0125")
+    assert PREPARED_TABLES.isdisjoint(tables(url))
+
+    # 0125 (Story 11.7): version 1 of the Adapted item templates, a kind of its own.
+    assert rows(url, templates) == [(1, "draft")]
+    command.downgrade(cfg, "0124")
+    assert rows(url, templates) == []
+
+    # 0124 (Story 11.5): version 2 of the question set, its Interactive items with their tables.
+    sets = "SELECT version, body FROM content_records WHERE kind = 'question_set' ORDER BY version"
+    [(v1, first), (v2, second)] = rows(url, sets)
+    assert (v1, v2) == (1, 2)
+    assert "interactive" not in first["items"][5] and second["items"][5]["interactive"]
+    command.downgrade(cfg, "0123")
+    assert [version for version, _ in rows(url, sets)] == [1]
+
+    # 0123 (Story 11.3): the Individual test's attempts, one per Student and Class session, and
+    # their answers.
+    assert {"question_set_version", "selection", "items", "effective_deadline", "status"} <= (
+        columns(url, "test_attempts")
+    )
+    assert {"attempt_id", "item_id", "value", "revision"} <= columns(url, "test_answers")
+    command.downgrade(cfg, "0122")
+    assert ATTEMPT_TABLES.isdisjoint(tables(url))
+
+    # 0122 (Story 11.2): the Scoring guide kind with its draft version 1, the Class session an
+    # edited version was made for, and each Class session's guide in force, frozen once pinned.
+    assert "scoring_guide" in definition(url, "ck_content_records_kind")
+    assert "class_session_id" in columns(url, "content_records")
+    assert {"scoring_guide_id", "base_id", "pinned_at"} <= columns(url, "test_scoring_guides")
+    assert function_names(url, "test_scoring_guides_pinned")
+    command.downgrade(cfg, "0121")
+    assert SCORING_GUIDE_TABLES.isdisjoint(tables(url))
+    assert "scoring_guide" not in definition(url, "ck_content_records_kind")
+    assert "class_session_id" not in columns(url, "content_records")
+    assert not function_names(url, "test_scoring_guides_pinned")
+
+    # 0121 (Story 11.1): the question set kind with its draft version 1, a Class session's
+    # selection of it, and why the lock was refused.
+    assert "question_set" in definition(url, "ck_content_records_kind")
+    assert {"question_set_version", "excluded", "weights", "adapted_weight"} <= columns(
+        url, "test_selections"
+    )
+    assert "lock_refused_reason" in columns(url, "class_sessions")
+    command.downgrade(cfg, "0120")
+    assert QUESTION_SET_TABLES.isdisjoint(tables(url))
+    assert "question_set" not in definition(url, "ck_content_records_kind")
+    assert "lock_refused_reason" not in columns(url, "class_sessions")
+    assert not rows(url, "SELECT 1 FROM content_records WHERE kind = 'question_set'")
+
+    # 0120 (Story 12.1): the «KI-vurdering» switch per Class session, unchangeable once pinned,
+    # and when the Test-deadline lock ran.
+    assert {"enabled", "pinned_at"} <= columns(url, "assessment_switches")
+    assert "test_locked_at" in columns(url, "class_sessions")
+    assert function_names(url, "assessment_switches_pinned")
+    # Epic 11's revisions follow Epic 8's (0120's down_revision is 0064 since the merge of main).
+    command.downgrade(cfg, "0064")
+    assert ASSESSMENT_SWITCH_TABLES.isdisjoint(tables(url))
+    assert "test_locked_at" not in columns(url, "class_sessions")
+    assert not function_names(url, "assessment_switches_pinned")
+
+    # 0064 (Story 8.7, Epic 8 close-out): the agreed Pause time on the summaries.
+    assert "resume_at" in columns(url, "game_summaries")
+    command.downgrade(cfg, "0063")
+    assert "resume_at" not in columns(url, "game_summaries")
+    # 0055 (Story 8.4): at most one queued Reclaim per Seat.
+    assert definition(url, "seat_reclaims_pkey") == "PRIMARY KEY (seat_id)"
+    command.downgrade(cfg, "0054")
+    assert RECLAIM_TABLES.isdisjoint(tables(url))
+    # Epic 8's revisions follow Epics 9 and 10 (0053's down_revision is 0119 since the merges of
+    # main).
+    command.downgrade(cfg, "0119")
+    assert "takeover_due_at" not in columns(url, "seat_turns")
 
     # 0119 (Story 10.8): a believability answer per Student and Game (1 to 5), an another-round
     # answer per Student and Class session, each stored once.

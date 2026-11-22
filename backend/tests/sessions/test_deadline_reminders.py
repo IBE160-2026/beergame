@@ -273,7 +273,11 @@ def test_the_deadline_names_agree():
 def test_the_delivery_table_names_the_reminder_as_digest():
     assert delivery.DEADLINE_REMINDER_KIND == service.DEADLINE_REMINDER_NOTICE
     assert delivery.KINDS[service.DEADLINE_REMINDER_NOTICE].mode == delivery.DIGEST
-    assert [a.name for a in sweep.DUE_ACTIONS][-1] == "sessions.send_deadline_reminder"
+    # Story 11.13: each Student's own reminders come right after the Class session's.
+    assert [a.name for a in sweep.DUE_ACTIONS][-2:] == [
+        "sessions.send_deadline_reminder",
+        "sessions.send_own_deadline_reminder",
+    ]
 
 
 async def test_a_reminder_item_holds_a_session_id_and_a_deadline_name():

@@ -26,11 +26,19 @@ const copy = nb.reports.adjustment;
  * 0 to the class share, the line on whom it concerns, the primary «Lagre tilrettelegging» and
  * «Avbryt». Focus moves to the chosen Valgknapp on open, back to the opener on «Avbryt», to the
  * share field when it is refused, and to «Lagret. Gjelder fra nå.» with the summary once saved.
- * There is no field for a reason.
+ * There is no field for a reason. The page keeps one form open at a time (Story 11.13): `open`
+ * and `onOpenChange` are its, and opening another form closes this one, keeping nothing.
  */
-export function AdjustmentBlock({ data }: { data: StudentPage }) {
+export function AdjustmentBlock({
+  data,
+  open,
+  onOpenChange: setOpen,
+}: {
+  data: StudentPage;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   const titleId = useId();
-  const [open, setOpen] = useState(false);
   const [saved, setSaved] = useState(0);
   const openerRef = useRef<HTMLButtonElement>(null);
   const savedRef = useRef<HTMLDivElement>(null);

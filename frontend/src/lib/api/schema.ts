@@ -574,8 +574,41 @@ export interface paths {
          *     `feature_disabled`; `own` with no template sent or stored names
          *     `replay_template` `required`. Once locked, a changed scenario answers 409 `session_locked`
          *     (`{"replay_scenario": "locked"}`).
+         *
+         *     `ai_assessment` (Story 12.1, FR-61), left out, keeps the «KI-vurdering» switch. It can change
+         *     after the Start date too; once the original Test deadline has passed (and the Test-deadline
+         *     lock has pinned it) a changed value answers 409 `ai_assessment_pinned`
+         *     (`{"ai_assessment": "pinned"}`). Only the Class's owners change it (`ai_assessment.change`).
+         *
+         *     `test_sitting` (Story 11.12, FR-51), left out, keeps the Individual test's one timed sitting:
+         *     `{"minutes": n}` sets the time limit in whole minutes, `{"minutes": null}` switches it off. A
+         *     limit outside the configured range answers 422 `invalid_session_values`
+         *     (`{"test_sitting_minutes": "out_of_range"}`); once locked a change answers 409
+         *     `session_locked` (`{"test_sitting": "locked"}`).
          */
         put: operations["saveClassSession"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class-sessions/{session_id}/adapted-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Adapted Preview
+         * @description The Adapted item preview (Story 11.9, FR-53, UX-DR70): each template of the version the
+         *     Class session pins, filled by code from the static sample facts set («Demodata»), with its
+         *     weight of the Adapted total in force. No Game, no stored facts set, no LLM call.
+         */
+        get: operations["getAdaptedPreview"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -923,6 +956,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/class-sessions/{session_id}/question-set": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Session Question Set
+         * @description The Klasseøkt's «Spørsmål og vekter» block (Story 11.1, FR-52, FR-53): every Core item of
+         *     the question set with its type, weight in force and whether it is taken out, the Adapted
+         *     items' total weight, the sum, whether the set is a draft and whether it can still change
+         *     (before the Start date). Once locked, the selection the lock pinned.
+         */
+        get: operations["getSessionQuestionSet"];
+        /**
+         * Set Session Question Set
+         * @description «Lagre vekter» (Story 11.1, FR-52, AD-15): the whole selection, stored on the latest
+         *     question set version and recorded in the audit log. 422 `weights_not_100` when the weights
+         *     of the items left in plus the Adapted total are not 100, `validation_error` for an unknown
+         *     item, a missing weight or every item taken out; 409 `session_locked` from the Start date,
+         *     `class_archived` for an archived Class; 403 `forbidden` for an Assistant lecturer and every
+         *     other caller.
+         */
+        put: operations["setSessionQuestionSet"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/class-sessions/{session_id}/replay-scenario-check": {
         parameters: {
             query?: never;
@@ -940,6 +1005,38 @@ export interface paths {
          *     `session_locked`.
          */
         post: operations["checkReplayScenario"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class-sessions/{session_id}/scoring-guide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Session Scoring Guide
+         * @description The Klasseøkt's «Sensorveiledning» block (Story 11.2, FR-81): the Scoring guide in force,
+         *     each question's guide text marked «Standard» or «Endret», its coded criteria (read-only), the
+         *     one five-step scale, whether a Control test has checked the version, and whether it can still
+         *     change (before the original Test deadline). Once pinned, the version pinned.
+         */
+        get: operations["getSessionScoringGuide"];
+        /**
+         * Set Session Scoring Guide
+         * @description «Lagre sensorveiledning» (Story 11.2, FR-81, AD-23): the changed guide texts, stored as a
+         *     new Scoring guide version made for the Class session and recorded in the audit log; the
+         *     earlier version is unchanged. 422 `validation_error` for a question the guide does not have
+         *     or a text the record refuses (`fields` by question id); 409 `scoring_guide_locked` from the
+         *     original Test deadline, `class_archived` for an archived Class; 403 `forbidden` for an
+         *     Assistant lecturer and every other caller.
+         */
+        put: operations["setSessionScoringGuide"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1083,6 +1180,32 @@ export interface paths {
          *     `share_percent` `out_of_range`); 409 `class_archived`; 403 `forbidden` as `getStudentPage`.
          */
         put: operations["saveAdjustment"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class-sessions/{session_id}/students/{user_id}/deadline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Extend Test Deadline
+         * @description «Lagre frist» on the Studentside (Story 11.13, FR-18, AD-9): the Student's own Test
+         *     deadline, later than the Class session's, and their Debrief deadline moved by the same amount;
+         *     an open Individual test attempt takes it at once (a timed sitting keeps its end). Recorded in
+         *     the audit log. Answers the block «Frister». 422 `invalid_extension` with `fields.test_deadline`
+         *     (`not_later`, `passed`, `no_test_deadline`); 409 `attempt_submitted` when the Student has
+         *     handed the test in; 409 `class_archived`; 403 `forbidden` for anyone but a Lecturer of the
+         *     Class (an Assistant lecturer too) and for a User who is no Student of it.
+         */
+        put: operations["extendTestDeadline"];
         post?: never;
         delete?: never;
         options?: never;
@@ -2428,6 +2551,88 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/class-sessions/{session_id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Test
+         * @description The Student's Individual test (Story 11.3, FR-51): `statement` until they accept the
+         *     own-work statement, with no item; `open` with their items in order once they have; `closed`
+         *     when their Test deadline passed with no attempt. 403 `replay_required` before the Replay is
+         *     completed, `forbidden` for any session that is not theirs.
+         */
+        get: operations["getMyTest"];
+        put?: never;
+        /**
+         * Open My Test
+         * @description Accept the own-work statement and open the Individual test (Story 11.3, FR-51): 201 with
+         *     the attempt this request made, 200 with the one the Student has (also when two opens run at
+         *     once). 403 `replay_required` before the Replay is completed, 409 `test_deadline_passed` after
+         *     the Student's Test deadline with no attempt, 403 `forbidden` for any session that is not
+         *     theirs.
+         */
+        post: operations["openMyTest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/class-sessions/{session_id}/test/answers/{item_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save My Test Answer
+         * @description Autosave the Student's answer to one item (Story 11.4, FR-51, AD-10): the answer stored
+         *     after the save. It is replaced only when `revision` is above the stored one; otherwise the
+         *     stored answer comes back unchanged, without an error. 409 `attempt_submitted` once the test is
+         *     handed in, 409 `test_deadline_passed` after the Student's Test deadline, 409 `sitting_ended`
+         *     once their timed sitting has ended (Story 11.12), 422 `unknown_item`
+         *     for an item the attempt does not have, 422 `invalid_answer` for a value that does not answer
+         *     the item, 403 `forbidden` for any session that is not theirs or a test not yet opened.
+         */
+        put: operations["saveMyTestAnswer"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/class-sessions/{session_id}/test/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit My Test
+         * @description «Lever testen» (Story 11.10, FR-51, AD-9, AD-16): the Student hands in their Individual
+         *     test once; their saved answers are scored and stored and `test_submitted` is recorded. 200
+         *     with the test as handed in (state `submitted`). 409 `attempt_submitted` when it was handed in
+         *     already (nothing changes), 409 `test_deadline_passed` after the Student's Test deadline, 409
+         *     `sitting_ended` once their timed sitting has ended (Story 11.12), 403
+         *     `forbidden` for any session that is not theirs or a test not yet opened.
+         */
+        post: operations["submitMyTest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me/games/{game_id}": {
         parameters: {
             query?: never;
@@ -2939,6 +3144,63 @@ export interface components {
          */
         AccountRole: "admin" | "lecturer";
         /**
+         * AdaptedOut
+         * @description The Adapted items' one line: their total weight in force and its default (30 % in the
+         *     shipped set), and how many replacement Core items a Student with fewer than 10 own Orders
+         *     gets in their place, with the same total weight (FR-53).
+         */
+        AdaptedOut: {
+            /** Default Weight */
+            default_weight: number;
+            /** Replacements */
+            replacements: number;
+            /** Weight */
+            weight: number;
+        };
+        /**
+         * AdaptedPreviewItemOut
+         * @description One Adapted item template filled for the sample Student (Story 11.9): its id, the Game it
+         *     reads (`game`, the Class game, or `replay`), its fact kind, its weight (its share of the
+         *     Adapted total) and the code-rendered text; `text` is None when the sample has no such fact.
+         */
+        AdaptedPreviewItemOut: {
+            /**
+             * Fact
+             * @enum {string}
+             */
+            fact: "moment" | "pattern" | "outcome";
+            /** Id */
+            id: string;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "game" | "replay";
+            /** Text */
+            text: string | null;
+            /** Weight */
+            weight: number;
+        };
+        /**
+         * AdaptedPreviewOut
+         * @description The Adapted item preview (Story 11.9, FR-53, UX-DR70): the template version the Class
+         *     session pins (pinned once locked, the latest before), whether it is a draft (issue #16),
+         *     whether the lock has pinned it, the Adapted total weight in force, and each template filled
+         *     from the static sample facts set («Demodata»).
+         */
+        AdaptedPreviewOut: {
+            /** Adapted Weight */
+            adapted_weight: number;
+            /** Draft */
+            draft: boolean;
+            /** Items */
+            items: components["schemas"]["AdaptedPreviewItemOut"][];
+            /** Pinned */
+            pinned: boolean;
+            /** Version */
+            version: number;
+        };
+        /**
          * AddressProblem
          * @description Why a value is not an address (Story 4.3, FR-7). The web app words each one.
          * @enum {string}
@@ -2964,6 +3226,21 @@ export interface components {
             share_percent: number | null;
             /** Time Factor */
             time_factor: number;
+        };
+        /**
+         * AiAssessmentOut
+         * @description The «KI-vurdering» switch of a Class session (Story 12.1, FR-61), stored by
+         *     `modules/assessment`.
+         */
+        AiAssessmentOut: {
+            /** Can Change */
+            can_change: boolean;
+            /** Enabled */
+            enabled: boolean;
+            /** Open */
+            open: boolean;
+            /** Pinned At */
+            pinned_at: string | null;
         };
         /**
          * AiDescriptionsOut
@@ -3196,6 +3473,16 @@ export interface components {
             key: string;
             /** Label */
             label: string | null;
+        };
+        /**
+         * AxisOut
+         * @description A drawn item's value axis (Story 11.14): the range its graph's points are placed in.
+         */
+        AxisOut: {
+            /** Max */
+            max: number;
+            /** Min */
+            min: number;
         };
         /**
          * Believability
@@ -3511,6 +3798,7 @@ export interface components {
          * @description One Class session as its Class's staff read it.
          */
         ClassSessionOut: {
+            ai_assessment: components["schemas"]["AiAssessmentOut"];
             ai_descriptions: components["schemas"]["AiDescriptionsOut"];
             ai_mode: components["schemas"]["AiMode"];
             /**
@@ -3574,6 +3862,8 @@ export interface components {
              * @default false
              */
             lock_refused: boolean;
+            /** Lock Refused Reason */
+            lock_refused_reason?: string | null;
             /** Locked */
             locked: boolean;
             /** Locked At */
@@ -3615,6 +3905,7 @@ export interface components {
             /** Test Deadline */
             test_deadline: string | null;
             test_game?: components["schemas"]["TestGameRefOut"] | null;
+            test_sitting: components["schemas"]["TestSittingOut"];
         };
         /**
          * ClassSessionSaveIn
@@ -3626,6 +3917,8 @@ export interface components {
          *     level is in force, and a sent one is ignored.
          */
         ClassSessionSaveIn: {
+            /** Ai Assessment */
+            ai_assessment?: boolean | null;
             ai_mode: components["schemas"]["AiMode"];
             /** Allocation Method */
             allocation_method?: ("random" | "student_choice") | null;
@@ -3652,6 +3945,40 @@ export interface components {
             } | null;
             /** Required Share Percent */
             required_share_percent?: number | null;
+            test_sitting?: components["schemas"]["TestSittingIn"] | null;
+        };
+        /**
+         * ColumnOut
+         * @description A number item's column (Story 11.5): a Starting task item from the Class session's pinned
+         *     Starting task (`starting_task`), or an Interactive number item's own column. Its prompt and
+         *     hint, the column's heading, the given rows, the asked row's label and whether the answer may
+         *     be negative. No expected value and no result.
+         */
+        ColumnOut: {
+            /** Asked Label */
+            asked_label: string;
+            /** Caption */
+            caption: string;
+            /** Hint */
+            hint: string | null;
+            /** Negative */
+            negative: boolean;
+            /** Prompt */
+            prompt: string;
+            /** Rows */
+            rows: components["schemas"]["ColumnRowOut"][];
+            /** Starting Task */
+            starting_task: boolean;
+        };
+        /**
+         * ColumnRowOut
+         * @description A given row of a number item's column.
+         */
+        ColumnRowOut: {
+            /** Label */
+            label: string;
+            /** Value */
+            value: number;
         };
         /**
          * CopiedFromOut
@@ -3756,6 +4083,18 @@ export interface components {
             start_at: string | null;
             /** Test Deadline */
             test_deadline: string | null;
+        };
+        /**
+         * DeadlineExtensionIn
+         * @description «Lagre frist» on the Studentside (Story 11.13, FR-18): the Student's own Test deadline,
+         *     with its time zone. There is no field for a reason.
+         */
+        DeadlineExtensionIn: {
+            /**
+             * Test Deadline
+             * Format: date-time
+             */
+            test_deadline: string;
         };
         /**
          * DebriefMode
@@ -4427,6 +4766,43 @@ export interface components {
             /** Step Opened At */
             step_opened_at: string | null;
         };
+        /**
+         * GuideCriterionOut
+         * @description One coded criterion, read-only in v1: its code, its wording and its weight in %.
+         */
+        GuideCriterionOut: {
+            /** Code */
+            code: string;
+            /** Text */
+            text: string;
+            /** Weight */
+            weight: number;
+        };
+        /**
+         * GuideQuestionOut
+         * @description One question of the Scoring guide as the Lecturer reads it: a long-answer question or an
+         *     Adapted item template, its title, its guide text in force, the default text it derives from,
+         *     whether the two differ («Endret», else «Standard») and its criteria.
+         */
+        GuideQuestionOut: {
+            /** Changed */
+            changed: boolean;
+            /** Criteria */
+            criteria: components["schemas"]["GuideCriterionOut"][];
+            /** Guide */
+            guide: string;
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "long" | "adapted";
+            /** Standard Guide */
+            standard_guide: string;
+            /** Title */
+            title: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -4456,6 +4832,35 @@ export interface components {
              * Format: date-time
              */
             until: string;
+        };
+        /**
+         * IndividualItemOut
+         * @description One item of the Student's frozen Individual test (Story 11.3), in order: its number from 1,
+         *     its type and its text; a choice item's option ids (Story 11.4, `[]` for other types), a table or
+         *     drawn item's value table (Story 11.14) or a number item's column (Story 11.5, null otherwise or
+         *     when the item has none) and the Student's saved answer (null before the first save). An Adapted
+         *     item (Story 11.7) is answered as a long answer; its `title` is its frozen text, and `wording`
+         *     carries that text with whether an AI wrote it (null for every other type). No weight, no answer
+         *     key, no rule, no fact and no score are sent to the Student.
+         */
+        IndividualItemOut: {
+            answer: components["schemas"]["StoredAnswerOut"] | null;
+            column: components["schemas"]["ColumnOut"] | null;
+            /** Id */
+            id: string;
+            /** Number */
+            number: number;
+            /** Options */
+            options: string[];
+            table: components["schemas"]["TableOut"] | null;
+            /** Title */
+            title: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "choice" | "table" | "number" | "long" | "drawn" | "adapted";
+            wording: components["schemas"]["WordingOut"] | null;
         };
         /**
          * InfoVisibility
@@ -4806,6 +5211,7 @@ export interface components {
             /** Terms */
             terms: components["schemas"]["SumTermOut"][];
         };
+        JsonValue: unknown;
         /**
          * LabHourIn
          * @description A Lab hour as the Lecturer adds or changes it (Story 5.6, FR-19): its start and end as
@@ -5053,6 +5459,53 @@ export interface components {
          */
         MySummaryOut: {
             summary: components["schemas"]["SummaryOut"] | null;
+        };
+        /**
+         * MyTestOut
+         * @description The Student's Individual test (Story 11.3, FR-51): `statement` until they accept the
+         *     own-work statement (no item is served), `open` once they have (the items of their attempt in
+         *     order; the statement is not asked again), `closed` when their Test deadline passed with no
+         *     attempt. `test_deadline` is the Student's effective Test deadline (none set: null);
+         *     `opened_at` when they accepted the statement. Once handed in (Story 11.10), `submitted` by
+         *     the Student or `auto_submitted` at the deadline (Story 11.11), with `submitted_at`: the items
+         *     and saved answers stay readable, never with a score (FR-54).
+         *
+         *     In one timed sitting (Story 11.12): `time_limit_minutes` is the Student's own limit (their
+         *     time factor applied, whole minutes rounded up; null when the test is not timed),
+         *     `sitting_ends_at` when their sitting ends once opened, `answering_ends_at` the earlier of that
+         *     and the Test deadline, `server_now` the API's clock for the time left, and `sitting_ended`
+         *     whether the sweep handed the attempt in at the sitting's end.
+         */
+        MyTestOut: {
+            /** Answering Ends At */
+            answering_ends_at?: string | null;
+            /** Items */
+            items: components["schemas"]["IndividualItemOut"][];
+            /** Opened At */
+            opened_at: string | null;
+            /**
+             * Server Now
+             * Format: date-time
+             */
+            server_now: string;
+            /**
+             * Sitting Ended
+             * @default false
+             */
+            sitting_ended: boolean;
+            /** Sitting Ends At */
+            sitting_ends_at?: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "statement" | "open" | "closed" | "submitted" | "auto_submitted";
+            /** Submitted At */
+            submitted_at: string | null;
+            /** Test Deadline */
+            test_deadline: string | null;
+            /** Time Limit Minutes */
+            time_limit_minutes?: number | null;
         };
         /**
          * NeighbourNumber
@@ -5405,6 +5858,75 @@ export interface components {
             mine: boolean;
             /** Name */
             name: string | null;
+        };
+        /**
+         * QuestionItemOut
+         * @description One Core item as the Lecturer reviews it: its type, its title (placeholder until issue
+         *     #16), its weight in force and its default, whether it is taken out, and whether it measures
+         *     quantities (taking it out warns, FR-52).
+         */
+        QuestionItemOut: {
+            /** Default Weight */
+            default_weight: number;
+            /** Excluded */
+            excluded: boolean;
+            /** Id */
+            id: string;
+            /** Quantity */
+            quantity: boolean;
+            /** Starting Task */
+            starting_task: boolean;
+            /** Title */
+            title: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "choice" | "table" | "number" | "long" | "drawn";
+            /** Weight */
+            weight: number;
+        };
+        /**
+         * QuestionSetIn
+         * @description «Lagre vekter»: every Core item's weight, the items taken out and the Adapted total weight.
+         *     The weights of the items left in plus the Adapted total must be 100.
+         */
+        QuestionSetIn: {
+            /** Adapted Weight */
+            adapted_weight: number;
+            /** Excluded */
+            excluded: string[];
+            /** Weights */
+            weights: {
+                [key: string]: number;
+            };
+        };
+        /**
+         * QuestionSetOut
+         * @description The Class session's question set selection (Story 11.1): the version it uses, whether that
+         *     version is a draft (issue #16), whether a selection saved on an older version no longer
+         *     applies (`outdated`: the latest version's defaults are shown, and pinned at the lock),
+         *     whether the lock has pinned it, whether it can still change (before the Start date), whether
+         *     the User may change it, the items and the Adapted line, and the sum of the weights in force.
+         */
+        QuestionSetOut: {
+            adapted: components["schemas"]["AdaptedOut"];
+            /** Can Change */
+            can_change: boolean;
+            /** Draft */
+            draft: boolean;
+            /** Items */
+            items: components["schemas"]["QuestionItemOut"][];
+            /** Open */
+            open: boolean;
+            /** Outdated */
+            outdated: boolean;
+            /** Pinned */
+            pinned: boolean;
+            /** Sum */
+            sum: number;
+            /** Version */
+            version: number;
         };
         /** QuizAnswerIn */
         QuizAnswerIn: {
@@ -6130,6 +6652,77 @@ export interface components {
             /** Valid Count */
             valid_count: number;
         };
+        /**
+         * SavedAnswerOut
+         * @description The answer stored for the item after a save: the one just sent, or the one with a higher
+         *     revision stored already (then nothing changed, and it is no error).
+         */
+        SavedAnswerOut: {
+            /** Item Id */
+            item_id: string;
+            /** Revision */
+            revision: number;
+            /**
+             * Saved At
+             * Format: date-time
+             */
+            saved_at: string;
+            value: components["schemas"]["JsonValue"];
+        };
+        /** ScaleStepOut */
+        ScaleStepOut: {
+            /** Label */
+            label: string;
+            /** Step */
+            step: number;
+        };
+        /**
+         * ScoringGuideIn
+         * @description «Lagre sensorveiledning»: the guide text of each question the Lecturer changed, by question
+         *     id. The criteria, the scale and the titles never change.
+         */
+        ScoringGuideIn: {
+            /** Guides */
+            guides: {
+                [key: string]: string;
+            };
+        };
+        /**
+         * ScoringGuideOut
+         * @description The Class session's Scoring guide in force (Story 11.2): its version id and number,
+         *     whether it is a draft (issue #16), whether it is an edit made for a Class session, whether a
+         *     newer default was published after the edit (`outdated`: the edit stays in force), whether a
+         *     Control test has checked it (`content.service.is_checked`), whether the Test-deadline lock has
+         *     pinned it, whether it can still change (before the original Test deadline), whether the User
+         *     may change it, the one five-step scale and the questions.
+         */
+        ScoringGuideOut: {
+            /** Can Change */
+            can_change: boolean;
+            /** Checked */
+            checked: boolean;
+            /** Draft */
+            draft: boolean;
+            /** Edited */
+            edited: boolean;
+            /** Open */
+            open: boolean;
+            /** Outdated */
+            outdated: boolean;
+            /** Pinned */
+            pinned: boolean;
+            /** Questions */
+            questions: components["schemas"]["GuideQuestionOut"][];
+            /** Scale */
+            scale: components["schemas"]["ScaleStepOut"][];
+            /** Version */
+            version: number;
+            /**
+             * Version Id
+             * Format: uuid
+             */
+            version_id: string;
+        };
         /** SeatChoiceGameOut */
         SeatChoiceGameOut: {
             /** Number */
@@ -6830,6 +7423,40 @@ export interface components {
             step: "class_game" | "debrief" | "quiz" | "replay" | "test" | "report";
         };
         /**
+         * StoredAnswerOut
+         * @description The Student's saved answer to one item (Story 11.4, AD-10): its value, its revision (the
+         *     highest saved) and when it was saved. No score and no right or wrong state (FR-54).
+         */
+        StoredAnswerOut: {
+            /** Revision */
+            revision: number;
+            /**
+             * Saved At
+             * Format: date-time
+             */
+            saved_at: string;
+            value: components["schemas"]["JsonValue"];
+        };
+        /**
+         * StudentDeadlinesOut
+         * @description The block «Frister» on the Studentside (Story 11.13, FR-18): the Student's Debrief and Test
+         *     deadlines beside the Class session's, for the Lecturers of its Class only.
+         */
+        StudentDeadlinesOut: {
+            /** Class Debrief Deadline */
+            class_debrief_deadline: string | null;
+            /** Class Test Deadline */
+            class_test_deadline: string | null;
+            /** Debrief Deadline */
+            debrief_deadline: string | null;
+            /** Extended */
+            extended: boolean;
+            /** Submitted */
+            submitted: boolean;
+            /** Test Deadline */
+            test_deadline: string | null;
+        };
+        /**
          * StudentGameOut
          * @description The Student's Class game on Hjem (Story 6.1): «Spill 17 · Du er Grossist» and the four
          *     Seats, Fabrikk first (UX-DR73). Only from the Start date (`is_locked`).
@@ -6903,7 +7530,8 @@ export interface components {
         /**
          * StudentPageOut
          * @description The Studentside of one Student of a Class session (Story 8.9, UX-DR53), for the Lecturers of
-         *     its Class only: for now the block «Tilrettelegging»; Story 13.2 adds its own blocks.
+         *     its Class only: the blocks «Tilrettelegging» and «Frister» (Story 11.13); Story 13.2 adds its
+         *     own blocks.
          */
         StudentPageOut: {
             adjustment: components["schemas"]["AdjustmentOut"] | null;
@@ -6921,6 +7549,7 @@ export interface components {
             class_session_id: string;
             /** Class Share */
             class_share: number;
+            deadlines: components["schemas"]["StudentDeadlinesOut"];
             /** Name */
             name: string;
             /** Session Number */
@@ -7028,6 +7657,40 @@ export interface components {
             stage: "ordered" | "in_transit" | "in_production";
         };
         /**
+         * TableColumnOut
+         * @description A given column of a value table: its heading and one number per row.
+         */
+        TableColumnOut: {
+            /** Label */
+            label: string;
+            /** Values */
+            values: number[];
+        };
+        /**
+         * TableOut
+         * @description A «Fyll inn kolonnen» item's value table (Story 11.5, FR-80, UX-DR38): its prompt and
+         *     hint, the table's caption, one row label per Uke, the given columns, the asked column's label
+         *     (one answer cell per Uke) and whether a value may be negative. A drawn item (Story 11.14) has
+         *     the same table and its graph's value `axis` (null for a table item). No expected value.
+         */
+        TableOut: {
+            /** Asked Label */
+            asked_label: string;
+            axis?: components["schemas"]["AxisOut"] | null;
+            /** Caption */
+            caption: string;
+            /** Columns */
+            columns: components["schemas"]["TableColumnOut"][];
+            /** Hint */
+            hint: string | null;
+            /** Negative */
+            negative: boolean;
+            /** Prompt */
+            prompt: string;
+            /** Rows */
+            rows: string[];
+        };
+        /**
          * TableSeatOut
          * @description A Seat of the Student's Class game (Story 6.1, FR-22, FR-34): its Role and who holds it,
          *     a Student by name, any AI player as «KI-spiller» (`ai`, never which kind), or free.
@@ -7097,6 +7760,19 @@ export interface components {
             seats: components["schemas"]["TableSeatOut"][];
         };
         /**
+         * TestAnswerIn
+         * @description One autosave of an item's answer (Story 11.4, AD-10): the value (a choice item: one of its
+         *     option ids; a table or drawn item: one whole number or null per row; a number item: a whole
+         *     number or null, Story 11.5; a long-answer item: its text as typed, Story 11.6; an Adapted item:
+         *     the same, Story 11.7) and the answer's revision, which rises by one per change on the Student's
+         *     device.
+         */
+        TestAnswerIn: {
+            /** Revision */
+            revision: number;
+            value: components["schemas"]["JsonValue"];
+        };
+        /**
          * TestGameIn
          * @description «Start testspill» (Story 6.20): the Role the Lecturer plays.
          */
@@ -7118,6 +7794,30 @@ export interface components {
              * @enum {string}
              */
             status: "not_ready" | "ready" | "running" | "finished";
+        };
+        /**
+         * TestSittingIn
+         * @description The one timed sitting as «Lagre Klasseøkt» sends it (Story 11.12): `minutes` the time limit
+         *     in whole minutes, or null to switch it off.
+         */
+        TestSittingIn: {
+            /** Minutes */
+            minutes: number | null;
+        };
+        /**
+         * TestSittingOut
+         * @description The Individual test's one timed sitting of a Class session (Story 11.12, FR-51), stored by
+         *     `modules/tests`.
+         */
+        TestSittingOut: {
+            /** Can Change */
+            can_change: boolean;
+            /** Max Minutes */
+            max_minutes: number;
+            /** Min Minutes */
+            min_minutes: number;
+            /** Minutes */
+            minutes: number | null;
         };
         /**
          * TimeProposalIn
@@ -7491,6 +8191,19 @@ export interface components {
             total_holding_cost: string;
             /** Week */
             week: number;
+        };
+        /**
+         * WordingOut
+         * @description An Adapted item's text as it travels (Story 11.7, AD-7): code-rendered text has
+         *     `ai_generated` false and no `llm_call_id`; AI-worded text (Story 11.8) names its call.
+         */
+        WordingOut: {
+            /** Ai Generated */
+            ai_generated: boolean;
+            /** Llm Call Id */
+            llm_call_id: string | null;
+            /** Text */
+            text: string;
         };
     };
     responses: never;
@@ -8962,6 +9675,55 @@ export interface operations {
             };
         };
     };
+    getAdaptedPreview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdaptedPreviewOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     getAllocation: {
         parameters: {
             query?: never;
@@ -9881,6 +10643,117 @@ export interface operations {
             };
         };
     };
+    getSessionQuestionSet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionSetOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    setSessionQuestionSet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuestionSetIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionSetOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     checkReplayScenario: {
         parameters: {
             query?: never;
@@ -9939,6 +10812,117 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getSessionScoringGuide: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScoringGuideOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    setSessionScoringGuide: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScoringGuideIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScoringGuideOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -10289,6 +11273,69 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StudentPageOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    extendTestDeadline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeadlineExtensionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentDeadlinesOut"];
                 };
             };
             /** @description Unauthorized */
@@ -13805,6 +14852,243 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getMyTest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyTestOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    openMyTest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyTestOut"];
+                };
+            };
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyTestOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    saveMyTestAnswer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TestAnswerIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedAnswerOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    submitMyTest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyTestOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

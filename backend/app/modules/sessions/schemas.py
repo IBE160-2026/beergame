@@ -205,6 +205,48 @@ class TestGameRefOut(BaseModel):
     status: Literal["not_ready", "ready", "running", "finished"]
 
 
+class TestSittingOut(BaseModel):
+    """The Individual test's one timed sitting of a Class session (Story 11.12, FR-51), stored by
+    `modules/tests`."""
+
+    minutes: int | None
+    """The time limit in whole minutes, before any Student's time factor; None: no time limit, the
+    test stays open until the Test deadline."""
+    min_minutes: int
+    max_minutes: int
+    """The range a limit must lie in (configuration)."""
+    can_change: bool
+    """The reader may change it now: an owner of a Class that is not archived, before the Class
+    session is locked (it is frozen with the question set). Assistant lecturers read it only."""
+
+
+class TestSittingIn(BaseModel):
+    """The one timed sitting as «Lagre Klasseøkt» sends it (Story 11.12): `minutes` the time limit
+    in whole minutes, or null to switch it off."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    minutes: StrictInt | None = Field(..., ge=-100_000, le=100_000)
+    """Whole minutes, a JSON integer; the service answers `out_of_range` outside the configured
+    range. The bounds here only keep the value an integer the database holds."""
+
+
+class AiAssessmentOut(BaseModel):
+    """The «KI-vurdering» switch of a Class session (Story 12.1, FR-61), stored by
+    `modules/assessment`."""
+
+    enabled: bool
+    """On by default; off, the Individual tests get no AI assessment and no LLM call is made for
+    one. Answer-key and Interactive items are still scored, and the Student report exists."""
+    pinned_at: datetime | None
+    """When the Test-deadline lock pinned it; None while it can change."""
+    open: bool
+    """It can still change: not pinned, and the original Test deadline has not passed."""
+    can_change: bool
+    """The reader may change it now: an owner of a Class that is not archived, while `open`.
+    Assistant lecturers read it only (AD-12)."""
+
+
 class ClassSessionOut(BaseModel):
     """One Class session as its Class's staff read it."""
 
@@ -276,6 +318,9 @@ class ClassSessionOut(BaseModel):
     lock_refused: bool = False
     """Not locked, and the sweep has refused the lock for a missing provider key (GitHub issue
     109): LLM players and no key for the model's provider. The sweep tries again each minute."""
+    lock_refused_reason: str | None = None
+    """Why the sweep refused the lock, while `lock_refused`: `provider_key_missing` or
+    `question_set_draft` (Story 11.1)."""
     passed_dates: list[DateName]
     """The dates that are set and have passed by the server's clock; they no longer move."""
     play_time_warning: bool
@@ -312,6 +357,10 @@ class ClassSessionOut(BaseModel):
     the screen shows nothing about it and the route answers 404 `not_found`."""
     test_game: TestGameRefOut | None = None
     """Story 6.20: the reader's latest test Game in this session, while the flag is on."""
+    ai_assessment: AiAssessmentOut
+    """Story 12.1 (FR-61): the «KI-vurdering» switch, open until the original Test deadline."""
+    test_sitting: TestSittingOut
+    """Story 11.12 (FR-51): one timed sitting for the Individual test, frozen at the Start date."""
 
 
 class TestGameIn(BaseModel):
@@ -404,6 +453,12 @@ class ClassSessionSaveIn(BaseModel):
     """Story 9.2: left out, the stored choice is kept; frozen at the Start date like the others."""
     debrief_ai_text: bool | None = None
     """Story 9.14: the Debrief's AI text on or off; left out, kept; frozen at the Start date."""
+    ai_assessment: bool | None = None
+    """Story 12.1 (FR-61): the «KI-vurdering» switch on or off; left out, kept. It can change
+    after the Start date, until the original Test deadline."""
+    test_sitting: TestSittingIn | None = None
+    """Story 11.12 (FR-51): one timed sitting with its time limit, or `{"minutes": null}` for
+    none; left out, kept. Frozen at the Start date."""
     dates: DatesIn | None = None
     game_settings: dict[str, Any] | None = None
     obligatory: bool | None = None
@@ -733,7 +788,9 @@ class StepOut(BaseModel):
     closed: bool = False
     """Story 10.3: the current Replay step after the Student's Test deadline with no Replay
     started: it is not done, and it can no longer start (FR-18). Story 10.6: also once a started
-    Replay was closed at the Testfrist unfinished (the Replay's `end_reason` says so)."""
+    Replay was closed at the Testfrist unfinished (the Replay's `end_reason` says so). Story
+    11.11: also the current Individual test step after the Student's Test deadline: not handed
+    in, so not done; a saved attempt turns done when the sweep hands it in."""
 
 
 class ReplayGameOut(BaseModel):
@@ -1508,9 +1565,26 @@ class AdjustmentOut(BaseModel):
     """The share of Weeks required of the Student; None: the Class session's own."""
 
 
+class StudentDeadlinesOut(BaseModel):
+    """The block «Frister» on the Studentside (Story 11.13, FR-18): the Student's Debrief and Test
+    deadlines beside the Class session's, for the Lecturers of its Class only."""
+
+    class_debrief_deadline: datetime | None
+    class_test_deadline: datetime | None
+    debrief_deadline: datetime | None
+    """The Student's own (`service.effective_debrief_deadline`)."""
+    test_deadline: datetime | None
+    """The Student's own (`service.effective_test_deadline`)."""
+    extended: bool
+    """The Student's Test deadline is their own, later than the Class session's as it now stands."""
+    submitted: bool
+    """The Student has handed in the Individual test: their deadline can no longer be extended."""
+
+
 class StudentPageOut(BaseModel):
     """The Studentside of one Student of a Class session (Story 8.9, UX-DR53), for the Lecturers of
-    its Class only: for now the block «Tilrettelegging»; Story 13.2 adds its own blocks."""
+    its Class only: the blocks «Tilrettelegging» and «Frister» (Story 11.13); Story 13.2 adds its
+    own blocks."""
 
     class_session_id: uuid.UUID
     class_id: uuid.UUID
@@ -1522,6 +1596,8 @@ class StudentPageOut(BaseModel):
     """The Class session's required share of Weeks (`service.required_share`, Story 5.7)."""
     adjustment: AdjustmentOut | None
     """None: no Tilrettelegging («Ingen tilrettelegging.»)."""
+    deadlines: StudentDeadlinesOut
+    """Story 11.13: the Student's deadlines and whether they are extended."""
 
 
 class AdjustmentIn(BaseModel):

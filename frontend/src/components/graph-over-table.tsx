@@ -13,7 +13,8 @@ import { cn } from "@/lib/utils";
  * The fields are rows of the same `<table>` as the week rows, so a graph spans exactly the week
  * columns and scrolls with them; its y-axis labels sit in the sticky row-label column. The graph
  * rows are `aria-hidden`: the table is the graph's alternative and the graph adds no second
- * reading of the same numbers (NFR-6). A field's caption row (title, key) is read.
+ * reading of the same numbers (NFR-6). A field's caption row (title, key) is read. An
+ * `interactive` field (a drawn item's points, Story 11.14) is not hidden: its controls are read.
  *
  * Two layouts give the charts their fixed width (AD-18):
  * - In the browser the component measures each week column's centre (`th[scope=col]`, keyed by
@@ -61,6 +62,9 @@ export type GraphField = {
   /** The field's height in em of the `caption` text size, so it grows with the text. */
   heightEm: number;
   render: (size: FieldSize) => { plot: ReactNode; axis?: ReactNode };
+  /** The plot holds controls (a drawn item's point sliders, Story 11.14): its row is not
+   * `aria-hidden`, so they can be reached; the axis labels stay hidden. */
+  interactive?: boolean;
 };
 
 /** Every width in px, for a render without measuring (print). */
@@ -139,6 +143,7 @@ export function GraphOverTable({
   fixed,
   labelledBy,
   swipe,
+  swipeLater,
   footer,
   joinKey,
   movedFrom,
@@ -158,6 +163,9 @@ export function GraphOverTable({
   labelledBy?: string;
   /** «Sveip for tidligere uker», shown while earlier columns are scrolled out of view. */
   swipe?: string;
+  /** «Sveip for flere uker», shown while later columns are out of view (a drawn item starts at
+   * Uke 1, so the hidden columns are the later ones). */
+  swipeLater?: string;
   /** A line under the region, beside «Sveip» (a key). */
   footer?: ReactNode;
   /**
@@ -182,6 +190,7 @@ export function GraphOverTable({
   const variants = variantsOf(columns);
   const [measured, setMeasured] = useState<Measured>(EMPTY);
   const [earlierHidden, setEarlierHidden] = useState(false);
+  const [laterHidden, setLaterHidden] = useState(false);
   const [join, setJoin] = useState<Join | null>(null);
   const shown = fixed ? fixedSizes(fields, variants, fixed) : measured;
   const nowWeek = columns.find((column) => column.when === "now")?.week;
@@ -245,8 +254,17 @@ export function GraphOverTable({
 
   const update = useCallback(() => {
     const element = region.current;
-    if (element) setEarlierHidden(element.scrollLeft > 1);
+    if (!element) return;
+    setEarlierHidden(element.scrollLeft > 1);
+    setLaterHidden(element.scrollLeft + element.clientWidth < element.scrollWidth - 1);
   }, []);
+
+  // Only the «later» hint follows a changed layout; «Sveip for tidligere uker» follows the scroll
+  // alone, as before, so the play screen's line does not flicker while the layout settles.
+  const updateLater = useCallback(() => {
+    const element = region.current;
+    if (element && swipeLater) setLaterHidden(element.scrollLeft + element.clientWidth < element.scrollWidth - 1);
+  }, [swipeLater]);
 
   // Bring nå into view: nå at the left edge of the scrolled area, or as far right as the region
   // goes, whichever is less, so nå + 4 is the right edge whenever all columns from nå fit.
@@ -314,6 +332,7 @@ export function GraphOverTable({
     const observer = new ResizeObserver(() => {
       measure();
       measureJoin();
+      updateLater();
       const now = `${element.clientWidth}x${element.scrollWidth}x${table.offsetHeight}`;
       if (now !== size) {
         size = now;
@@ -323,7 +342,7 @@ export function GraphOverTable({
     observer.observe(element);
     observer.observe(table);
     return () => observer.disconnect();
-  }, [measure, measureJoin, toNow]);
+  }, [measure, measureJoin, toNow, updateLater]);
 
   return (
     <div className={fixed || !bleed ? undefined : "-mx-[calc(var(--spacing-gutter-phone)-var(--spacing-gutter-phone-chart))] lg:mx-0"}>
@@ -360,13 +379,17 @@ export function GraphOverTable({
                           </td>
                         </tr>
                       ) : null}
-                      <tr aria-hidden="true" data-field={field.key} data-variant={variant.name} className={variant.rowClass}>
+                      <tr aria-hidden={field.interactive ? undefined : "true"} data-field={field.key} data-variant={variant.name} className={variant.rowClass}>
                         <td
                           data-axis=""
                           className={cn(STICKY_LABEL, "text-caption")}
                           style={fixed ? { ...fixedCell(fixed, "week"), width: fixed.labelWidth, minWidth: fixed.labelWidth, maxWidth: fixed.labelWidth } : undefined}
                         >
-                          {drawn?.axis ? <div className={fixed ? undefined : "absolute inset-0"}>{drawn.axis}</div> : null}
+                          {drawn?.axis ? (
+                            <div aria-hidden={field.interactive ? true : undefined} className={fixed ? undefined : "absolute inset-0"}>
+                              {drawn.axis}
+                            </div>
+                          ) : null}
                         </td>
                         <td
                           data-plot=""
@@ -407,7 +430,7 @@ export function GraphOverTable({
           ) : null}
         </div>
       </div>
-      {footer || swipe ? (
+      {footer || swipe || swipeLater ? (
         <div
           className={cn(
             "flex flex-wrap justify-between gap-x-4",
@@ -416,6 +439,11 @@ export function GraphOverTable({
         >
           {footer ?? <span />}
           {swipe && earlierHidden ? <p className="mt-1 text-caption text-ink-secondary">{swipe}</p> : null}
+          {swipeLater && laterHidden ? (
+            <p data-swipe-later="" className="mt-1 text-caption text-ink-secondary">
+              {swipeLater}
+            </p>
+          ) : null}
         </div>
       ) : null}
     </div>

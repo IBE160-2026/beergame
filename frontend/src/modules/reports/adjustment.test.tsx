@@ -28,6 +28,14 @@ const page = (over: Partial<StudentPage> = {}): StudentPage => ({
   name: "Jonas",
   class_share: 80,
   adjustment: null,
+  deadlines: {
+    class_debrief_deadline: null,
+    class_test_deadline: null,
+    debrief_deadline: null,
+    test_deadline: null,
+    extended: false,
+    submitted: false,
+  },
   ...over,
 });
 
@@ -73,12 +81,18 @@ describe("Tilrettelegging's words", () => {
 
 describe("The block «Tilrettelegging»", () => {
   it("reads «Ingen tilrettelegging.» or the summary, with «Endre tilrettelegging»", () => {
-    const none = html(<AdjustmentBlock data={page()} />);
+    const none = html(<AdjustmentBlock data={page()} open={false} onOpenChange={() => {}} />);
     expect(none).toContain(copy.title);
     expect(none).toContain("Ingen tilrettelegging.");
     expect(none).toContain(copy.change);
     expect(none).not.toContain("data-adjustment-form");
-    const some = html(<AdjustmentBlock data={page({ adjustment: { time_factor: 2, share_percent: 60 } })} />);
+    const some = html(
+      <AdjustmentBlock
+        data={page({ adjustment: { time_factor: 2, share_percent: 60 } })}
+        open={false}
+        onOpenChange={() => {}}
+      />,
+    );
     expect(some).toContain("Mer tid: 2 ×. Andel uker: 60 %.");
   });
 });
