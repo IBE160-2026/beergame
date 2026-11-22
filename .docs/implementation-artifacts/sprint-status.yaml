@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-17-2026 12:28
-last_updated: 11-22-2026 17:34
+last_updated: 11-22-2026 17:46
 project: beergame
 project_key: NOKEY
 tracking_system: file-system
@@ -273,7 +273,7 @@ development_status:
   15-8-the-admin-sees-errors-fallback-and-response-times-per-class: done
   15-9-the-database-connection-budget-is-written-and-checked: done
   15-10-a-load-test-shows-250-students-playing-at-once: backlog
-  15-11-errors-reach-an-error-tracker-without-personal-data-and-back: in-progress
+  15-11-errors-reach-an-error-tracker-without-personal-data-and-back: done
   15-12-hold-student-invitations-until-the-institution-s-data-proces: backlog
   15-13-publish-the-accessibility-statement-and-the-conformance-repo: backlog
   15-14-the-pre-pilot-checks-pass-before-the-first-class-session: backlog
