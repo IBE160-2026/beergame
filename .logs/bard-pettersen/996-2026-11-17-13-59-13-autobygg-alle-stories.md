@@ -3612,3 +3612,22 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Etterp�
 
 ### Åpne punkter
 - Issue #222: beslutninger (ingen tegnet oppgave i utkastet til spørsmålssett ennå).
+
+## Story 12.7: Sett opp en Kontrolltest i operatørens egen institusjon (spor 3)
+
+### Oppgave
+Bygge Story 12.7 på `epic-12` i det tredje worktreet, mens spor 1 venter.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den visuelle kontrollen gjøres i avslutningen av Epic 12.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-12-7-set-up-a-control-test-in-the-operators-institution.md`.
+- Commit: 7eaa53b. Migrasjon 0201.
+- Admin merker én institusjon som operatørens egen og oppretter en Kontrolltest der, med fast Sensorveiledning og modell. Kontrolltesten vises ikke i noen lister for lærere eller studenter.
+- Tester: backend 3683, Vitest 1174, tsc, `lint:colours`, `check:copy`, bygg, Playwright 105 med axe.
+- Gjennomgang: 43 funn, 10 rettet, 1 utsatt; oppfølgende gjennomgang anbefalt.
+- Status: done. Neste i spor 3 er 12.2 (KI-vurdering), som nå kan bygges fordi Epic 11 er ferdig.
+
+### Åpne punkter
+- Issue #223: beslutninger og risiko.
