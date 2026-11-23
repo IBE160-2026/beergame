@@ -62,6 +62,9 @@ __all__ = [
 
 log = structlog.get_logger(__name__)
 
+COMPLETION_EXPORT = "completion.export"
+"""Story 13.14's Class action (`completion_export.EXPORT`), asked here for the block's state."""
+
 BUILD_TASK = "reports.build_zip"
 REQUESTED = "reports.request_zip"
 """The registry name of a press: it emits the requester's `user` topic (the pending state)."""
@@ -85,6 +88,8 @@ class ZipState:
     generated_at: datetime | None
     students: int | None
     deleted: bool = False
+    completion_export: bool = False
+    """Story 13.14: whether the reader may download the Completion export too."""
 
 
 def zip_object_path(class_session_id: uuid.UUID, zip_id: uuid.UUID) -> str:
@@ -150,12 +155,14 @@ async def zip_state(user: authz.Principal, class_session_id: uuid.UUID) -> ZipSt
     now = auth.utcnow()
     if sessions.data_deleted(row, now):
         return ZipState(status="none", generated_at=None, students=None, deleted=True)
+    exporting = await sessions.class_staff_may(user, class_session_id, COMPLETION_EXPORT)
     async with get_sessionmaker()() as s:
         latest, ready = await repo.latest_zips(s, class_session_id)
     return ZipState(
         status=_status(latest, now),
         generated_at=None if ready is None else ready.finished_at,
         students=None if ready is None else ready.students,
+        completion_export=exporting,
     )
 
 
@@ -201,6 +208,7 @@ async def request_zip(user: authz.Principal, class_session_id: uuid.UUID) -> Zip
         status="pending",
         generated_at=None if ready is None else ready.finished_at,
         students=None if ready is None else ready.students,
+        completion_export=await sessions.class_staff_may(user, class_session_id, COMPLETION_EXPORT),
     )
 
 

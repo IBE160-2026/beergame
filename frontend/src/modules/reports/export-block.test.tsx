@@ -15,6 +15,7 @@ const state = (over: Partial<ZipState> = {}): ZipState => ({
   generated_at: null,
   students: null,
   deleted: false,
+  completion_export: false,
   ...over,
 });
 
@@ -84,5 +85,25 @@ describe("ExportBlock", () => {
     const html = render(state({ deleted: true }));
     expect(html).toContain(copy.deleted);
     expect(html).not.toContain("<button");
+  });
+
+  it("offers the Completion export to the Lecturers of the Class, as CSV or Excel, with its note", () => {
+    const completion = nb.reports.export.completion;
+    const html = render(state({ completion_export: true }));
+    expect(html).toContain(completion.action);
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).toContain('href="/api/class-sessions/s1/completion-export?format=csv"');
+    expect(html).toContain('href="/api/class-sessions/s1/completion-export?format=xlsx"');
+    expect(html).toContain(completion.note);
+  });
+
+  it("shows an Assistant lecturer the report downloads only, and nobody the export once data is deleted", () => {
+    const completion = nb.reports.export.completion;
+    for (const seeded of [state(), state({ completion_export: true, deleted: true })]) {
+      const html = render(seeded);
+      expect(html).not.toContain(completion.action);
+      expect(html).not.toContain("completion-export");
+      expect(html).not.toContain(completion.note);
+    }
   });
 });

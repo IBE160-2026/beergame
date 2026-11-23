@@ -158,6 +158,19 @@ The minimums are configuration, `COMPLETION_EXPLANATION_MIN_LENGTH` (50 characte
   emit the requester's `user` topic; a ready ZIP enqueues `reports_zip_ready` (immediate mail)
   to the requester.
 
+## The Completion export (Story 13.14)
+
+`GET /api/class-sessions/{id}/completion-export?format=csv|xlsx` (`downloadCompletionExport`,
+`completion_export.py`), for the Lecturers of the Class only (`completion.export`; an Assistant
+lecturer, anyone else and an unknown session get 403; 409 `data_deleted`). One row per Student in
+`scope.reporting_students`, every status value from `service.completion_statuses` (the one
+assembler per Student), names and addresses from `identity.service.student_contacts` at the time
+of the download. The columns are the fixed allow-list `COLUMNS` (no AI data, C-2). The CSV is
+UTF-8 with BOM, `;`, `dd.mm.yyyy` and the decimal comma; the .xlsx holds date and number cells;
+a formula-like text stays text in both. Built now and sent, never stored (AD-14); one audit row
+`completion_export.downloaded` with the format and the number of Students. `ZipStateOut.completion_export` tells the
+«Eksport» block whether to offer it.
+
 ## Waiting for Epic 12 on this branch
 
 Control test Class sessions (`kind=control_test`, Story 12.7) and test students

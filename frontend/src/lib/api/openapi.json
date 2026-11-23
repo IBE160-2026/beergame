@@ -15714,6 +15714,11 @@
       "ZipStateOut": {
         "description": "The ZIP of all Student reports of the Class session (Story 13.13, FR-59): the latest\nrequest's status (`failed` covers a job that failed and one that never ended; a new press\ntries again), when the ZIP that can be downloaded was made and how many Student reports it\nholds (None without one). `deleted` once the Class session's Student data is deleted. The ZIP\nnever holds the AI assessment.",
         "properties": {
+          "completion_export": {
+            "default": false,
+            "title": "Completion Export",
+            "type": "boolean"
+          },
           "deleted": {
             "default": false,
             "title": "Deleted",
@@ -18829,6 +18834,92 @@
         "summary": "List Student Assessments",
         "tags": [
           "tests"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/completion-export": {
+      "get": {
+        "description": "«Last ned fullføringsliste (CSV eller Excel)» (Story 13.14, FR-60, FR-17, AD-14, AD-16):\none row per Student reports count, with the fixed columns `completion_export.COLUMNS` (name,\nemail, the date each step was done, the shares, the Oppfølgingsspill, the correction mark and\nwhether the requirement is met), every value from the one Completion assembler. Never an AI\nscore, AI feedback or Indicative letter. Built now and streamed, never stored; recorded in the\naudit log. 409 `data_deleted` once the Student data is deleted; 403 `forbidden` for an\nAssistant lecturer, anyone else outside the Class's Lecturers and a Class session that does\nnot exist (FR-5, AD-12).",
+        "operationId": "downloadCompletionExport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "`csv` (Norwegian Excel: UTF-8 with BOM, `;`) or `xlsx`.",
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "default": "csv",
+              "description": "`csv` (Norwegian Excel: UTF-8 with BOM, `;`) or `xlsx`.",
+              "enum": [
+                "csv",
+                "xlsx"
+              ],
+              "title": "Format",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {},
+              "text/csv": {}
+            },
+            "description": "The file, CSV or .xlsx"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Download Completion Export",
+        "tags": [
+          "reports"
         ]
       }
     },

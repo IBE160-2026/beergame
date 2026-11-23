@@ -4315,6 +4315,15 @@ export const nb = {
           data_deleted: "Dataene til Studentene i denne Klasseøkten er slettet. Det kan ikke lages en ZIP-fil.",
         } as Record<string, string>,
       },
+      /** The Completion export (Story 13.14, FR-60): the action and the note are the spine's
+       * (UX-DR49); the two format links and their lead are [ASSUMPTION] draft copy. */
+      completion: {
+        action: "Last ned fullføringsliste (CSV eller Excel)",
+        note: "Ingen av filene har KI-vurderinger.",
+        choose: "Velg format:",
+        csv: "CSV-fil",
+        xlsx: "Excel-fil (.xlsx)",
+      },
     },
     studentPage: {
       /** The crumb and the link from Spillinnsikt are the Student's name. */

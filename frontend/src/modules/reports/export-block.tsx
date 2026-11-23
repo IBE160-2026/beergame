@@ -10,7 +10,14 @@ import { ApiRequestError } from "@/lib/api/client";
 import { useAction } from "@/lib/api/mutation";
 import { osloDateText } from "@/modules/sessions/dates";
 
-import { reportsZipFilePath, reportsZipKey, requestReportsZip, useReportsZip, type ZipState } from "./api";
+import {
+  completionExportPath,
+  reportsZipFilePath,
+  reportsZipKey,
+  requestReportsZip,
+  useReportsZip,
+  type ZipState,
+} from "./api";
 
 const copy = nb.reports.export;
 const LINE = "text-body-phone text-ink lg:text-body";
@@ -38,9 +45,16 @@ export function zipView(state: ZipState, pressed: boolean): ZipView {
  * shared by the staff of the Class. A failed job reads «ZIP-filen kunne ikke lages.» with «Prøv
  * igjen». The status line is announced politely; focus stays where it was (UX-DR76). Shown only to
  * the staff the api lets read it: anyone else gets 403 and sees no block.
+ *
+ * Story 13.14 (FR-60): for the Lecturers of the Class (`completion_export`), «Last ned
+ * fullføringsliste (CSV eller Excel)» opens the choice of a CSV or an Excel file, each a plain
+ * download link, with the note «Ingen av filene har KI-vurderinger.». An Assistant lecturer sees
+ * the report downloads only.
  */
 export function ExportBlock({ sessionId }: { sessionId: string }) {
   const titleId = useId();
+  const formatsId = useId();
+  const [choosing, setChoosing] = useState(false);
   const queryClient = useQueryClient();
   const zip = useReportsZip(sessionId);
   const making = useAction({
@@ -128,6 +142,28 @@ export function ExportBlock({ sessionId }: { sessionId: string }) {
         )}
         <ActionError message={making.errorMessage} />
       </div>
+      {state.completion_export && !state.deleted ? (
+        <div className="mt-8 flex max-w-2xl flex-col items-start gap-2" data-export-completion="">
+          <Button
+            variant="secondary"
+            aria-expanded={choosing}
+            aria-controls={formatsId}
+            onClick={() => setChoosing((open) => !open)}
+          >
+            {copy.completion.action}
+          </Button>
+          <div id={formatsId} hidden={!choosing} className="flex flex-wrap items-center gap-x-6 gap-y-1">
+            <span className={LINE}>{copy.completion.choose}</span>
+            <a href={completionExportPath(sessionId, "csv")} className={`${LINK} min-w-tap-target-min`} download>
+              {copy.completion.csv}
+            </a>
+            <a href={completionExportPath(sessionId, "xlsx")} className={`${LINK} min-w-tap-target-min`} download>
+              {copy.completion.xlsx}
+            </a>
+          </div>
+          <p className={`${LINE} text-ink-secondary`}>{copy.completion.note}</p>
+        </div>
+      ) : null}
     </section>
   );
 }

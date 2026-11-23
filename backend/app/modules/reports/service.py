@@ -33,7 +33,7 @@ from app.modules.tests import service as tests
 from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker
 
-__all__ = ["completion_status", "funnel", "requirement_not_met"]
+__all__ = ["completion_status", "completion_statuses", "funnel", "requirement_not_met"]
 
 
 @asynccontextmanager
@@ -139,6 +139,23 @@ async def requirement_not_met(
             if status.requirement_met is False:
                 found.append((user_id, status))
         return found
+
+
+async def completion_statuses(
+    class_session_id: uuid.UUID, *, session: AsyncSession | None = None
+) -> dict[uuid.UUID, CompletionStatus]:
+    """The Completion status of every reporting Student of the Class session, by id (Story 13.14,
+    the Completion export, FR-60, AD-16): `completion_status` over `scope.reporting_students`,
+    read once, so the file agrees with the Studentside, Hjem and the funnel. Empty for a Class
+    session that does not exist."""
+    async with _reading(session) as s:
+        terms = await sessions.completion_terms(s, class_session_id)
+        if terms is None:
+            return {}
+        return {
+            user_id: await _status(s, user_id, class_session_id, terms)
+            for user_id in await scope.reporting_students(s, class_session_id)
+        }
 
 
 async def _log_of(s: AsyncSession, game_id: uuid.UUID, role: str) -> DecisionLogSummary | None:

@@ -225,3 +225,6 @@ class ZipStateOut(BaseModel):
     generated_at: datetime | None
     students: int | None
     deleted: bool = False
+    completion_export: bool = False
+    """Story 13.14: whether the reader may download the Completion export (the Class's
+    Lecturers; never an Assistant lecturer), so the «Eksport» block offers it."""

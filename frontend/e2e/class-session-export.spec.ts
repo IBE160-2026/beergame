@@ -12,8 +12,9 @@ import { lockedClassGames } from "./support/live-game";
  * without a reload; the file is a ZIP through the signed URL. Axe and reflow at 320 px, 1280 px
  * with 200 % text and 1440 px. The rules are `backend/tests/reports/test_reports_zip.py`. */
 const copy = nb.reports.export;
+const completion = copy.completion;
 
-test("staff make and download one ZIP of every Student report from «Eksport»", async ({ browser, lecturerSession }) => {
+test("staff make and download one ZIP of every Student report, and the Completion export, from «Eksport»", async ({ browser, lecturerSession }) => {
   test.slow(); // Invitations through the worker, a Class session, a lock and two renders
   const locked = await lockedClassGames(browser, lecturerSession, 2, { aiMode: "rule_based" });
   const page = await lecturerPage(browser, lecturerSession, VIEWPORTS[2]!);
@@ -37,12 +38,35 @@ test("staff make and download one ZIP of every Student report from «Eksport»",
     expect(zip.subarray(0, 2).toString()).toBe("PK");
     for (const student of locked.students) expect(zip.includes(Buffer.from(`${student.name}.pdf`))).toBe(true);
 
+    // Story 13.14 (FR-60): the Lecturer opens the choice and downloads the Completion export in
+    // both formats. The rules of the file are `backend/tests/reports/test_completion_export.py`.
+    await expect(block).toContainText(completion.note);
+    const opener = block.getByRole("button", { name: completion.action });
+    await expect(opener).toHaveAttribute("aria-expanded", "false");
+    await expect(block.getByRole("link", { name: completion.csv })).toBeHidden();
+    await opener.click();
+    await expect(opener).toHaveAttribute("aria-expanded", "true");
+    const csvSaved = page.waitForEvent("download");
+    await block.getByRole("link", { name: completion.csv }).click();
+    const csvFile = await csvSaved;
+    expect(csvFile.suggestedFilename()).toMatch(/^fullforingsliste-klasseokt-\d+\.csv$/);
+    const text = fs.readFileSync(await csvFile.path(), "utf-8");
+    expect(text.startsWith("\ufeffNavn;E-post;Klassespill;")).toBe(true);
+    for (const student of locked.students) expect(text).toContain(student.name);
+    const xlsxSaved = page.waitForEvent("download");
+    await block.getByRole("link", { name: completion.xlsx }).click();
+    const xlsxFile = await xlsxSaved;
+    expect(xlsxFile.suggestedFilename()).toMatch(/^fullforingsliste-klasseokt-\d+\.xlsx$/);
+    expect(fs.readFileSync(await xlsxFile.path()).subarray(0, 2).toString()).toBe("PK");
+
     // Each width: the block reflows and axe is clean.
     for (const viewport of VIEWPORTS) {
       const view = await lecturerPage(browser, lecturerSession, viewport);
       await view.goto(`/klasseokter/${locked.sessionId}`);
       if (viewport.text200) await view.addStyleTag({ content: "html { font-size: 200% !important; }" });
       await expect(view.locator("[data-export]").getByRole("link", { name: copy.zip.action })).toBeVisible();
+      await view.locator("[data-export]").getByRole("button", { name: completion.action }).click();
+      await expect(view.locator("[data-export]").getByRole("link", { name: completion.xlsx })).toBeVisible();
       await expectAccessible(view, viewport.phone);
       await view.context().close();
     }

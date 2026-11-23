@@ -2288,6 +2288,17 @@ async def student_names(
     return {row["id"]: row["name"] for row in rows}
 
 
+async def student_contacts(
+    class_id: uuid.UUID, ids: list[uuid.UUID], *, session: AsyncSession | None = None
+) -> dict[uuid.UUID, Person]:
+    """Name and address of those of `ids` who are Students in the Class now (registered, not
+    removed), by User id, read at the time of asking (Story 13.14, the Completion export, AD-14);
+    any other id is left out. In the caller's `session` when given."""
+    async with reading(session) as s:
+        rows = await repo.student_contacts(s, class_id, [r.value for r in REGISTERED], ids)
+    return {row["id"]: Person(row["id"], row["name"], row["email"]) for row in rows}
+
+
 async def send_entry_reminders(
     s: AsyncSession,
     class_id: uuid.UUID,

@@ -254,3 +254,12 @@ export function requestReportsZip(sessionId: string) {
 export function reportsZipFilePath(sessionId: string): string {
   return `/api/class-sessions/${encodeURIComponent(sessionId)}/reports/zip/file`;
 }
+
+/** Story 13.14 (FR-60): the Completion export, for the Lecturers of the Class (`completion_export`
+ * in the ZIP state says whether the reader may). A plain link to the api, which checks the policy
+ * and answers the file itself (CSV for Norwegian Excel, or .xlsx), built now and never stored. */
+export type CompletionExportFormat = "csv" | "xlsx";
+
+export function completionExportPath(sessionId: string, format: CompletionExportFormat): string {
+  return `/api/class-sessions/${encodeURIComponent(sessionId)}/completion-export?format=${format}`;
+}

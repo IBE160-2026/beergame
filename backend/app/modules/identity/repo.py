@@ -1117,6 +1117,26 @@ async def student_names(
     return list(result.mappings())
 
 
+async def student_contacts(
+    session: AsyncSession, class_id: uuid.UUID, registrations: list[str], ids: list[uuid.UUID]
+) -> list[RowMapping]:
+    """Name and address of those of `ids` whose entry in the Class is in `registrations` and not
+    removed (Story 13.14): the Students of the Class only, never another User."""
+    if not ids:
+        return []
+    result = await session.execute(
+        select(users.c.id, users.c.name, users.c.email)
+        .join(roster_entries, roster_entries.c.user_id == users.c.id)
+        .where(
+            roster_entries.c.class_id == class_id,
+            roster_entries.c.registration.in_(registrations),
+            roster_entries.c.removed_at.is_(None),
+            users.c.id.in_(ids),
+        )
+    )
+    return list(result.mappings())
+
+
 # Single addresses and manual registration (Story 4.8).
 
 

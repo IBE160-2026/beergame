@@ -5,7 +5,8 @@ record`, the Studentside's record of one Student for the staff of the Class; Sto
 (`/api/internal/report-snapshots/{id}`, which the proxy refuses: only the frontend server reaches
 it). Story 13.12: the staff's download of one Student's report (`…/students/{user_id}/report`, its
 `/file`). Story 13.13: the ZIP of all Student reports of a Class session
-(`/api/class-sessions/{id}/reports/zip`, its `/file`).
+(`/api/class-sessions/{id}/reports/zip`, its `/file`). Story 13.14: the Completion export
+(`/api/class-sessions/{id}/completion-export`).
 
 An id that is not one, a Class session that does not exist, a Class outside the caller's scope and
 a User who is no Student of the Class all answer the same 403 `forbidden` (FR-5)."""
@@ -16,7 +17,15 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends, Header, Query
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 
-from app.modules.reports import bundle, corrections, makeup, report, snapshot, studentside
+from app.modules.reports import (
+    bundle,
+    completion_export,
+    corrections,
+    makeup,
+    report,
+    snapshot,
+    studentside,
+)
 from app.modules.reports.report_data import ReportDataOut
 from app.modules.reports.schemas import (
     CorrectionIn,
@@ -320,6 +329,7 @@ def _zip_state(found: bundle.ZipState) -> dict:
         generated_at=found.generated_at,
         students=found.students,
         deleted=found.deleted,
+        completion_export=found.completion_export,
     ).model_dump(mode="json")
 
 
@@ -393,6 +403,61 @@ async def download_reports_zip(
     if url is None:
         raise authz.Forbidden
     return RedirectResponse(url, status_code=303, headers=PERSONAL)
+
+
+@router.get(
+    "/class-sessions/{session_id}/completion-export",
+    responses={
+        **documented(401, 403, 409, 422),
+        200: {
+            "description": "The file, CSV or .xlsx",
+            "content": {
+                completion_export.CSV_TYPE.split(";")[0]: {},
+                completion_export.XLSX_TYPE: {},
+            },
+        },
+    },
+    response_class=Response,
+    operation_id="downloadCompletionExport",
+)
+async def download_completion_export(
+    session_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require(completion_export.EXPORT))],
+    format: Annotated[
+        completion_export.Format,
+        Query(description="`csv` (Norwegian Excel: UTF-8 with BOM, `;`) or `xlsx`."),
+    ] = "csv",
+) -> Response:
+    """«Last ned fullføringsliste (CSV eller Excel)» (Story 13.14, FR-60, FR-17, AD-14, AD-16):
+    one row per Student reports count, with the fixed columns `completion_export.COLUMNS` (name,
+    email, the date each step was done, the shares, the Oppfølgingsspill, the correction mark and
+    whether the requirement is met), every value from the one Completion assembler. Never an AI
+    score, AI feedback or Indicative letter. Built now and sent, never stored; recorded in the
+    audit log once the file is built. 409 `data_deleted` once the Student data is deleted; 403
+    `forbidden` for an Assistant lecturer, anyone else outside the Class's Lecturers and a Class
+    session that does not exist (FR-5, AD-12)."""
+    class_session_id = _id(session_id)
+    try:
+        found = await completion_export.export(user, class_session_id)
+    except report.ReportRefused as refused:
+        return error_response(409, refused.code, "No Completion export can be made now.")
+    if found is None:
+        raise authz.Forbidden
+    if format == "xlsx":
+        body, media_type = completion_export.to_xlsx(found.rows), completion_export.XLSX_TYPE
+    else:
+        body, media_type = (
+            b"".join(completion_export.to_csv(found.rows)),
+            completion_export.CSV_TYPE,
+        )
+    await completion_export.record_download(user, class_session_id, format, len(found.rows))
+    headers = {
+        **PERSONAL,
+        "Content-Disposition": (
+            f'attachment; filename="{completion_export.file_name(found.number, format)}"'
+        ),
+    }
+    return Response(body, media_type=media_type, headers=headers)
 
 
 @router.get(
