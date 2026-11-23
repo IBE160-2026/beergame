@@ -4232,3 +4232,20 @@ Byggeagent: mergen først (Alembic, `reports/scope.py`, tilkoblingsbudsjett, per
 
 ### Åpne punkter
 - Issue #259: beslutninger for mergen og storyen, og to utsatte punkter.
+
+## Story 15.3: Studentdata slettes automatisk når lagringstiden er ute (spor 1)
+
+### Oppgave
+Bygge Story 15.3, den siste som kan bygges i Epic 15.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet (sletting av data).
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-15-3-student-data-deleted-automatically-when-retention-ends.md`. Commit: 5b3dd8c. Migrasjon 0072.
+- Admin setter lagringstid per institusjon; slettedatoene regnes om. Sveipet `ops.retention` anonymiserer studenter uten annen aktiv klasseøkt og sletter dataene for den ene klasseøkta for de andre.
+- Tester: backend 4200 (én eldre test oppdatert), frontend-sjekkene, Playwright (55).
+- Status: done. Fire mellomstore punkter er utsatt til avslutningen av Epic 15.
+
+### Åpne punkter
+- Issue #260: beslutninger og utsatte punkter.

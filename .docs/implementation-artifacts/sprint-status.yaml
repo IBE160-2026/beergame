@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-17-2026 12:28
-last_updated: 11-23-2026 16:39
+last_updated: 11-23-2026 17:36
 project: beergame
 project_key: NOKEY
 tracking_system: file-system
@@ -254,7 +254,7 @@ development_status:
   epic-14: in-progress
   14-1-class-report-of-the-games: done
   14-2-class-report-of-learning-results: done
-  14-3-compare-class-sessions-in-tverrklasse-statistikk: backlog
+  14-3-compare-class-sessions-in-tverrklasse-statistikk: in-progress
   14-4-filter-comparisons-and-label-class-sessions-that-differ: backlog
   14-5-students-see-all-class-games-side-by-side: done
   14-6-the-lecturer-shows-all-class-games-in-a-plenary: done
@@ -265,7 +265,7 @@ development_status:
   epic-15: in-progress
   15-1-a-student-sees-their-own-data-in-mine-data: done
   15-2-the-admin-deletes-a-user-on-the-institution-s-instruction: done
-  15-3-student-data-is-deleted-automatically-when-retention-ends: in-progress
+  15-3-student-data-is-deleted-automatically-when-retention-ends: done
   15-4-the-admin-exports-pseudonymised-data-for-evaluation: done
   15-5-the-admin-pins-and-freezes-a-model-for-class-sessions: done
   15-6-the-admin-sees-ai-cost-and-sets-the-cost-limit: done
