@@ -85,6 +85,9 @@ POLICIES: dict[str, frozenset[str]] = {
     "users.list": frozenset({ADMIN}),
     "users.manage": frozenset({ADMIN}),
     "institutions.manage": frozenset({ADMIN}),
+    # Story 15.12 (FR-8, PRD §6.1, AD-12): only the Admin records an Institution's data processing
+    # agreement, which Student Invitations wait for while `REQUIRE_DPA_FOR_INVITATIONS` is on.
+    "institutions.processing_agreement": frozenset({ADMIN}),
     "audit.read": frozenset({ADMIN}),
     # Admin-område → «Kontrolltest» (Story 12.7, FR-82, AD-27): only the Admin sets one up.
     "control_tests.manage": frozenset({ADMIN}),

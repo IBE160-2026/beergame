@@ -186,11 +186,11 @@ HEAD_TABLES = (
     | ERROR_EVENT_TABLES
     | CONNECTION_REPORT_TABLES
 )
-# 0065-0070 (Epic 15) follow 0209 since the merge of main;
+# 0065-0071 (Epic 15) follow 0209 since the merge of main;
 # 0209 (12.10), 0208 (12.9), 0207 (12.8), 0206 (12.6), 0205 (12.5), 0204 (12.4), 0203 (12.3)
 # and 0202 (12.2) follow 0201 (12.7);
 # 0120-0130 follow 0064
-HEAD = "0070"  # 0070 records each process's database connections (Story 15.9)
+HEAD = "0071"  # 0071 records an Institution's data processing agreement (Story 15.12)
 
 
 def reset_schema(url: str) -> None:
@@ -323,6 +323,19 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     sent = constraints(url, "messages")
     assert "UNIQUE (key)" in sent["messages_key_key"]
     assert "'class_session'" in sent["ck_messages_recipient_kind"]
+
+    # 0071 (Story 15.12): an Institution's data processing agreement, all set or none, and back.
+    assert (
+        "dpa_signed_on IS NOT NULL"
+        in constraints(url, "institutions")["ck_institutions_processing_agreement"]
+    )
+    command.downgrade(cfg, "0070")
+    assert "dpa_signed_by" not in columns(url, "institutions")
+    command.upgrade(cfg, "0071")
+    assert {"dpa_signed_by", "dpa_signed_on", "dpa_recorded_at"} <= set(
+        columns(url, "institutions")
+    )
+    command.downgrade(cfg, "0070")
 
     # 0070 (Story 15.9): the connections each process reports at start, and back.
     reports = constraints(url, "db_connection_reports")

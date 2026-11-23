@@ -151,6 +151,7 @@ function StatusView({
     mutationFn: ({ days, entryId }: { days: number; entryId?: string }) => sendReminders(classId, days, entryId),
     messages: {
       nothing_to_send: copy.nothingToSend,
+      processing_agreement_missing: nb.classes.processingAgreementMissing,
       invalid_request: nb.classes.roster.validDaysError(VALID_DAYS.min, VALID_DAYS.max),
     },
     fallback: copy.sendFailed,

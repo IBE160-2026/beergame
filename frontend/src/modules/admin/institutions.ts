@@ -42,3 +42,23 @@ export function refusalForField(error: unknown): string | undefined {
   }
   return undefined;
 }
+
+/** The api's longest «Signert av» (`PROCESSING_AGREEMENT_TEXT_MAX` in `identity/schemas.py`). */
+export const SIGNED_BY_MAX_LENGTH = 200;
+
+export type ProcessingAgreementValues = { signedBy: string; signedOn: string };
+export type ProcessingAgreementErrors = Partial<Record<keyof ProcessingAgreementValues, string>>;
+
+/** The api's rules for a data processing agreement (Story 15.12), checked before sending: who
+ * signed is required and at most 200 characters without outer whitespace; the day is required and
+ * not after `today` (Europe/Oslo, «2026-11-23»). */
+export function processingAgreementErrors(values: ProcessingAgreementValues, today: string): ProcessingAgreementErrors {
+  const form = copy.processingAgreement;
+  const errors: ProcessingAgreementErrors = {};
+  const by = values.signedBy.trim();
+  if (!by) errors.signedBy = form.required;
+  else if ([...by].length > SIGNED_BY_MAX_LENGTH) errors.signedBy = form.tooLong;
+  if (!values.signedOn) errors.signedOn = form.required;
+  else if (values.signedOn > today) errors.signedOn = form.inFuture;
+  return errors;
+}

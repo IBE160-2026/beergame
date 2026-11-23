@@ -60,6 +60,7 @@ Dropped compared with `technology.md`: Redis, the backup cron service, watchdog,
 | `BOOTSTRAP_ADMIN_EMAILS` | 🟡🟢 | yourself | Comma-separated. These users get the Admin role at first login (UJ-1). |
 | `LOG_LEVEL` | 🟡 | yourself | `info` in production. Logs never contain names, emails or free text. |
 | `ERROR_TRACKER_DSN` | 🟡 | the error tracker's project settings (Story 15.11) | `https://<key>@<host>/<project>`; any tracker that accepts Sentry envelopes. Empty locally: reports stay in a recording mock. Empty in production: the app starts and logs `error_tracker_not_configured`. `http://` is refused in production. The tool is open (`docs/ops/readiness.md`, R2). |
+| `REQUIRE_DPA_FOR_INVITATIONS` | 🟡 | the founder's decision (`docs/ops/readiness.md`, R15) | `true`: Student Invitations, reminders and manual registrations are refused for a Class whose Institution has no recorded data processing agreement (Story 15.12). `false` (default): they go on and the missing agreement is logged with ids. The operator's own Institution and Control tests always pass. Backend only. |
 | `RAILWAY_GIT_COMMIT_SHA` | 🟢 | set by Railway on each deploy | Sent with each error report as its release. Not set by hand. |
 
 **The pseudonym key is not an environment variable.** Someone other than the founder generates and keeps it (PRD §10), and types it in when a pseudonymised export is run (FR-71). The system stores only a fingerprint of it, to detect a changed key (AD-14). The same key must be used for the whole of a study.

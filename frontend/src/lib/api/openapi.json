@@ -6499,6 +6499,16 @@
             "default": false,
             "title": "Operator Owned",
             "type": "boolean"
+          },
+          "processing_agreement": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProcessingAgreementOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -9431,6 +9441,55 @@
           "over_budget"
         ],
         "title": "ProcessConnectionsOut",
+        "type": "object"
+      },
+      "ProcessingAgreementIn": {
+        "additionalProperties": false,
+        "description": "Story 15.12: who signed the Institution's data processing agreement and on which day (not\nafter today in Europe/Oslo, checked by the route).",
+        "properties": {
+          "signed_by": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Signed By",
+            "type": "string"
+          },
+          "signed_on": {
+            "format": "date",
+            "title": "Signed On",
+            "type": "string"
+          }
+        },
+        "required": [
+          "signed_by",
+          "signed_on"
+        ],
+        "title": "ProcessingAgreementIn",
+        "type": "object"
+      },
+      "ProcessingAgreementOut": {
+        "description": "A recorded data processing agreement (Story 15.12): who signed for the Institution, the day,\nand when the Admin recorded it.",
+        "properties": {
+          "recorded_at": {
+            "format": "date-time",
+            "title": "Recorded At",
+            "type": "string"
+          },
+          "signed_by": {
+            "title": "Signed By",
+            "type": "string"
+          },
+          "signed_on": {
+            "format": "date",
+            "title": "Signed On",
+            "type": "string"
+          }
+        },
+        "required": [
+          "signed_by",
+          "signed_on",
+          "recorded_at"
+        ],
+        "title": "ProcessingAgreementOut",
         "type": "object"
       },
       "ProposalPersonOut": {
@@ -17870,6 +17929,90 @@
         ]
       }
     },
+    "/api/admin/institutions/{institution_id}/processing-agreement": {
+      "put": {
+        "description": "Record or replace the Institution's data processing agreement with the operator (Story\n15.12, FR-8, PRD §6.1): who signed for the Institution and the day, not after today in\nEurope/Oslo (422 `fields.signed_on` = `in_future`). Audited as\n`institution.processing_agreement_recorded`; the same agreement again writes nothing. While\n`REQUIRE_DPA_FOR_INVITATIONS` is on, Students of the Institution are invited only once it is\nrecorded. An unknown id is `not_found`.",
+        "operationId": "recordProcessingAgreement",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "institution_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Institution Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProcessingAgreementIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstitutionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Record Processing Agreement",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/admin/invitations": {
       "get": {
         "description": "The newest Invitation to each address and role, newest first, with its status and whether\nthe recipient asked for a new one (FR-1, FR-3).",
@@ -22960,7 +23103,7 @@
         ]
       },
       "post": {
-        "description": "«Send N Invitasjoner» (Story 4.4): write the staged upload's valid addresses to the Roster\nand send each new address a Student Invitation valid through the `valid_days`-th day after\ntoday (Europe/Oslo), in one transaction; the mails leave from `worker-batch`. 404\n`not_found` when `upload_id` is not the Class's staging (sent already, replaced or expired);\n422 `nothing_to_send` when no staged row is valid; 422 `invalid_request` with\n`fields.valid_days` for a validity outside 1–60 days. Nothing changes on a refusal.",
+        "description": "«Send N Invitasjoner» (Story 4.4): write the staged upload's valid addresses to the Roster\nand send each new address a Student Invitation valid through the `valid_days`-th day after\ntoday (Europe/Oslo), in one transaction; the mails leave from `worker-batch`. 404\n`not_found` when `upload_id` is not the Class's staging (sent already, replaced or expired);\n422 `nothing_to_send` when no staged row is valid; 422 `invalid_request` with\n`fields.valid_days` for a validity outside 1–60 days; 409 `processing_agreement_missing` while\n`REQUIRE_DPA_FOR_INVITATIONS` is on and the Class's Institution has no recorded data processing\nagreement (Story 15.12). Nothing changes on a refusal.",
         "operationId": "sendRosterInvitations",
         "parameters": [
           {
@@ -23023,6 +23166,16 @@
               }
             },
             "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {
@@ -23106,7 +23259,7 @@
     },
     "/api/classes/{class_id}/reminders": {
       "post": {
-        "description": "«Send påminnelse» (Story 4.7, FR-9, NFR-10): a new Invitation valid through the\n`valid_days`-th day after today (Europe/Oslo) to every address that has not registered, or\nwith `roster_entry_id` to that one alone; their old links stop working. Addresses whose last\nmail bounced hard are left out and named in `left_out`. 422 `nothing_to_send` when nothing\nwould be sent or left out (all registered, or the entry is registered or not on the Roster);\n422 `invalid_request` with `fields.valid_days` for a validity outside 1–60 days.",
+        "description": "«Send påminnelse» (Story 4.7, FR-9, NFR-10): a new Invitation valid through the\n`valid_days`-th day after today (Europe/Oslo) to every address that has not registered, or\nwith `roster_entry_id` to that one alone; their old links stop working. Addresses whose last\nmail bounced hard are left out and named in `left_out`. 422 `nothing_to_send` when nothing\nwould be sent or left out (all registered, or the entry is registered or not on the Roster);\n422 `invalid_request` with `fields.valid_days` for a validity outside 1–60 days; 409\n`processing_agreement_missing` as for the first sending (Story 15.12).",
         "operationId": "sendReminders",
         "parameters": [
           {
@@ -23159,6 +23312,16 @@
               }
             },
             "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {
@@ -23681,7 +23844,7 @@
     },
     "/api/classes/{class_id}/roster/manual": {
       "post": {
-        "description": "«Registrer manuelt» (Story 4.8, FR-9): the address's User (created without a password, or\nthe existing one) is a Student in the Class at once, registered manually, and is mailed a\nsingle-use link to set a password when it has none. 422 `invalid_request` with\n`fields.email` (an address problem or `already_registered`) or `fields.name`.",
+        "description": "«Registrer manuelt» (Story 4.8, FR-9): the address's User (created without a password, or\nthe existing one) is a Student in the Class at once, registered manually, and is mailed a\nsingle-use link to set a password when it has none. 422 `invalid_request` with\n`fields.email` (an address problem or `already_registered`) or `fields.name`; 409\n`processing_agreement_missing` as for a sending of Invitations (Story 15.12).",
         "operationId": "registerStudentManually",
         "parameters": [
           {
@@ -23734,6 +23897,16 @@
               }
             },
             "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {

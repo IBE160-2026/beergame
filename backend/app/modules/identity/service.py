@@ -34,6 +34,8 @@ from app.modules.identity.schemas import (
     InvitationListOut,
     InvitationOut,
     InvitationStatus,
+    ProcessingAgreementIn,
+    ProcessingAgreementOut,
     RosterColumn,
     RosterInvalidRow,
     RosterPasteTooLong,
@@ -1264,6 +1266,9 @@ INSTITUTION_OPERATOR_MARKED = "institution.operator_marked"
 """The audit action of the Admin marking the operator's own Institution (Story 12.7, AD-15)."""
 INSTITUTION_NO_LETTER = "institution.no_letter_changed"
 """The audit action of the Admin switching an Institution's no-letter mark (Story 12.6, FR-56)."""
+INSTITUTION_PROCESSING_AGREEMENT = "institution.processing_agreement_recorded"
+"""The audit action of the Admin recording an Institution's data processing agreement (Story
+15.12, FR-8, AD-15): ids and the day only, never who signed."""
 
 
 @dataclass(frozen=True)
@@ -1272,12 +1277,22 @@ class InstitutionRefused:
 
 
 def _institution_out(row) -> InstitutionOut:
+    agreement = (
+        ProcessingAgreementOut(
+            signed_by=row["dpa_signed_by"],
+            signed_on=row["dpa_signed_on"],
+            recorded_at=row["dpa_recorded_at"],
+        )
+        if row["dpa_signed_on"] is not None
+        else None
+    )
     return InstitutionOut(
         id=row["id"],
         name=row["name"],
         created_at=row["created_at"],
         operator_owned=row["operator_owned"],
         no_letter=row["no_letter"],
+        processing_agreement=agreement,
     )
 
 
@@ -1392,6 +1407,49 @@ async def set_institution_no_letter(
         on=on,
     )
     return _institution_out(row)
+
+
+async def record_processing_agreement(
+    actor: uuid.UUID, institution_id: uuid.UUID, body: ProcessingAgreementIn, *, now: datetime
+) -> InstitutionOut | InstitutionRefused:
+    """Record (or replace) the Institution's data processing agreement (Story 15.12, FR-8, PRD
+    §6.1, AD-12): who signed for it and the day, in one transaction with one audit row (ids and
+    the day). The same agreement again writes nothing. Refused with `not_found`."""
+    async with get_sessionmaker().begin() as s:
+        row = await repo.lock_institution(s, institution_id)
+        if row is None:
+            return InstitutionRefused("not_found")
+        if (row["dpa_signed_by"], row["dpa_signed_on"]) == (body.signed_by, body.signed_on):
+            return _institution_out(row)
+        replaced = row["dpa_signed_on"] is not None
+        row = await repo.set_processing_agreement(
+            s, institution_id, body.signed_by, body.signed_on, now
+        )
+        await audit.record(
+            s,
+            actor,
+            INSTITUTION_PROCESSING_AGREEMENT,
+            {"institution_id": institution_id},
+            {"signed_on": body.signed_on.isoformat(), "replaced": replaced},
+            now,
+        )
+    log.info(
+        "institution_processing_agreement_recorded",
+        institution_id=str(institution_id),
+        actor_user_id=str(actor),
+    )
+    return _institution_out(row)
+
+
+async def has_processing_agreement(
+    institution_id: uuid.UUID, session: AsyncSession | None = None
+) -> bool:
+    """Story 15.12 (FR-8, AD-12): whether the Institution's data processing agreement is
+    recorded; in the caller's `session` when given. False for an unknown id. `classes` asks it
+    before it sends Student Invitations; the operator's own Institution needs none (its
+    `operator_institution` is read beside it)."""
+    async with reading(session) as s:
+        return await repo.processing_agreement_recorded(s, institution_id)
 
 
 async def institution_forbids_letter(

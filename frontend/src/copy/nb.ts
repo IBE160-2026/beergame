@@ -696,6 +696,10 @@ export const nb = {
   /** The Lecturer's Classes (Epic 4). «Klassene dine», «Ny Klasse», «Lag Klasse», «Navn» and
    * «Emnekode» are EXPERIENCE.md's and the mockups' own; the rest is [ASSUMPTION] Story 4.1. */
   classes: {
+    /** Story 15.12 (FR-8, PRD §6.1): a sending, reminder or manual registration refused because
+     * the Class's Institution has no recorded data processing agreement. [ASSUMPTION] */
+    processingAgreementMissing:
+      "Institusjonen har ingen registrert databehandleravtale ennå, så ingen studenter kan inviteres eller registreres. Be administratoren registrere avtalen.",
     home: {
       title: "Klassene dine",
       empty: "Du har ingen Klasser ennå. En Klasse samler studentene dine og spillene deres.",
@@ -2765,6 +2769,29 @@ export const nb = {
         saved: (name: string, on: boolean) =>
           on ? `Veiledende bokstav er sperret for ${name}.` : `${name}: faglærer velger igjen om veiledende bokstav vises.`,
         failed: "Valget ble ikke lagret. Prøv igjen.",
+      },
+      /** Story 15.12 (FR-8, PRD §6.1): the Institution's data processing agreement with the
+       * operator; Student Invitations wait for it while `REQUIRE_DPA_FOR_INVITATIONS` is on.
+       * [ASSUMPTION] */
+      processingAgreement: {
+        column: "Databehandleravtale",
+        none: "Ingen avtale registrert",
+        /** The operator's own Institution: its test students need none (FR-82). */
+        notNeeded: "Trengs ikke: operatørens egen Institusjon",
+        /** «Signert av prorektor for utdanning, 2. november 2026». */
+        signed: (by: string, day: string) => `Signert av ${by}, ${day}`,
+        record: (name: string) => `Registrer databehandleravtale for ${name}`,
+        change: (name: string) => `Endre databehandleravtalen for ${name}`,
+        signedBy: "Hvem signerte for Institusjonen",
+        signedByHint: "Rollen ved Institusjonen, slik avtalen oppgir den, for eksempel prorektor for utdanning.",
+        signedOn: "Dato for signering",
+        save: "Lagre avtalen",
+        cancel: "Avbryt",
+        saved: (name: string) => `Databehandleravtalen for ${name} er registrert.`,
+        required: "Fyll ut feltet.",
+        tooLong: "Høyst 200 tegn.",
+        inFuture: "Datoen kan ikke være etter i dag.",
+        failed: "Avtalen ble ikke lagret. Prøv igjen.",
       },
       rename: {
         open: (name: string) => `Gi ${name} nytt navn`,

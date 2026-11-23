@@ -102,14 +102,15 @@ async def any_class_of(session: AsyncSession, user_id: uuid.UUID) -> bool:
 
 
 async def class_label(session: AsyncSession, class_id: uuid.UUID) -> RowMapping | None:
-    """The Class's name, course code, archive time and whether it is a Control test, for its
-    Invitations' mail, «Du er invitert» and its Roster rule (no User's scope: the Invitation names
-    the Class by id)."""
+    """The Class's name, course code, archive time, Institution and whether it is a Control test,
+    for its Invitations' mail, «Du er invitert», its Roster rule and the agreement gate (Story
+    15.12). No User's scope: the Invitation names the Class by id."""
     result = await session.execute(
         select(
             classes.c.name,
             classes.c.course_code,
             classes.c.archived_at,
+            classes.c.institution_id,
             _control_test.label("control_test"),
         ).where(classes.c.id == class_id)
     )

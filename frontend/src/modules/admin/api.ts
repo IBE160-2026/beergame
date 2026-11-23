@@ -176,6 +176,28 @@ export function useSetNoLetter() {
   });
 }
 
+export type ProcessingAgreementInput = components["schemas"]["ProcessingAgreementIn"];
+
+/** Record or replace an Institution's data processing agreement (Story 15.12); the list reads
+ * again. */
+export function useRecordProcessingAgreement() {
+  const queryClient = useQueryClient();
+  return useMutation<Institution, unknown, { id: string; body: ProcessingAgreementInput }>({
+    mutationFn: ({ id, body }) =>
+      request(() =>
+        api.PUT("/api/admin/institutions/{institution_id}/processing-agreement", {
+          params: { path: { institution_id: id } },
+          body,
+        }),
+      ),
+    networkMode: "always",
+    retry: false,
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: institutionsKey });
+    },
+  });
+}
+
 export type ControlTests = components["schemas"]["ControlTestsOut"];
 export type ControlTest = components["schemas"]["ControlTestOut"];
 export type ControlTestIn = components["schemas"]["ControlTestIn"];

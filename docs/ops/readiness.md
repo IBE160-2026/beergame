@@ -20,6 +20,7 @@ The founder's go/no-go list before the first Class session with real Students (N
 | R12 | The e-mail provider's data residency decided or listed as open (Story 15.14 completes it) | founder | #29 | open | |
 | R13 | Conformance report [conformance-report-2026-11-22.md](../accessibility/conformance-report-2026-11-22.md): its checks tools cannot make (screen reader, keyboard only) done and recorded (below) | founder | | open | |
 | R14 | The accessibility statement's contact address (`nb.accessibility.contact.email`, now the placeholder `tilgjengelighet@example.com`) set to an address someone reads | founder | | open | |
+| R15 | Data processing agreement gate decided: whether Student Invitations are refused for an Institution with no recorded agreement, `REQUIRE_DPA_FOR_INVITATIONS` set to it in Railway, and the pilot Institution's agreement recorded in «Institusjoner» | founder | | open | |
 
 ## R1 Backup level
 
@@ -95,6 +96,16 @@ It scans with fresh data, writes `docs/accessibility/conformance-report-<date>.m
 
 - **R13.** Passed when every check in the report's "Checks tools cannot make" section shows who did it and when (fill `docs/accessibility/conformance-inputs.json` and run the command again), the surfaces show `pass` or a deviation the statement lists, and the statement's «Kjente avvik» says the same as the report. The independent review of the autonomous build did the keyboard and focus checks in the founder's place and found no defect; it closes nothing.
 - **R14.** The address Students' Faglærere and others write to. Until it is set, the statement shows the placeholder (Story 15.14's preflight should refuse it in production).
+
+## R15 Data processing agreement gate (Story 15.12)
+
+PRD §6.1: the operator signs a data processing agreement with each Institution before any of its Students are invited, the founder's own Institution for the pilot included. Story 15.12 built the record and the gate; whether the gate refuses is the founder's decision (spine, Deferred list).
+
+- The Admin records who signed for the Institution and the day in Admin-område → «Institusjoner» → «Databehandleravtale» (audited as `institution.processing_agreement_recorded`).
+- `REQUIRE_DPA_FOR_INVITATIONS=true`: a Lecturer's «Send N Invitasjoner», «Send påminnelse» and «Registrer manuelt» in a Class whose Institution has no recorded agreement answer `409 processing_agreement_missing`, change nothing, and the Lecturer is told the agreement is missing.
+- `false` (the default until the founder decides): the send goes on and the backend logs `invitation_without_processing_agreement` with the Class and Institution ids.
+- Either way the operator's own Institution and every Control test pass (the operator is controller for test students, FR-82), and Lecturer, Admin and Assistant Invitations are never held.
+- **R15** is passed when the founder has recorded the decision with the date against the spine's Deferred list, set the variable in Railway to it, and the pilot Institution's agreement is recorded.
 
 ## Proposals
 

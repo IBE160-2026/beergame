@@ -70,6 +70,13 @@ class Settings(BaseSettings):
     feature_game_data_export: bool = True
     feature_capacity: bool = True
 
+    # Story 15.12 (FR-8, PRD §6.1, AD-12): refuse Student Invitations (and manual registration)
+    # in a Class whose Institution has no recorded data processing agreement. Off, a missing
+    # agreement is only logged with ids. The value is the founder's decision (spine's Deferred
+    # list, `docs/ops/readiness.md` R15); `false` until it is recorded. The operator's own
+    # Institution and Control tests never wait (FR-82); Lecturer and Admin Invitations never do.
+    require_dpa_for_invitations: bool = False
+
     # AI budgets in USD (FR-69, AD-6). PLACEHOLDERS until the prototype sets them (issue #8):
     # the default cost limit of a new Class session, and the reserve kept for the Debrief and
     # the AI assessment when a budget is created without one.

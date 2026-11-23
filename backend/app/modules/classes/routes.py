@@ -363,11 +363,20 @@ async def delete_roster_upload(
     return Response(status_code=204)
 
 
+def _agreement_missing() -> Response:
+    """Story 15.12: the Class's Institution has no recorded data processing agreement."""
+    return error_response(
+        409,
+        "processing_agreement_missing",
+        "The Institution's data processing agreement is not recorded.",
+    )
+
+
 @router.post(
     "/{class_id}/invitations",
     status_code=201,
     response_model=RosterSendOut,
-    responses=documented(401, 403, 404, 422),
+    responses=documented(401, 403, 404, 409, 422),
     operation_id="sendRosterInvitations",
 )
 async def send_invitations(
@@ -380,13 +389,17 @@ async def send_invitations(
     today (Europe/Oslo), in one transaction; the mails leave from `worker-batch`. 404
     `not_found` when `upload_id` is not the Class's staging (sent already, replaced or expired);
     422 `nothing_to_send` when no staged row is valid; 422 `invalid_request` with
-    `fields.valid_days` for a validity outside 1–60 days. Nothing changes on a refusal."""
+    `fields.valid_days` for a validity outside 1–60 days; 409 `processing_agreement_missing` while
+    `REQUIRE_DPA_FOR_INVITATIONS` is on and the Class's Institution has no recorded data processing
+    agreement (Story 15.12). Nothing changes on a refusal."""
     try:
         sent = await service.send_invitations(
             user, _class_id(class_id), body.upload_id, body.valid_days, now=auth.utcnow()
         )
     except service.NothingToSend:
         return error_response(422, "nothing_to_send", "No staged row gets an Invitation.")
+    except service.ProcessingAgreementMissing:
+        return _agreement_missing()
     if sent is None:
         raise authz.Forbidden
     if isinstance(sent, service.Staging):
@@ -440,7 +453,7 @@ async def get_registrations(
     "/{class_id}/reminders",
     status_code=201,
     response_model=ReminderOut,
-    responses=documented(401, 403, 422),
+    responses=documented(401, 403, 409, 422),
     operation_id="sendReminders",
 )
 async def send_reminders(
@@ -453,7 +466,8 @@ async def send_reminders(
     with `roster_entry_id` to that one alone; their old links stop working. Addresses whose last
     mail bounced hard are left out and named in `left_out`. 422 `nothing_to_send` when nothing
     would be sent or left out (all registered, or the entry is registered or not on the Roster);
-    422 `invalid_request` with `fields.valid_days` for a validity outside 1–60 days."""
+    422 `invalid_request` with `fields.valid_days` for a validity outside 1–60 days; 409
+    `processing_agreement_missing` as for the first sending (Story 15.12)."""
     try:
         sent = await service.send_reminders(
             user,
@@ -464,6 +478,8 @@ async def send_reminders(
         )
     except service.NoReminderTarget:
         return error_response(422, "nothing_to_send", "No address gets a reminder.")
+    except service.ProcessingAgreementMissing:
+        return _agreement_missing()
     if sent is None:
         raise authz.Forbidden
     return JSONResponse(sent.model_dump(mode="json"), status_code=201)
@@ -508,7 +524,7 @@ async def add_roster_entry(
     "/{class_id}/roster/manual",
     status_code=201,
     response_model=RegistrationOut,
-    responses=documented(401, 403, 422),
+    responses=documented(401, 403, 409, 422),
     operation_id="registerStudentManually",
 )
 async def register_manually(
@@ -519,11 +535,14 @@ async def register_manually(
     """«Registrer manuelt» (Story 4.8, FR-9): the address's User (created without a password, or
     the existing one) is a Student in the Class at once, registered manually, and is mailed a
     single-use link to set a password when it has none. 422 `invalid_request` with
-    `fields.email` (an address problem or `already_registered`) or `fields.name`."""
+    `fields.email` (an address problem or `already_registered`) or `fields.name`; 409
+    `processing_agreement_missing` as for a sending of Invitations (Story 15.12)."""
     try:
         done = await service.register_manually(user, _class_id(class_id), body, now=auth.utcnow())
     except InvalidRosterAddress as error:
         return _refused_address(error)
+    except service.ProcessingAgreementMissing:
+        return _agreement_missing()
     if done is None:
         raise authz.Forbidden
     return JSONResponse(done.model_dump(mode="json"), status_code=201)

@@ -107,6 +107,43 @@ for (const vp of VIEWPORTS) {
       await expect(listSection(page).getByText("Noe annet", { exact: true })).toHaveCount(0);
       expect(dialogs).toEqual([]);
     });
+
+    test("the Admin records an Institution's data processing agreement (Story 15.12)", async ({ page }) => {
+      const form = copy.processingAgreement;
+      await loginByApi(page, "admin");
+      const name = `Avtalehøgskolen ${tag()}`;
+      const created = await page.request.post("/api/admin/institutions", {
+        data: { name },
+        headers: { "X-Requested-With": "olspillet" },
+      });
+      expect(created.status()).toBe(201);
+      await page.goto("/admin/institusjoner");
+      const row = listSection(page).locator("tbody tr").filter({ hasText: name });
+      await expect(row.getByText(form.none)).toBeVisible();
+
+      // The form opens in its own row with the first field focused; empty, each field says why.
+      await page.getByRole("button", { name: form.record(name) }).click();
+      const signedBy = page.getByLabel(form.signedBy, { exact: true });
+      await expect(signedBy).toBeFocused();
+      await page.getByRole("button", { name: form.save }).click();
+      await expect(page.getByText(form.required)).toHaveCount(2);
+      await expect(signedBy).toBeFocused();
+      await expectAccessible(page, vp.phone);
+
+      await signedBy.fill("  Prorektor for utdanning ");
+      await page.getByLabel(form.signedOn, { exact: true }).fill("2026-11-02");
+      const saved = page.waitForResponse(
+        (r) => r.url().endsWith("/processing-agreement") && r.request().method() === "PUT",
+      );
+      await page.getByRole("button", { name: form.save }).click();
+      expect((await saved).status()).toBe(200);
+      // Focus returns to the row's button, now «Endre …», and the row says who signed and when.
+      await expect(page.getByRole("button", { name: form.change(name) })).toBeFocused();
+      await expect(page.getByRole("status").filter({ hasText: form.saved(name) })).toBeVisible();
+      await expect(row.getByText(form.signed("Prorektor for utdanning", `2. ${nb.admin.users.invitations.months[10]} 2026`))).toBeVisible();
+      await expectAccessible(page, vp.phone);
+      await expect(page.locator("main button.bg-ink")).toHaveCount(1);
+    });
   });
 }
 

@@ -620,6 +620,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/institutions/{institution_id}/processing-agreement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Record Processing Agreement
+         * @description Record or replace the Institution's data processing agreement with the operator (Story
+         *     15.12, FR-8, PRD §6.1): who signed for the Institution and the day, not after today in
+         *     Europe/Oslo (422 `fields.signed_on` = `in_future`). Audited as
+         *     `institution.processing_agreement_recorded`; the same agreement again writes nothing. While
+         *     `REQUIRE_DPA_FOR_INVITATIONS` is on, Students of the Institution are invited only once it is
+         *     recorded. An unknown id is `not_found`.
+         */
+        put: operations["recordProcessingAgreement"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/invitations": {
         parameters: {
             query?: never;
@@ -2161,7 +2186,9 @@ export interface paths {
          *     today (Europe/Oslo), in one transaction; the mails leave from `worker-batch`. 404
          *     `not_found` when `upload_id` is not the Class's staging (sent already, replaced or expired);
          *     422 `nothing_to_send` when no staged row is valid; 422 `invalid_request` with
-         *     `fields.valid_days` for a validity outside 1–60 days. Nothing changes on a refusal.
+         *     `fields.valid_days` for a validity outside 1–60 days; 409 `processing_agreement_missing` while
+         *     `REQUIRE_DPA_FOR_INVITATIONS` is on and the Class's Institution has no recorded data processing
+         *     agreement (Story 15.12). Nothing changes on a refusal.
          */
         post: operations["sendRosterInvitations"];
         delete?: never;
@@ -2210,7 +2237,8 @@ export interface paths {
          *     with `roster_entry_id` to that one alone; their old links stop working. Addresses whose last
          *     mail bounced hard are left out and named in `left_out`. 422 `nothing_to_send` when nothing
          *     would be sent or left out (all registered, or the entry is registered or not on the Roster);
-         *     422 `invalid_request` with `fields.valid_days` for a validity outside 1–60 days.
+         *     422 `invalid_request` with `fields.valid_days` for a validity outside 1–60 days; 409
+         *     `processing_agreement_missing` as for the first sending (Story 15.12).
          */
         post: operations["sendReminders"];
         delete?: never;
@@ -2354,7 +2382,8 @@ export interface paths {
          * @description «Registrer manuelt» (Story 4.8, FR-9): the address's User (created without a password, or
          *     the existing one) is a Student in the Class at once, registered manually, and is mailed a
          *     single-use link to set a password when it has none. 422 `invalid_request` with
-         *     `fields.email` (an address problem or `already_registered`) or `fields.name`.
+         *     `fields.email` (an address problem or `already_registered`) or `fields.name`; 409
+         *     `processing_agreement_missing` as for a sending of Invitations (Story 15.12).
          */
         post: operations["registerStudentManually"];
         delete?: never;
@@ -6672,6 +6701,7 @@ export interface components {
              * @default false
              */
             operator_owned: boolean;
+            processing_agreement?: components["schemas"]["ProcessingAgreementOut"] | null;
         };
         /**
          * IntRange
@@ -7872,6 +7902,39 @@ export interface components {
             process: "backend" | "worker-ai" | "worker-batch";
             /** Reported At */
             reported_at: string | null;
+        };
+        /**
+         * ProcessingAgreementIn
+         * @description Story 15.12: who signed the Institution's data processing agreement and on which day (not
+         *     after today in Europe/Oslo, checked by the route).
+         */
+        ProcessingAgreementIn: {
+            /** Signed By */
+            signed_by: string;
+            /**
+             * Signed On
+             * Format: date
+             */
+            signed_on: string;
+        };
+        /**
+         * ProcessingAgreementOut
+         * @description A recorded data processing agreement (Story 15.12): who signed for the Institution, the day,
+         *     and when the Admin recorded it.
+         */
+        ProcessingAgreementOut: {
+            /**
+             * Recorded At
+             * Format: date-time
+             */
+            recorded_at: string;
+            /** Signed By */
+            signed_by: string;
+            /**
+             * Signed On
+             * Format: date
+             */
+            signed_on: string;
         };
         /**
          * ProposalPersonOut
@@ -12303,6 +12366,68 @@ export interface operations {
             };
         };
     };
+    recordProcessingAgreement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                institution_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProcessingAgreementIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstitutionOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     listInvitations: {
         parameters: {
             query?: {
@@ -16251,6 +16376,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
             /** @description Unprocessable Content */
             422: {
                 headers: {
@@ -16346,6 +16480,15 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -16776,6 +16919,15 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

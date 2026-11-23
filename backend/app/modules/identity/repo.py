@@ -1,7 +1,7 @@
 """SQL for the identity tables. Only `identity.service` and `identity.seed` call it."""
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import (
     RowMapping,
@@ -642,6 +642,35 @@ async def no_letter_of(session: AsyncSession, institution_id: uuid.UUID) -> bool
         select(institutions.c.no_letter).where(institutions.c.id == institution_id)
     )
     return bool(found)
+
+
+async def set_processing_agreement(
+    session: AsyncSession,
+    institution_id: uuid.UUID,
+    signed_by: str,
+    signed_on: date,
+    now: datetime,
+) -> RowMapping:
+    """Story 15.12: record (or replace) the Institution's data processing agreement, in the
+    caller's transaction."""
+    result = await session.execute(
+        update(institutions)
+        .where(institutions.c.id == institution_id)
+        .values(
+            dpa_signed_by=signed_by, dpa_signed_on=signed_on, dpa_recorded_at=now, updated_at=now
+        )
+        .returning(institutions)
+    )
+    return result.mappings().one()
+
+
+async def processing_agreement_recorded(session: AsyncSession, institution_id: uuid.UUID) -> bool:
+    """Story 15.12: whether the Institution has a recorded data processing agreement; False for an
+    unknown id."""
+    found = await session.scalar(
+        select(institutions.c.dpa_signed_on).where(institutions.c.id == institution_id)
+    )
+    return found is not None
 
 
 async def institution_by_id(session: AsyncSession, institution_id: uuid.UUID) -> RowMapping | None:

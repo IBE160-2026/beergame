@@ -4,6 +4,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     Column,
+    Date,
     DateTime,
     ForeignKey,
     Index,
@@ -205,7 +206,19 @@ institutions = Table(
     # Indicative letter is shown; every Class session of it then reads the letter as unavailable.
     # Written and read through `service` only, each change audited.
     Column("no_letter", Boolean, nullable=False, server_default=text("false")),
+    # Story 15.12 (FR-8, PRD §6.1): the Institution's data processing agreement with the operator,
+    # recorded by the Admin: who signed for the Institution (the Admin's text) and the day; NULL
+    # (all three) while none is recorded. Written and read through `service` only, audited.
+    Column("dpa_signed_by", Text, nullable=True),
+    Column("dpa_signed_on", Date, nullable=True),
+    Column("dpa_recorded_at", DateTime(timezone=True), nullable=True),
     CheckConstraint("name <> ''", name="ck_institutions_name_not_empty"),
+    CheckConstraint(
+        "(dpa_signed_by IS NULL AND dpa_signed_on IS NULL AND dpa_recorded_at IS NULL) OR "
+        "(dpa_signed_by IS NOT NULL AND btrim(dpa_signed_by) <> '' AND dpa_signed_on IS NOT NULL "
+        "AND dpa_recorded_at IS NOT NULL)",
+        name="ck_institutions_processing_agreement",
+    ),
 )
 """One row per Institution the Admin creates (Story 3.11, FR-3); Classes belong to one (Epic 4).
 Names are unique case-insensitively. Times come from the api's clock. No delete in v1."""

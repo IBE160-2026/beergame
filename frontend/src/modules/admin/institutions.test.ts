@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { nb } from "@/copy/nb";
 import { ApiRequestError } from "@/lib/api/client";
 
-import { cleanName, nameError, nameReason, refusalForField } from "./institutions";
+import { cleanName, nameError, nameReason, processingAgreementErrors, refusalForField } from "./institutions";
 
 const copy = nb.admin.institutions;
 
@@ -55,5 +55,26 @@ describe("refusals beside the field", () => {
     expect(copy.create.created("USN")).toBe("USN er opprettet.");
     expect(copy.rename.renamed("USN", "USN Bø")).toBe("USN heter nå USN Bø.");
     expect(copy.rename.open("USN")).toBe("Gi USN nytt navn");
+  });
+});
+
+describe("the data processing agreement rule (Story 15.12)", () => {
+  const form = nb.admin.institutions.processingAgreement;
+  const today = "2026-11-23";
+
+  it("takes a signer and a day up to today", () => {
+    expect(processingAgreementErrors({ signedBy: " Prorektor ", signedOn: "2026-11-23" }, today)).toEqual({});
+  });
+
+  it("names each missing or bad field", () => {
+    expect(processingAgreementErrors({ signedBy: "  ", signedOn: "" }, today)).toEqual({
+      signedBy: form.required,
+      signedOn: form.required,
+    });
+    expect(processingAgreementErrors({ signedBy: "ø".repeat(201), signedOn: "2026-11-24" }, today)).toEqual({
+      signedBy: form.tooLong,
+      signedOn: form.inFuture,
+    });
+    expect(processingAgreementErrors({ signedBy: "ø".repeat(200), signedOn: "2026-01-01" }, today)).toEqual({});
   });
 });

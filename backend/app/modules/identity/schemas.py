@@ -1,11 +1,18 @@
 """API shapes of `modules/identity`."""
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictBool,
+    StringConstraints,
+    field_validator,
+)
 from pydantic_core import PydanticCustomError
 
 
@@ -338,6 +345,36 @@ class InstitutionIn(BaseModel):
     name: str = Field(max_length=4 * INSTITUTION_NAME_MAX_LENGTH)
 
 
+PROCESSING_AGREEMENT_TEXT_MAX = 200
+"""The longest «Signert av» of a data processing agreement (Story 15.12)."""
+
+ProcessingAgreementText = Annotated[
+    str,
+    StringConstraints(
+        strip_whitespace=True, min_length=1, max_length=PROCESSING_AGREEMENT_TEXT_MAX
+    ),
+]
+
+
+class ProcessingAgreementIn(BaseModel):
+    """Story 15.12: who signed the Institution's data processing agreement and on which day (not
+    after today in Europe/Oslo, checked by the route)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    signed_by: ProcessingAgreementText
+    signed_on: date
+
+
+class ProcessingAgreementOut(BaseModel):
+    """A recorded data processing agreement (Story 15.12): who signed for the Institution, the day,
+    and when the Admin recorded it."""
+
+    signed_by: str
+    signed_on: date
+    recorded_at: datetime
+
+
 class InstitutionOut(BaseModel):
     """One Institution (Story 3.11): what the Admin's list shows and what other modules read."""
 
@@ -350,6 +387,10 @@ class InstitutionOut(BaseModel):
     no_letter: bool = False
     """Story 12.6 (FR-56): its data protection officer requires that no Indicative letter is
     shown; every Class session of the Institution reads the letter as unavailable."""
+    processing_agreement: ProcessingAgreementOut | None = None
+    """Story 15.12 (FR-8, PRD §6.1): the Institution's data processing agreement with the operator,
+    or None while none is recorded. While `REQUIRE_DPA_FOR_INVITATIONS` is on, its Students are
+    invited only once it is recorded (or it is the operator's own)."""
 
 
 class NoLetterIn(BaseModel):

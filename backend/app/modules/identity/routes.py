@@ -42,6 +42,7 @@ from app.modules.identity.schemas import (
     NewPasswordIn,
     NoLetterIn,
     PasswordResetIn,
+    ProcessingAgreementIn,
     ResetCheckOut,
     ResetEmailOut,
     ResetTokenIn,
@@ -672,6 +673,35 @@ async def set_institution_no_letter(
     outcome = await service.set_institution_no_letter(
         user.id, institution_id, body.on, now=auth.utcnow()
     )
+    return _institution_answer(outcome)
+
+
+@admin_router.put(
+    "/institutions/{institution_id}/processing-agreement",
+    response_model=InstitutionOut,
+    responses=documented(401, 403, 404, 422),
+    operation_id="recordProcessingAgreement",
+)
+async def record_processing_agreement(
+    institution_id: uuid.UUID,
+    body: ProcessingAgreementIn,
+    user: Annotated[UserOut, Depends(authz.require("institutions.processing_agreement"))],
+) -> Response:
+    """Record or replace the Institution's data processing agreement with the operator (Story
+    15.12, FR-8, PRD §6.1): who signed for the Institution and the day, not after today in
+    Europe/Oslo (422 `fields.signed_on` = `in_future`). Audited as
+    `institution.processing_agreement_recorded`; the same agreement again writes nothing. While
+    `REQUIRE_DPA_FOR_INVITATIONS` is on, Students of the Institution are invited only once it is
+    recorded. An unknown id is `not_found`."""
+    now = auth.utcnow()
+    if body.signed_on > now.astimezone(service.OSLO).date():
+        return error_response(
+            422,
+            "invalid_request",
+            "The agreement cannot be dated in the future.",
+            {"signed_on": "in_future"},
+        )
+    outcome = await service.record_processing_agreement(user.id, institution_id, body, now=now)
     return _institution_answer(outcome)
 
 

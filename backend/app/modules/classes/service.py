@@ -52,6 +52,7 @@ from app.modules.identity import service as identity
 from app.modules.messaging import service as messaging
 from app.platform import audit, authz, events
 from app.platform.collation import nb_sort_key
+from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker, reading
 
 log = structlog.get_logger(__name__)
@@ -359,6 +360,43 @@ class NothingToSend(Exception):
     """The staged upload has no row that gets an Invitation (`nothing_to_send`)."""
 
 
+class ProcessingAgreementMissing(Exception):
+    """Story 15.12 (FR-8, PRD §6.1): `REQUIRE_DPA_FOR_INVITATIONS` is on and the Class's
+    Institution has no recorded data processing agreement (`processing_agreement_missing`)."""
+
+
+async def _agreement_gate(s: AsyncSession, class_id: uuid.UUID) -> None:
+    """Story 15.12 (FR-8, FR-82, AD-12): in the transaction that would invite (or register by
+    hand) a Student of the Class, before anything is written: ask `identity` whether the Class's
+    Institution has a recorded data processing agreement. A Class of the operator's own
+    Institution and a Control test Class always pass, since the operator is the controller for
+    the test students there (the mark may have moved since the Control test was set up; its Roster
+    still takes test students only). Without an agreement: raises `ProcessingAgreementMissing`
+    while `REQUIRE_DPA_FOR_INVITATIONS` is on, else only logs it with ids."""
+    row = await repo.class_label(s, class_id)
+    if row is None or row["control_test"]:
+        return
+    institution_id = row["institution_id"]
+    if await identity.has_processing_agreement(institution_id, s):
+        return
+    operator = await identity.operator_institution(s)
+    if operator is not None and operator.id == institution_id:
+        return
+    if get_settings().require_dpa_for_invitations:
+        log.info(
+            "student_invitation_refused",
+            class_id=str(class_id),
+            institution_id=str(institution_id),
+            error_code="processing_agreement_missing",
+        )
+        raise ProcessingAgreementMissing
+    log.warning(
+        "invitation_without_processing_agreement",
+        class_id=str(class_id),
+        institution_id=str(institution_id),
+    )
+
+
 async def send_invitations(
     user: authz.Principal,
     class_id: uuid.UUID,
@@ -372,7 +410,8 @@ async def send_invitations(
     and creates and enqueues one Invitation per new address; the request returns once the rows
     commit and `worker-batch` sends the mails. None when the User may not manage the Class;
     `Staging(None)` when the staging `upload_id` is gone (sent already, replaced or expired).
-    Raises `NothingToSend`."""
+    Raises `NothingToSend`, or `ProcessingAgreementMissing` before anything is written (Story
+    15.12)."""
     if not await manageable(user, class_id):
         return None
     await identity.purge_expired_roster_uploads(now)
@@ -380,6 +419,7 @@ async def send_invitations(
         async with get_sessionmaker().begin() as s:
             if not await _hold(s, class_id):
                 return None
+            await _agreement_gate(s, class_id)
             sent = await identity.send_roster_invitations(
                 s, class_id, user.id, upload_id, valid_days, now=now
             )
@@ -531,7 +571,8 @@ async def send_reminders(
     `valid_days` to every address that has not registered, or to `entry_id` alone, voiding the
     old links, in one transaction; the mails leave from `worker-batch`. An address whose newest
     Invitation bounced hard is left out and named in the answer. None when the User may not
-    manage the Class. Raises `NoReminderTarget`."""
+    manage the Class. Raises `NoReminderTarget`, or `ProcessingAgreementMissing` before anything
+    is written when there is an address to send to (Story 15.12)."""
     if not await manageable(user, class_id):
         return None
     items = await _statuses(class_id, now)
@@ -547,6 +588,8 @@ async def send_reminders(
     async with get_sessionmaker().begin() as s:
         if not await _hold(s, class_id):
             return None
+        if targets:
+            await _agreement_gate(s, class_id)
         sent = await identity.send_entry_reminders(
             s, class_id, user.id, targets, valid_days, now=now
         )
@@ -616,7 +659,8 @@ async def register_manually(
     user: authz.Principal, class_id: uuid.UUID, body: ManualRegistrationIn, *, now: datetime
 ) -> RegistrationOut | None:
     """«Registrer manuelt» (FR-9): the Student is in the Class at once and gets a mail to set a
-    password. None when the User may not manage the Class. Raises `InvalidRosterAddress`."""
+    password. None when the User may not manage the Class. Raises `InvalidRosterAddress`, or
+    `ProcessingAgreementMissing` before anything is written (Story 15.12)."""
     if not await manageable(user, class_id):
         return None
     row = (body.upload_row.upload_id, body.upload_row.row_number) if body.upload_row else None
@@ -624,6 +668,7 @@ async def register_manually(
         async with get_sessionmaker().begin() as s:
             if not await _hold(s, class_id):
                 return None
+            await _agreement_gate(s, class_id)
             entry_id = await identity.register_manually(
                 s,
                 class_id,

@@ -56,7 +56,11 @@ REGISTRY: dict[str, Entry] = {
     "roster_uploads": _e("keep", "A staged upload's header; `uploaded_by` is a staff id."),
     "roster_upload_rows": _e("delete", "Staged rows holding the User's address (student number)."),
     "access_requests": _e("delete", "Requests for lecturer access from the User's address."),
-    "institutions": _e("none", "Institution names only."),
+    "institutions": _e(
+        "keep",
+        "Institution names, and who signed its data processing agreement (Story 15.12): the "
+        "Admin's text about the Institution, no User's data.",
+    ),
     # classes
     "classes": _e("keep", "`created_by` is an id."),
     "class_staff": _e("delete", "The User's place on Class staff."),
