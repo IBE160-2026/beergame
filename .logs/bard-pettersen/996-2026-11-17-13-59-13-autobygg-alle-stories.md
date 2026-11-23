@@ -4249,3 +4249,55 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet (slettin
 
 ### Åpne punkter
 - Issue #260: beslutninger og utsatte punkter.
+
+
+## Story 14.3: Sammenligne klasseøkter i Tverrklasse-statistikk (spor 3), og merge av Epic 15 inn i Epic 14
+
+### Oppgave
+Hente inn `epic-15` (med 15.3) i `epic-14` og bygge Story 14.3.
+
+### Plan
+Byggeagent: mergen først, så storyen med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Merge: 4c06768. Sju filer med konflikter, begge sider beholdt; én Alembic-head.
+- Spec: `.docs/implementation-artifacts/spec-14-3-compare-class-sessions-in-tverrklasse-statistikk.md`. Commit: 3f5f621. Migrasjon 0401.
+- Lagrede aggregater med minst 10 studenter per mål, skrevet av sveipet og før sletting (15.3). Siden `/tverrklasse-statistikk` og merket «Fjoråret» på Kostnadsfordelingen.
+- Tester: backend 4267, Vitest 1379, Playwright 52.
+- Status: done.
+
+### Åpne punkter
+- Issue #262: beslutninger og utsatte punkter.
+
+## Story 14.4: Filtrere sammenligninger og merke klasseøkter som skiller seg ut (spor 3)
+
+### Oppgave
+Bygge Story 14.4.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-14-4-filter-comparisons-and-label-class-sessions-that-differ.md`. Commit: a5c9fc1. Ingen migrasjon.
+- Fem filtre på Tverrklasse-statistikk og merket «Ulikt oppsett: …» for klasseøkter som skiller seg ut; poengdiagrammet sier om poengene kan sammenlignes.
+- Tester: backend 4279, Vitest 1382, Playwright 37.
+- Status: done.
+
+### Åpne punkter
+- Issue #263: beslutninger og ett utsatt punkt.
+
+## Avslutning av Epic 15 (spor 1) og merge til main
+
+### Oppgave
+Avslutte Epic 15 og merge den til `main`.
+
+### Plan
+Én agent: utsatte punkter fra 15.1 og 15.3, oppfølgingsgjennomgang, visuell sjekk, full stabilisering, PR og CI.
+
+### Resultat
+- Commits: 083a1d1 («Epic 15: avslutning»), 8d68328 (CI). Migrasjon 0073. PR #261, CI grønn, merget (6460872).
+- Klasseøkter uten testfrist får slettedato; en student som beholder kontoen, navngis ikke lenger i klasseøkta etter datoen; slettingen er testet for alle deler. Full Playwright-pakke (839) og backend (4208) grønne.
+- Status: `epic-15` done. 15.12 står fortsatt som review (#247).
+
+### Åpne punkter
+- Issue #264: beslutninger, to åpne spørsmål til grunnleggeren og punkter som står igjen.
