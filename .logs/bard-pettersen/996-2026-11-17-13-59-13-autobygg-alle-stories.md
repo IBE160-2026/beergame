@@ -3896,3 +3896,22 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Etterp�
 
 ### Åpne punkter
 - Issue #238: beslutninger (ingen terskel for samsvar) og gjenværende risiko.
+
+## Story 13.6: Send melding til studentene som ikke har oppfylt kravet (spor 2)
+
+### Oppgave
+Bygge Story 13.6 på `epic-13` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-13-6-message-the-students-who-have-not-met-the-requirement.md`.
+- Commit: 48b48be. Migrasjon 0303.
+- Oversikten har lenken «Send Melding til N som ikke har oppfylt kravet», som åpner Meldingsskjemaet med en tabell over studentene. Mottakerne regnes ut på nytt når meldingen sendes.
+- Tester: backend 3751 (én feil uten sammenheng, passerer alene), Vitest 1203, tsc, `lint:colours`, `check:copy`, bygg, Playwright 63 med axe.
+- Gjennomgang: 31 funn, 14 rettet.
+- Status: done.
+
+### Åpne punkter
+- Issue #239: beslutninger.
