@@ -4,7 +4,10 @@ import type { components } from "@/lib/api/schema";
 import { formatNumber } from "@/lib/number-format";
 
 import { reportCopy } from "./copy";
+import { DebriefSectionView } from "./debrief-section";
 import { GameSectionView } from "./game-section";
+import { ReplaySectionView } from "./replay-section";
+import { TestSectionView } from "./test-section";
 
 export type ReportData = components["schemas"]["ReportDataOut"];
 export type ReportSectionData = ReportData["sections"][number];
@@ -90,12 +93,15 @@ type Renderers = {
 };
 
 /** The print route's section registry, in step with `SECTIONS` in `backend/app/modules/reports/
- * report_data.py`: each `kind` the api builds has its renderer here. `completion` (Story 13.7) and
- * `game` (Story 13.8, `game-section.tsx`); Story 13.10 adds `debrief`, `replay` and `test`. Each
+ * report_data.py`: each `kind` the api builds has its renderer here. `completion` (Story 13.7),
+ * `game` (Story 13.8, `game-section.tsx`), `debrief`, `replay` and `test` (Story 13.10). Each
  * renders its charts from `components/charts` at a fixed width with a table after every chart. */
 export const SECTIONS: Renderers = {
   completion: CompletionSectionView,
   game: GameSectionView,
+  debrief: DebriefSectionView,
+  replay: ReplaySectionView,
+  test: TestSectionView,
 };
 
 export function ReportSection({ section }: { section: ReportSectionData }) {

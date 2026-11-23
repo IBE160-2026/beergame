@@ -2637,6 +2637,10 @@ export const nb = {
       counter: (at: number, of: number) => `Spørsmål ${at} av ${of}`,
       /** [ASSUMPTION] who reads the answers, under the field (FR-58 adds the report's line). */
       privacy: "Bare du og de som underviser Klassen, kan lese svarene. Et svar kan ikke endres etter at du har gått videre.",
+      /** [ASSUMPTION] draft for review (Story 13.10, FR-58): once, under the heading. Who reads the
+       * answers, and that the answers on feelings stay out of the Student report. */
+      report:
+        "Faglærerne og assistentene i Klassen kan lese svarene dine. Svarene på spørsmålene om følelser kommer ikke med i Studentrapporten.",
       /** [ASSUMPTION] */
       next: "Fortsett",
       /** [ASSUMPTION] beside the field while it is empty. */

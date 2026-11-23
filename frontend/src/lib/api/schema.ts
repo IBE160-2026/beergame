@@ -4412,6 +4412,37 @@ export interface components {
          */
         DebriefRelease: "open" | "hold";
         /**
+         * DebriefSectionOut
+         * @description «Debrief» (Story 13.10, FR-58, FR-47): the Explanation as written (null: not sent); when
+         *     the Debrief was finished (null: not finished) and whether after the Debrief deadline; the
+         *     summary's key moments and the line that ties them together; the reflection answers on
+         *     evidence and structure; the quiz attempts up to the pass and whether it is passed.
+         */
+        DebriefSectionOut: {
+            /** Explanation */
+            explanation: string | null;
+            /** Explanation Saved At */
+            explanation_saved_at: string | null;
+            /** Finished At */
+            finished_at: string | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "debrief";
+            /** Late */
+            late: boolean;
+            /** Moments */
+            moments: components["schemas"]["ReportMomentOut"][];
+            narration: components["schemas"]["ReportTextOut"] | null;
+            /** Quiz Attempts */
+            quiz_attempts: number;
+            /** Quiz Passed */
+            quiz_passed: boolean;
+            /** Reflection */
+            reflection: components["schemas"]["ReportReflectionOut"][];
+        };
+        /**
          * DebriefStepOut
          * @description A Debrief step after step 1, reached only with a saved Explanation (FR-41, FR-43). Step 2
          *     carries the reveal (Story 9.4), step 3 the whole chain (Story 9.5), step 4 the own moments
@@ -6758,6 +6789,18 @@ export interface components {
             };
         };
         /**
+         * ReplaySectionOut
+         * @description «Replay» (Story 13.10): `replay` null when the Student has no Replay.
+         */
+        ReplaySectionOut: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "replay";
+            replay: components["schemas"]["ReportReplayOut"] | null;
+        };
+        /**
          * ReplayStartOut
          * @description The Student's Replay Game: the one this request made (201) or the one they had (200).
          */
@@ -6901,7 +6944,7 @@ export interface components {
              */
             schema_version: 1;
             /** Sections */
-            sections: (components["schemas"]["CompletionSectionOut"] | components["schemas"]["GameSectionOut"])[];
+            sections: (components["schemas"]["CompletionSectionOut"] | components["schemas"]["GameSectionOut"] | components["schemas"]["DebriefSectionOut"] | components["schemas"]["ReplaySectionOut"] | components["schemas"]["TestSectionOut"])[];
             /** Session Number */
             session_number: number;
             /** Student Name */
@@ -6992,6 +7035,95 @@ export interface components {
             week: number;
         };
         /**
+         * ReportMomentOut
+         * @description A key moment of the Debrief summary (Story 9.8), as rendered from its facts set.
+         */
+        ReportMomentOut: {
+            heading: components["schemas"]["ReportTextOut"];
+            later: components["schemas"]["ReportTextOut"];
+            /** Patterns */
+            patterns: components["schemas"]["ReportTextOut"][];
+            reckoning: components["schemas"]["ReportTextOut"];
+            /** Week */
+            week: number;
+        };
+        /**
+         * ReportReflectionOut
+         * @description A reflection answer on evidence or structure, with its question (FR-58: never feelings).
+         */
+        ReportReflectionOut: {
+            /** Prompt */
+            prompt: string;
+            /** Text */
+            text: string;
+        };
+        /**
+         * ReportReplayOut
+         * @description The Student's Replay (FR-58, FR-50): `finished`, `closed` at the Test deadline, or `open`;
+         *     the Role, the scenario and the run; for a finished one the Class game it is set beside (null
+         *     when it was played mostly by AI players, `mostly_ai`, or cannot be read).
+         */
+        ReportReplayOut: {
+            class_game: components["schemas"]["ReportRunOut"] | null;
+            /** Class Game Number */
+            class_game_number: number | null;
+            /** Mostly Ai */
+            mostly_ai: boolean;
+            replay: components["schemas"]["ReportRunOut"];
+            role: components["schemas"]["Role"];
+            scenario: components["schemas"]["ReportScenarioOut"];
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "finished" | "closed" | "open";
+        };
+        /** ReportRunOut */
+        ReportRunOut: {
+            /** Total Cost */
+            total_cost: string;
+            /** Weeks */
+            weeks: components["schemas"]["ReportRunWeekOut"][];
+        };
+        /**
+         * ReportRunWeekOut
+         * @description One Uke of a run: Netto lager, the Order and «Kostnad så langt» (kroner).
+         */
+        ReportRunWeekOut: {
+            /** Net Inventory */
+            net_inventory: number;
+            /** Order */
+            order: number;
+            /** Total Cost */
+            total_cost: string;
+            /** Week */
+            week: number;
+        };
+        /**
+         * ReportScenarioOut
+         * @description The Replay's own Game settings: its Replay scenario as drawn for the Student (FR-49).
+         */
+        ReportScenarioOut: {
+            /** Backorder Cost */
+            backorder_cost: string;
+            /** Guided Weeks */
+            guided_weeks: number;
+            /** Holding Cost */
+            holding_cost: string;
+            /** Order Delay */
+            order_delay: number;
+            /** Production Delay */
+            production_delay: number;
+            /** Shipping Delay */
+            shipping_delay: number;
+            /** Starting Backlog */
+            starting_backlog: number;
+            /** Starting Inventory */
+            starting_inventory: number;
+            /** Weeks */
+            weeks: number;
+        };
+        /**
          * ReportStateOut
          * @description The Student's own Student report (Story 13.7, FR-57): when it opens (their effective Test
          *     deadline; None while the Class session has none), whether it is open now, the latest
@@ -7026,6 +7158,64 @@ export interface components {
              * @enum {string}
              */
             step: "class_game" | "debrief" | "quiz_passed" | "replay" | "test_submitted";
+        };
+        /**
+         * ReportTestItemOut
+         * @description One item in its frozen order (Story 13.10, FR-58): its question (an Adapted item's wording,
+         *     marked when an AI worded it), a choice item's option ids, a table or drawn item's value table
+         *     or a number item's column, the saved answer (null: not answered), the item's weight and the
+         *     stored computed score as points of it (null: no computed rule scores it, or not handed in).
+         *     No criterion, explanation, answer key or AI score (FR-54, C-2).
+         */
+        ReportTestItemOut: {
+            answer: components["schemas"]["JsonValue"] | null;
+            column: components["schemas"]["ColumnOut"] | null;
+            /** Number */
+            number: number;
+            /** Options */
+            options: string[];
+            /** Points */
+            points: string | null;
+            table: components["schemas"]["TableOut"] | null;
+            title: components["schemas"]["ReportTextOut"];
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "choice" | "table" | "number" | "long" | "drawn" | "adapted";
+            /** Weight */
+            weight: number;
+        };
+        /**
+         * ReportTestOut
+         * @description The Student's Individual test: its state, when it was handed in, every item, and the sum
+         *     of the computed scores over the items they score (`points` null when none is scored).
+         */
+        ReportTestOut: {
+            /** Items */
+            items: components["schemas"]["ReportTestItemOut"][];
+            /** Points */
+            points: string | null;
+            /** Points Of */
+            points_of: number;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "open" | "submitted" | "auto_submitted";
+            /** Submitted At */
+            submitted_at: string | null;
+        };
+        /**
+         * ReportTextOut
+         * @description Text as it is shown: `ai_generated` (only that) turns on «KI-generert, kan ta feil:» and
+         *     the machine-readable mark in the PDF (FR-34, UX-DR69). No LLM call id.
+         */
+        ReportTextOut: {
+            /** Ai Generated */
+            ai_generated: boolean;
+            /** Text */
+            text: string;
         };
         /**
          * ResetCheckOut
@@ -8490,6 +8680,18 @@ export interface components {
              * @enum {string}
              */
             status: "not_ready" | "ready" | "running" | "finished";
+        };
+        /**
+         * TestSectionOut
+         * @description «Individuell test» (Story 13.10): `test` null when the Student never opened it.
+         */
+        TestSectionOut: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "test";
+            test: components["schemas"]["ReportTestOut"] | null;
         };
         /**
          * TestSittingIn

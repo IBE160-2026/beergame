@@ -30,7 +30,7 @@ from urllib.parse import urlencode, urlsplit
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.reports import repo
+from app.modules.reports import pdf_marks, repo
 from app.modules.reports.report import RENDER_TASK, object_path
 from app.modules.reports.report_data import NotReportable, ReportOptions, build_report_data
 from app.platform import auth, events, jobs, storage
@@ -56,8 +56,12 @@ def print_url(snapshot_id: uuid.UUID, token: str) -> str:
 
 
 def _convert(url: str) -> bytes:
-    """WeasyPrint's `pdf/ua-1` of the print page at `url`, fetching only from its origin."""
+    """WeasyPrint's `pdf/ua-1` of the print page at `url`, fetching only from its origin, with
+    AI-generated text marked in its structure tree (`pdf_marks`, Story 13.10)."""
+    import pydyf
     from weasyprint import HTML, URLFetcher  # needs Pango: only where it runs
+
+    pdf_marks.install()
 
     home = urlsplit(url)[:2]
 
@@ -69,7 +73,9 @@ def _convert(url: str) -> bytes:
 
     # No redirects, so the origin check holds for every fetch.
     document = HTML(url=url, url_fetcher=SameOrigin(fail_on_errors=True, allow_redirects=False))
-    pdf = document.write_pdf(pdf_variant="pdf/ua-1")
+    pdf = document.write_pdf(
+        pdf_variant="pdf/ua-1", finisher=lambda _, out: pdf_marks.mark_catalog(out, pydyf)
+    )
     if not pdf:
         raise RuntimeError("WeasyPrint wrote no PDF")
     return pdf

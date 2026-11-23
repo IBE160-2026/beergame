@@ -36,7 +36,7 @@ async def built(user_id: uuid.UUID, session_id: str) -> report_data.ReportDataOu
 
 def game_of(data: report_data.ReportDataOut) -> report_data.ReportGameOut | None:
     kinds = [section.kind for section in data.sections]
-    assert kinds == ["completion", "game"]
+    assert kinds == ["completion", "game", "debrief", "replay", "test"]
     section = data.sections[1]
     assert isinstance(section, report_data.GameSectionOut)
     return section.game

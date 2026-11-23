@@ -5,15 +5,18 @@ runs in the `reports-single` job, after the api's policy allowed the request, an
 stored as a report snapshot that the print route `/print/report/<snapshot_id>` renders. Every part
 is read through its owning module's `service.py`: the header through `sessions.report_heading` and
 `classes.student_names`, the Completion status through `service.completion_status` (the one
-assembler, AD-16).
+assembler, AD-16), the game through `games.service`, the Debrief through `debrief.service`, the
+Replay through `replay.service` and the Individual test through `tests.service`.
 
 The report is a header and an ordered list of sections. `SECTIONS` is the registry: each entry
 names a section `kind` and its builder. A builder answers the section's model, or None to leave
-it out. `completion` (Story 13.7) and `game` (Story 13.8) are built; Story 13.10 adds `debrief`,
-`replay` and `test`, Story 13.11 the AI assessment (from `options`); each adds its model to
-`AnySection`, a builder here, and a renderer to the print route's registry
-(`frontend/src/app/print/report/sections.tsx`). The
-report holds no other Student's name or free text, and no AI data unless an option asks for it.
+it out. `completion` (Story 13.7), `game` (Story 13.8), `debrief`, `replay` and `test` (Story
+13.10) are built, each always (a step not done is a section that says so, FR-58); Story 13.11 adds
+the AI assessment (from `options`) with its model in `AnySection`, a builder here, and a renderer
+in the print route's registry (`frontend/src/app/print/report/sections.tsx`). The report holds no
+other Student's name or free text, and no AI data unless an option asks for it; AI-generated text
+(a Debrief line, an Adapted item's wording) travels as `{text, ai_generated}` and is marked from
+that flag only (FR-34).
 """
 
 from __future__ import annotations
@@ -25,23 +28,39 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, Literal
 
-from pydantic import AwareDatetime, BaseModel, Field
+from pydantic import AwareDatetime, BaseModel, Field, JsonValue
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.analysis.completion import CompletionStatus
 from app.engine.settings import Role
 from app.modules.classes import service as classes
+from app.modules.debrief import service as debrief
 from app.modules.games import service as games
 from app.modules.games.service import GameStatus, OccupantKind, SeatMark, SeatState
+from app.modules.replay import service as replay
 from app.modules.reports import service
 from app.modules.reports.schemas import CompletionStepName
 from app.modules.sessions import service as sessions
+from app.modules.tests import service as tests
+from app.modules.tests.service import ColumnOut, TableOut
 
 __all__ = [
     "SECTIONS",
     "CompletionSectionOut",
     "AnySection",
+    "DebriefSectionOut",
     "GameSectionOut",
+    "ReplaySectionOut",
+    "ReportMomentOut",
+    "ReportReflectionOut",
+    "ReportReplayOut",
+    "ReportRunOut",
+    "ReportRunWeekOut",
+    "ReportScenarioOut",
+    "ReportTestItemOut",
+    "ReportTestOut",
+    "ReportTextOut",
+    "TestSectionOut",
     "ReportDemandWeekOut",
     "ReportGameOut",
     "ReportGameRoleOut",
@@ -139,9 +158,139 @@ class GameSectionOut(BaseModel):
     game: ReportGameOut | None
 
 
-AnySection = CompletionSectionOut | GameSectionOut
+class ReportTextOut(BaseModel):
+    """Text as it is shown: `ai_generated` (only that) turns on «KI-generert, kan ta feil:» and
+    the machine-readable mark in the PDF (FR-34, UX-DR69). No LLM call id."""
+
+    text: str
+    ai_generated: bool
+
+
+class ReportMomentOut(BaseModel):
+    """A key moment of the Debrief summary (Story 9.8), as rendered from its facts set."""
+
+    week: int
+    heading: ReportTextOut
+    reckoning: ReportTextOut
+    later: ReportTextOut
+    patterns: list[ReportTextOut]
+
+
+class ReportReflectionOut(BaseModel):
+    """A reflection answer on evidence or structure, with its question (FR-58: never feelings)."""
+
+    prompt: str
+    text: str
+
+
+class DebriefSectionOut(BaseModel):
+    """«Debrief» (Story 13.10, FR-58, FR-47): the Explanation as written (null: not sent); when
+    the Debrief was finished (null: not finished) and whether after the Debrief deadline; the
+    summary's key moments and the line that ties them together; the reflection answers on
+    evidence and structure; the quiz attempts up to the pass and whether it is passed."""
+
+    kind: Literal["debrief"] = "debrief"
+    explanation: str | None
+    explanation_saved_at: AwareDatetime | None
+    finished_at: AwareDatetime | None
+    late: bool
+    moments: list[ReportMomentOut]
+    narration: ReportTextOut | None
+    reflection: list[ReportReflectionOut]
+    quiz_attempts: int
+    quiz_passed: bool
+
+
+class ReportRunWeekOut(BaseModel):
+    """One Uke of a run: Netto lager, the Order and «Kostnad så langt» (kroner)."""
+
+    week: int
+    net_inventory: int
+    order: int
+    total_cost: Decimal
+
+
+class ReportRunOut(BaseModel):
+    weeks: list[ReportRunWeekOut]
+    total_cost: Decimal
+
+
+class ReportScenarioOut(BaseModel):
+    """The Replay's own Game settings: its Replay scenario as drawn for the Student (FR-49)."""
+
+    weeks: int
+    guided_weeks: int
+    starting_inventory: int
+    starting_backlog: int
+    order_delay: int
+    shipping_delay: int
+    production_delay: int
+    holding_cost: Decimal
+    backorder_cost: Decimal
+
+
+class ReportReplayOut(BaseModel):
+    """The Student's Replay (FR-58, FR-50): `finished`, `closed` at the Test deadline, or `open`;
+    the Role, the scenario and the run; for a finished one the Class game it is set beside (null
+    when it was played mostly by AI players, `mostly_ai`, or cannot be read)."""
+
+    state: Literal["finished", "closed", "open"]
+    role: Role
+    scenario: ReportScenarioOut
+    replay: ReportRunOut
+    class_game: ReportRunOut | None
+    class_game_number: int | None
+    mostly_ai: bool
+
+
+class ReplaySectionOut(BaseModel):
+    """«Replay» (Story 13.10): `replay` null when the Student has no Replay."""
+
+    kind: Literal["replay"] = "replay"
+    replay: ReportReplayOut | None
+
+
+class ReportTestItemOut(BaseModel):
+    """One item in its frozen order (Story 13.10, FR-58): its question (an Adapted item's wording,
+    marked when an AI worded it), a choice item's option ids, a table or drawn item's value table
+    or a number item's column, the saved answer (null: not answered), the item's weight and the
+    stored computed score as points of it (null: no computed rule scores it, or not handed in).
+    No criterion, explanation, answer key or AI score (FR-54, C-2)."""
+
+    number: int
+    type: Literal["choice", "table", "number", "long", "drawn", "adapted"]
+    title: ReportTextOut
+    options: list[str]
+    table: TableOut | None
+    column: ColumnOut | None
+    answer: JsonValue | None
+    weight: int
+    points: Decimal | None
+
+
+class ReportTestOut(BaseModel):
+    """The Student's Individual test: its state, when it was handed in, every item, and the sum
+    of the computed scores over the items they score (`points` null when none is scored)."""
+
+    state: Literal["open", "submitted", "auto_submitted"]
+    submitted_at: AwareDatetime | None
+    items: list[ReportTestItemOut]
+    points: Decimal | None
+    points_of: int
+
+
+class TestSectionOut(BaseModel):
+    """«Individuell test» (Story 13.10): `test` null when the Student never opened it."""
+
+    kind: Literal["test"] = "test"
+    test: ReportTestOut | None
+
+
+AnySection = (
+    CompletionSectionOut | GameSectionOut | DebriefSectionOut | ReplaySectionOut | TestSectionOut
+)
 ReportSection = Annotated[AnySection, Field(discriminator="kind")]
-"""Every section model, discriminated by `kind`. Story 13.10 adds its own."""
+"""Every section model, discriminated by `kind`."""
 
 
 class ReportDatesOut(BaseModel):
@@ -259,9 +408,121 @@ async def _game_section(ctx: SectionContext) -> GameSectionOut:
     )
 
 
+def _text(text: str, ai_generated: bool) -> ReportTextOut:
+    return ReportTextOut(text=text, ai_generated=ai_generated)
+
+
+async def _debrief_section(ctx: SectionContext) -> DebriefSectionOut:
+    """The Debrief, read through `debrief.service.report_debrief`: the Student's own rows only."""
+    found = await debrief.report_debrief(ctx.user_id, ctx.class_session_id)
+    line = found.narration
+    return DebriefSectionOut(
+        explanation=found.explanation.text if found.explanation else None,
+        explanation_saved_at=found.explanation.saved_at if found.explanation else None,
+        finished_at=found.finished_at,
+        late=found.late,
+        moments=[
+            ReportMomentOut(
+                week=moment.week,
+                heading=_text(moment.heading.text, moment.heading.ai_generated),
+                reckoning=_text(moment.reckoning.text, moment.reckoning.ai_generated),
+                later=_text(moment.later.text, moment.later.ai_generated),
+                patterns=[_text(p.text, p.ai_generated) for p in moment.patterns],
+            )
+            for moment in found.moments
+        ],
+        narration=_text(line.text, line.ai_generated) if line else None,
+        reflection=[ReportReflectionOut(prompt=p, text=t) for p, t in found.reflection],
+        quiz_attempts=found.quiz_attempts,
+        quiz_passed=found.quiz_passed,
+    )
+
+
+def _run(run: replay.WalkthroughRunOut) -> ReportRunOut:
+    return ReportRunOut(
+        weeks=[
+            ReportRunWeekOut(
+                week=week.week,
+                net_inventory=week.net_inventory,
+                order=week.order,
+                total_cost=week.total_cost,
+            )
+            for week in run.weeks
+        ],
+        total_cost=run.total_cost,
+    )
+
+
+async def _replay_section(ctx: SectionContext) -> ReplaySectionOut:
+    """The Replay, read through `replay.service.report_replay`."""
+    found = await replay.report_replay(ctx.user_id, ctx.class_session_id)
+    if found is None:
+        return ReplaySectionOut(replay=None)
+    settings = found.settings
+    compared = found.class_game
+    return ReplaySectionOut(
+        replay=ReportReplayOut(
+            state=found.state,
+            role=Role(found.role),
+            scenario=ReportScenarioOut(
+                weeks=settings.weeks,
+                guided_weeks=settings.guided_weeks,
+                starting_inventory=settings.starting_inventory,
+                starting_backlog=settings.starting_backlog,
+                order_delay=settings.order_delay,
+                shipping_delay=settings.shipping_delay,
+                production_delay=settings.production_delay,
+                holding_cost=settings.holding_cost,
+                backorder_cost=settings.backorder_cost,
+            ),
+            replay=_run(found.replay),
+            class_game=_run(compared) if compared else None,
+            class_game_number=compared.game_number if compared else None,
+            mostly_ai=found.mostly_ai,
+        )
+    )
+
+
+def _item(each: tests.ReportItem) -> ReportTestItemOut:
+    item, wording = each.item, each.item.wording
+    return ReportTestItemOut(
+        number=item.number,
+        type=item.type,
+        title=(_text(wording.text, wording.ai_generated) if wording else _text(item.title, False)),
+        options=list(item.options),
+        table=item.table,
+        column=item.column,
+        answer=item.answer.value if item.answer else None,
+        weight=each.weight,
+        points=each.points,
+    )
+
+
+async def _test_section(ctx: SectionContext) -> TestSectionOut:
+    """The Individual test, read through `tests.service.report_test`."""
+    found = await tests.report_test(ctx.user_id, ctx.class_session_id)
+    if found is None:
+        return TestSectionOut(test=None)
+    scored = [each for each in found.items if each.points is not None]
+    return TestSectionOut(
+        test=ReportTestOut(
+            state=found.state,
+            submitted_at=found.submitted_at,
+            items=[_item(each) for each in found.items],
+            points=sum((each.points or Decimal(0) for each in scored), Decimal(0))
+            if scored
+            else None,
+            points_of=sum(each.weight for each in scored),
+        )
+    )
+
+
 SECTIONS: tuple[tuple[str, SectionBuilder], ...] = (
     ("completion", _completion_section),
     ("game", _game_section),
+    ("debrief", _debrief_section),
+    ("replay", _replay_section),
+    ("test", _test_section),
 )
 """The report's sections in reading order, by `kind` (see the module docstring)."""
 

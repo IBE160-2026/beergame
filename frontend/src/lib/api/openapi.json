@@ -2855,6 +2855,101 @@
         "title": "DebriefRelease",
         "type": "string"
       },
+      "DebriefSectionOut": {
+        "description": "«Debrief» (Story 13.10, FR-58, FR-47): the Explanation as written (null: not sent); when\nthe Debrief was finished (null: not finished) and whether after the Debrief deadline; the\nsummary's key moments and the line that ties them together; the reflection answers on\nevidence and structure; the quiz attempts up to the pass and whether it is passed.",
+        "properties": {
+          "explanation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Explanation"
+          },
+          "explanation_saved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Explanation Saved At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "kind": {
+            "const": "debrief",
+            "default": "debrief",
+            "title": "Kind",
+            "type": "string"
+          },
+          "late": {
+            "title": "Late",
+            "type": "boolean"
+          },
+          "moments": {
+            "items": {
+              "$ref": "#/components/schemas/ReportMomentOut"
+            },
+            "title": "Moments",
+            "type": "array"
+          },
+          "narration": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportTextOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "quiz_attempts": {
+            "title": "Quiz Attempts",
+            "type": "integer"
+          },
+          "quiz_passed": {
+            "title": "Quiz Passed",
+            "type": "boolean"
+          },
+          "reflection": {
+            "items": {
+              "$ref": "#/components/schemas/ReportReflectionOut"
+            },
+            "title": "Reflection",
+            "type": "array"
+          }
+        },
+        "required": [
+          "explanation",
+          "explanation_saved_at",
+          "finished_at",
+          "late",
+          "moments",
+          "narration",
+          "reflection",
+          "quiz_attempts",
+          "quiz_passed"
+        ],
+        "title": "DebriefSectionOut",
+        "type": "object"
+      },
       "DebriefStepOut": {
         "description": "A Debrief step after step 1, reached only with a saved Explanation (FR-41, FR-43). Step 2\ncarries the reveal (Story 9.4), step 3 the whole chain (Story 9.5), step 4 the own moments\n(Story 9.7) and the Debrief's lines under Kjedens regning (Story 9.8); step 5, the Debrief quiz,\nhas routes of its own (`/quiz`, Story 9.9) and answers the step number only here.",
         "properties": {
@@ -8181,6 +8276,32 @@
         "title": "ReplayScenarioCheckIn",
         "type": "object"
       },
+      "ReplaySectionOut": {
+        "description": "«Replay» (Story 13.10): `replay` null when the Student has no Replay.",
+        "properties": {
+          "kind": {
+            "const": "replay",
+            "default": "replay",
+            "title": "Kind",
+            "type": "string"
+          },
+          "replay": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportReplayOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "replay"
+        ],
+        "title": "ReplaySectionOut",
+        "type": "object"
+      },
       "ReplayStartOut": {
         "description": "The Student's Replay Game: the one this request made (201) or the one they had (200).",
         "properties": {
@@ -8554,7 +8675,10 @@
               "discriminator": {
                 "mapping": {
                   "completion": "#/components/schemas/CompletionSectionOut",
-                  "game": "#/components/schemas/GameSectionOut"
+                  "debrief": "#/components/schemas/DebriefSectionOut",
+                  "game": "#/components/schemas/GameSectionOut",
+                  "replay": "#/components/schemas/ReplaySectionOut",
+                  "test": "#/components/schemas/TestSectionOut"
                 },
                 "propertyName": "kind"
               },
@@ -8564,6 +8688,15 @@
                 },
                 {
                   "$ref": "#/components/schemas/GameSectionOut"
+                },
+                {
+                  "$ref": "#/components/schemas/DebriefSectionOut"
+                },
+                {
+                  "$ref": "#/components/schemas/ReplaySectionOut"
+                },
+                {
+                  "$ref": "#/components/schemas/TestSectionOut"
                 }
               ]
             },
@@ -8845,6 +8978,222 @@
         "title": "ReportGameWeekOut",
         "type": "object"
       },
+      "ReportMomentOut": {
+        "description": "A key moment of the Debrief summary (Story 9.8), as rendered from its facts set.",
+        "properties": {
+          "heading": {
+            "$ref": "#/components/schemas/ReportTextOut"
+          },
+          "later": {
+            "$ref": "#/components/schemas/ReportTextOut"
+          },
+          "patterns": {
+            "items": {
+              "$ref": "#/components/schemas/ReportTextOut"
+            },
+            "title": "Patterns",
+            "type": "array"
+          },
+          "reckoning": {
+            "$ref": "#/components/schemas/ReportTextOut"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "week",
+          "heading",
+          "reckoning",
+          "later",
+          "patterns"
+        ],
+        "title": "ReportMomentOut",
+        "type": "object"
+      },
+      "ReportReflectionOut": {
+        "description": "A reflection answer on evidence or structure, with its question (FR-58: never feelings).",
+        "properties": {
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "prompt",
+          "text"
+        ],
+        "title": "ReportReflectionOut",
+        "type": "object"
+      },
+      "ReportReplayOut": {
+        "description": "The Student's Replay (FR-58, FR-50): `finished`, `closed` at the Test deadline, or `open`;\nthe Role, the scenario and the run; for a finished one the Class game it is set beside (null\nwhen it was played mostly by AI players, `mostly_ai`, or cannot be read).",
+        "properties": {
+          "class_game": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportRunOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "class_game_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Class Game Number"
+          },
+          "mostly_ai": {
+            "title": "Mostly Ai",
+            "type": "boolean"
+          },
+          "replay": {
+            "$ref": "#/components/schemas/ReportRunOut"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "scenario": {
+            "$ref": "#/components/schemas/ReportScenarioOut"
+          },
+          "state": {
+            "enum": [
+              "finished",
+              "closed",
+              "open"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "role",
+          "scenario",
+          "replay",
+          "class_game",
+          "class_game_number",
+          "mostly_ai"
+        ],
+        "title": "ReportReplayOut",
+        "type": "object"
+      },
+      "ReportRunOut": {
+        "properties": {
+          "total_cost": {
+            "title": "Total Cost",
+            "type": "string"
+          },
+          "weeks": {
+            "items": {
+              "$ref": "#/components/schemas/ReportRunWeekOut"
+            },
+            "title": "Weeks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "weeks",
+          "total_cost"
+        ],
+        "title": "ReportRunOut",
+        "type": "object"
+      },
+      "ReportRunWeekOut": {
+        "description": "One Uke of a run: Netto lager, the Order and «Kostnad så langt» (kroner).",
+        "properties": {
+          "net_inventory": {
+            "title": "Net Inventory",
+            "type": "integer"
+          },
+          "order": {
+            "title": "Order",
+            "type": "integer"
+          },
+          "total_cost": {
+            "title": "Total Cost",
+            "type": "string"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "week",
+          "net_inventory",
+          "order",
+          "total_cost"
+        ],
+        "title": "ReportRunWeekOut",
+        "type": "object"
+      },
+      "ReportScenarioOut": {
+        "description": "The Replay's own Game settings: its Replay scenario as drawn for the Student (FR-49).",
+        "properties": {
+          "backorder_cost": {
+            "title": "Backorder Cost",
+            "type": "string"
+          },
+          "guided_weeks": {
+            "title": "Guided Weeks",
+            "type": "integer"
+          },
+          "holding_cost": {
+            "title": "Holding Cost",
+            "type": "string"
+          },
+          "order_delay": {
+            "title": "Order Delay",
+            "type": "integer"
+          },
+          "production_delay": {
+            "title": "Production Delay",
+            "type": "integer"
+          },
+          "shipping_delay": {
+            "title": "Shipping Delay",
+            "type": "integer"
+          },
+          "starting_backlog": {
+            "title": "Starting Backlog",
+            "type": "integer"
+          },
+          "starting_inventory": {
+            "title": "Starting Inventory",
+            "type": "integer"
+          },
+          "weeks": {
+            "title": "Weeks",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "weeks",
+          "guided_weeks",
+          "starting_inventory",
+          "starting_backlog",
+          "order_delay",
+          "shipping_delay",
+          "production_delay",
+          "holding_cost",
+          "backorder_cost"
+        ],
+        "title": "ReportScenarioOut",
+        "type": "object"
+      },
       "ReportStateOut": {
         "description": "The Student's own Student report (Story 13.7, FR-57): when it opens (their effective Test\ndeadline; None while the Class session has none), whether it is open now, the latest\nrequest's status, and when the PDF that can be downloaded was made (None without one).\n`failed` covers a render that failed and one that never ended; a new press tries again.",
         "properties": {
@@ -8925,6 +9274,171 @@
           "corrected"
         ],
         "title": "ReportStepOut",
+        "type": "object"
+      },
+      "ReportTestItemOut": {
+        "description": "One item in its frozen order (Story 13.10, FR-58): its question (an Adapted item's wording,\nmarked when an AI worded it), a choice item's option ids, a table or drawn item's value table\nor a number item's column, the saved answer (null: not answered), the item's weight and the\nstored computed score as points of it (null: no computed rule scores it, or not handed in).\nNo criterion, explanation, answer key or AI score (FR-54, C-2).",
+        "properties": {
+          "answer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "column": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ColumnOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "options": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Options",
+            "type": "array"
+          },
+          "points": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Points"
+          },
+          "table": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TableOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": {
+            "$ref": "#/components/schemas/ReportTextOut"
+          },
+          "type": {
+            "enum": [
+              "choice",
+              "table",
+              "number",
+              "long",
+              "drawn",
+              "adapted"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "weight": {
+            "title": "Weight",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "number",
+          "type",
+          "title",
+          "options",
+          "table",
+          "column",
+          "answer",
+          "weight",
+          "points"
+        ],
+        "title": "ReportTestItemOut",
+        "type": "object"
+      },
+      "ReportTestOut": {
+        "description": "The Student's Individual test: its state, when it was handed in, every item, and the sum\nof the computed scores over the items they score (`points` null when none is scored).",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReportTestItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "points": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Points"
+          },
+          "points_of": {
+            "title": "Points Of",
+            "type": "integer"
+          },
+          "state": {
+            "enum": [
+              "open",
+              "submitted",
+              "auto_submitted"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "submitted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted At"
+          }
+        },
+        "required": [
+          "state",
+          "submitted_at",
+          "items",
+          "points",
+          "points_of"
+        ],
+        "title": "ReportTestOut",
+        "type": "object"
+      },
+      "ReportTextOut": {
+        "description": "Text as it is shown: `ai_generated` (only that) turns on «KI-generert, kan ta feil:» and\nthe machine-readable mark in the PDF (FR-34, UX-DR69). No LLM call id.",
+        "properties": {
+          "ai_generated": {
+            "title": "Ai Generated",
+            "type": "boolean"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "ai_generated"
+        ],
+        "title": "ReportTextOut",
         "type": "object"
       },
       "ResetCheckOut": {
@@ -12232,6 +12746,32 @@
           "status"
         ],
         "title": "TestGameRefOut",
+        "type": "object"
+      },
+      "TestSectionOut": {
+        "description": "«Individuell test» (Story 13.10): `test` null when the Student never opened it.",
+        "properties": {
+          "kind": {
+            "const": "test",
+            "default": "test",
+            "title": "Kind",
+            "type": "string"
+          },
+          "test": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportTestOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "test"
+        ],
+        "title": "TestSectionOut",
         "type": "object"
       },
       "TestSittingIn": {

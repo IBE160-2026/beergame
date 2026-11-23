@@ -18,6 +18,7 @@ import pytest
 
 from app.analysis import quiz as rules
 from app.modules.content import service as content
+from app.modules.debrief import service as debrief_service
 from app.modules.games import service as games
 from app.modules.ops import sweep
 from app.modules.progress import service as progress
@@ -192,6 +193,10 @@ async def test_the_quiz_is_scored_stored_retried_and_passed(klass, emitted):
     )
     summary = (await call(me, "GET", f"{path}/summary")).json()["summary"]
     assert (summary["quiz_attempts"], summary["quiz_passed_at"]) == (2, done["passed_at"])
+    # Story 13.10: the Student report counts the same attempts, up to the pass.
+    reported = await debrief_service.report_debrief(mine, sid)
+    assert (reported.quiz_attempts, reported.quiz_passed) == (2, True)
+    assert reported.late == summary["late"]
 
     # Another Student of the Class who has not finished the Debrief is still refused.
     theirs = (await open_(email(1), session_id)).json()

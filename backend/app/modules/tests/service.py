@@ -32,6 +32,7 @@ from app.modules.progress import service as progress
 from app.modules.sessions import service as sessions
 from app.modules.tests import sitting
 from app.modules.tests.adapted import ADAPTED
+from app.modules.tests.attempt import ReportItem, ReportTest, report_test
 from app.modules.tests.models import (
     PLAYED_BEFORE,
     Choice,
@@ -40,11 +41,13 @@ from app.modules.tests.models import (
     test_attempts,
 )
 from app.modules.tests.schemas import (
+    ColumnOut,
     GivenRowOut,
     ItemResultOut,
     StartingTaskItemOut,
     StartingTaskOut,
     SumTermOut,
+    TableOut,
 )
 from app.platform import authz
 from app.platform.db import get_sessionmaker
@@ -54,12 +57,17 @@ __all__ = [
     "ItemsOpen",
     "UnknownItem",
     "AttemptSummary",
+    "ColumnOut",
+    "TableOut",
+    "ReportItem",
+    "ReportTest",
     "answer",
     "attempt_status",
     "attempt_summary",
     "finish",
     "parts_with_content",
     "read",
+    "report_test",
 ]
 
 Stored = Mapping[str, Mapping[str, Any]]

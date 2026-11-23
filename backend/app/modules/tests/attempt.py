@@ -14,7 +14,9 @@ an attempt exists."""
 import math
 import uuid
 from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import select
@@ -41,7 +43,7 @@ from app.modules.tests.schemas import (
 from app.platform import authz
 from app.platform.db import get_sessionmaker
 
-__all__ = ["read", "open_", "save", "submit"]
+__all__ = ["ReportItem", "ReportTest", "read", "open_", "report_test", "save", "submit"]
 
 
 async def _answers(attempt_id: uuid.UUID) -> dict[str, StoredAnswerOut]:
@@ -270,3 +272,82 @@ async def submit(
         raise commands.AttemptSubmitted
     # Handed in: answered with what was committed, read with the pins the command read.
     return await _open(done.attempt, done.pins, now)
+
+
+@dataclass(frozen=True)
+class ReportItem:
+    """One item of a Student's test for the Student report (Story 13.10, FR-58): the item as the
+    Student's page shows it (its saved answer with it), its frozen weight, and the stored computed
+    score as points of that weight (credit × weight, two decimals) with whether it was answered;
+    `points` None for an item no computed rule scores (a long answer, an Adapted item: the Scoring
+    guide's, Epic 12) or not scored yet (an attempt still open). Never a criterion, an explanation
+    or an AI score (FR-54, C-2)."""
+
+    item: IndividualItemOut
+    weight: int
+    points: Decimal | None
+
+
+@dataclass(frozen=True)
+class ReportTest:
+    """The Student's attempt: `open`, `submitted` or `auto_submitted`, when it was handed in,
+    and every item in its frozen order."""
+
+    state: str
+    submitted_at: datetime | None
+    items: list[ReportItem]
+
+
+COMPUTED = frozenset({"choice", "table", "number", "drawn"})
+"""The item types a computed rule scores (`tests.scoring.score_answer`)."""
+
+
+def _points(score: Any, weight: int) -> Decimal | None:
+    credit = score.get("credit") if isinstance(score, Mapping) else None
+    if isinstance(credit, bool) or not isinstance(credit, int | float):
+        return None
+    return (Decimal(str(credit)) * weight).quantize(Decimal("0.01"))
+
+
+async def report_test(user_id: uuid.UUID, class_session_id: uuid.UUID) -> ReportTest | None:
+    """The Student's Individual test for their Student report, or None before they opened it.
+    Takes ids only: the `reports-single` job calls it after the api's policy allowed the
+    download (AD-12, AD-18). The items are read as the Student's page reads them (`_items`, with
+    the pins the Class session's lock stored), the scores as `commands.score_answers` stored
+    them at the hand-in."""
+    async with get_sessionmaker()() as s:
+        attempt = await commands.attempt_of(s, user_id, class_session_id)
+        if attempt is None:
+            return None
+        pins = await sessions.locked_pins(s, class_session_id)
+        scores = {
+            row["item_id"]: row["score"]
+            for row in (
+                await s.execute(
+                    select(test_answers.c.item_id, test_answers.c.score).where(
+                        test_answers.c.attempt_id == attempt["id"]
+                    )
+                )
+            ).mappings()
+        }
+    items = await _items(attempt, pins)
+    weights = {frozen["id"]: int(frozen.get("weight") or 0) for frozen in attempt["items"]}
+    handed_in = attempt["status"] != AttemptStatus.OPEN.value
+
+    def points(item: IndividualItemOut) -> Decimal | None:
+        weight = weights.get(item.id, 0)
+        found = _points(scores.get(item.id), weight)
+        # A handed-in item a computed rule scores, left unanswered: no row, so nothing stored,
+        # and it scores 0 (`score_answers`).
+        if found is None and handed_in and item.type in COMPUTED and item.answer is None:
+            return Decimal("0.00")
+        return found
+
+    return ReportTest(
+        state=attempt["status"],
+        submitted_at=attempt["submitted_at"],
+        items=[
+            ReportItem(item=item, weight=weights.get(item.id, 0), points=points(item))
+            for item in items
+        ],
+    )
