@@ -4196,3 +4196,39 @@ Avslutte Epic 13 og merge den til `main`.
 
 ### Åpne punkter
 - Issue #257: beslutninger, punkter som står igjen, og tabeller for persondataregisteret.
+
+## Story 14.8: Eksport av spilldata for en klasseøkt (spor 3), og merge av Epic 13 inn i Epic 14
+
+### Oppgave
+Hente inn `main` (Epic 13) i `epic-14`, koble Epic 14 til Epic 13s `reports.scope` og bygge Story 14.8.
+
+### Plan
+Byggeagent: mergen først, så storyen med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Merge: f51a95f. Stand-ins for avgrensningen er erstattet og slettet; 14.5 bruker nå det tildelte klassespillet, så oppfølgingsspill ikke gir tomt eget spill.
+- Spec: `.docs/implementation-artifacts/spec-14-8-export-a-class-sessions-game-data.md`. Commit: bd6c4e8. Ingen migrasjon.
+- Eieren laster ned spilldataene som CSV fra «Eksport»-blokka, én rad per rad i beslutningsloggen, uten navn, e-post eller id.
+- Tester: backend 4080 etter mergen og 4088 før gjennomgangsrettingene, frontend-sjekkene, Playwright (81).
+- Status: done. Spor 3 venter på 15.3 før 14.3 og 14.4.
+
+### Åpne punkter
+- Issue #258: beslutninger for mergen og storyen.
+
+## Story 15.1: Studenten ser egne data i «Mine data» (spor 1), og merge av Epic 13 inn i Epic 15
+
+### Oppgave
+Hente inn `main` (Epic 13) i `epic-15` og bygge Story 15.1.
+
+### Plan
+Byggeagent: mergen først (Alembic, `reports/scope.py`, tilkoblingsbudsjett, persondataregisteret), så storyen med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Merge: cf71162. 0065 etter 0308, én head (0071). Epic 13s tabeller er med i registeret, slettingen og eksporten; evalueringseksporten leser den lagrede slettedatoen.
+- Spec: `.docs/implementation-artifacts/spec-15-1-student-sees-own-data-in-mine-data.md`. Commit: ae5be5b.
+- Studenten ser egne data i 15 kategorier på `/mine-data`, lenket fra Hjem. Registeret sier for hver tabell om den vises.
+- Tester: backend 4185, frontend-sjekkene og Playwright for de berørte skjermene.
+- Status: done.
+
+### Åpne punkter
+- Issue #259: beslutninger for mergen og storyen, og to utsatte punkter.
