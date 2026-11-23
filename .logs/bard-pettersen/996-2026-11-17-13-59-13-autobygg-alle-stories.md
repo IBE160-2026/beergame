@@ -4045,3 +4045,20 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
 
 ### Åpne punkter
 - Issue #247: beslutningen om å slå holdet på.
+## Story 14.2: Klasserapport over læringsresultater (spor 3)
+
+### Oppgave
+Bygge Story 14.2 på `epic-14` i spor 3.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-14-2-class-report-of-learning-results.md`. Commit: 23c4104.
+- Klasserapporten har fått «Læringsresultater»: Startoppgaven ved siden av testoppgavene, resultater per spørsmål og fordelingen av KI-vurderingene merket «KI-generert. Teller ikke. Ingen karakter.».
+- Tester: backend 3912, Vitest 1234, frontend-sjekkene, Playwright 37 med axe.
+- Gjennomgang: 36 funn, 14 rettet.
+- Status: done. Neste i spor 3 er 14.5; 14.3 og 14.4 venter på Story 15.3 og 13.9.
+
+### Åpne punkter
+- Issue #248: beslutninger (ingen minste gruppestørrelse i den levende rapporten).
