@@ -214,6 +214,54 @@ export const nb = {
     failed: "Forespørselen ble ikke sendt. Prøv igjen.",
   },
 
+  /** The accessibility statement at `/tilgjengelighet` and the footer's link to it (Story 15.13,
+   * NFR-6). [ASSUMPTION] Story 15.13, all of it, until the founder's copy review (Issue #31). The
+   * known deviations follow the conformance report in `docs/accessibility/`; revise both together. */
+  accessibility: {
+    footerLink: "Tilgjengelighetserklæring",
+    pageTitle: "Tilgjengelighetserklæring",
+    title: "Tilgjengelighetserklæring",
+    updated: "Sist oppdatert 22. november 2026.",
+    lead: "Erklæringen gjelder nettsidene til ØL-spillet: Landing, innlogging, spillet, Debrief og Replay for studenter, og sidene for faglærere og Admin.",
+    standard: {
+      title: "Krav og status",
+      body: "Målet er at alle sidene oppfyller WCAG 2.1 nivå AA. Kontrollene har ikke funnet brudd på kravene, men ikke alt er kontrollert ennå. Til det er gjort, regner vi sidene som delvis i samsvar med kravene.",
+    },
+    deviations: {
+      title: "Kjente avvik",
+      none: "Kontrollene har ikke funnet avvik på sidene som er kontrollert.",
+      /** The deviations the conformance report found; none so far. */
+      items: [] as readonly string[],
+    },
+    notYet: {
+      title: "Ikke kontrollert ennå",
+      items: [
+        "Ingen person har ennå gått gjennom sidene med skjermleser eller med tastatur alene. Til det er gjort, vet vi ikke sikkert om alt leses opp og virker riktig.",
+        "Feilmeldinger etter innsending og bekreftelsessteg er bare delvis kontrollert.",
+        "Den individuelle testen, KI-vurderingen, Studentsiden med Fullføring og Oppfølgingsspill, Meldingsskjemaet, Studentrapporten og «Mine data» er kontrollert automatisk hver for seg, men ikke i den samlede kontrollen. Klasserapporten er ikke med i denne versjonen.",
+      ],
+    },
+    tested: {
+      title: "Slik er sidene kontrollert",
+      body: "Vurderingen er vår egen, gjort 22. november 2026. Hver side er kontrollert automatisk med axe i bredde 320, 360 og 1440 piksler, med 400 % zoom og med 200 % tekst. En programstyrt gjennomgang med tastatur alene fant ingen feil. Hver graf har en tabell med de samme tallene.",
+    },
+    contact: {
+      title: "Si fra om noe ikke virker",
+      student: "Er du student, sier du fra til faglæreren din. Faglæreren melder det videre til oss.",
+      others: "Andre skriver til oss på e-post:",
+      /** [ASSUMPTION] placeholder until the founder names the address (readiness record, R14). */
+      email: "tilgjengelighet@example.com",
+      answer: "Skriv hvilken side det gjelder, hvilken nettleser og hjelpemiddel du brukte, og hva som skjedde.",
+      alternative: "Trenger du innholdet på en annen måte, for eksempel tallene bak en graf, ber du om det på samme måte.",
+    },
+    complaint: {
+      title: "Klage",
+      body: "Får du ikke svar, eller er du ikke fornøyd med svaret, kan du melde fra til Tilsynet for universell utforming av ikt (Uutilsynet).",
+      link: "Uutilsynet",
+      href: "https://www.uutilsynet.no/",
+    },
+  },
+
   auth: {
     login: {
       pageTitle: "Logg inn",
@@ -614,6 +662,9 @@ export const nb = {
        * review. */
       deletion: (day: string) =>
         `Dataene dine fra denne Klasseøkten slettes ${day}. Last ned Studentrapporten før det.`,
+      /** Story 15.3 (FR-77): the day has come; retention deletes, or has deleted, the data.
+       * [ASSUMPTION] draft copy for the founder's review. */
+      deleted: "Dataene dine fra denne Klasseøkten er slettet.",
       /** Story 10.4 (UX-DR64, EXPERIENCE.md → Replay in progress): the current Replay step while
        * the Replay runs; its link leads to the play screen. The spine's line. */
       replayResume: (week: number) => `Fortsett Replay, Uke ${week}.`,
@@ -688,6 +739,10 @@ export const nb = {
   /** The Lecturer's Classes (Epic 4). «Klassene dine», «Ny Klasse», «Lag Klasse», «Navn» and
    * «Emnekode» are EXPERIENCE.md's and the mockups' own; the rest is [ASSUMPTION] Story 4.1. */
   classes: {
+    /** Story 15.12 (FR-8, PRD §6.1): a sending, reminder or manual registration refused because
+     * the Class's Institution has no recorded data processing agreement. [ASSUMPTION] */
+    processingAgreementMissing:
+      "Institusjonen har ingen registrert databehandleravtale ennå, så ingen studenter kan inviteres eller registreres. Be administratoren registrere avtalen.",
     home: {
       title: "Klassene dine",
       empty: "Du har ingen Klasser ennå. En Klasse samler studentene dine og spillene deres.",
@@ -1447,6 +1502,9 @@ export const nb = {
       // [ASSUMPTION] Story 11.1 (issue #16): refused in production on a draft question set.
       refusedDraft:
         "Klasseøkten kan ikke starte: spørsmålene til den individuelle testen er et utkast som ikke er godkjent. En Admin må legge inn godkjente spørsmål. Låsen prøves igjen hvert minutt.",
+      // [ASSUMPTION] Story 15.6 (FR-69): the players' AI cost limit was reached; `when` as lockedAt.
+      costLimit: (when: string) =>
+        `Kostnadsgrensen for KI er nådd. LLM-spillerne er byttet til regelbaserte for resten av Klasseøkten. Nådd ${when}.`,
       open: "Frister som ikke er passert, og Labtimer, kan fortsatt endres.",
       /** Story 12.1: while KI-vurdering can still change too. [ASSUMPTION] */
       openWithAssessment: "Frister som ikke er passert, Labtimer og KI-vurdering kan fortsatt endres.",
@@ -2211,6 +2269,13 @@ export const nb = {
       institutions: "Institusjoner",
       // [ASSUMPTION] Story 3.12.
       audit: "Revisjonslogg",
+      // [ASSUMPTION] Story 15.4.
+      evaluation: "Pseudonymisert eksport",
+      // [ASSUMPTION] Story 15.5 (EXPERIENCE.md → Admin-område, UX-DR57).
+      aiCost: "KI-kostnad",
+      // [ASSUMPTION] Story 15.8.
+      operations: "Drift per Klasseøkt",
+
       // EXPERIENCE.md → Terms («Kontrolltest»); Story 12.7.
       controlTests: "Kontrolltest",
     },
@@ -2252,11 +2317,25 @@ export const nb = {
         "role.revoked": "Rolle fjernet",
         "user.deactivated": "Bruker deaktivert",
         "user.reactivated": "Bruker aktivert igjen",
+        // [ASSUMPTION] Story 15.2.
+        "user.deleted": "Bruker slettet",
+        // [ASSUMPTION] Story 15.3.
+        "institution.retention_changed": "Oppbevaringstid endret",
+        "class_session.data_deleted": "Studentdata i Klasseøkt slettet",
         "institution.created": "Institusjon opprettet",
         "institution.renamed": "Institusjon fikk nytt navn",
         // Story 3.13.
         "access_request.invited": "Invitert fra forespørsel",
         "access_request.dismissed": "Forespørsel avvist",
+        // [ASSUMPTION] Story 15.4.
+        "evaluation_agreement.recorded": "Avtale om evaluering registrert",
+        "evaluation_export.run": "Pseudonymisert eksport",
+        "pseudonym_key.replaced": "Nøkkel for pseudonymer byttet",
+        // [ASSUMPTION] Story 15.5.
+        "model_config.pinned": "Modell festet for Klasseøkt",
+        "model_config.frozen": "Modell fryst for en studie",
+        "model_config.freeze_lifted": "Frysing av modell opphevet",
+
         // [ASSUMPTION] Story 12.7.
         "institution.operator_marked": "Merket som operatørens egen Institusjon",
         "control_test.created": "Kontrolltest satt opp",
@@ -2273,6 +2352,10 @@ export const nb = {
         invitation_id: (label: string) => `Invitasjon til ${label}`,
         institution_id: (label: string) => label,
         access_request_id: (label: string) => `Forespørsel fra ${label}`,
+        // [ASSUMPTION] Story 15.4.
+        class_session_id: (label: string) => label,
+        // [ASSUMPTION] Story 15.5.
+        model_config_id: (label: string) => `Modell ${label}`,
       } as Record<string, (label: string) => string>,
       /** The labels of the change fields; an unknown field shows its own key. */
       fields: {
@@ -2283,11 +2366,23 @@ export const nb = {
         old_name: "Gammelt navn",
         new_name: "Nytt navn",
         voided_invitation_ids: "Lenker gjort ugyldige",
+        // [ASSUMPTION] Story 15.2: the reference to the Institution's instruction.
+        reference: "Referanse",
+        // [ASSUMPTION] Story 15.4.
+        agreed_on: "Dato for avtalen",
+        outcome: "Utfall",
+        class_session_ids: "Antall Klasseøkter",
+        key_fingerprint: "Fingeravtrykk",
+        old_fingerprint: "Gammelt fingeravtrykk",
+        new_fingerprint: "Nytt fingeravtrykk",
+        // [ASSUMPTION] Story 15.5.
+        model_config_id: "Modell",
+        previous_model_config_id: "Forrige modell",
+        freeze_id: "Frysing",
         // [ASSUMPTION] Story 12.7.
         previous_institution_id: "Merket før",
         scoring_guide_id: "Sensorveiledning",
         scoring_guide_version: "Versjon av sensorveiledningen",
-        model_config_id: "Modellkonfigurasjon",
         institution_id: "Institusjon",
       } as Record<string, string>,
       values: {
@@ -2295,6 +2390,391 @@ export const nb = {
         account: { created: "Ny konto", existing: "Eksisterende konto" } as Record<string, string>,
         yes: "Ja",
         no: "Nei",
+      },
+    },
+    /** «Pseudonymisert eksport» (Story 15.4, FR-71, FR-77): Institution agreements per Class
+     * session, the run with the key holder's key, the key's fingerprint and the list of runs.
+     * [ASSUMPTION] Story 15.4, all of it. */
+    evaluation: {
+      title: "Pseudonymisert eksport",
+      lead: "Beslutningsloggen, Startoppgaven, Forklaringene og svarene på Individuell test fra valgte Klasseøkter, med hver Student byttet ut med et fast pseudonym. Teststudenter og Kontrolltester er ikke med. Eksporten har ingen navn, e-postadresser, studentnumre, KI-vurderinger eller veiledende karakterer, men Forklaringene og de lange svarene står slik Studentene skrev dem og kan nevne navn. Dataene er fortsatt personopplysninger og må slettes innen slettedatoen.",
+      sessions: {
+        title: "Klasseøkter og avtaler",
+        lead: "En Klasseøkt kan eksporteres bare når Institusjonens avtale om evalueringen er registrert.",
+        columns: {
+          session: "Klasseøkt",
+          testDeadline: "Testfrist",
+          deletion: "Slettes",
+          agreement: "Avtale",
+          actions: "Handling",
+        },
+        label: (className: string, number: number) => `${className} · Klasseøkt ${number}`,
+        noDate: "Ikke satt",
+        noAgreement: "Ingen avtale",
+        agreement: (by: string, on: string) => `${by}, ${on}`,
+        controller: (controller: string) => `Behandlingsansvarlig: ${controller}`,
+        empty: "Ingen lagrede Klasseøkter ennå.",
+        record: (label: string) => `Registrer avtale for ${label}`,
+        change: (label: string) => `Endre avtalen for ${label}`,
+      },
+      agreementForm: {
+        agreedBy: "Hvem ga avtalen",
+        agreedByHint: "Rolle eller enhet ved Institusjonen, for eksempel prorektor for utdanning.",
+        agreedOn: "Dato for avtalen",
+        controller: "Behandlingsansvarlig for evalueringen",
+        save: "Lagre avtalen",
+        cancel: "Avbryt",
+        saved: (label: string) => `Avtalen for ${label} er registrert.`,
+        required: "Fyll ut feltet.",
+        tooLong: "Høyst 200 tegn.",
+        inFuture: "Datoen kan ikke være etter i dag.",
+        failed: "Avtalen ble ikke lagret. Prøv igjen.",
+      },
+      run: {
+        title: "Kjør eksport",
+        lead: "Nøkkelholderen, som ikke er grunnleggeren, skriver inn nøkkelen. Den brukes bare i denne kjøringen og lagres ikke. Systemet lagrer bare et fingeravtrykk av den.",
+        sessions: "Klasseøkter med avtale",
+        none: "Ingen Klasseøkt har avtale ennå. Registrer en avtale først.",
+        key: "Nøkkel",
+        keyHint: "Minst 32 tilfeldige tegn. Samme nøkkel gir samme pseudonym for hver Student hver gang.",
+        submit: "Last ned pseudonymisert eksport",
+        pickOne: "Velg minst én Klasseøkt.",
+        tooMany: "Velg høyst 20 Klasseøkter.",
+        keyTooShort: "Nøkkelen må ha minst 32 tegn.",
+        keyTooLong: "Nøkkelen kan ha høyst 512 tegn.",
+        keyChanged:
+          "Nøkkelen er endret. Fingeravtrykket stemmer ikke med nøkkelen som er lagret. Bruk samme nøkkel som før, eller bytt nøkkel under.",
+        noAgreement: "En valgt Klasseøkt har ikke avtale. Last siden på nytt.",
+        done: (file: string) => `${file} er lastet ned.`,
+        failed: "Eksporten ble ikke laget. Prøv igjen.",
+      },
+      key: {
+        title: "Nøkkel",
+        none: "Ingen nøkkel er lagret ennå. Den første eksporten lagrer fingeravtrykket.",
+        stored: (fingerprint: string, at: string) => `Fingeravtrykk ${fingerprint}, lagret ${at}.`,
+        lead: "Bytt nøkkel bare når nøkkelholderen har laget en ny. Senere eksporter må bruke den nye nøkkelen, og hver Student får et nytt pseudonym.",
+        field: "Ny nøkkel",
+        submit: "Bytt nøkkel for senere eksporter",
+        replaced: "Nøkkelen er byttet. Senere eksporter må bruke den nye nøkkelen.",
+        failed: "Nøkkelen ble ikke byttet. Prøv igjen.",
+      },
+      exports: {
+        title: "Eksporter",
+        columns: {
+          time: "Tidspunkt",
+          actor: "Utført av",
+          sessions: "Klasseøkter",
+          fingerprint: "Fingeravtrykk",
+          outcome: "Utfall",
+        },
+        empty: "Ingen eksporter ennå.",
+        deletes: (date: string) => `slettes ${date}`,
+        noDeletion: "ingen slettedato ennå",
+        gone: "Klasseøkten finnes ikke lenger",
+        outcomes: {
+          exported: "Eksportert",
+          no_agreement: "Avvist: mangler avtale",
+          pseudonym_key_changed: "Avvist: nøkkelen er endret",
+          failed: "Feilet",
+        } as Record<string, string>,
+      },
+    },
+    /** «Drift»: errors, fallback, AI response times, the Play guard share and AI cost per Class
+     * session (Story 15.8, NFR-8, FR-79). Counts and timings only. [ASSUMPTION] Story 15.8, all
+     * of it. */
+    operations: {
+      title: "Drift per Klasseøkt",
+      lead: "Feil, reserveordrer, svartider og KI-kostnad per Klasseøkt, for å se under en Labtime om noe går galt. Bare tall, ingen studentdata.",
+      listLead: "Velg en Klasseøkt for å se tallene. Feil teller bokføringskontroller som fant avvik, jobber som feilet og serverfeil.",
+      columns: { session: "Klasseøkt", errors: "Feil siste 24 timer" },
+      empty: "Ingen Klasseøkt er lagret ennå.",
+      refetch: "Tallene leses på nytt hvert 30. sekund.",
+      failed: (clock: string) => `Tallene kunne ikke leses på nytt. De som vises, er fra ${clock}.`,
+      showTable: "Vis som tabell",
+      showChart: "Vis som graf",
+      errors: {
+        title: "Feil per time",
+        lead: "De siste 24 timene, norsk tid. Den siste søylen er timen som pågår.",
+        sources: {
+          conservation_check: "Bokføringskontroll",
+          job_failed: "Jobb feilet",
+          api_error: "Serverfeil",
+        } as Record<string, string>,
+        last24: (count: string) => `${count} feil de siste 24 timene.`,
+        allTime: (count: string) => `${count} feil i alt i Klasseøkten.`,
+        hour: "Time",
+        sum: "Sum",
+        tableRegion: "Feil per time og kilde",
+      },
+      fallback: {
+        title: "Reserveordrer per type",
+        lead: "Andelen av LLM-spillernes ordrer der den regelbaserte referanseordren ble brukt i stedet.",
+        base: (count: string) => `${count} ordrer fra LLM-spillere.`,
+        none: "Ingen ordrer fra LLM-spillere ennå.",
+        kinds: {
+          fallback_timeout: "Tidsavbrudd",
+          fallback_invalid_output: "Ugyldig svar",
+          fallback_budget_exhausted: "Budsjettet brukt opp",
+          fallback_provider_error: "Feil hos leverandøren",
+        } as Record<string, string>,
+        columns: { kind: "Type", orders: "Ordrer", share: "Andel" },
+      },
+      times: {
+        title: "Svartid per innsatsnivå",
+        lead: "Median og 95-persentil for hvert kall fra LLM-spillerne, nye forsøk medregnet.",
+        none: "Ingen kall fra LLM-spillere ennå.",
+        median: "Median",
+        p95: "95-persentil",
+        columns: { level: "Innsatsnivå", calls: "Kall", median: "Median", p95: "95-persentil" },
+        // A no-break space, so the unit never parts from the number at a line end.
+        ms: (value: string) => `${value} ms`,
+      },
+      guard: {
+        title: "Seter byttet av spillvakten",
+        value: (share: string, switched: string, seats: string) => `${share} (${switched} av ${seats} LLM-seter)`,
+        none: "Ingen LLM-seter.",
+      },
+      cost: {
+        title: "KI-kostnad",
+        value: (usd: string, calls: string) => `${usd} for ${calls} KI-kall.`,
+      },
+      /** The database connection budget against the running processes (Story 15.9, NFR-3,
+       * NFR-4). [ASSUMPTION] Story 15.9, all of it. */
+      connections: {
+        title: "Databasetilkoblinger",
+        lead: "Hvor mange tilkoblinger til databasen hver prosess har satt av, mot det skrevne budsjettet. Under en utrulling kjører gammel og ny prosess side om side, så pooleren må romme det dobbelte.",
+        columns: { process: "Prosess", budget: "Budsjett", configured: "Konfigurert", reported: "Rapportert" },
+        sum: "Sum",
+        notReported: "Ikke rapportert",
+        over: (count: string) => `${count}, over budsjettet`,
+        tableRegion: "Databasetilkoblinger per prosess",
+        running: {
+          within: (configured: string, budget: string) =>
+            `Prosessene holder seg innenfor budsjettet: ${configured} av ${budget} tilkoblinger.`,
+          over: (configured: string, budget: string) =>
+            `Over budsjettet: prosessene har satt av ${configured} tilkoblinger, budsjettet er ${budget}.`,
+          incomplete: (configured: string, budget: string) =>
+            `Ikke alle prosessene har rapportert ennå: ${configured} av ${budget} tilkoblinger er rapportert.`,
+        },
+        pooler: {
+          passed: (size: string, required: string) =>
+            `Pooleren rommer en utrulling: den har plass til ${size} tilkoblinger, behovet er ${required}.`,
+          failed: (size: string, required: string) =>
+            `Pooleren er for liten: den har plass til ${size} tilkoblinger, behovet er ${required}.`,
+          notChecked: (required: string) =>
+            `Pooleren er ikke sjekket: størrelsen på pooleren er ikke oppgitt. Behovet er ${required}.`,
+          // [ASSUMPTION] the setting's name only as secondary detail, for whoever copies the value in.
+          setting: "Størrelsen leses fra innstillingen DB_POOLER_SIZE.",
+        },
+        need: (budget: string, overlap: string, required: string) =>
+          `Behovet er budsjettet ganger to under en utrulling (${budget} × 2 = ${overlap}), pluss én tilkobling for migreringen: ${required}.`,
+      },
+    },
+    /** «KI-kostnad», its first page (Story 15.5, FR-68, FR-78, UX-DR57): the model configs with
+     * their measured Effort levels, the model per Class session and the study freeze. Stories 15.6
+     * and 15.7 add the cost and the limit. [ASSUMPTION] Story 15.5, all of it. */
+    aiCost: {
+      title: "KI-kostnad",
+      lead: "Hvilken modell LLM-spillerne bruker i hver Klasseøkt. Modellen kan byttes fram til startdatoen. Da låses den og endres ikke mer i den Klasseøkten.",
+      /** The AI spend of one day and its alert (Story 15.7, FR-69). [ASSUMPTION] Story 15.7. */
+      day: {
+        title: "KI-kostnad per dag",
+        lead: "Summen av alle KI-kall den dagen, norsk tid, også simuleringskjøringene. Når summen passerer varselgrensen, får alle Admin ett varsel den dagen, i e-post.",
+        total: (usd: string, calls: string) => `${usd} for ${calls} KI-kall.`,
+        alertLimit: (usd: string) => `Varselgrense: ${usd} per dag.`,
+        noAlert: "Ingen daglig varselgrense er satt. Ingen får varsel om høy KI-kostnad.",
+        passed: "Summen har passert varselgrensen.",
+        alerted: (time: string) => `Varsel sendt til alle Admin ${time}.`,
+        evaluation: (usd: string) => `Simuleringskjøringer: ${usd}.`,
+        noSessions: "Ingen Klasseøkt brukte KI denne dagen.",
+        more: (shown: number, count: number) => `De ${shown} dyreste av ${count} Klasseøkter.`,
+        columns: { session: "Klasseøkt", cost: "KI-kostnad", calls: "KI-kall" },
+        previous: (date: string) => `Forrige dag, ${date}`,
+        next: (date: string) => `Neste dag, ${date}`,
+        days: "Andre dager",
+        homeAlert: (usd: string) => `Dagens KI-kostnad har passert varselgrensen på ${usd}.`,
+        homeAlertLink: "Se dagens KI-kostnad",
+      },
+      configs: {
+        title: "Modellkonfigurasjoner",
+        lead: "Tallene per innsatsnivå er fra kjøringene med bare KI-spillere, slik de ble godkjent. Bare målte innsatsnivåer kan tilbys en Klasseøkt.",
+        empty: "Ingen modellkonfigurasjoner er lagret.",
+        facts: {
+          provider: "Leverandør",
+          endpoint: "Endepunkt",
+          region: "Region",
+          version: "Modellversjon",
+        },
+        isDefault: "Standard for nye Klasseøkter",
+        isFrozen: "Fryst for en studie",
+        noKey:
+          "Leverandøren har ingen nøkkel her. En Klasseøkt med LLM-spillere og denne modellen kan ikke låses.",
+        columns: {
+          level: "Innsatsnivå",
+          cost: "Kostnad per spill",
+          fallback: "Andel reserveordrer",
+          switched: "Seter byttet av spillvakten",
+          measured: "Målt",
+        },
+        notMeasured: "Ikke målt",
+        mockMeasured: "Testmåling uten tall",
+        measuredOn: (games: string, date: string) => `${games} spill, ${date}`,
+        notOffered: "Tilbys ikke her",
+        // A no-break space, so the unit never parts from the number at a line end.
+        usd: (value: string) => `${value} USD`,
+        percent: (value: string) => `${value} %`,
+        none: "–",
+      },
+      sessions: {
+        title: "Modell per Klasseøkt",
+        lead: "En Klasseøkt får standardmodellen når den lages. Her kan du feste en annen modell før startdatoen. Faglæreren får da velge blant de målte innsatsnivåene til den modellen.",
+        empty: "Ingen lagrede Klasseøkter ennå.",
+        columns: {
+          session: "Klasseøkt",
+          start: "Startdato",
+          model: "Modell",
+          level: "Innsatsnivå",
+          action: "Handling",
+        },
+        noStart: "Ikke satt",
+        noModel: "Ingen modell",
+        ruleBased: "Regelbaserte spillere",
+        inStudy: "Med i studien",
+        locked: "Låst",
+        lockedModel: (version: string, endpoint: string) => `${version}, ${endpoint}`,
+        prompts: "Promptversjoner",
+        // [ASSUMPTION] draft: each locked prompt named by what it does, its technical id after it.
+        promptVersion: (name: string, version: number, id: string) => `${name}, versjon ${version} (${id})`,
+        promptVersionUnnamed: (id: string, version: number) => `${id}, versjon ${version}`,
+        promptNames: {
+          player_order: "Ordre fra LLM-spiller",
+          recognition_probe: "Sjekk av om modellen kjenner spillet",
+          debrief_narration: "Fortelling i Debriefen",
+          quiz_explanation: "Forklaring i Debrief-quizen",
+          debrief_follow_up: "Oppfølgingsspørsmål i Debriefen",
+          replay_walkthrough: "Gjennomgang i Replay",
+        } as Record<string, string>,
+        lockedNote: "Modellen er fryst i Klasseøkten og kan ikke byttes.",
+        choose: (label: string) => `Modell for ${label}`,
+        pin: (label: string) => `Fest modellen for ${label}`,
+        pinned: (label: string, model: string) => `${label} bruker nå ${model}.`,
+        keyMissing:
+          "Klasseøkten kan ikke låses uten nøkkelen til leverandøren. Legg inn nøkkelen før startdatoen, eller velg en annen modell.",
+        refused: {
+          model_config_frozen: "Klasseøkten er låst. Modellen kan ikke byttes.",
+          study_frozen: "Klasseøkten er med i en fryst studie. Opphev frysingen først.",
+          no_measured_level: "Modellen har ingen målte innsatsnivåer og kan ikke velges.",
+          config_not_found: "Modellen finnes ikke lenger. Last siden på nytt.",
+          not_found: "Klasseøkten finnes ikke lenger. Last siden på nytt.",
+        } as Record<string, string>,
+        failed: "Modellen ble ikke byttet. Prøv igjen.",
+      },
+      freeze: {
+        title: "Frys en modell for en studie",
+        lead: "Valgte Klasseøkter får samme modell, og nye Klasseøkter får den som standard til frysingen oppheves. En endring av en modell lager alltid en ny konfigurasjon, så den fryste endres aldri.",
+        model: "Modell",
+        sessions: "Klasseøkter i studien",
+        none: "Ingen modell har målte innsatsnivåer ennå.",
+        noSessions: "Ingen Klasseøkt kan få en ny modell nå.",
+        pickOne: "Velg minst én Klasseøkt.",
+        tooMany: "Velg høyst 50 Klasseøkter.",
+        submit: "Frys modellen for valgte Klasseøkter",
+        active: (model: string, count: number, at: string) =>
+          `${model} er fryst for ${count === 1 ? "1 Klasseøkt" : `${count} Klasseøkter`} siden ${at}.`,
+        lift: "Opphev frysingen. Nye Klasseøkter får standardmodellen igjen",
+        lifted: "Frysingen er opphevet.",
+        refused: {
+          freeze_active: "En annen modell er allerede fryst. Opphev den frysingen først.",
+          model_config_frozen: "En valgt Klasseøkt er låst med en annen modell.",
+          no_measured_level: "Modellen har ingen målte innsatsnivåer og kan ikke fryses.",
+          freeze_lifted: "Frysingen er allerede opphevet. Last siden på nytt.",
+          not_found: "En valgt Klasseøkt finnes ikke lenger. Last siden på nytt.",
+          config_not_found: "Modellen finnes ikke lenger. Last siden på nytt.",
+        } as Record<string, string>,
+        failed: "Modellen ble ikke fryst. Prøv igjen.",
+        liftFailed: "Frysingen ble ikke opphevet. Prøv igjen.",
+      },
+      /** The cost per Class session and its limit (Story 15.6, FR-69, C-3). [ASSUMPTION] Story 15.6. */
+      costs: {
+        link: "KI-kostnad per Klasseøkt",
+        linkLead: "Kostnad og kostnadsgrense for hver Klasseøkt.",
+        title: "KI-kostnad per Klasseøkt",
+        lead: "Hva hver Klasseøkt har brukt på KI, mot kostnadsgrensen. Kostnaden per spill vises mot målet på 0,10 USD og kostnaden per Student mot målet på 0,50 USD.",
+        empty: "Ingen lagrede Klasseøkter ennå.",
+        columns: {
+          session: "Klasseøkt",
+          total: "KI-kostnad",
+          limit: "Grense",
+          perGame: "Per spill",
+          perStudent: "Per Student",
+        },
+        noBudget: "Ingen grense ennå",
+        none: "–",
+        above: "Over målet",
+        reached: "Grensen er nådd",
+        evaluations: {
+          title: "Simuleringskjøringer",
+          lead: "Simuleringskjøringene har egne budsjetter og teller aldri mot en Klasseøkt.",
+          empty: "Ingen simuleringsbudsjetter.",
+          columns: { model: "Modell", limit: "Grense", spent: "Brukt" },
+        },
+        back: "Tilbake til KI-kostnad per Klasseøkt",
+      },
+      /** One Class session's cost and its limit (Story 15.6). [ASSUMPTION] Story 15.6. */
+      cost: {
+        lead: "KI-kostnaden for Klasseøkten per spill og per dag, med kostnadsgrensen.",
+        notFound: "Klasseøkten finnes ikke.",
+        budget: {
+          title: "Kostnadsgrense",
+          limit: "Grense",
+          reserve: "Reserve for Debrief og KI-vurdering",
+          spent: "Brukt",
+          held: "Holdt av for kall som pågår",
+          total: (usd: string, calls: string) => `${usd} for ${calls} KI-kall.`,
+          perGame: (usd: string) => `Per spill: ${usd}.`,
+          perStudent: (usd: string) => `Per Student: ${usd}.`,
+          none: "Klasseøkten har ingen kostnadsgrense ennå. Den får standardgrensen når den settes.",
+        },
+        reached: (label: string) => `Grensen er nådd for ${label}. LLM-spillerne er byttet til regelbaserte.`,
+        reachedAt: (time: string) => `Nådd ${time}.`,
+        reserveUsed:
+          "Reserven er også brukt opp. Debriefen lages nå bare fra koden, og KI-vurderingen venter på at du velger hva som skal skje.",
+        stoppedAt: (time: string) => `KI-vurderingen ble stoppet ${time}.`,
+        limitLabel: "Ny kostnadsgrense i USD",
+        limitHint: "Kan ikke være lavere enn det som er brukt.",
+        raiseConsequence:
+          "Når du hever grensen, starter KI-vurderingen igjen for alle Studenter som venter. LLM-spillerne forblir regelbaserte resten av Klasseøkten.",
+        save: "Lagre kostnadsgrensen",
+        saved: (usd: string) => `Kostnadsgrensen er ${usd}.`,
+        stopConsequence:
+          "Når du stopper KI-vurderingen, slutter nye forsøk, og Studentene ser at KI-vurderingen er slått av. Ferdige KI-vurderinger blir stående.",
+        stop: "Stopp KI-vurderingen for Klasseøkten",
+        refused: {
+          limit_below_spent: "Grensen kan ikke være lavere enn det som er brukt.",
+          reserve_above_limit: "Grensen kan ikke være lavere enn reserven.",
+          amount_invalid: "Skriv et beløp i USD med høyst åtte desimaler.",
+          reserve_not_used_up: "Reserven er ikke brukt opp. Last siden på nytt.",
+          not_found: "Klasseøkten finnes ikke lenger. Last siden på nytt.",
+        } as Record<string, string>,
+        failed: "Endringen ble ikke lagret. Prøv igjen.",
+        invalid: "Skriv et beløp i USD, for eksempel 20 eller 12,50.",
+        games: {
+          title: "KI-kostnad per spill",
+          lead: "Kall som ikke hører til et spill, som Debriefen og KI-vurderingen, står for seg.",
+          game: (number: number) => `Spill ${number}`,
+          otherGame: "Annet spill",
+          noGame: "Uten spill",
+          empty: "Ingen KI-kall ennå.",
+          columns: { game: "Spill", cost: "KI-kostnad", calls: "KI-kall" },
+          table: "KI-kostnad per spill som tabell",
+        },
+        days: {
+          title: "KI-kostnad per dag",
+          lead: "Dager etter norsk tid.",
+          empty: "Ingen KI-kall ennå.",
+          columns: { day: "Dag", cost: "KI-kostnad", calls: "KI-kall" },
+          table: "KI-kostnad per dag som tabell",
+        },
       },
     },
     /** «Institusjoner» (Story 3.11, FR-3): create and rename the Institutions Classes belong to.
@@ -2343,6 +2823,46 @@ export const nb = {
         saved: (name: string, on: boolean) =>
           on ? `Veiledende bokstav er sperret for ${name}.` : `${name}: faglærer velger igjen om veiledende bokstav vises.`,
         failed: "Valget ble ikke lagret. Prøv igjen.",
+      },
+      /** Story 15.12 (FR-8, PRD §6.1): the Institution's data processing agreement with the
+       * operator; Student Invitations wait for it while `REQUIRE_DPA_FOR_INVITATIONS` is on.
+       * [ASSUMPTION] */
+      processingAgreement: {
+        column: "Databehandleravtale",
+        none: "Ingen avtale registrert",
+        /** The operator's own Institution: its test students need none (FR-82). */
+        notNeeded: "Trengs ikke: operatørens egen Institusjon",
+        /** «Signert av prorektor for utdanning, 2. november 2026». */
+        signed: (by: string, day: string) => `Signert av ${by}, ${day}`,
+        record: (name: string) => `Registrer databehandleravtale for ${name}`,
+        change: (name: string) => `Endre databehandleravtalen for ${name}`,
+        signedBy: "Hvem signerte for Institusjonen",
+        signedByHint: "Rollen ved Institusjonen, slik avtalen oppgir den, for eksempel prorektor for utdanning.",
+        signedOn: "Dato for signering",
+        save: "Lagre avtalen",
+        cancel: "Avbryt",
+        saved: (name: string) => `Databehandleravtalen for ${name} er registrert.`,
+        required: "Fyll ut feltet.",
+        tooLong: "Høyst 200 tegn.",
+        inFuture: "Datoen kan ikke være etter i dag.",
+        failed: "Avtalen ble ikke lagret. Prøv igjen.",
+      },
+      /** Story 15.3 (FR-77, FR-3): the Institution's retention period in whole months after the
+       * latest Testfrist of each Klasseøkt. [ASSUMPTION] draft copy. */
+      retention: {
+        column: "Oppbevaring",
+        /** «6 måneder etter Testfristen (standard)». */
+        months: (months: number, standard: boolean) =>
+          `${months} ${months === 1 ? "måned" : "måneder"} etter Testfristen${standard ? " (standard)" : ""}`,
+        change: (name: string) => `Endre oppbevaringstiden for ${name}`,
+        field: "Måneder etter siste Testfrist",
+        hint: (standard: number) =>
+          `Studentdataene i hver Klasseøkt slettes så mange måneder etter den siste Testfristen, eller etter den siste datoen den har når den ikke har noen Testfrist. Tomt felt gir standarden, ${standard} måneder.`,
+        save: "Lagre oppbevaringstiden",
+        cancel: "Avbryt",
+        saved: (name: string) => `Oppbevaringstiden for ${name} er lagret. Slettedatoene er regnet ut på nytt.`,
+        invalid: "Skriv et helt tall fra 1 til 120.",
+        failed: "Oppbevaringstiden ble ikke lagret. Prøv igjen.",
       },
       rename: {
         open: (name: string) => `Gi ${name} nytt navn`,
@@ -2470,6 +2990,26 @@ export const nb = {
         reactivatedLine: (name: string) => `${name} er aktiv igjen.`,
         deactivateSelf: "Du kan ikke deaktivere deg selv.",
         statusFailed: "Statusen ble ikke endret. Prøv igjen.",
+        /** Deleting a User on the Institution's instruction (Story 15.2, FR-76, UX-DR9): the
+         * button states the consequence and deletes on one press. The blocked and last-Admin
+         * sentences are the role buttons' own; the rest is [ASSUMPTION] Story 15.2. */
+        delete: {
+          open: (name: string) => `Slett ${name}`,
+          close: "Ikke slett",
+          reference: "Referanse til Institusjonens instruks",
+          hint: "Saksnummer eller dato. Ikke navn eller e-post: referansen lagres i revisjonsloggen.",
+          submit: (name: string) =>
+            `Slett ${name} for godt. Navn, e-post og tekstene ${name} skrev slettes, og spillene viser bare rollen.`,
+          deleted: (name: string) => `${name} er slettet.`,
+          self: "Du kan ikke slette deg selv.",
+          errors: {
+            reference_empty: "Skriv referansen til Institusjonens instruks.",
+            reference_too_long: "Referansen kan ha høyst 200 tegn.",
+            reference_invalid: "Referansen kan ikke inneholde @ eller kontrolltegn.",
+            reference_names_user: "Referansen kan ikke inneholde navnet eller e-posten til brukeren.",
+          } as Record<string, string>,
+          failed: "Brukeren ble ikke slettet. Prøv igjen.",
+        },
       },
       /** The Invitations sent, newest first, and resending one (Story 3.10, FR-1, FR-3).
        * [ASSUMPTION] Story 3.10, including the renewal-request line the epic asks this story to
@@ -4337,6 +4877,10 @@ export const nb = {
       rosterLink: "Studentside",
       rosterLinkSession: (number: number) => `Studentside, økt ${number}`,
       rosterLinkLabel: (email: string, number: number) => `Studentside for ${email}, Klasseøkt ${number}`,
+      /** Story 15.3 (FR-77): the Class session's deletion date has come. [ASSUMPTION] */
+      deletedTitle: "Studentside",
+      deleted: "Studentdataene i denne Klasseøkten er slettet. Spillene vises fortsatt, med Rollene uten navn.",
+      toSession: "Til Klasseøkten",
     },
     /** The block «Fullføring» (Story 13.2, FR-17, UX-DR54, EXPERIENCE.md → Fullføringsretting):
      * the step names, «gjort» / «ikke gjort» and the two share lines are the spine's; the rest is
@@ -4581,6 +5125,233 @@ export const nb = {
   },
 
   /** Links between pages (Story 3.3). Each names where it goes. */
+  /** «Mine data» (Story 15.1, FR-75, UX-DR67, EXPERIENCE.md → Mine data): every category of data
+   * the product stores about the Student, each with «Vis», the Studentrapport at the top. The
+   * category names are the spine's; the rest is [ASSUMPTION] Story 15.1 draft copy for the
+   * founder's review. */
+  myData: {
+    title: "Mine data",
+    /** The Lenke beside the User's name on Hjem. */
+    link: "Mine data",
+    intro: "Her ser du alt ØL-spillet har lagret om deg. Bare du ser denne siden.",
+    reportHeading: "Last ned Studentrapport",
+    reportNone: "Du har ingen Klasseøkt med spill ennå, så det finnes ingen Studentrapport.",
+    categoriesHeading: "Dette er lagret om deg",
+    show: "Vis",
+    hide: "Skjul",
+    count: (n: number) => (n === 1 ? "1 oppføring" : `${n} oppføringer`),
+    empty: "Ingenting er lagret.",
+    /** «class-of-1994, Klasseøkt 1». */
+    context: (className: string, number: number | null) =>
+      number === null ? className : `${className}, Klasseøkt ${number}`,
+    /** The time a row was stored. */
+    stored: (when: string) => `Lagret ${when}`,
+    yes: "Ja",
+    no: "Nei",
+    none: "–",
+    failed: "Mine data kunne ikke lastes.",
+    categories: {
+      account: "Konto og profil",
+      orders: "Ordrer",
+      game: "Spill og Replay",
+      explanation: "Forklaring",
+      reflection: "Refleksjonssvar",
+      follow_ups: "Oppfølgingsspørsmål",
+      debrief: "Debrief-oppsummering",
+      quiz: "Debrief-quiz",
+      starting_task: "Startoppgave",
+      test: "Testsvar",
+      assessment: "KI-vurdering",
+      letter: "Veiledende bokstav",
+      adjustments: "Tilrettelegging",
+      messages: "Meldinger og varsler",
+      completion: "Fullføring",
+    } as Record<string, string>,
+    /** What a row is within its category. */
+    kinds: {
+      profile: "Profil",
+      role: "Rolle i ØL-spillet",
+      consent: "Samtykke som teststudent",
+      roster_entry: "Klasseliste",
+      week: "Uke",
+      seat: "Sete",
+      rating: "Hvor troverdige KI-spillerne var",
+      time_proposal: "Tidspunkt du foreslo",
+      time_acceptance: "Tidspunkt du godtok",
+      reclaim: "Ønske om å ta tilbake setet",
+      replay: "Replay",
+      another_round: "Svar om en runde til",
+      walkthrough: "Gjennomgang av Replay",
+      makeup: "Oppfølgingsspill",
+      explanation: "Forklaring",
+      answer: "Svar",
+      question: "Spørsmål",
+      closure: "Oppfølgingen avsluttet",
+      summary: "Oppsummering",
+      member: "Felles Debrief",
+      step_mark: "Steg fullført",
+      alone: "Gikk videre alene",
+      attempt: "Forsøk",
+      prepared: "Tilpassede oppgaver",
+      letter: "Veiledende bokstav",
+      assessment: "KI-vurdering",
+      item_score: "Poeng og tilbakemelding",
+      flag: "Tilbakemelding du merket som feil",
+      human_score: "Poeng fra sensor",
+      adjustment: "Tilrettelegging",
+      extension: "Egne frister",
+      reminder: "Påminnelse om frist",
+      message: "Melding",
+      notices: "Varsler",
+      mail: "E-post",
+      step: "Steg registrert",
+      correction: "Retting av fullføring",
+    } as Record<string, string>,
+    /** The field labels. */
+    fields: {
+      name: "Navn",
+      email: "E-post",
+      created_at: "Opprettet",
+      role: "Rolle",
+      granted_at: "Gitt",
+      decision: "Valg",
+      text_version: "Tekstversjon",
+      decided_at: "Valgt",
+      registration: "Registrering",
+      added_at: "Lagt til",
+      removed_at: "Fjernet",
+      game_number: "Spill",
+      purpose: "Type spill",
+      week: "Uke",
+      order: "Ordre",
+      decided_by: "Bestemt av",
+      from_week: "Fra uke",
+      reason: "Grunn",
+      rating: "Vurdering (1–5)",
+      proposed_time: "Tidspunkt",
+      answer: "Svar",
+      narration: "Tekst",
+      ai_generated: "KI-generert",
+      text: "Tekst",
+      question_id: "Spørsmål",
+      question: "Spørsmål",
+      outcome: "Utfall",
+      closed_at: "Avsluttet",
+      finished_at: "Fullført",
+      moments: "Øyeblikk",
+      reflection_copy: "Refleksjon i oppsummeringen",
+      shared: "Felles",
+      joined_at: "Ble med",
+      last_seen_at: "Sist til stede",
+      step: "Steg",
+      done_at: "Fullført",
+      number: "Nummer",
+      passed: "Bestått",
+      answers: "Antall svar",
+      item_id: "Oppgave",
+      choice: "Valg",
+      correct: "Riktig",
+      status: "Status",
+      statement_accepted_at: "Erklæring godtatt",
+      submitted_at: "Levert",
+      items: "Antall oppgaver",
+      value: "Svar",
+      setting: "Innstilling",
+      chosen: "Slått på av deg",
+      letter: "Bokstav",
+      ready_at: "Klar",
+      letter_chosen: "Veiledende bokstav slått på",
+      score: "Poeng",
+      feedback: "Tilbakemelding",
+      time_factor: "Tidsfaktor",
+      share_percent: "Krav til andel uker (%)",
+      test_deadline: "Testfrist",
+      debrief_deadline: "Debrief-frist",
+      deadline: "Frist",
+      deadline_at: "Fristen var",
+      sender: "Fra",
+      notices: "Varsler",
+      mode: "Sendt som",
+      sent_at: "Sendt",
+      delivery_state: "Levering",
+      skipped_reason: "Ikke sendt fordi",
+      feedback_note: "Merknad",
+      done: "Fullført",
+    } as Record<string, string>,
+    /** Stored codes, by field key; a code not listed shows as stored. */
+    codes: {
+      role: {
+        admin: "Admin",
+        lecturer: "Faglærer",
+        retailer: "Detaljist",
+        wholesaler: "Grossist",
+        distributor: "Distributør",
+        factory: "Fabrikk",
+      },
+      decision: { given: "Samtykket", declined: "Takket nei" },
+      registration: { invited: "Invitert", registered: "Registrert", registered_manually: "Registrert av faglærer" },
+      purpose: {
+        class: "Klassespill",
+        replay: "Replay",
+        makeup: "Oppfølgingsspill",
+        lecturer_test: "Testspill",
+        simulation: "Simulering",
+      },
+      decided_by: {
+        student: "Deg",
+        llm: "KI-spiller",
+        rule_based: "Regelbasert spiller",
+        scripted: "Fast oppsett",
+        guided: "Veiledet uke",
+      },
+      reason: {
+        initial: "Fordelt",
+        takeover_inactivity: "KI tok over etter ventetid",
+        takeover_staff: "Tatt over av faglærer",
+        takeover_peer: "Tatt over etter forespørsel",
+        reclaim: "Tatt tilbake",
+        guard_switch: "Byttet spiller",
+        cost_limit: "Kostnadsgrense",
+        playout: "Spilt ferdig",
+        moved: "Flyttet",
+        left: "Gikk",
+        dropout: "Falt fra",
+        fallback: "Etter 48 timer",
+        missed: "Kom ikke",
+      },
+      outcome: { answered: "Besvart", declined: "Ikke besvart" },
+      mode: { immediate: "Straks", digest: "Samlet e-post" },
+      delivery_state: { delayed: "Forsinket", delivered: "Levert", bounced: "Kom ikke fram" },
+      skipped_reason: {
+        no_recipient: "Ingen mottaker",
+        unknown_kind: "Ukjent varsel",
+        send_failed: "Sending feilet",
+        stale: "Ikke lenger aktuelt",
+      },
+      feedback_note: { dropped: "Tilbakemeldingen ble holdt tilbake" },
+      status: {
+        open: "Åpen",
+        submitted: "Levert",
+        auto_submitted: "Levert automatisk",
+        incomplete: "Ikke ferdig",
+        ready: "Klar",
+        failed: "Feilet",
+      },
+      setting: { all: "Vist for alle", student_choice: "Ditt valg" },
+      deadline: { play_deadline: "Spillefrist", debrief_deadline: "Debrief-frist", test_deadline: "Testfrist" },
+      step: {
+        starting_task: "Startoppgave",
+        class_game: "Klassespill",
+        explanation: "Forklaring",
+        debrief: "Debrief",
+        quiz_passed: "Debrief-quiz bestått",
+        replay: "Replay",
+        test_submitted: "Individuell test levert",
+        assessment_ready: "KI-vurdering klar",
+      },
+    } as Record<string, Record<string, string>>,
+  },
+
   navigation: {
     // «Til Hjem» and «Til Lærerhjem» are EXPERIENCE.md's own (State Patterns → permission denied).
     toHome: "Til Hjem",

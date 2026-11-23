@@ -29,6 +29,7 @@ from app.platform import events
 from app.platform.db import get_sessionmaker
 
 __all__ = [
+    "own_records",
     "CORRECTABLE_STEPS",
     "FUNNEL_STEPS",
     "CompletionCorrection",
@@ -269,6 +270,19 @@ async def record_correction(
     return correction_id
 
 
+async def delete_corrections_of(
+    session: AsyncSession, user_id: uuid.UUID, scope: uuid.UUID | None = None
+) -> None:
+    """The erasure of a Student (Story 15.2, AD-14): delete every correction of their Completion
+    status, whose reason is a Lecturer's free text about them. The append-only trigger refuses
+    an UPDATE only; a Lecturer's corrections of other Students stay. Idempotent. With `scope`
+    (Story 15.3, retention), only the corrections in that Class session."""
+    mine = completion_corrections.c.user_id == user_id
+    if scope is not None:
+        mine = mine & (completion_corrections.c.class_session_id == scope)
+    await session.execute(completion_corrections.delete().where(mine))
+
+
 async def corrections(
     session: AsyncSession, user_id: uuid.UUID, class_session_id: uuid.UUID
 ) -> list[CompletionCorrection]:
@@ -281,3 +295,7 @@ async def corrections(
         .order_by(c.at, c.id)
     )
     return [CompletionCorrection(**row) for row in result.mappings()]
+
+
+# «Mine data» (Story 15.1, FR-75): the Student's own rows of this module, by their own id.
+from app.modules.progress.own_data import own_records  # noqa: E402

@@ -21,7 +21,8 @@ theirs. Alembic owns the procrastinate schema
 
 import asyncio
 import importlib
-from collections.abc import Iterable, Sequence
+import uuid
+from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
 from datetime import datetime
 
 import procrastinate
@@ -30,6 +31,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.platform import error_reporting
 from app.platform.config import get_settings
 
 __all__ = [
@@ -45,9 +47,13 @@ __all__ = [
     "conninfo",
     "defer",
     "defer_many",
+    "failure_middleware",
+    "JobFailureHook",
     "live_locks",
     "load_tasks",
+    "procrastinate_pool_size",
     "run_until_idle",
+    "worker_sides",
 ]
 
 log = structlog.get_logger(__name__)
@@ -177,6 +183,29 @@ async def live_locks(session: AsyncSession, locks: Iterable[str]) -> set[str]:
     return {str(lock) for lock in result.scalars()}
 
 
+def worker_sides(queues: Sequence[str]) -> dict[str, int]:
+    """The queues a worker runs beside its others, on slots of their own, with their slots.
+
+    Story 13.7: `reports-single` beside other queues runs in a worker of its own with
+    `REPORTS_SINGLE_RESERVED` slots, so no other queue's job takes them (AD-9). The close-out of
+    Epic 13: `reports-bulk` beside other queues runs in a worker of its own too (one slot), so a
+    ZIP of many minutes never holds the sweep, the mail or the LLM batches behind it."""
+    sides: dict[str, int] = {}
+    if len(queues) > 1:
+        if REPORTS_SINGLE in queues:
+            sides[REPORTS_SINGLE] = get_settings().reports_single_reserved
+        if REPORTS_BULK in queues and len(queues) > len(sides) + 1:
+            sides[REPORTS_BULK] = 1
+    return sides
+
+
+def procrastinate_pool_size(concurrency: int, queues: Sequence[str] = ()) -> int:
+    """The connections a worker's procrastinate pool may hold: one per job run at once, the
+    slots of the queues it runs on their own (`worker_sides`), and one for its LISTEN for new
+    jobs, at least two (docs/ops/connection-budget.md)."""
+    return max(2, concurrency + sum(worker_sides(queues).values()) + 1)
+
+
 def _connector(database_url: str | None, size: int) -> procrastinate.PsycopgConnector:
     return procrastinate.PsycopgConnector(
         conninfo=conninfo(database_url),
@@ -186,6 +215,61 @@ def _connector(database_url: str | None, size: int) -> procrastinate.PsycopgConn
     )
 
 
+HOOK_TIMEOUT_S = 5.0
+"""The longest the failure hook may hold a failed job's status."""
+
+JobFailureHook = Callable[[str, Mapping[str, object], object], Awaitable[object]]
+"""`(task name, task arguments, job id)`: told when a job failed for good (Story 15.8)."""
+
+
+def _job_ids(kwargs: Mapping[str, object]) -> dict[str, str]:
+    """A job's Class session and Game, when its arguments name them as UUIDs."""
+    found = {}
+    for name in ("class_session_id", "game_id"):
+        try:
+            found[name] = str(uuid.UUID(str(kwargs[name])))
+        except KeyError, ValueError, TypeError:
+            continue
+    return found
+
+
+def failure_middleware(on_failure: JobFailureHook):
+    """A procrastinate worker middleware that tells `on_failure` about a job that raised and that
+    its task will not retry, then lets the job fail as before. A failing hook is logged by type
+    and never changes the job's outcome (NFR-9). `platform` imports no module, so the hook comes
+    from `worker.py` (Story 15.8)."""
+
+    async def middleware(call_next, context, worker):
+        try:
+            return await call_next()
+        except BaseException as exc:
+            if not isinstance(exc, Exception) or isinstance(
+                exc, procrastinate.exceptions.JobAborted
+            ):
+                raise
+            job = context.job
+            task = worker.app.tasks.get(job.task_name)
+            retry = task.get_retry_exception(exception=exc, job=job) if task else None
+            if retry is None:
+                # The error tracker gets its class, stack and ids, never its text (Story 15.11).
+                error_reporting.capture(
+                    exc, job_id=job.id, task=job.task_name, **_job_ids(job.task_kwargs)
+                )
+                try:
+                    await asyncio.wait_for(
+                        on_failure(job.task_name, dict(job.task_kwargs), job.id), HOOK_TIMEOUT_S
+                    )
+                except Exception as hook_exc:
+                    log.warning(
+                        "job_failure_hook_failed",
+                        job_id=job.id,
+                        exc_type=type(hook_exc).__name__,
+                    )
+            raise
+
+    return middleware
+
+
 async def run_worker(
     queues: Sequence[str],
     *,
@@ -193,31 +277,25 @@ async def run_worker(
     concurrency: int = 1,
     database_url: str | None = None,
     install_signal_handlers: bool = True,
+    on_failure: JobFailureHook | None = None,
 ) -> None:
     """Run a worker on `queues` until it is stopped, or, with `wait=False`, until no job of
-    those queues is left (jobs deferred by the jobs it runs included)."""
+    those queues is left (jobs deferred by the jobs it runs included). `on_failure` is told of
+    each job that fails for good (Story 15.8)."""
     if not queues:
         raise ValueError("no queue given")  # procrastinate would run every queue
     unknown = [queue for queue in queues if queue not in QUEUES]
     if unknown:
         raise ValueError(f"unknown queue(s): {', '.join(unknown)}")
     load_tasks()
-    # Story 13.7: `reports-single` beside other queues runs in a worker of its own with
-    # `REPORTS_SINGLE_RESERVED` slots, so no other queue's job takes them (AD-9). The close-out of
-    # Epic 13: `reports-bulk` beside other queues runs in a worker of its own too (one slot), so a
-    # ZIP of many minutes never holds the sweep, the mail or the LLM batches behind it.
-    sides: dict[str, int] = {}
-    if len(queues) > 1:
-        if REPORTS_SINGLE in queues:
-            sides[REPORTS_SINGLE] = get_settings().reports_single_reserved
-        if REPORTS_BULK in queues and len(queues) > len(sides) + 1:
-            sides[REPORTS_BULK] = 1
+    sides = worker_sides(queues)
     others = [queue for queue in queues if queue not in sides]
-    size = max(2, concurrency + sum(sides.values()) + 1)
     # The app gets a pool that lives as long as this worker. It is the app itself, not a copy
     # (`with_connector`): the periodic deferrer of `ops.sweep` defers through the task's own app,
     # which must be the open one (Story 3.5).
-    with app.replace_connector(_connector(database_url, size)) as worker_app:
+    with app.replace_connector(
+        _connector(database_url, procrastinate_pool_size(concurrency, queues))
+    ) as worker_app:
         async with worker_app.open_async():
             main = worker_app.run_worker_async(
                 queues=others,
@@ -226,6 +304,7 @@ async def run_worker(
                 listen_notify=wait,
                 install_signal_handlers=install_signal_handlers,
                 delete_jobs="successful",
+                worker_middleware=[failure_middleware(on_failure)] if on_failure else None,
             )
             if not sides:
                 await main
@@ -267,10 +346,19 @@ async def run_worker(
                 await asyncio.gather(*every, return_exceptions=True)
 
 
-async def run_until_idle(queues: Iterable[str], *, database_url: str | None = None) -> None:
+async def run_until_idle(
+    queues: Iterable[str],
+    *,
+    database_url: str | None = None,
+    on_failure: JobFailureHook | None = None,
+) -> None:
     """Run every job waiting on `queues`, and the jobs they defer, in this process; returns
     when none is left. Tests and the simulation runner drive jobs with it, never with a
     clock."""
     await run_worker(
-        list(queues), wait=False, database_url=database_url, install_signal_handlers=False
+        list(queues),
+        wait=False,
+        database_url=database_url,
+        install_signal_handlers=False,
+        on_failure=on_failure,
     )

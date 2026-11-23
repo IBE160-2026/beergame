@@ -1,7 +1,7 @@
 """SQL for the identity tables. Only `identity.service` and `identity.seed` call it."""
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import (
     RowMapping,
@@ -308,7 +308,7 @@ async def list_users(
         users.c.email,
         users.c.is_active,
         roles.label("roles"),
-    )
+    ).where(users.c.deleted_at.is_(None))  # an erased User is no one to list (Story 15.2)
     if search:
         pattern = _like_pattern(search)
         query = query.where(
@@ -365,6 +365,130 @@ async def set_active(
 ) -> None:
     await session.execute(
         update(users).where(users.c.id == user_id).values(is_active=is_active, updated_at=now)
+    )
+
+
+ERASED_NAME = "Slettet bruker"
+"""The name of an erased User (Story 15.2): no person's."""
+
+
+def erased_email(user_id: uuid.UUID) -> str:
+    """The unique placeholder address of an erased User; the `.invalid` domain never resolves."""
+    return f"slettet-{user_id.hex}@slettet.invalid"
+
+
+async def erase_user_rows(session: AsyncSession, user_id: uuid.UUID, address: str) -> None:
+    """Story 15.2 (FR-76, AD-14): delete every identity row of the User or their `address` (roles,
+    reset links, Invitations, Roster entries, the staged Roster rows that hold the address, the
+    requests for lecturer access) and anonymise the `users` row in place. Idempotent."""
+    await session.execute(delete(user_roles).where(user_roles.c.user_id == user_id))
+    await session.execute(delete(password_resets).where(password_resets.c.user_id == user_id))
+    # A staged Roster row is the only place a student number is stored (`platform/pii`): the row
+    # that holds the address goes whole, with whatever else of the person it holds.
+    await session.execute(
+        delete(roster_upload_rows).where(
+            text(
+                "EXISTS (SELECT 1 FROM jsonb_array_elements_text(roster_upload_rows.cells) AS cell "
+                "WHERE lower(btrim(cell)) = :address)"
+            ).bindparams(address=address)
+        )
+    )
+    # The Roster entries go with their Invitations (`roster_entry_id` cascades).
+    await session.execute(
+        delete(roster_entries).where(
+            or_(roster_entries.c.user_id == user_id, roster_entries.c.email == address)
+        )
+    )
+    await session.execute(delete(invitations).where(invitations.c.email == address))
+    await session.execute(delete(access_requests).where(access_requests.c.email == address))
+    await session.execute(
+        update(users)
+        .where(users.c.id == user_id)
+        .values(
+            name=ERASED_NAME,
+            email=erased_email(user_id),
+            password_hash=None,
+            is_active=False,
+            session_version=users.c.session_version + 1,
+        )
+    )
+
+
+# Retention (Story 15.3, FR-77, AD-14).
+
+
+async def roster_user_ids(session: AsyncSession, class_id: uuid.UUID) -> list[uuid.UUID]:
+    """Every User on the Class's Roster, removed ones too (their data in its Class sessions is
+    still theirs), by id."""
+    result = await session.execute(
+        select(roster_entries.c.user_id)
+        .where(roster_entries.c.class_id == class_id, roster_entries.c.user_id.is_not(None))
+        .distinct()
+        .order_by(roster_entries.c.user_id)
+    )
+    return list(result.scalars())
+
+
+async def roster_classes_of_user(session: AsyncSession, user_id: uuid.UUID) -> list[RowMapping]:
+    """`class_id` and `removed_at` of every Roster entry of the User."""
+    result = await session.execute(
+        select(roster_entries.c.class_id, roster_entries.c.removed_at).where(
+            roster_entries.c.user_id == user_id
+        )
+    )
+    return list(result.mappings())
+
+
+async def has_unregistered_roster(session: AsyncSession, class_id: uuid.UUID) -> bool:
+    """Whether the Class has a Roster entry with no User or a Student Invitation not accepted."""
+    entry = await session.scalar(
+        select(roster_entries.c.id)
+        .where(roster_entries.c.class_id == class_id, roster_entries.c.user_id.is_(None))
+        .limit(1)
+    )
+    if entry is not None:
+        return True
+    invitation = await session.scalar(
+        select(invitations.c.id)
+        .where(
+            invitations.c.class_id == class_id,
+            invitations.c.kind == "student",
+            invitations.c.accepted_at.is_(None),
+        )
+        .limit(1)
+    )
+    return invitation is not None
+
+
+async def delete_unregistered_roster(session: AsyncSession, class_id: uuid.UUID) -> tuple[int, int]:
+    """Delete the Class's Roster entries of addresses that never registered (no User) and every
+    Student Invitation to the Class not accepted; returns `(entries, invitations)` deleted. The
+    Invitations of a deleted entry go with it (`roster_entry_id` cascades) and are counted with
+    the entries."""
+    entries = await session.execute(
+        delete(roster_entries)
+        .where(roster_entries.c.class_id == class_id, roster_entries.c.user_id.is_(None))
+        .returning(roster_entries.c.id)
+    )
+    gone = len(entries.scalars().all())
+    invited = await session.execute(
+        delete(invitations)
+        .where(
+            invitations.c.class_id == class_id,
+            invitations.c.kind == "student",
+            invitations.c.accepted_at.is_(None),
+        )
+        .returning(invitations.c.id)
+    )
+    return gone, len(invited.scalars().all())
+
+
+async def mark_erased(session: AsyncSession, user_id: uuid.UUID, now: datetime) -> None:
+    """Set `deleted_at` once: a repeat keeps the first time. Times come from the api's clock."""
+    await session.execute(
+        update(users)
+        .where(users.c.id == user_id)
+        .values(deleted_at=func.coalesce(users.c.deleted_at, now), updated_at=now)
     )
 
 
@@ -587,6 +711,56 @@ async def no_letter_of(session: AsyncSession, institution_id: uuid.UUID) -> bool
         select(institutions.c.no_letter).where(institutions.c.id == institution_id)
     )
     return bool(found)
+
+
+async def set_retention_months(
+    session: AsyncSession, institution_id: uuid.UUID, months: int | None, now: datetime
+) -> RowMapping:
+    """Story 15.3: set the Institution's retention period (None: the placeholder), in the
+    caller's transaction."""
+    result = await session.execute(
+        update(institutions)
+        .where(institutions.c.id == institution_id)
+        .values(retention_months=months, updated_at=now)
+        .returning(institutions)
+    )
+    return result.mappings().one()
+
+
+async def retention_months_of(session: AsyncSession, institution_id: uuid.UUID) -> int | None:
+    """Story 15.3: the Institution's own retention period; None when unset or unknown."""
+    return await session.scalar(
+        select(institutions.c.retention_months).where(institutions.c.id == institution_id)
+    )
+
+
+async def set_processing_agreement(
+    session: AsyncSession,
+    institution_id: uuid.UUID,
+    signed_by: str,
+    signed_on: date,
+    now: datetime,
+) -> RowMapping:
+    """Story 15.12: record (or replace) the Institution's data processing agreement, in the
+    caller's transaction."""
+    result = await session.execute(
+        update(institutions)
+        .where(institutions.c.id == institution_id)
+        .values(
+            dpa_signed_by=signed_by, dpa_signed_on=signed_on, dpa_recorded_at=now, updated_at=now
+        )
+        .returning(institutions)
+    )
+    return result.mappings().one()
+
+
+async def processing_agreement_recorded(session: AsyncSession, institution_id: uuid.UUID) -> bool:
+    """Story 15.12: whether the Institution has a recorded data processing agreement; False for an
+    unknown id."""
+    found = await session.scalar(
+        select(institutions.c.dpa_signed_on).where(institutions.c.id == institution_id)
+    )
+    return found is not None
 
 
 async def institution_by_id(session: AsyncSession, institution_id: uuid.UUID) -> RowMapping | None:
@@ -1342,6 +1516,16 @@ async def people(session: AsyncSession, ids: list[uuid.UUID]) -> list[RowMapping
         select(users.c.id, users.c.name, users.c.email).where(users.c.id.in_(ids))
     )
     return list(result.mappings())
+
+
+async def erased_among(session: AsyncSession, user_ids: list[uuid.UUID]) -> set[uuid.UUID]:
+    """Which of these Users were erased (Story 15.4: they get no pseudonym in an export)."""
+    if not user_ids:
+        return set()
+    result = await session.execute(
+        select(users.c.id).where(users.c.id.in_(user_ids), users.c.deleted_at.is_not(None))
+    )
+    return set(result.scalars())
 
 
 # Test students and their consent (Story 12.8, FR-82, AD-27).

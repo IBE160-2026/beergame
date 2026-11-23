@@ -70,3 +70,39 @@ export function statusRefusalLine(error: unknown, user: ListedUser, selfId: stri
   }
   return copy.statusFailed;
 }
+
+/** The longest reference the api takes (`DELETE_REFERENCE_MAX_LENGTH` in `identity/schemas.py`). */
+export const DELETE_REFERENCE_MAX_LENGTH = 200;
+
+/** The reference as the api stores it: trimmed, inner whitespace collapsed. */
+export function deleteReference(typed: string): string {
+  return typed.split(/\s+/).filter(Boolean).join(" ");
+}
+
+/** A reference checked before it is sent: the reason the field shows, or undefined. The api
+ * decides, and also refuses one that names the User. */
+export function deleteReferenceError(typed: string): string | undefined {
+  const reference = deleteReference(typed);
+  const errors = copy.delete.errors;
+  if (!reference) return errors.reference_empty;
+  if (reference.length > DELETE_REFERENCE_MAX_LENGTH) return errors.reference_too_long;
+  if (reference.includes("@") || /\p{Cc}/u.test(reference)) return errors.reference_invalid;
+  return undefined;
+}
+
+/** A refused deletion (Story 15.2): `field` is the reason beside the reference field, `line` the
+ * row's line (the blocked owner with the real count, oneself, the last Admin, or the general
+ * line). */
+export function deleteRefusal(error: unknown, user: ListedUser, selfId: string): { field?: string; line?: string } {
+  const name = firstName(user.name);
+  if (error instanceof ApiRequestError) {
+    const reason = error.fields.reference;
+    if (typeof reason === "string" && copy.delete.errors[reason]) return { field: copy.delete.errors[reason] };
+    if (error.code === "role_revoke_blocked") {
+      const classes = Number(error.fields.classes);
+      if (Number.isInteger(classes) && classes > 0) return { line: copy.blocked(name, classes) };
+    }
+    if (error.code === "last_admin") return { line: user.id === selfId ? copy.delete.self : copy.lastAdmin(name) };
+  }
+  return { line: copy.delete.failed };
+}

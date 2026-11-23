@@ -17,6 +17,7 @@ from app.modules.games import repo, rules
 from app.modules.games.batches import create_batch, get_batch
 from app.modules.games.checks import (
     finished_game_ids,
+    replay_check,
     rules_versions_without_package,
     verify_finished,
 )
@@ -32,6 +33,12 @@ from app.modules.games.insight import (
     unregister_insight_links,
 )
 from app.modules.games.marks import seat_mark
+from app.modules.games.operations import (
+    FallbackCount,
+    SessionAiFigures,
+    class_session_of,
+    session_ai_figures,
+)
 from app.modules.games.policy import (
     GamePolicy,
     PurposeNotSupportedError,
@@ -82,6 +89,7 @@ from app.platform import events, jobs
 from app.platform.db import get_sessionmaker
 
 __all__ = [
+    "own_records",
     "Believability",
     "BelievabilityRefused",
     "believability",
@@ -197,6 +205,8 @@ __all__ = [
     "table_status",
     "decision_log",
     "finished_game_ids",
+    "finished_game_ids_in",
+    "replay_check",
     "game_summary",
     "get_batch",
     "get_game",
@@ -212,7 +222,17 @@ __all__ = [
     "announce",
     "open_takeover_due",
     "verify_finished",
+    "FallbackCount",
+    "SessionAiFigures",
+    "class_session_of",
+    "session_ai_figures",
 ]
+
+
+async def finished_game_ids_in(session: AsyncSession) -> list[uuid.UUID]:
+    """Every finished Game's id, oldest first, read on `session` (a restored copy's, Story
+    15.11); a Game `close` ended is not one."""
+    return await repo.finished_game_ids(session)
 
 
 async def unchecked_finished_game_ids(
@@ -381,6 +401,37 @@ async def announce(game_id: str) -> None:
         await events.emit(session, "game", str(game["id"]), game["version"])
         if game["class_session_id"] is not None and policy(game["purpose"]).lecturer_overview:
             await events.emit(session, "session", str(game["class_session_id"]))
+
+
+async def hand_over_seats_of(user_id: uuid.UUID, scope: uuid.UUID | None = None) -> list[str]:
+    """Before a User is erased (Story 15.2, FR-76, AD-2, AD-5): every Seat of a running Game they
+    hold, or have a Reclaim of queued, goes through `commands.takeover` with `erasing`, which
+    drops the Reclaims and hands a held Seat to an AI player, so no group waits for a deleted
+    Student. Idempotent; returns the occupancy row ids written. With `scope` (Story 15.3,
+    retention), the Games of that Class session only."""
+    # Imported here: `commands` imports this module.
+    from app.modules.games import commands
+
+    async with get_sessionmaker().begin() as session:
+        found = await repo.erasure_seats_of(session, user_id, scope)
+    written = []
+    for game_id, seat_id in found:
+        try:
+            occupancy = await commands.takeover(
+                str(game_id), str(seat_id), actor="system", erasing=user_id
+            )
+        except commands.CommandError as error:
+            # The Game went to its playout or away since the read: nothing is left to hand over.
+            if error.code not in ERASURE_GONE:
+                raise
+            continue
+        if occupancy is not None:
+            written.append(occupancy)
+    return written
+
+
+ERASURE_GONE = frozenset({"play_deadline_passed", "game_not_found", "seat_not_found"})
+"""Refusals `takeover` raises before its erasure skips, when the Game is playing out or gone."""
 
 
 async def open_takeover_due(game_id: uuid.UUID, role: str) -> datetime | None:
@@ -1545,3 +1596,26 @@ async def class_played(
         for row in await repo.placed_orders_of(session, game_ids):
             orders[row["game_id"]][(row["week"], str(row["role"]))] = row["order"]
     return [PlayedGame(states=tuple(states[g]), orders=orders[g]) for g in game_ids]
+
+
+ExportRows = tuple[tuple[str, ...], list[tuple[Any, ...]]]
+"""A section of the pseudonymised export: its column names and its rows (Story 15.4)."""
+
+
+async def export_decision_log(
+    session: AsyncSession,
+    class_session_ids: Collection[uuid.UUID],
+    in_scope: Any,
+    students: Any,
+) -> ExportRows:
+    """The Decision log of the Class sessions for the pseudonymised export (Story 15.4, FR-67,
+    FR-71, AD-15): every `seat_week` column, the Role, the game number and, in `student`, the User
+    id of the Student who held the Seat that Week. `in_scope` and `students` are the
+    `reports.scope` subqueries (AD-13); the caller replaces `student` by a pseudonym."""
+    rows = await repo.decision_log_rows(session, class_session_ids, in_scope, students)
+    columns = repo.DECISION_LOG_COLUMNS
+    return columns, [tuple(row[name] for name in columns) for row in rows]
+
+
+# «Mine data» (Story 15.1, FR-75): the Student's own rows of this module, by their own id.
+from app.modules.games.own_data import own_records  # noqa: E402

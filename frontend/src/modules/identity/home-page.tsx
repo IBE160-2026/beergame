@@ -7,14 +7,20 @@ import { Link } from "@/components/link";
 import { nb } from "@/copy/nb";
 import { usePageState } from "@/lib/page-state";
 import { loginPath } from "@/lib/return-path";
+import { useDailySpend } from "@/modules/admin/api";
+import { dailySpendPath, dayUsdText } from "@/modules/admin/daily-spend";
 import { ScoringLink } from "@/modules/assessment/scoring-link";
 
 import { meKey, type SessionUser, useMe } from "./api";
 import {
+  ADMIN_AI_COST_PATH,
   ADMIN_AUDIT_PATH,
   ADMIN_CONTROL_TESTS_PATH,
+  ADMIN_EVALUATION_PATH,
   ADMIN_INSTITUTIONS_PATH,
+  ADMIN_OPERATIONS_PATH,
   ADMIN_USERS_PATH,
+  MY_DATA_PATH,
   canOpenClasses,
   canView,
   HOME_LINK,
@@ -49,7 +55,12 @@ export function HomePage({ page, children }: { page: Home; children?: ReactNode 
       {(user, updatedAt) => {
         const other = CROSS_LINK[page];
         return (
-          <PageShell user={user} title={TITLE[page]} updatedAt={updatedAt}>
+          <PageShell
+            user={user}
+            title={TITLE[page]}
+            updatedAt={updatedAt}
+            profileLink={page === "home" ? { href: MY_DATA_PATH, label: nb.myData.link } : undefined}
+          >
             {other && canView(other, user) ? <PageLink href={HOME_PATH[other]}>{HOME_LINK[other]}</PageLink> : null}
             <ScoringLink />
             {page === "adminArea" ? <AdminSections /> : null}
@@ -82,11 +93,46 @@ function AdminSections() {
         </Link>
       </li>
       <li className="border-b border-hairline">
+        <Link href={ADMIN_EVALUATION_PATH} standalone>
+          {nb.admin.sections.evaluation}
+        </Link>
+      </li>
+      <li className="border-b border-hairline">
+        <Link href={ADMIN_AI_COST_PATH} standalone>
+          {nb.admin.sections.aiCost}
+        </Link>
+        <DailySpendAlert />
+      </li>
+      <li className="border-b border-hairline">
+        <Link href={ADMIN_OPERATIONS_PATH} standalone>
+          {nb.admin.sections.operations}
+        </Link>
+      </li>
+      <li className="border-b border-hairline">
         <Link href={ADMIN_CONTROL_TESTS_PATH} standalone>
           {nb.admin.sections.controlTests}
         </Link>
       </li>
     </ul>
+  );
+}
+
+/** Today's daily AI spend alert under «KI-kostnad» once the sweep has sent it (Story 15.7, FR-69),
+ * with a Lenke to the day; nothing before it, or when the day's spend cannot be read. */
+function DailySpendAlert() {
+  const spend = useDailySpend();
+  const found = spend.data;
+  if (!found?.alerted_at || found.alert_usd === null) return null;
+  const text = nb.admin.aiCost.day;
+  return (
+    // A notice between two `ink-muted` rules, as the other status lines, so it reads as the alert
+    // it is rather than as text between two links.
+    <div className="mb-3 max-w-md border-y border-ink-muted py-2" data-daily-spend-alert="">
+      <p className="text-body-phone text-ink lg:text-body">{text.homeAlert(dayUsdText(found.alert_usd))}</p>
+      <Link href={dailySpendPath(found.day)} standalone>
+        {text.homeAlertLink}
+      </Link>
+    </div>
   );
 }
 

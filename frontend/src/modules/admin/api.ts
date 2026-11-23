@@ -176,6 +176,48 @@ export function useSetNoLetter() {
   });
 }
 
+/** The Institution's retention period in whole months, or null for the placeholder (Story 15.3);
+ * the list reads again. */
+export function useSetRetention() {
+  const queryClient = useQueryClient();
+  return useMutation<Institution, unknown, { id: string; months: number | null }>({
+    mutationFn: ({ id, months }) =>
+      request(() =>
+        api.PUT("/api/admin/institutions/{institution_id}/retention", {
+          params: { path: { institution_id: id } },
+          body: { months },
+        }),
+      ),
+    networkMode: "always",
+    retry: false,
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: institutionsKey });
+    },
+  });
+}
+
+export type ProcessingAgreementInput = components["schemas"]["ProcessingAgreementIn"];
+
+/** Record or replace an Institution's data processing agreement (Story 15.12); the list reads
+ * again. */
+export function useRecordProcessingAgreement() {
+  const queryClient = useQueryClient();
+  return useMutation<Institution, unknown, { id: string; body: ProcessingAgreementInput }>({
+    mutationFn: ({ id, body }) =>
+      request(() =>
+        api.PUT("/api/admin/institutions/{institution_id}/processing-agreement", {
+          params: { path: { institution_id: id } },
+          body,
+        }),
+      ),
+    networkMode: "always",
+    retry: false,
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: institutionsKey });
+    },
+  });
+}
+
 export type ControlTests = components["schemas"]["ControlTestsOut"];
 export type ControlTest = components["schemas"]["ControlTestOut"];
 export type ControlTestIn = components["schemas"]["ControlTestIn"];
@@ -239,6 +281,44 @@ function replaceUser(queryClient: ReturnType<typeof useQueryClient>, updated: Li
         }
       : data,
   );
+}
+
+/** Take the User's row out of every cached list. */
+function dropUser(queryClient: ReturnType<typeof useQueryClient>, userId: string) {
+  queryClient.setQueriesData<InfiniteData<UserPage>>({ queryKey: ["admin", "users"] }, (data) =>
+    data
+      ? {
+          ...data,
+          pages: data.pages.map((page) => ({ ...page, items: page.items.filter((item) => item.id !== userId) })),
+        }
+      : data,
+  );
+}
+
+export type UserDeletion = { user: ListedUser; reference: string };
+
+/** Delete a User on the Institution's instruction (Story 15.2, FR-76): one press, no dialog. The
+ * row leaves every cached list at once, and the Invitation list reads again, since the User's
+ * Invitations went with them; a refusal reads the User list again. The caller words the
+ * refusals. */
+export function useDeleteUser() {
+  const queryClient = useQueryClient();
+  return useMutation<unknown, unknown, UserDeletion>({
+    mutationFn: ({ user, reference }) =>
+      request(() =>
+        api.POST("/api/admin/users/{user_id}/delete", {
+          params: { path: { user_id: user.id } },
+          body: { reference },
+        }),
+      ),
+    networkMode: "always",
+    retry: false,
+    onSuccess: (_, { user }) => {
+      dropUser(queryClient, user.id);
+      void queryClient.invalidateQueries({ queryKey: invitationsKey });
+    },
+    onError: () => void queryClient.invalidateQueries({ queryKey: ["admin", "users"] }),
+  });
 }
 
 /** Deactivate or reactivate a User (Story 3.10). The answer replaces the User's row in place;
@@ -368,5 +448,264 @@ export function useDismissAccessRequest() {
     networkMode: "always",
     retry: false,
     onSettled: () => queryClient.invalidateQueries({ queryKey: accessRequestsKey }),
+  });
+}
+
+export type EvaluationSession = components["schemas"]["EvaluationSessionOut"];
+export type EvaluationExport = components["schemas"]["ExportOut"];
+export type KeyState = components["schemas"]["KeyStateOut"];
+export type AgreementInput = components["schemas"]["AgreementIn"];
+
+/** The query keys of «Pseudonymisert eksport» (Story 15.4). */
+export const evaluationKey = ["admin", "evaluation"] as const;
+export const evaluationSessionsKey = [...evaluationKey, "class-sessions"] as const;
+export const evaluationExportsKey = [...evaluationKey, "exports"] as const;
+export const evaluationKeyStateKey = [...evaluationKey, "key"] as const;
+
+/** Every saved Class session with its agreement and deletion date (Story 15.4). */
+export function useEvaluationSessions() {
+  return useQuery({
+    queryKey: evaluationSessionsKey,
+    queryFn: () => request(() => api.GET("/api/admin/evaluation/class-sessions")),
+    retry: false,
+  });
+}
+
+/** The newest export runs and refusals (Story 15.4). */
+export function useEvaluationExports() {
+  return useQuery({
+    queryKey: evaluationExportsKey,
+    queryFn: () => request(() => api.GET("/api/admin/evaluation/exports")),
+    retry: false,
+  });
+}
+
+/** The stored fingerprint of the pseudonym key (Story 15.4). */
+export function useKeyState() {
+  return useQuery({
+    queryKey: evaluationKeyStateKey,
+    queryFn: () => request(() => api.GET("/api/admin/evaluation/key")),
+    retry: false,
+  });
+}
+
+/** Record or replace a Class session's agreement (Story 15.4); the list reads again. */
+export function useRecordAgreement() {
+  const queryClient = useQueryClient();
+  return useMutation<EvaluationSession, unknown, { id: string; body: AgreementInput }>({
+    mutationFn: ({ id, body }) =>
+      request(() =>
+        api.PUT("/api/admin/evaluation/class-sessions/{class_session_id}/agreement", {
+          params: { path: { class_session_id: id } },
+          body,
+        }),
+      ),
+    networkMode: "always",
+    retry: false,
+    onSettled: () => queryClient.invalidateQueries({ queryKey: evaluationSessionsKey }),
+  });
+}
+
+/** Store a new key's fingerprint (Story 15.4); the key state reads again. */
+export function useReplaceKey() {
+  const queryClient = useQueryClient();
+  return useMutation<KeyState, unknown, string>({
+    mutationFn: (key) => request(() => api.POST("/api/admin/evaluation/key", { body: { key } })),
+    networkMode: "always",
+    retry: false,
+    onSettled: () => queryClient.invalidateQueries({ queryKey: evaluationKey }),
+  });
+}
+
+/** Run the export and hand back the ZIP with its file name (Story 15.4). The key goes in the
+ * body only. The export list and the key state read again, run or refused. */
+export function useRunExport() {
+  const queryClient = useQueryClient();
+  return useMutation<{ blob: Blob; name: string }, unknown, { ids: string[]; key: string }>({
+    mutationFn: async ({ ids, key }) => {
+      let name = "pseudonymisert-eksport.zip";
+      const blob = await request(async () => {
+        const result = await api.POST("/api/admin/evaluation/exports", {
+          body: { class_session_ids: ids, key },
+          parseAs: "blob",
+        });
+        const disposition = result.response.headers.get("content-disposition") ?? "";
+        name = /filename="([^"]+)"/.exec(disposition)?.[1] ?? name;
+        return result;
+      });
+      return { blob: blob as unknown as Blob, name };
+    },
+    networkMode: "always",
+    retry: false,
+    onSettled: () => queryClient.invalidateQueries({ queryKey: evaluationKey }),
+  });
+}
+
+export type ModelConfig = components["schemas"]["ModelConfigOut"];
+export type ModelSession = components["schemas"]["ModelSessionOut"];
+export type ModelFreezeState = components["schemas"]["FreezeStateOut"];
+export type DailySpend = components["schemas"]["DailySpendOut"];
+
+/** The query keys of «KI-kostnad» (Story 15.5). */
+export const aiCostKey = ["admin", "ai-cost"] as const;
+export const modelConfigsKey = [...aiCostKey, "model-configs"] as const;
+export const modelSessionsKey = [...aiCostKey, "class-sessions"] as const;
+export const modelFreezeKey = [...aiCostKey, "freeze"] as const;
+/** The AI spend of a day (Story 15.7); `undefined` is today. */
+export const dailySpendKey = (day?: string) => [...aiCostKey, "daily-spend", day ?? "today"] as const;
+
+/** How often the day's AI spend is read again while the page is open (Story 15.7). */
+export const DAILY_SPEND_REFETCH_MS = 60_000;
+
+/** The AI spend of a Europe/Oslo day (today without `day`) with its alert (Story 15.7, FR-69),
+ * read again every minute. */
+export function useDailySpend(day?: string) {
+  return useQuery({
+    queryKey: dailySpendKey(day),
+    queryFn: () =>
+      request(() => api.GET("/api/admin/ai/daily-spend", { params: { query: day ? { day } : {} } })),
+    refetchInterval: DAILY_SPEND_REFETCH_MS,
+    retry: false,
+  });
+}
+
+/** Every model config with its measured Effort levels (Story 15.5). */
+export function useModelConfigs() {
+  return useQuery({
+    queryKey: modelConfigsKey,
+    queryFn: () => request(() => api.GET("/api/admin/ai/model-configs")),
+    retry: false,
+  });
+}
+
+/** Every saved Class session with its model setting (Story 15.5). */
+export function useModelSessions() {
+  return useQuery({
+    queryKey: modelSessionsKey,
+    queryFn: () => request(() => api.GET("/api/admin/ai/class-sessions")),
+    retry: false,
+  });
+}
+
+/** The study freeze in force, or null (Story 15.5). */
+export function useModelFreeze() {
+  return useQuery({
+    queryKey: modelFreezeKey,
+    queryFn: () => request(() => api.GET("/api/admin/ai/freeze")),
+    retry: false,
+  });
+}
+
+/** Pin a model config for one Class session (Story 15.5); the page reads again. */
+export function usePinModel() {
+  const queryClient = useQueryClient();
+  return useMutation<ModelSession, unknown, { id: string; modelConfigId: string }>({
+    mutationFn: ({ id, modelConfigId }) =>
+      request(() =>
+        api.PUT("/api/admin/ai/class-sessions/{class_session_id}/model-config", {
+          params: { path: { class_session_id: id } },
+          body: { model_config_id: modelConfigId },
+        }),
+      ),
+    networkMode: "always",
+    retry: false,
+    onSettled: () => queryClient.invalidateQueries({ queryKey: aiCostKey }),
+  });
+}
+
+/** Freeze a model config for a learning study (Story 15.5); the page reads again. */
+export function useFreezeModel() {
+  const queryClient = useQueryClient();
+  return useMutation<ModelFreezeState, unknown, { modelConfigId: string; ids: string[] }>({
+    mutationFn: ({ modelConfigId, ids }) =>
+      request(() =>
+        api.POST("/api/admin/ai/freezes", {
+          body: { model_config_id: modelConfigId, class_session_ids: ids },
+        }),
+      ),
+    networkMode: "always",
+    retry: false,
+    onSettled: () => queryClient.invalidateQueries({ queryKey: aiCostKey }),
+  });
+}
+
+/** Lift the study freeze (Story 15.5); the page reads again. */
+export function useLiftFreeze() {
+  const queryClient = useQueryClient();
+  return useMutation<ModelFreezeState, unknown, string>({
+    mutationFn: (id) =>
+      request(() => api.POST("/api/admin/ai/freezes/{freeze_id}/lift", { params: { path: { freeze_id: id } } })),
+    networkMode: "always",
+    retry: false,
+    onSettled: () => queryClient.invalidateQueries({ queryKey: aiCostKey }),
+  });
+}
+
+// «KI-kostnad per Klasseøkt» (Story 15.6, FR-69): the cost against the budget, and the limit.
+
+export type CostList = components["schemas"]["CostListOut"];
+export type SessionCostItem = components["schemas"]["SessionCostOut"];
+export type SessionCost = components["schemas"]["SessionCostDetailOut"];
+export type EvaluationCost = components["schemas"]["EvaluationCostOut"];
+
+export const sessionCostsKey = [...aiCostKey, "costs"] as const;
+export const sessionCostKey = (id: string) => [...sessionCostsKey, id] as const;
+
+/** Read again every minute, as «KI-kostnad per dag» (Story 15.7). */
+export const SESSION_COST_REFETCH_MS = 60_000;
+
+/** Every saved Class session's AI cost against its budget, and the simulation budgets apart. */
+export function useSessionCosts() {
+  return useQuery({
+    queryKey: sessionCostsKey,
+    queryFn: () => request(() => api.GET("/api/admin/ai/costs")),
+    refetchInterval: SESSION_COST_REFETCH_MS,
+    retry: false,
+  });
+}
+
+/** One Class session's cost per Game and per day, with its cost-limit state. */
+export function useSessionCost(id: string) {
+  return useQuery({
+    queryKey: sessionCostKey(id),
+    queryFn: () =>
+      request(() => api.GET("/api/admin/ai/costs/{class_session_id}", { params: { path: { class_session_id: id } } })),
+    refetchInterval: SESSION_COST_REFETCH_MS,
+    retry: false,
+  });
+}
+
+/** Set a Class session's cost limit (a raise also restarts a waiting AI assessment). */
+export function useSetCostLimit(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation<SessionCost, unknown, string>({
+    mutationFn: (limit) =>
+      request(() =>
+        api.PUT("/api/admin/ai/class-sessions/{class_session_id}/budget", {
+          params: { path: { class_session_id: id } },
+          body: { limit_usd: limit },
+        }),
+      ),
+    networkMode: "always",
+    retry: false,
+    onSuccess: (found) => queryClient.setQueryData(sessionCostKey(id), found),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: sessionCostsKey }),
+  });
+}
+
+/** Stop a Class session's AI assessment while its reserve is used up. */
+export function useStopAssessment(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation<SessionCost, unknown, void>({
+    mutationFn: () =>
+      request(() =>
+        api.POST("/api/admin/ai/class-sessions/{class_session_id}/assessment/stop", {
+          params: { path: { class_session_id: id } },
+        }),
+      ),
+    networkMode: "always",
+    retry: false,
+    onSuccess: (found) => queryClient.setQueryData(sessionCostKey(id), found),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: sessionCostsKey }),
   });
 }

@@ -5,6 +5,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     Column,
+    Date,
     DateTime,
     Double,
     ForeignKey,
@@ -18,7 +19,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 
 from app.platform.db import metadata
 
@@ -135,6 +136,8 @@ llm_calls = Table(
         name="ck_llm_call_counts",
     ),
     Index("ix_llm_call_scope", "scope_kind", "scope_id"),
+    # The daily spend sums one Europe/Oslo day of `started_at` (Story 15.7).
+    Index("ix_llm_call_started_at", "started_at"),
 )
 
 MEASUREMENT_FIGURES = (
@@ -185,3 +188,42 @@ default_pins = Table(
     Column("pinned_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
 )
 """One row per `pin`; the newest row names the active default model config (FR-68)."""
+
+model_freezes = Table(
+    "ai_model_freezes",
+    metadata,
+    Column("id", Uuid, primary_key=True),
+    Column("model_config_id", Uuid, ForeignKey("ai_model_configs.id"), nullable=False),
+    # The Class sessions the freeze pinned; ids only, no foreign key out of `ai` (AD-6).
+    Column("class_session_ids", ARRAY(Uuid), nullable=False),
+    Column("frozen_at", DateTime(timezone=True), nullable=False),
+    Column("lifted_at", DateTime(timezone=True), nullable=True),
+    CheckConstraint(
+        "lifted_at IS NULL OR lifted_at >= frozen_at", name="ck_ai_model_freezes_lifted"
+    ),
+    Index(
+        "uq_ai_model_freezes_active",
+        text("(lifted_at IS NULL)"),
+        unique=True,
+        postgresql_where=text("lifted_at IS NULL"),
+    ),
+)
+"""A learning study's freeze of one model config (Story 15.5, FR-68): at most one active
+(`lifted_at` NULL); while it is, `config.active_default` names its config. No User id: the Admin
+who froze or lifted it is in the audit."""
+
+spend_alerts = Table(
+    "ai_spend_alerts",
+    metadata,
+    Column("id", Uuid, primary_key=True),
+    # The Europe/Oslo calendar day whose spend passed the alert amount.
+    Column("day", Date, nullable=False),
+    Column("alert_usd", MONEY, nullable=False),
+    Column("spent_usd", MONEY, nullable=False),
+    # The sweep's clock when it found the day passed.
+    Column("alerted_at", DateTime(timezone=True), nullable=False),
+    CheckConstraint("alert_usd >= 0 AND spent_usd > alert_usd", name="ck_ai_spend_alerts_money"),
+    UniqueConstraint("day", name="uq_ai_spend_alerts_day"),
+)
+"""The daily AI spend alert (Story 15.7, FR-69): one row per day whose spend passed
+`AI_DAILY_ALERT_USD`; the Admins' notices name it by id. Amounts and times only."""

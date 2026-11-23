@@ -81,6 +81,9 @@ for (const vp of VIEWPORTS) {
                   nb.admin.sections.users,
                   nb.admin.sections.institutions,
                   nb.admin.sections.audit,
+                  nb.admin.sections.evaluation,
+                  nb.admin.sections.aiCost,
+                  nb.admin.sections.operations,
                   nb.admin.sections.controlTests,
                 ]
               : [];

@@ -5,7 +5,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import delete, select, text, update
+from sqlalchemy import column, delete, select, table, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -405,3 +405,66 @@ async def release_older_zips(session: AsyncSession, kept: ReportZip) -> list[str
     )
     await session.execute(update(report_zips).where(*earlier).values(object_path=None))
     return [path for path in paths if path]
+
+
+# The erasure of a Student (Story 15.2, FR-76, AD-14): their report PDFs and the ZIPs that hold
+# their report. `class_sessions` and `roster_entries` are named by name only, as in `scope`.
+
+_class_sessions = table("class_sessions", column("id"), column("class_id"))
+_roster_entries = table("roster_entries", column("class_id"), column("user_id"))
+
+
+def _requests_of(user_id: uuid.UUID, scope: uuid.UUID | None):
+    mine = report_requests.c.user_id == user_id
+    return mine if scope is None else mine & (report_requests.c.class_session_id == scope)
+
+
+async def report_paths_of(
+    session: AsyncSession, user_id: uuid.UUID, scope: uuid.UUID | None = None
+) -> list[str]:
+    """The object paths of every stored report about the Student, any variant, whoever asked;
+    with `scope` (Story 15.3), of that Class session only."""
+    found = await session.execute(
+        select(report_requests.c.object_path).where(
+            _requests_of(user_id, scope), report_requests.c.object_path.is_not(None)
+        )
+    )
+    return [path for path in found.scalars() if path]
+
+
+async def delete_report_requests_of(
+    session: AsyncSession, user_id: uuid.UUID, scope: uuid.UUID | None = None
+) -> None:
+    """Delete every report request about the Student (with `scope`, in that Class session); their
+    snapshots go with them (CASCADE), and a render still running finds no row and removes its own
+    PDF (`render`)."""
+    await session.execute(delete(report_requests).where(_requests_of(user_id, scope)))
+
+
+def _zips_of_student(user_id: uuid.UUID):
+    """The ZIP rows of every Class session of a Class the Student is or was on the Roster of
+    (a removed entry too: an earlier ZIP may hold their report)."""
+    classes = select(_roster_entries.c.class_id).where(_roster_entries.c.user_id == user_id)
+    sessions = select(_class_sessions.c.id).where(_class_sessions.c.class_id.in_(classes))
+    return report_zips.c.class_session_id.in_(sessions)
+
+
+async def zip_paths_of(
+    session: AsyncSession, user_id: uuid.UUID, scope: uuid.UUID | None = None
+) -> list[str]:
+    """The object paths of the stored ZIPs that may hold the Student's report; with `scope`
+    (Story 15.3, retention), every stored ZIP of that Class session."""
+    which = _zips_of_student(user_id) if scope is None else report_zips.c.class_session_id == scope
+    found = await session.execute(
+        select(report_zips.c.object_path).where(which, report_zips.c.object_path.is_not(None))
+    )
+    return [path for path in found.scalars() if path]
+
+
+async def clear_zip_paths(session: AsyncSession, paths: list[str]) -> None:
+    """Clear these ZIPs' object paths once the objects are deleted: the row stays (who asked and
+    when, ids only), and its download answers `zip_not_ready`."""
+    if paths:
+        await session.execute(
+            update(report_zips).where(report_zips.c.object_path.in_(paths)).values(object_path=None)
+        )

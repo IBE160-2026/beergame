@@ -3173,3 +3173,1079 @@ Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Den visue
 
 ### Åpne punkter
 - Issue #198: beslutninger og oppfølgende gjennomgang.
+
+## Avslutning av Epic 8 (spor 1)
+
+### Oppgave
+Avslutte Epic 8 på `epic-8`: hente inn `main`, visuell kontroll av 8.14 og kolonnene i 8.1, filteret «Pause n», raskere tester, UX-punktene, stabilisering, PR og CI.
+
+### Plan
+Én avslutningsagent i hovedmappa, på en egen stack (`olspillet-e8`, 8090/5434). Agenten stoppet på ukegrensen og ble gjenopptatt etter compact. Epic 10 ble merget først, så agenten hentet inn `main` to ganger.
+
+### Resultat
+- PR #199 er merget til `main` (713cbac), med grønn CI. Alembic har én head, 0064, i kjeden 0052 → 0101…0119 → 0053…0064.
+- Rettinger: «Pause n» i Status-filteret (cdba93e, migrasjon 0064); KI-spillerne i klassespill nådde aldri modellen og falt alltid tilbake til regelbasert, nå sendes den frosne modellkonfigurasjonen videre (b9400c8); «I rommet» på Hjem (98c5b51); UX-rettinger (c82083c); slug-konflikt under `studenter/` etter mergen (92bf542); `games.commands.close` avviser klassespill før den ser på tilstanden (14575cb); raskere tester (becec21); stabile e2e-tester (6cf69f3); skjermbilder 8.14 (0c0ea03).
+- Tester: backend 3426 på 134–142 s (målet på rundt 90 s er ikke nådd), Playwright 614 to ganger på rad uten feil.
+- Status: `epic-8: done`.
+
+### Åpne punkter
+- Issue #200: en tapt KI-tur uten frist blir aldri reddet, «Melding» ved 390 px, testen med 100 spill (17–29 s), en side som av og til står tom under last.
+
+## Story 11.1: Se gjennom spørsmålssettet og vektene (spor 2)
+
+### Oppgave
+Bygge Story 11.1 på `epic-11` i spor 2, den første storyen i Epic 11.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Den visuelle kontrollen gjøres i avslutningen av Epic 11.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-11-1-review-the-question-set-and-item-weights.md`. Epic-konteksten `epic-11-context.md` ble laget i samme kjøring.
+- Commit: 7359735. Migrasjon 0121.
+- Nytt innholdsslag `question_set` (utkast med plassholdere), kommandoen `python -m app.modules.content load`, blokken «Spørsmål og vekter» med egen lagring og levende sum, og låsen ved Startdato fester utvalget og avviser et utkast i produksjon.
+- Tester: backend 3203, Vitest 1047, tsc, `lint:colours`, `check:copy`, bygg, Playwright 138 med axe; etter rettingene 572 backend-tester og 26 spec-er på nytt.
+- Gjennomgang: 50 funn, 18 rettet.
+- Status: done.
+
+### Åpne punkter
+- Issue #201: beslutninger, og at spørsmålssettet er plassholdere som grunnleggeren må skrive før piloten.
+
+## Story 11.2: Rediger Sensorveiledningen for en Klasseøkt (spor 2)
+
+### Oppgave
+Bygge Story 11.2 på `epic-11` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Den visuelle kontrollen gjøres i avslutningen av Epic 11.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-11-2-edit-the-scoring-guide-for-a-class-session.md`.
+- Commit: ec1fcb1. Migrasjon 0122.
+- Blokken «Sensorveiledning» på Klasseøkta med ett tekstfelt per spørsmål, merket «Standard» eller «Endret». Hver lagring er en ny versjon. `sessions.lock_test` fester veiledningen ved Testfristen.
+- Tester: backend 3225, Vitest 1050, tsc, `lint:colours`, `check:copy`, bygg, Playwright 144 med axe.
+- Gjennomgang: 24 funn, 3 rettet.
+- Status: done.
+
+### Åpne punkter
+- Issue #202: beslutninger, plassholdertekst og hva slettingen i Story 15.2 må dekke ved merge.
+
+## Story 15.2: Admin sletter en bruker etter instruks fra institusjonen (spor 1)
+
+### Oppgave
+Bygge Story 15.2 på `epic-15` i spor 1, den første storyen i Epic 15. 15.1 venter på Story 13.7.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet (persondata). Den visuelle kontrollen gjøres i avslutningen av Epic 15.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-15-2-admin-deletes-user-on-institution-instruction.md`.
+- Commit: 4ef327b. Migrasjon 0065.
+- Admin sletter en bruker fra «Brukere og roller» med referanse til instruksen. Setene går først til KI-spillere, brukeren beholder id-en uten navn og e-post, og fritekst og KI-kall som siterer den slettes. Et register over tabeller med persondata, med test, fanger nye tabeller.
+- Tester: backend 3439, Vitest 1122, tsc, `lint:colours`, `check:copy`, bygg, Playwright 66 med axe. Én ny test tar rundt 9 s.
+- Gjennomgang: 45 funn, 12 rettet, 2 utsatt; oppfølgende gjennomgang anbefalt.
+- Den gamle databasen til stacken i spor 1 mangler migrasjonene 0101–0119. Byggeagenten fikk ikke lov til å kjøre dem, så stacken bruker nå en fersk database.
+- Status: done.
+
+### Åpne punkter
+- Issue #203: beslutninger, sømmer mot Epic 11–14 og den trege testen.
+
+## Story 11.3: Åpne den individuelle testen med erklæring om eget arbeid (spor 2)
+
+### Oppgave
+Bygge Story 11.3 på `epic-11` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den visuelle kontrollen gjøres i avslutningen av Epic 11.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-11-3-open-the-individual-test-with-the-own-work-statement.md`.
+- Commit: 42c98b8. Migrasjon 0123.
+- Tabellene `test_attempts` og `test_answers`, siden `/individuell-test/{id}` med fire tilstander (låst, erklæring, åpen, lukket), og lenke fra Stegene.
+- Tester: backend 3233, Vitest 1056, tsc, `lint:colours`, `check:copy`, bygg, Playwright 122 med axe.
+- Gjennomgang: 36 funn, 10 lave rettet.
+- Status: done.
+
+### Åpne punkter
+- Issue #204: beslutninger og nye tabeller med persondata for registeret i Story 15.2.
+
+## Story 11.4: Svar på flervalgsoppgaver med automatisk lagring (spor 2)
+
+### Oppgave
+Bygge Story 11.4 på `epic-11` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den visuelle kontrollen gjøres i avslutningen av Epic 11.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-11-4-answer-multiple-choice-items-with-autosave.md`.
+- Commit: a280436. Ingen migrasjon.
+- Flervalg med Quizvalg, automatisk lagring med revisjoner, statuslinje «Lagret hh:mm», nye forsøk hvert 5. sekund og utkast som overlever en omlasting. Ren poengfunksjon `score_choice`.
+- Tester: backend 3240, Vitest 1065, tsc, `lint:colours`, `check:copy`, bygg, Playwright 101 med axe.
+- Gjennomgang: 30 funn, 5 lave rettet.
+- Status: done.
+
+### Åpne punkter
+- Issue #205: beslutninger (svaralternativene er plassholdere til Issue #16 gir ekte tekster).
+
+## Story 15.4: Admin eksporterer pseudonymiserte data til evaluering (spor 1)
+
+### Oppgave
+Bygge Story 15.4 på `epic-15` i spor 1.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet (persondata). Den visuelle kontrollen gjøres i avslutningen av Epic 15.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-15-4-admin-exports-pseudonymised-data-for-evaluation.md`.
+- Commit: 1f0c496.
+- Admin eksporterer en ZIP med CSV-filer og `manifest.json`, pseudonymisert med en nøkkel som aldri lagres. Avtale om evaluering per Klasseøkt, høyst 20 økter per eksport, og vern mot formler i regneark.
+- Tester: backend 3448, Vitest 1127, tsc, `lint:colours`, `check:copy`, bygg, Playwright 50 med axe. Hovedtesten for eksporten tar rundt 3,7 s.
+- Gjennomgang: 50 funn, 19 rettet, 2 utsatt; oppfølgende gjennomgang anbefalt.
+- Status: done.
+
+### Åpne punkter
+- Issue #206: beslutninger, sømmer mot Epic 11, 12 og Story 15.3.
+
+## Story 15.5: Admin fester og fryser en modell for Klasseøkter (spor 1)
+
+### Oppgave
+Bygge Story 15.5 på `epic-15` i spor 1.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den visuelle kontrollen gjøres i avslutningen av Epic 15.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-15-5-admin-pins-and-freezes-model-for-class-sessions.md`.
+- Commit: ed29279. Migrasjon 0067.
+- Siden «KI-kostnad» viser modellkonfigurasjonene. Admin fester en modell til en Klasseøkt før Startdato og kan fryse én modell for en studie. Uten svar fra den frosne modellen blir nye økter regelbaserte.
+- Tester: backend 3452, Vitest 1132, tsc, `lint:colours`, `check:copy`, bygg, Playwright 63 med axe.
+- Gjennomgang: 39 funn, 18 rettet, 2 utsatt; oppfølgende gjennomgang anbefalt.
+- Status: done. Neste i spor 1 er 15.7, fordi 15.6 trenger Epic 12.
+
+### Åpne punkter
+- Issue #207: beslutninger og sømmen mot Epic 12.
+
+## Story 11.5: Svar på interaktive oppgaver med tabell og tall (spor 2)
+
+### Oppgave
+Bygge Story 11.5 på `epic-11` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den visuelle kontrollen gjøres i avslutningen av Epic 11.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-11-5-answer-table-and-number-interactive-items.md`.
+- Commit: b077c4e. Migrasjon 0124 (spørsmålssett v2).
+- Tabelloppgaver med tastaturtabell (`ValueTable`) og talloppgaver, kodede kriterier (celle, balanse, flyt) og ren poengfunksjon `score_interactive`.
+- Tester: backend 3272, Vitest 1069, tsc, `lint:colours`, `check:copy`, bygg, Playwright 113 med axe og 200 % tekst.
+- Gjennomgang: 40 funn, 10 rettet.
+- Status: done.
+
+### Åpne punkter
+- Issue #208: beslutninger; oppgavene er plassholdere til Issue #16.
+
+## Story 11.6: Skriv lange svar med automatisk lagring (spor 2)
+
+### Oppgave
+Bygge Story 11.6 på `epic-11` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den blinde gjennomgangen kom ikke tilbake til byggeagenten; den fikk beskjed om å lese funnene fra fila.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-11-6-write-long-answers-with-autosave.md`.
+- Commit: dad8ada. Ingen migrasjon.
+- Lange svar i et tekstfelt med flere linjer, lagret ved pause, når feltet mister fokus og når siden skjules eller forlates. Utkastet overlever en utlogging.
+- Tester: backend 3272, Vitest 1070, tsc, `lint:colours`, `check:copy`, bygg, Playwright 111 med axe.
+- Gjennomgang: 33 funn, 7 lave rettet. To punkter fra den blinde gjennomgangen (lagring uten `keepalive` når siden lukkes, og tekst skrevet under en pågående lagring) er satt på lista for avslutningen av Epic 11.
+- Status: done.
+
+### Åpne punkter
+- Issue #209: beslutninger og punkter til avslutningen.
+
+## Story 15.7: Admin varsles når KI-forbruket per dag er høyt (spor 1)
+
+### Oppgave
+Bygge Story 15.7 på `epic-15` i spor 1.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Den visuelle kontrollen gjøres i avslutningen av Epic 15.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-15-7-admin-alerted-when-daily-ai-spend-is-high.md`.
+- Commit: 3fc47d8. Migrasjon 0068.
+- Sweepen summerer dagens KI-forbruk og varsler alle Admin én gang per dag når summen passerer grensen (plassholder 25 USD). «KI-kostnad» har fått seksjonen «KI-kostnad per dag».
+- Tester: backend 3461 to ganger (én tidligere kjøring hadde én feil som ikke kom igjen), Vitest 1137, tsc, `lint:colours`, `check:copy`, bygg, Playwright 43 med axe.
+- Gjennomgang: 28 funn, 7 rettet.
+- Status: done.
+
+### Åpne punkter
+- Issue #210: beslutninger og sømmen mot Story 15.6.
+
+## Story 11.7: Tilpassede oppgaver fra eget spill og Replay (spor 2)
+
+### Oppgave
+Bygge Story 11.7 på `epic-11` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den blinde gjennomgangen kom ikke tilbake til byggeagenten; den fikk beskjed om å lese funnene fra fila.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-11-7-get-adapted-items-from-my-own-game-and-replay.md`.
+- Commit: 44f1712. Migrasjon 0125.
+- Når testen åpnes, bygges og fryses studentens tilpassede oppgaver fra eget spill og Replay. Med færre enn 10 egne ordrer, eller uten fakta, får studenten erstatningsoppgaver med samme vekt.
+- Tester: backend 3308, Vitest 1070, tsc, `lint:colours`, `check:copy`, bygg, Playwright 114 med axe. Gulltesten tar rundt 8 s.
+- Gjennomgang: 32 funn, 9 lave rettet.
+- Status: done.
+
+### Åpne punkter
+- Issue #211: beslutninger og punkter til avslutningen (feilveier ved bygging, vekt 0, treg test).
+
+## Story 15.8: Admin ser feil, fallback og svartider per Klasseøkt (spor 1)
+
+### Oppgave
+Bygge Story 15.8 på `epic-15` i spor 1.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Den visuelle kontrollen gjøres i avslutningen av Epic 15.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-15-8-admin-sees-errors-fallback-response-times-per-class-session.md`.
+- Commit: ebc15f7. Migrasjon 0069.
+- Tabellen `error_events` samler feil fra sweepen, workeren og 5xx-svar. Siden «Drift per Klasseøkt» viser feil per time, fallback, svartider (median og p95), Play guard og KI-kostnad, med tabellvisning og ny lesing hvert 30. sekund.
+- Tester: backend 3472, Vitest 1141, tsc, `lint:colours`, `check:copy`, bygg, Playwright med axe.
+- Gjennomgang: 28 funn, 5 rettet.
+- Status: done.
+
+### Åpne punkter
+- Issue #212: beslutninger (ingen sletting av feilrader, feil uten Klasseøkt vises ikke).
+
+## Story 11.8: Les tilpassede oppgaver med naturlig ordlyd (spor 2)
+
+### Oppgave
+Bygge Story 11.8 på `epic-11` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Kun AI-mock.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-11-8-read-adapted-items-in-natural-wording.md`.
+- Commit: 48e59a1. Migrasjon 0126.
+- Sweepen forbereder de tilpassede oppgavene i bakgrunnen. KI velger én av to godkjente ordlyder per mal, og svaret kontrolleres mot faktasettet; ved feil beholdes kodeteksten. Siden merker teksten «KI-generert, kan ta feil:».
+- Tester: backend 3334, Vitest 1071, tsc, `lint:colours`, `check:copy`, bygg, Playwright 117 med axe.
+- Gjennomgang: 33 funn, 7 rettet.
+- Status: done.
+
+### Åpne punkter
+- Issue #213: beslutninger, ny tabell med persondata og at valget av ordlyd bare er testet mot mocken.
+
+## Story 11.9: Forhåndsvis malene for tilpassede oppgaver med en eksempelstudent (spor 2)
+
+### Oppgave
+Bygge Story 11.9 på `epic-11` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Den visuelle kontrollen gjøres i avslutningen av Epic 11.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-11-9-preview-the-adapted-item-templates-with-a-sample-student.md`.
+- Commit: b0eb586.
+- Siden `/klasseokter/{id}/tilpassede-oppgaver` viser hver mal fylt ut med et fast eksempel (Detaljisten fra et gullspill), merket «Demodata».
+- Tester: backend 3350, Vitest 1071, tsc, `lint:colours`, `check:copy`, bygg, Playwright 78 med axe.
+- Gjennomgang: 17 funn, 6 rettet.
+- Status: done.
+
+### Åpne punkter
+- Issue #214: beslutninger.
+
+## Story 15.9: Budsjettet for databasetilkoblinger er skrevet ned og sjekket (spor 1)
+
+### Oppgave
+Bygge Story 15.9 på `epic-15` i spor 1. Kjøreboka sier at en uavhengig gjennomgangsagent velger driftsverdiene i stedet for grunnleggeren.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet; gjennomgangsagenten for kanttilfeller valgte verdiene. Den blinde gjennomgangen kom ikke tilbake til byggeagenten og ble sendt videre fra fila.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-15-9-database-connection-budget-written-and-checked.md`.
+- Commit: c2c2b9d. Migrasjon 0070.
+- Budsjettet (25 tilkoblinger, 50 under utrulling) står i kode og i `docs/ops/connection-budget.md`, holdt like av en test. Hver prosess rapporterer sine tilkoblinger ved oppstart, og `/admin/drift` viser dem. Utrullingstesten nådde 33 av 50 tilkoblinger, og alle 24 175 forespørsler fikk svar.
+- Driftsverdier: plassholdere til lasttesten i Story 15.10; tallene for databasestørrelse må sjekkes mot leverandørens dokumentasjon.
+- Tester: backend 3502, Vitest 1144, bygg, Playwright 38 med axe.
+- Status: done.
+
+### Åpne punkter
+- Issue #215: driftsverdiene og beslutningene.
+
+## Story 11.10: Se over og lever den individuelle testen (spor 2)
+
+### Oppgave
+Bygge Story 11.10 på `epic-11` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den visuelle kontrollen gjøres i avslutningen av Epic 11.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-11-10-review-and-submit-the-individual-test.md`.
+- Commit: 5d1e7e5. Migrasjon 0127.
+- «Lever testen» åpner en oversikt på siden over ubesvarte oppgaver. Leveringen låser forsøket, lagrer poeng for flervalg, tabell og tall, og viser svarene skrivebeskyttet.
+- Tester: backend 3357, Vitest 1074, tsc, `lint:colours`, `check:copy`, bygg, Playwright 130 med axe og en ekte levering.
+- Gjennomgang: 29 funn, 5 rettet, 1 utsatt.
+- Status: done.
+
+### Åpne punkter
+- Issue #216: beslutninger og påminnelsen som kan komme etter levering.
+
+## Story 15.11: Feil når feilsporing uten persondata; sikkerhetskopi og overvåking lagt fram til beslutning (spor 1)
+
+### Oppgave
+Bygge Story 15.11 på `epic-15` i spor 1, uten å opprette konto hos noen tjeneste. En uavhengig gjennomgangsagent foreslår driftsverdiene i stedet for grunnleggeren.
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter og én agent som foreslo driftsverdiene.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-15-11-errors-reach-error-tracker-without-personal-data.md`.
+- Commit: 96515e2.
+- Én adapter for feilsporing, av uten `ERROR_TRACKER_DSN`, som aldri sender melding, variabler, forespørsel eller bruker-id. Tester med falsk transport viser at navn, e-post og Forklaring aldri forlater systemet. Kommandoen `verify_restore` spiller ferdige spill på nytt mot en gjenopprettet kopi. `docs/ops/readiness.md` står som no-go til grunnleggeren har bestemt seg.
+- Tester: backend 3534, frontend-sjekkene, Playwright 30 med axe. `verify_restore`-testen tar rundt 9 s.
+- Gjennomgang: 33 funn, 23 rettet; oppfølgende gjennomgang anbefalt.
+- Status: done.
+
+### Åpne punkter
+- Issue #217: foreslåtte driftsverdier (alle «to confirm») og beslutninger.
+
+## Story 11.11: Lagrede svar leveres automatisk ved Testfristen (spor 2)
+
+### Oppgave
+Bygge Story 11.11 på `epic-11` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den visuelle kontrollen gjøres i avslutningen av Epic 11.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-11-11-have-saved-answers-submitted-automatically-at-the-test-deadline.md`.
+- Commit: 42bb8ae. Migrasjon 0128.
+- Sweepen lukker hvert forsøk etter fristen: åpne forsøk leveres automatisk med poeng, med fristen som leveringstid. Hjem viser «ikke gjort, Testfristen er ute» til testen er levert.
+- Tester: backend 3368, Vitest 1075, tsc, `lint:colours`, `check:copy`, bygg, Playwright 132.
+- Gjennomgang: 30 funn, 4 lave rettet.
+- Status: done.
+
+### Åpne punkter
+- Issue #218: beslutninger (blant annet hva Story 11.13 må holde utenfor når fristen flyttes).
+
+## Story 11.12: Krev én tidsbegrenset økt (spor 2)
+
+### Oppgave
+Bygge Story 11.12 på `epic-11` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den visuelle kontrollen gjøres i avslutningen av Epic 11.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-11-12-require-one-timed-sitting.md`.
+- Commit: f732397. Migrasjon 0129.
+- Blokken «Tidsgrense på testen» på Klasseøkta. Økta starter når testen åpnes, studenten ser «Tid igjen N min», og sweepen leverer når tiden er ute.
+- Tester: backend 3391 (to feil utenfor de berørte filene kom ikke igjen), Vitest 1081, tsc, `lint:colours`, `check:copy`, bygg, Playwright 217 med axe.
+- Gjennomgang: 37 funn, 6 lave rettet.
+- Status: done.
+- Neste: byggeagenten for 11.13 henter først inn `main` (Epic 8) i `epic-11` og kobler migrasjonene sammen, så tidsfaktoren fra Story 8.9 kommer med.
+
+### Åpne punkter
+- Issue #219: beslutninger og ny tabell med persondata.
+
+## Story 15.13: Publiser erklæringen om tilgjengelighet og samsvarsrapporten (spor 1)
+
+### Oppgave
+Bygge Story 15.13 på `epic-15` i spor 1. En uavhengig gjennomgangsagent sjekker tastatur, fokus og tilgjengelighet i stedet for grunnleggeren.
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter og én agent som sjekket med Playwright CLI og axe.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-15-13-publish-accessibility-statement-and-conformance-report.md`.
+- Commit: 054e662.
+- Erklæringen ligger på `/tilgjengelighet` med lenke i bunnen av alle sider. `npm run conformance` sjekker 24 skjermer i seks størrelser, og rapporten for 2026-11-22 har 144 av 144 sjekker bestått. Tre sider som rullet sidelengs ved 320 px og 200 % tekst, er rettet.
+- Tester: backend 3534, Vitest 1158, tsc, `check:copy`, `lint:colours`, hele Playwright-pakken 638 før de siste rettingene.
+- Gjennomgang: 31 funn, 28 rettet, 1 utsatt.
+- Status: done.
+- Spor 1 har ingen flere stories i Epic 15 som kan bygges nå (15.1, 15.3, 15.6 og 15.12 venter på Epic 12 og 13). En visuell kontroll av skjermene i Epic 15 kjører mens spor 1 venter.
+
+### Åpne punkter
+- Issue #220: beslutninger, fire kontroller grunnleggeren må gjøre selv, og kontaktadressen som er en plassholder.
+
+## Story 11.13: Forleng Testfristen for én student (spor 2), og merge av Epic 8 inn i Epic 11
+
+### Oppgave
+Hente inn `main` (Epic 8) i `epic-11`, så tidsfaktoren fra Story 8.9 kommer med, og bygge Story 11.13.
+
+### Plan
+Byggeagenten gjorde mergen først, så storyen med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Merge: 72364a3, retting c0d7d23. Migrasjon 0120 kommer nå etter 0064, med én head. Den tidsbegrensede økta i 11.12 bruker tidsfaktoren fra 8.9 direkte.
+- Spec: `.docs/implementation-artifacts/spec-11-13-extend-one-students-test-deadline.md`. Commit: 349a815. Migrasjon 0130.
+- Læreren gir én student en senere Testfrist; Debrief-fristen flyttes like mye, og påminnelsene følger studentens egne frister.
+- Tester: backend 3668, Vitest 1163, tsc, `lint:colours`, `check:copy`, bygg, Playwright 130 med axe (etter mergen: backend 3652, Playwright 251).
+- Gjennomgang: 33 funn, 3 lave rettet.
+- Status: done.
+- Videre: spor 2 bygger 11.14 på `epic-11`. Spor 1 er ferdig med det som kan bygges i Epic 15, så et tredje worktree (`.claude/worktrees/lane-3`, stack på 8082/5434) bygger Epic 12 fra 12.7 på `epic-12`, spolt fram til `epic-11`. Fremdeles bare to byggeagenter samtidig.
+
+### Åpne punkter
+- Issue #221: beslutninger og nye tabeller med persondata.
+
+## Story 11.14: Svar på interaktive oppgaver ved å tegne i en graf (spor 2)
+
+### Oppgave
+Bygge Story 11.14 på `epic-11` i spor 2, den siste storyen i Epic 11.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Etterpå starter avslutningen av Epic 11 i samme worktree.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-11-14-answer-drawn-interactive-items-in-a-graph.md`.
+- Commit: f8cd6f8. Ingen migrasjon.
+- Tegnede oppgaver: én graf over en tabell, der hver uke er en glider som kan styres med tastatur, mus og berøring. Lagres og får poeng som en tabelloppgave.
+- Tester: backend 3674, Vitest 1173, tsc, `lint:colours`, `check:copy`, Playwright 133 ved 320/360/1440 px og 200 % tekst med axe.
+- Gjennomgang: 38 funn, 15 rettet.
+- Status: done. Alle stories i Epic 11 er bygget; avslutningsagenten `close-epic-11` er startet (visuell kontroll, `keepalive` ved lukking, testfart, PR og CI).
+
+### Åpne punkter
+- Issue #222: beslutninger (ingen tegnet oppgave i utkastet til spørsmålssett ennå).
+
+## Story 12.7: Sett opp en Kontrolltest i operatørens egen institusjon (spor 3)
+
+### Oppgave
+Bygge Story 12.7 på `epic-12` i det tredje worktreet, mens spor 1 venter.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den visuelle kontrollen gjøres i avslutningen av Epic 12.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-12-7-set-up-a-control-test-in-the-operators-institution.md`.
+- Commit: 7eaa53b. Migrasjon 0201.
+- Admin merker én institusjon som operatørens egen og oppretter en Kontrolltest der, med fast Sensorveiledning og modell. Kontrolltesten vises ikke i noen lister for lærere eller studenter.
+- Tester: backend 3683, Vitest 1174, tsc, `lint:colours`, `check:copy`, bygg, Playwright 105 med axe.
+- Gjennomgang: 43 funn, 10 rettet, 1 utsatt; oppfølgende gjennomgang anbefalt.
+- Status: done. Neste i spor 3 er 12.2 (KI-vurdering), som nå kan bygges fordi Epic 11 er ferdig.
+
+### Åpne punkter
+- Issue #223: beslutninger og risiko.
+
+## Story 12.2: Få en KI-vurdering med poeng og vektet sum (spor 3)
+
+### Oppgave
+Bygge Story 12.2 på `epic-12` i spor 3.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Kun AI-mock.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-12-2-get-an-ai-assessment-with-scores-and-a-weighted-total.md`.
+- Commit: 39dc046. Migrasjon 0202.
+- Når testen lukkes og KI-vurderingen er på, vurderer en jobb hvert langsvar og hver tilpassede oppgave (0–4). Summen regnes bare av `analysis.total_score`. Studenten leser «KI-vurdering» fra Hjem.
+- Tester: backend 3709, Vitest 1179, tsc, `lint:colours`, `check:copy`, bygg, Playwright 131 med axe.
+- Gjennomgang: 48 funn, 14 rettet; oppfølgende gjennomgang anbefalt.
+- Status: done.
+
+### Åpne punkter
+- Issue #226: beslutninger, at OpenRouter-konfigurasjonene mangler `assessment`-prompten, og ny tabell med persondata.
+
+## Story 12.3: Les skriftlig tilbakemelding som siterer svaret og stemmer med spillene (spor 3)
+
+### Oppgave
+Bygge Story 12.3 på `epic-12` i spor 3.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Kun AI-mock.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-12-3-read-written-feedback-that-quotes-my-answer-and-matches-my-games.md`.
+- Commit: ef6c9be. Migrasjon 0203.
+- Prompten `assessment/v2` gir poeng og 1–4 setninger tilbakemelding som bare kan vise til godkjente maler, sitater fra svaret, kriterier og fakta. Koden skriver teksten. Avvist tilbakemelding får ett nytt forsøk, ellers beholdes bare poenget.
+- Tester: backend 3742, Vitest 1179, tsc, `lint:colours`, `check:copy`, bygg, Playwright 135 med axe.
+- Gjennomgang: 37 funn, 9 rettet; oppfølgende gjennomgang anbefalt.
+- Status: done.
+
+### Åpne punkter
+- Issue #227: beslutninger, ukjent treffsikkerhet med ekte modell, og persondata i `ai_item_scores`.
+
+## Avslutning av Epic 11 (spor 2)
+
+### Oppgave
+Avslutte Epic 11 (og Story 12.1, som lå på samme gren): visuell kontroll, punktene som må gjøres, testfart, stabilisering, PR og CI.
+
+### Plan
+Én avslutningsagent i worktreet for spor 2, med en egen agent for skjermbildene. Spor 3 bygde Epic 12 samtidig.
+
+### Resultat
+- PR #224 er merget til `main` (995b5fb), med grønn CI.
+- Rettet: lagring med `keepalive` når fanen lukkes (logikken flyttet til `saver.ts` med enhetstester); teller og melding når innlimt tekst kuttes; telefonrådet knyttet til feltet; faktasett bygges før åpningstransaksjonen; kommaene i lista over ubesvarte oppgaver; tegnede oppgaver får plass til alle ukene ved 1280 px og viser «Sveip for flere uker» på telefon; fire e2e-tester gjort stabile under last.
+- Spørsmålet om manglende tilpassede oppgaver på den ekte stacken: ingen feil. Studenten hadde ikke spilt klassespillet, så de to erstatningsoppgavene bar totalvekten 30, som de skal.
+- Testfart: seks tester fra 9–10 s til rundt 1,5 s; hele backend-pakken er fortsatt rundt 168 s.
+- Status: `epic-11: done`. Spor 2 starter Epic 13 på `epic-13` fra den nye `main`.
+
+### Åpne punkter
+- Issue #225: utsatte punkter (oppdatering fra en annen enhet under skriving, små tekstpunkter fra den visuelle kontrollen, registeret for persondata ved merge med Epic 15).
+
+## Story 12.4: Få beskjed når KI-vurderingen er klar (spor 3)
+
+### Oppgave
+Bygge Story 12.4 på `epic-12` i spor 3.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-12-4-be-told-when-the-ai-assessment-is-ready.md`.
+- Commit: 8fd8647. Migrasjon 0204.
+- Studenten får varsel og en linje på Hjem når vurderingen er klar; Admin får ett varsel per Klasseøkt ved feil. Sweepen henter opp tapte jobber etter 24 timer. Vurderingen kan stoppes og startes igjen per Klasseøkt.
+- Tester: backend 3753, Vitest 1180, tsc, `lint:colours`, `check:copy`, bygg, Playwright med axe. Testen med 400 forsøk tar rundt 30 s (merket `long`).
+- Gjennomgang: 38 funn, 9 rettet; oppfølgende gjennomgang anbefalt.
+- Status: done.
+
+### Åpne punkter
+- Issue #228: beslutninger og den trege testen.
+
+## Story 13.1: Fullføring beregnes ett sted og vises for studenten (spor 2)
+
+### Oppgave
+Bygge Story 13.1 på `epic-13` i spor 2, den første storyen i Epic 13.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den visuelle kontrollen gjøres i avslutningen av Epic 13.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-13-1-completion-computed-in-one-place-shown-on-hjem.md`. Epic-konteksten `epic-13-context.md` ble laget.
+- Commit: 6c6850d. Ingen migrasjon.
+- Ren beregning av fullføring i `analysis.completion` og en ny modul `reports`. Hjem viser for hvert steg om det teller, med grunn, og om kravet er oppfylt. Trakten på Oversikten går gjennom `reports.funnel`.
+- Tester: backend 3717, Vitest 1186, tsc, `lint:colours`, `check:copy`, bygg, Playwright 54 med axe.
+- Gjennomgang: 3 lave rettet, 1 middels utsatt.
+- Status: done.
+
+### Åpne punkter
+- Issue #229: beslutninger, det utsatte funnet og sømmer mot Epic 12 og 15.
+
+## Story 12.5: Flagg tilbakemelding, og les vurderinger som ansatt (spor 3)
+
+### Oppgave
+Bygge Story 12.5 på `epic-12` i spor 3.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den blinde gjennomgangen kom ikke tilbake til byggeagenten og ble behandlet i en egen commit etterpå.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-12-5-flag-feedback-and-read-assessments-as-staff.md`.
+- Commits: 231c436 og e819dc0. Migrasjon 0205.
+- Studenten kan markere tilbakemelding som feil; lærere og assistenter ser vurderingen og flaggene på Studentsiden og en liste på Klasseøkta.
+- Rettet etter den blinde gjennomgangen: kontroll og lagring av flagg i én transaksjon, ingen åpen tilgang som standard, ukjent status og ukjent handling gir ikke lenger serverfeil.
+- Tester: backend 3761, Vitest 1184, tsc, `lint:colours`, `check:copy`, bygg, Playwright 71; etter rettingene 88 berørte backend-tester og 33 Playwright-tester.
+- Status: done.
+
+### Åpne punkter
+- Issue #230: beslutninger og norsk sortering (å før æ og ø), som rettes samlet.
+
+## Story 13.2: Studentsiden med blokken «Fullføring» (spor 2)
+
+### Oppgave
+Bygge Story 13.2 på `epic-13` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-13-2-studentside-with-the-fullforing-block.md`.
+- Commit: 020da02.
+- Studentsiden samler fullføring, deltakelse, spillet, Forklaringen, Debrief, quiz, Replay og status for den individuelle testen. KI-delen og rapporten er sømmer mot Story 12.5 og 13.12.
+- Tester: backend 3732, Vitest 1194, tsc, `lint:colours`, `check:copy`, bygg, Playwright 49 med axe.
+- Gjennomgang: 24 funn, 7 rettet.
+- Status: done.
+
+### Åpne punkter
+- Issue #231: beslutninger og hva som må slås sammen med Story 12.5 ved merge.
+
+## Story 12.6: Vis veiledende bokstav der det er tillatt (spor 3)
+
+### Oppgave
+Bygge Story 12.6 på `epic-12` i spor 3.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-12-6-show-the-indicative-letter-where-it-is-allowed.md`.
+- Commit: 6f1a789. Migrasjon 0206.
+- Læreren velger om bokstaven vises, og grensene for A–E (plassholdere 90/80/60/50/40). Admin kan forby bokstaven per institusjon. Studenten kan slå den på for sin egen visning. Én funksjon, `assessment.letter_for`, avgjør alt.
+- Tester: backend 3824 (én feil i `test_orders.py` uten sammenheng, passerer alene), Vitest 1188, tsc, `lint:colours`, `check:copy`, bygg, Playwright med axe.
+- Gjennomgang: 12 rettet.
+- Status: done. Fra 12.8 får byggeagentene ikke navn og sender ikke rapporten som melding, så grunnleggeren får færre meldinger.
+
+### Åpne punkter
+- Issue #232: beslutninger og plassholdergrensene.
+
+## Story 13.3: Rett en students fullføringsstatus med begrunnelse (spor 2)
+
+### Oppgave
+Bygge Story 13.3 på `epic-13` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-13-3-correct-a-students-completion-status-with-a-reason.md`.
+- Commit: 5c2d48b. Migrasjon 0301.
+- Læreren retter ett steg i blokken «Fullføring» med obligatorisk begrunnelse. Rettingen lagres som en ny rad, og Hjem viser «rettet av faglærer» uten begrunnelsen.
+- Tester: backend 3735, Vitest 1196, tsc, `lint:colours`, `check:copy`, bygg, Playwright 49 med axe.
+- Gjennomgang: 38 funn; det alvorlige (triggeren hindret sletting av en lærerkonto) og 8 lave rettet; oppfølgende gjennomgang anbefalt.
+- Status: done.
+
+### Åpne punkter
+- Issue #233: beslutninger og ny tabell med persondata som slettingen i Story 15.2 må dekke.
+
+## Story 12.8: Inviter teststudenter som samtykker før de deltar (spor 3)
+
+### Oppgave
+Bygge Story 12.8 på `epic-12` i spor 3.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Første byggeagent uten navn, så rapporten kom som internt varsel.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-12-8-invite-test-students-who-consent-before-they-take-part.md`.
+- Commit: 2eaa20e. Migrasjon 0207.
+- Brukere fra en Kontrolltests klasseliste merkes som teststudenter og må samtykke på Hjem før de kan få sete. Klasselistene holder teststudenter og vanlige studenter adskilt begge veier.
+- Tester: backend 3837, Vitest 1191, tsc, `lint:colours`, `check:copy`, bygg, Playwright 101 med axe.
+- Gjennomgang: 32 funn, 6 rettet; oppfølgende gjennomgang anbefalt.
+- Status: done.
+
+### Åpne punkter
+- Issue #234: samtykketeksten mangler lagringstid, rettigheter og tilbaketrekking og må avgjøres av grunnleggeren før ekte bruk.
+
+## Story 13.4: Gi en student et oppfølgingsspill (spor 2)
+
+### Oppgave
+Bygge Story 13.4 på `epic-13` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-13-4-give-a-student-an-oppfolgingsspill.md`.
+- Commit: e0a63f0. Migrasjon 0302.
+- Læreren gir en student et oppfølgingsspill fra Studentsiden. Studenten beholder rollen sin og spiller mot tre KI-spillere fra Hjem; fullføringen leser beste andel av de to spillene.
+- Tester: backend 3741, Vitest 1200, tsc, `lint:colours`, `check:copy`, bygg, Playwright 65 med axe.
+- Gjennomgang: 38 funn, 14 lave rettet. Fire funn (avgrensning til tellende studenter, test av e-posten, punktum etter «mai», frist som fjernes) rettes i steg 0 av neste kjøring.
+- Status: done.
+
+### Åpne punkter
+- Issue #235: beslutninger og det som er overlatt til Story 13.5.
+
+## Story 12.9: Gi poeng blindt på svarene i Kontrolltesten (spor 3)
+
+### Oppgave
+Bygge Story 12.9 på `epic-12` i spor 3.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-12-9-score-control-test-answers-blind.md`.
+- Commit: f3ac81c. Migrasjon 0208.
+- Admin navngir sensorer. Etter Testfristen gir sensoren poeng på «Svar N» uten navn, med Sensorveiledningen ved siden av, og ser KI-ens poeng først etterpå. Rekkefølgen bruker en nøkkelhash, så tidsstemplede id-er ikke avslører hvem som skrev hva.
+- Tester: backend 3847, Vitest 1196, tsc, `lint:colours`, `check:copy`, bygg, Playwright 58 med axe.
+- Gjennomgang: 34 funn, 10 rettet.
+- Status: done.
+
+### Åpne punkter
+- Issue #236: beslutninger og gjenværende risiko for at studenter kan kjennes igjen.
+
+## Story 13.5: Gå videre til Debrief, Replay og test fra et ferdig oppfølgingsspill (spor 2)
+
+### Oppgave
+Rette funnene fra gjennomgangen av 13.4 og bygge Story 13.5 på `epic-13` i spor 2.
+
+### Plan
+Byggeagent: først rettingene i en egen commit, så storyen med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Rettinger for 13.4 (213b19a): bare tellende studenter kan få oppfølgingsspill, e-posten er testet, datoer i mai får punktum, og fristen kan ikke fjernes etter låsing.
+- Spec: `.docs/implementation-artifacts/spec-13-5-continue-to-the-debrief-the-replay-and-the-test-from-a-finished-oppfolgingsspill.md`. Commit: 99cde71.
+- Et ferdig oppfølgingsspill blir studentens spill, fullfører Klassespill-steget og fører til en personlig Debrief. Alle skjermene kaller det «Oppfølgingsspill».
+- Tester: backend 3743, Vitest 1201, tsc, `lint:colours`, `check:copy`, bygg, Playwright 71 med axe.
+- Gjennomgang: 37 funn, 6 rettet.
+- Status: done.
+
+### Åpne punkter
+- Issue #237: beslutninger og en tapt fortellerjobb som ikke prøves på nytt.
+
+## Story 12.10: Sammenlign menneskelige poeng og KI-poeng, og merk Sensorveiledningen som kontrollert (spor 3)
+
+### Oppgave
+Bygge Story 12.10 på `epic-12` i spor 3, den siste storyen i Epic 12.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Etterpå starter avslutningen av Epic 12 i samme worktree.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-12-10-compare-human-and-ai-scores-and-mark-the-scoring-guide-as-checked.md`.
+- Commit: 8e2b357. Migrasjon 0209.
+- Ren beregning av fem mål for samsvar mellom sensor og KI, en resultatside for Admin, og Sensorveiledningen merkes som kontrollert når alle svar er vurdert.
+- Tester: backend 3873 (én feil uten sammenheng, passerer alene), frontend-sjekkene, Playwright 127 med axe.
+- Gjennomgang: 38 funn, 8 rettet; oppfølgende gjennomgang anbefalt.
+- Status: done. Alle stories i Epic 12 er bygget; avslutningen (merge med `main`, visuell kontroll, norsk sortering, testfart, PR og CI) er startet.
+
+### Åpne punkter
+- Issue #238: beslutninger (ingen terskel for samsvar) og gjenværende risiko.
+
+## Story 13.6: Send melding til studentene som ikke har oppfylt kravet (spor 2)
+
+### Oppgave
+Bygge Story 13.6 på `epic-13` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-13-6-message-the-students-who-have-not-met-the-requirement.md`.
+- Commit: 48b48be. Migrasjon 0303.
+- Oversikten har lenken «Send Melding til N som ikke har oppfylt kravet», som åpner Meldingsskjemaet med en tabell over studentene. Mottakerne regnes ut på nytt når meldingen sendes.
+- Tester: backend 3751 (én feil uten sammenheng, passerer alene), Vitest 1203, tsc, `lint:colours`, `check:copy`, bygg, Playwright 63 med axe.
+- Gjennomgang: 31 funn, 14 rettet.
+- Status: done.
+
+### Åpne punkter
+- Issue #239: beslutninger.
+
+## Story 13.7: Studenten laster ned Studentrapporten som tagget PDF (spor 2)
+
+### Oppgave
+Bygge Story 13.7 på `epic-13` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet, og en kontroll av tilgjengelighet i PDF-en.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-13-7-student-downloads-the-student-report-as-a-tagged-pdf.md`.
+- Commit: 8bfb115.
+- Studenten lager og laster ned Studentrapporten fra Hjem etter Testfristen. En jobb bygger rapporten og lager PDF med WeasyPrint. Seksjonene legges til gjennom et register.
+- veraPDF 1.30.4 kjørte lokalt fra Docker: PDF-en er i samsvar med PDF/UA-1. CI kjører samme kontroll.
+- Tester: backend 3775, Vitest 1210, tsc, `lint:colours`, `check:copy`, bygg, Playwright 127 med axe.
+- Gjennomgang: 45 funn, 15 middels, alle rettet; 3 utsatt; oppfølgende gjennomgang anbefalt.
+- Status: done.
+
+### Åpne punkter
+- Issue #242: beslutninger, utsatte punkter og nye tabeller med persondata.
+
+## Avslutning av Epic 12 (spor 3)
+
+### Oppgave
+Avslutte Epic 12 på `epic-12`: hente inn `main`, visuell kontroll, norsk sortering, testfart, oppfølgende gjennomgang, stabilisering, PR og CI.
+
+### Plan
+Én avslutningsagent i det tredje worktreet, med en egen agent for skjermbildene og én for gjennomgangen.
+
+### Resultat
+- PR #240 er merget til `main` (d486bf4), med grønn CI. Alembic har én head, 0209.
+- Norsk sortering: én felles hjelper (`platform/collation.py`) setter æ, ø og å etter z, i Python og SQL, brukt i klasselister, Admin-lister og sensorlistene.
+- Oppfølgende gjennomgang: tre middels funn rettet (vurdering som står fast i `incomplete`, Kontrolltest merket kontrollert mens en student med forlenget frist fortsatt kan åpne testen, rekkefølge i sjekken av åpne forsøk).
+- Visuell kontroll: 240 skjermbilder; rettet blant annet HTTP 500 på sidene for en Kontrolltest uten Testfrist.
+- Testfart: backend 207 s → 193 s; testen med 400 forsøk er fortsatt rundt 35 s.
+- Playwright 785 av 788 (tre passerte ved ny kjøring).
+- Status: `epic-12: done`.
+
+### Åpne punkter
+- Issue #241: utsatte punkter (blant annet en drept worker som kan la en vurdering stå fast).
+- Grunnleggeren: `assessment`-prompten i OpenRouter-konfigurasjonen, samtykketeksten (Issue #234) og kontroller med ekte modell.
+
+## Story 13.8: Studentrapporten viser spillet med grafene (spor 2)
+
+### Oppgave
+Bygge Story 13.8 på `epic-13` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-13-8-student-report-shows-the-game-with-its-charts.md`.
+- Commit: 7f90bd1.
+- Studentrapporten har fått seksjonen om spillet: fakta, studentens egen rolle som graf over tabell, hele kjeden og «Hvem spilte». PDF-en består veraPDF (PDF/UA-1).
+- Tester: backend 3778, Vitest 1217, tsc, `lint:colours`, `check:copy`, bygg, Playwright 90.
+- Gjennomgang: 27 funn, 7 rettet.
+- Status: done.
+
+### Åpne punkter
+- Issue #243: beslutninger.
+## Story 13.9: Studenten får vite når dataene slettes (spor 2)
+
+### Oppgave
+Bygge Story 13.9 på `epic-13` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-13-9-student-is-told-when-their-data-will-be-deleted.md`. Commit: 14d7198. Migrasjon 0305.
+- Slettedatoen (siste Testfrist + 6 måneder, plassholder) lagres på Klasseøkta og vises på Hjem. En påminnelse sendes 14 dager før. Regelen er én ren funksjon som Epic 15 kan bruke.
+- Tester: backend 3792 (én feil uten sammenheng), Vitest 1221, frontend-sjekkene, Playwright 62.
+- Status: done.
+
+### Åpne punkter
+- Issue #244: beslutninger og plassholdere.
+
+## Story 14.1: Klasserapport over spillene (spor 3)
+
+### Oppgave
+Bygge Story 14.1 på `epic-14` i spor 3, den første storyen i Epic 14, fra `main` med Epic 1–12.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-14-1-class-report-of-the-games.md`. Commit: c162b13. Epic-konteksten `epic-14-context.md` ble laget.
+- Siden «Klasserapport» viser trakt, kostnader per rolle, forsterkning, mønstre, KI-spillerne og vurderingene av hvor troverdige de var. Bygget slik at det kan slås sammen med `reports` fra Epic 13.
+- Tester: backend 3893, Vitest 1228, frontend-sjekkene, Playwright 49 med axe.
+- Gjennomgang: 24 funn, 6 rettet, 4 utsatt.
+- Status: done.
+
+### Åpne punkter
+- Issue #245: beslutninger og utsatte punkter.
+
+## Story 15.6: Admin ser KI-kostnad og setter kostnadsgrensen (spor 1), og merge av Epic 11 og 12 inn i Epic 15
+
+### Oppgave
+Hente inn `main` (Epic 11 og 12) i `epic-15`, dekke de nye tabellene i persondataregisteret, slettingen og eksporten, og bygge Story 15.6.
+
+### Plan
+Byggeagent: merge og sømmer først, så storyen med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Merge: cad578c (0065 etter 0209, én head). Sømmer: fa64504 (alle 15 nye tabeller i registeret, sletting av studenttekst, testsvar i eksporten, Kontrolltest og teststudenter utenfor rapportene).
+- Spec: `.docs/implementation-artifacts/spec-15-6-admin-sees-ai-cost-and-sets-cost-limit.md`. Commit: e4a750f.
+- Admin ser KI-kostnad per Klasseøkt og setter kostnadsgrensen; en heving gjenopptar vurderingen når det er plass.
+- Tester: backend 4006, Vitest 1265, frontend-sjekkene, Playwright med axe.
+- Gjennomgang: 42 funn, 13 rettet; oppfølgende gjennomgang anbefalt.
+- Status: done.
+
+### Åpne punkter
+- Issue #246: beslutninger for merge, sømmer og storyen.
+## Story 15.12: Hold tilbake studentinvitasjoner til databehandleravtalen er registrert (spor 1)
+
+### Oppgave
+Bygge Story 15.12 på `epic-15` i spor 1.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-15-12-hold-student-invitations-until-dpa-recorded.md`. Commit: b03ddb0. Migrasjon 0071.
+- Admin registrerer avtalen i «Institusjoner». Med `REQUIRE_DPA_FOR_INVITATIONS` på holdes studentinvitasjoner, påminnelser og manuell registrering tilbake til avtalen finnes. Operatørens institusjon og Kontrolltester slipper gjennom.
+- Innstillingen leveres av, fordi storyen sier at grunnleggeren skal avgjøre den.
+- Tester: backend 4017, Vitest 1267, frontend-sjekkene, Playwright med axe.
+- Status: review (beslutningen er grunnleggerens).
+
+### Åpne punkter
+- Issue #247: beslutningen om å slå holdet på.
+## Story 14.2: Klasserapport over læringsresultater (spor 3)
+
+### Oppgave
+Bygge Story 14.2 på `epic-14` i spor 3.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-14-2-class-report-of-learning-results.md`. Commit: 23c4104.
+- Klasserapporten har fått «Læringsresultater»: Startoppgaven ved siden av testoppgavene, resultater per spørsmål og fordelingen av KI-vurderingene merket «KI-generert. Teller ikke. Ingen karakter.».
+- Tester: backend 3912, Vitest 1234, frontend-sjekkene, Playwright 37 med axe.
+- Gjennomgang: 36 funn, 14 rettet.
+- Status: done. Neste i spor 3 er 14.5; 14.3 og 14.4 venter på Story 15.3 og 13.9.
+
+### Åpne punkter
+- Issue #248: beslutninger (ingen minste gruppestørrelse i den levende rapporten).
+## Story 13.10: Studentrapporten dokumenterer Debrief, Replay og testen (spor 2)
+
+### Oppgave
+Bygge Story 13.10 på `epic-13` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-13-10-student-report-documents-the-debrief-the-replay-and-the-test.md`. Commit: 414444d.
+- Rapporten har fått seksjonene Debrief (Forklaringen, nøkkeløyeblikk, quiz og refleksjonssvar om bevis og struktur, aldri om følelser), Replay og testen (svar og poeng). KI-tekst er merket både synlig og maskinlesbart. veraPDF: PDF/UA-1.
+- Tester: backend 3795, Vitest 1230, frontend-sjekkene, Playwright 111.
+- Gjennomgang: 32 funn, 3 middels rettet.
+- Status: done. Neste: byggeagenten for 13.11 henter først inn `main` (Epic 12) i `epic-13`.
+
+### Åpne punkter
+- Issue #249: beslutninger og avhengigheten til WeasyPrint 70.
+## Story 14.5: Studentene ser alle klassespillene side om side (spor 3)
+
+### Oppgave
+Bygge Story 14.5 på `epic-14` i spor 3 (14.3 og 14.4 venter på Story 15.3 og 13.9).
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-14-5-students-see-all-class-games-side-by-side.md`. Commits: b156e68 (ruff-retting fra 14.1) og 723a2c7.
+- Etter Debrief og Spillfristen ser studenten ordrene i alle klassespillene per rolle, med eget spill uthevet og ingen navn.
+- Tester: backend 3919, Vitest 1240, frontend-sjekkene, Playwright 49 med axe.
+- Gjennomgang: 24 funn, 9 rettet, 2 utsatt.
+- Status: done.
+
+### Åpne punkter
+- Issue #250: beslutninger og oppfølgingsspill som ikke er tatt med ennå.
+## Story 14.6: Læreren viser alle klassespillene i plenum (spor 3)
+
+### Oppgave
+Bygge Story 14.6 på `epic-14` i spor 3.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-14-6-lecturer-shows-all-class-games-in-a-plenary.md`. Commit: e1769db.
+- «Vis i plenum» åpner en visning for projektor med Matriseveggen, en tabell og ordre per rolle for alle klassespillene, uten navn.
+- Tester: backend 3921, Vitest 1244, frontend-sjekkene, Playwright 52 med axe.
+- Gjennomgang: 16 funn, 6 rettet.
+- Status: done. Spor 3 stopper her til grunnleggeren har kjørt `/compact`.
+
+### Åpne punkter
+- Issue #251: beslutninger.
+## Story 13.11: Den som laster ned kan ta med KI-vurderingen (spor 2), og merge av Epic 12 inn i Epic 13
+
+### Oppgave
+Hente inn `main` (Epic 12) i `epic-13` og bygge Story 13.11.
+
+### Plan
+Byggeagent: mergen først, så storyen med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Merge: 811cab7. 0301 etter 0209, én head. Én tilgangsregel for Studentsiden, KI-vurderingen fra 12.5 inn i Studentsidens data, og avgrensningen i `reports/scope.py` bruker nå Kontrolltest og teststudenter fra Epic 12.
+- Spec: `.docs/implementation-artifacts/spec-13-11-person-downloading-can-add-the-ai-assessment-section.md`. Commit: 2f20c98. Migrasjon 0306.
+- Studenten kan ta med KI-vurderingen i Studentrapporten når den er klar; bokstaven kommer bare med gjennom `assessment.letter_for`. veraPDF: PDF/UA-1 på begge variantene.
+- Tester: backend 4012 (én feil under last), frontend-sjekkene, Playwright for de berørte skjermene.
+- Status: done. Spor 2 stopper her til grunnleggeren har kjørt `/compact`.
+
+### Åpne punkter
+- Issue #252: beslutninger for mergen og storyen.
+## Story 13.12: Personalet laster ned én students rapport når som helst (spor 2)
+
+### Oppgave
+Bygge Story 13.12 etter compacten.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-13-12-staff-download-one-students-report-at-any-time.md`. Commit: 687d750. Migrasjon 0307.
+- Faglærere og assistenter i klassen lager og laster ned én students rapport fra Studentsiden, før og etter testfristen. Ny tilgangsregel `reports.download`, egne varianter `staff`/`staff_ai`, revisjonsrader for bestilling og nedlasting, og ny kø `reports-bulk` i worker-batch.
+- Tester: backend 4020 (én feil i `test_railway_config`, rettet), frontend-sjekkene og Playwright for de berørte skjermene (110).
+- Status: done.
+
+### Åpne punkter
+- Issue #253: beslutninger for storyen; oppfølgingsgjennomgang tas i avslutningen av Epic 13.
+
+## Story 13.13: Alle studentrapporter som én ZIP (spor 2)
+
+### Oppgave
+Bygge Story 13.13.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-13-13-download-all-student-reports-as-one-zip.md`. Commit: 2f275f4. Migrasjon 0308 (`report_zips`).
+- Blokken «Eksport» på Klasseøkta lager én ZIP med alle studentrapportene, uten KI-vurdering, i køen `reports-bulk`, med e-post når den er klar og signert nedlasting.
+- Tester: backend 4036, frontend-sjekkene og Playwright (172). Tidstesten for 250 studenter tar om lag 15 s.
+- Status: done.
+
+### Åpne punkter
+- Issue #254: beslutninger for storyen; oppfølgingsgjennomgang og den trege tidstesten tas i avslutningen av Epic 13.
+
+## Story 13.14: Eksport av fullføringsstatus (spor 2)
+
+### Oppgave
+Bygge Story 13.14, den siste i Epic 13.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-13-14-export-the-completion-status.md`. Commits: 608a1b8, dba2fb5. Ingen migrasjon.
+- Faglæreren laster ned fullføringslista som CSV eller Excel fra «Eksport»-blokka, uten KI-data; fila lagres aldri, og hver nedlasting revisjonslogges. Assistenter får 403.
+- Tester: backend 4043, frontend-sjekkene og Playwright (172).
+- Status: done. Avslutningen av Epic 13 er startet (oppfølgingsgjennomgang, visuell sjekk, fart, full stabilisering, PR).
+
+### Åpne punkter
+- Issue #255: beslutninger for storyen.
+
+## Avslutning av Epic 13 (spor 2) og merge til main
+
+### Oppgave
+Avslutte Epic 13 og merge den til `main`.
+
+### Plan
+Én agent: punktene i avslutningslista, oppfølgingsgjennomgang, visuell sjekk av skjermene i Epic 13, fart, full stabilisering, PR og CI.
+
+### Resultat
+- Commits: 9b6cf76 («Epic 13: avslutning»), 1b9d426 (api-klienten). PR #256, CI grønn, merget (b8af7a9).
+- Rettet: Studentens egen rapport følger slettedatoen, ZIP-køen har egen worker, slettetest mot triggeren, e2e for assistentens visning, tidstesten for 250 studenter merket `slow`, 11 skjermbilder i `screenshots/epic-13/`, to ustabile e2e-tester.
+- Status: `epic-13` done.
+
+### Åpne punkter
+- Issue #257: beslutninger, punkter som står igjen, og tabeller for persondataregisteret.
+
+## Story 14.8: Eksport av spilldata for en klasseøkt (spor 3), og merge av Epic 13 inn i Epic 14
+
+### Oppgave
+Hente inn `main` (Epic 13) i `epic-14`, koble Epic 14 til Epic 13s `reports.scope` og bygge Story 14.8.
+
+### Plan
+Byggeagent: mergen først, så storyen med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Merge: f51a95f. Stand-ins for avgrensningen er erstattet og slettet; 14.5 bruker nå det tildelte klassespillet, så oppfølgingsspill ikke gir tomt eget spill.
+- Spec: `.docs/implementation-artifacts/spec-14-8-export-a-class-sessions-game-data.md`. Commit: bd6c4e8. Ingen migrasjon.
+- Eieren laster ned spilldataene som CSV fra «Eksport»-blokka, én rad per rad i beslutningsloggen, uten navn, e-post eller id.
+- Tester: backend 4080 etter mergen og 4088 før gjennomgangsrettingene, frontend-sjekkene, Playwright (81).
+- Status: done. Spor 3 venter på 15.3 før 14.3 og 14.4.
+
+### Åpne punkter
+- Issue #258: beslutninger for mergen og storyen.
+
+## Story 15.1: Studenten ser egne data i «Mine data» (spor 1), og merge av Epic 13 inn i Epic 15
+
+### Oppgave
+Hente inn `main` (Epic 13) i `epic-15` og bygge Story 15.1.
+
+### Plan
+Byggeagent: mergen først (Alembic, `reports/scope.py`, tilkoblingsbudsjett, persondataregisteret), så storyen med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Merge: cf71162. 0065 etter 0308, én head (0071). Epic 13s tabeller er med i registeret, slettingen og eksporten; evalueringseksporten leser den lagrede slettedatoen.
+- Spec: `.docs/implementation-artifacts/spec-15-1-student-sees-own-data-in-mine-data.md`. Commit: ae5be5b.
+- Studenten ser egne data i 15 kategorier på `/mine-data`, lenket fra Hjem. Registeret sier for hver tabell om den vises.
+- Tester: backend 4185, frontend-sjekkene og Playwright for de berørte skjermene.
+- Status: done.
+
+### Åpne punkter
+- Issue #259: beslutninger for mergen og storyen, og to utsatte punkter.
+
+## Story 15.3: Studentdata slettes automatisk når lagringstiden er ute (spor 1)
+
+### Oppgave
+Bygge Story 15.3, den siste som kan bygges i Epic 15.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet (sletting av data).
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-15-3-student-data-deleted-automatically-when-retention-ends.md`. Commit: 5b3dd8c. Migrasjon 0072.
+- Admin setter lagringstid per institusjon; slettedatoene regnes om. Sveipet `ops.retention` anonymiserer studenter uten annen aktiv klasseøkt og sletter dataene for den ene klasseøkta for de andre.
+- Tester: backend 4200 (én eldre test oppdatert), frontend-sjekkene, Playwright (55).
+- Status: done. Fire mellomstore punkter er utsatt til avslutningen av Epic 15.
+
+### Åpne punkter
+- Issue #260: beslutninger og utsatte punkter.

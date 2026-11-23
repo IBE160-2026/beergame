@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import { type FormEvent, Fragment, useEffect, useRef, useState } from "react";
 
 import { ActionError } from "@/components/action-error";
 import { Button } from "@/components/button";
@@ -9,16 +9,29 @@ import { Switch } from "@/components/switch";
 import { TextField } from "@/components/text-field";
 import { nb } from "@/copy/nb";
 import { usePageState } from "@/lib/page-state";
+import { ApiRequestError } from "@/lib/api/client";
+import { cn } from "@/lib/utils";
 
 import {
   type Institution,
   institutionsKey,
   useInstitutions,
   useMarkOperator,
+  useRecordProcessingAgreement,
   useRenameInstitution,
   useSetNoLetter,
+  useSetRetention,
 } from "./api";
-import { cleanName, nameError, refusalForField } from "./institutions";
+import { formatDay, todayInOslo } from "./evaluation";
+import {
+  cleanName,
+  nameError,
+  type ProcessingAgreementErrors,
+  processingAgreementErrors,
+  refusalForField,
+  retentionMonths,
+  SIGNED_BY_MAX_LENGTH,
+} from "./institutions";
 import { formatDate } from "./invitations";
 import { Cell, type RowLine, RowMessage } from "./user-list";
 
@@ -40,6 +53,10 @@ export function InstitutionList({ onStart, otherStarted = 0 }: { onStart?: () =>
   const [editing, setEditing] = useState<string>();
   const [line, setLine] = useState<RowLine>();
   const [focusRow, setFocusRow] = useState<{ id: string; n: number }>();
+  const [agreementOpen, setAgreementOpen] = useState<string>();
+  const [focusAgreement, setFocusAgreement] = useState<{ id: string; n: number }>();
+  const [retentionOpen, setRetentionOpen] = useState<string>();
+  const [focusRetention, setFocusRetention] = useState<{ id: string; n: number }>();
   const items = institutions.data?.pages.flatMap((page) => page.items) ?? [];
   const markOperator = useMarkOperator();
   const noLetter = useSetNoLetter();
@@ -48,6 +65,12 @@ export function InstitutionList({ onStart, otherStarted = 0 }: { onStart?: () =>
     if (focusRow) document.getElementById(`rename-${focusRow.id}`)?.focus();
   }, [focusRow]);
   useEffect(() => {
+    if (focusAgreement) document.getElementById(`agreement-${focusAgreement.id}`)?.focus();
+  }, [focusAgreement]);
+  useEffect(() => {
+    if (focusRetention) document.getElementById(`retention-${focusRetention.id}`)?.focus();
+  }, [focusRetention]);
+  useEffect(() => {
     if (otherStarted) setLine(undefined);
   }, [otherStarted]);
 
@@ -55,6 +78,18 @@ export function InstitutionList({ onStart, otherStarted = 0 }: { onStart?: () =>
     setEditing(undefined);
     if (renamed) setLine({ key: id, text: copy.rename.renamed(renamed.from, renamed.to.name), refused: false });
     setFocusRow((prev) => ({ id, n: (prev?.n ?? 0) + 1 }));
+  }
+
+  function closeAgreement(institution: Institution, saved: boolean) {
+    setAgreementOpen(undefined);
+    if (saved) setLine({ key: institution.id, text: copy.processingAgreement.saved(institution.name), refused: false });
+    setFocusAgreement((prev) => ({ id: institution.id, n: (prev?.n ?? 0) + 1 }));
+  }
+
+  function closeRetention(institution: Institution, saved: boolean) {
+    setRetentionOpen(undefined);
+    if (saved) setLine({ key: institution.id, text: copy.retention.saved(institution.name), refused: false });
+    setFocusRetention((prev) => ({ id: institution.id, n: (prev?.n ?? 0) + 1 }));
   }
 
   return (
@@ -86,6 +121,8 @@ export function InstitutionList({ onStart, otherStarted = 0 }: { onStart?: () =>
                     copy.list.columns.created,
                     copy.operator.column,
                     copy.noLetter.column,
+                    copy.processingAgreement.column,
+                    copy.retention.column,
                     copy.list.columns.actions,
                   ].map((heading) => (
                     <th
@@ -100,92 +137,193 @@ export function InstitutionList({ onStart, otherStarted = 0 }: { onStart?: () =>
               </thead>
               <tbody className="@max-[60em]:block @max-[60em]:border-t @max-[60em]:border-axis">
                 {items.map((institution) => (
-                  <tr
-                    key={institution.id}
-                    className="border-b border-hairline align-baseline @max-[60em]:block @max-[60em]:py-3"
-                  >
-                    <Cell label={copy.list.columns.name}>
-                      <span className="font-semibold [overflow-wrap:anywhere]">{institution.name}</span>
-                    </Cell>
-                    <Cell label={copy.list.columns.created}>
-                      <span className="@min-[60em]:whitespace-nowrap">{formatDate(institution.created_at)}</span>
-                    </Cell>
-                    <Cell label={copy.operator.column}>
-                      {/* The operator's own Institution (Story 12.7): named in text; the others
+                  <Fragment key={institution.id}>
+                    <tr
+                      className={cn(
+                        "align-baseline @max-[60em]:block @max-[60em]:py-3",
+                        agreementOpen === institution.id || retentionOpen === institution.id
+                          ? "@max-[60em]:pb-0"
+                          : "border-b border-hairline",
+                      )}
+                    >
+                      <Cell label={copy.list.columns.name}>
+                        <span className="font-semibold [overflow-wrap:anywhere]">{institution.name}</span>
+                      </Cell>
+                      <Cell label={copy.list.columns.created}>
+                        <span className="@min-[60em]:whitespace-nowrap">{formatDate(institution.created_at)}</span>
+                      </Cell>
+                      <Cell label={copy.operator.column}>
+                        {/* The operator's own Institution (Story 12.7): named in text; the others
                           take the mark with one button, and it moves from the one that held it. */}
-                      {institution.operator_owned ? (
-                        <span className="font-semibold">{copy.operator.label}</span>
-                      ) : (
-                        <Button
-                          className="[overflow-wrap:anywhere] @max-[60em]:w-full @min-[60em]:px-3 @min-[60em]:text-left"
-                          unavailable={markOperator.isPending}
-                          onClick={() => {
-                            if (markOperator.isPending) return;
-                            setLine(undefined);
-                            onStart?.();
-                            markOperator.mutate(institution.id, {
-                              onSuccess: (marked) =>
-                                setLine({ key: institution.id, text: copy.operator.marked(marked.name), refused: false }),
-                              onError: () => setLine({ key: institution.id, text: copy.operator.failed, refused: true }),
-                            });
-                          }}
-                        >
-                          {copy.operator.mark(institution.name)}
-                        </Button>
-                      )}
-                    </Cell>
-                    <Cell label={copy.noLetter.column}>
-                      {/* Story 12.6 (FR-56, FR-3): the data protection officer's Bryter, saved at
+                        {institution.operator_owned ? (
+                          <span className="font-semibold">{copy.operator.label}</span>
+                        ) : (
+                          <Button
+                            className="[overflow-wrap:anywhere] @max-[60em]:w-full @min-[60em]:px-3 @min-[60em]:text-left"
+                            unavailable={markOperator.isPending}
+                            onClick={() => {
+                              if (markOperator.isPending) return;
+                              setLine(undefined);
+                              onStart?.();
+                              markOperator.mutate(institution.id, {
+                                onSuccess: (marked) =>
+                                  setLine({
+                                    key: institution.id,
+                                    text: copy.operator.marked(marked.name),
+                                    refused: false,
+                                  }),
+                                onError: () =>
+                                  setLine({ key: institution.id, text: copy.operator.failed, refused: true }),
+                              });
+                            }}
+                          >
+                            {copy.operator.mark(institution.name)}
+                          </Button>
+                        )}
+                      </Cell>
+                      <Cell label={copy.noLetter.column}>
+                        {/* Story 12.6 (FR-56, FR-3): the data protection officer's Bryter, saved at
                           once; on, no Class session of the Institution shows a letter. */}
-                      <span id={`no-letter-${institution.id}`} className="sr-only">
-                        {copy.noLetter.name(institution.name)}
-                      </span>
-                      <Switch
-                        id={`no-letter-switch-${institution.id}`}
-                        labelledBy={`no-letter-${institution.id}`}
-                        checked={
-                          noLetter.isPending && noLetter.variables?.id === institution.id
-                            ? noLetter.variables.on
-                            : institution.no_letter
-                        }
-                        onChange={(on) => {
-                          if (noLetter.isPending) return;
-                          setLine(undefined);
-                          onStart?.();
-                          noLetter.mutate(
-                            { id: institution.id, on },
-                            {
-                              onSuccess: (saved) =>
-                                setLine({ key: institution.id, text: copy.noLetter.saved(saved.name, saved.no_letter), refused: false }),
-                              onError: () => setLine({ key: institution.id, text: copy.noLetter.failed, refused: true }),
-                            },
-                          );
-                        }}
-                      >
-                        {(noLetter.isPending && noLetter.variables?.id === institution.id ? noLetter.variables.on : institution.no_letter)
-                          ? copy.noLetter.on
-                          : copy.noLetter.off}
-                      </Switch>
-                    </Cell>
-                    <td className="py-3 @max-[60em]:block @max-[60em]:pt-2 @max-[60em]:pb-0 @min-[60em]:w-[24em]">
-                      {editing === institution.id ? (
-                        <RenameForm institution={institution} onDone={(renamed) => close(institution.id, renamed)} />
-                      ) : (
-                        <Button
-                          id={`rename-${institution.id}`}
-                          className="[overflow-wrap:anywhere] @max-[60em]:w-full @min-[60em]:px-3 @min-[60em]:text-left"
-                          onClick={() => {
+                        <span id={`no-letter-${institution.id}`} className="sr-only">
+                          {copy.noLetter.name(institution.name)}
+                        </span>
+                        <Switch
+                          id={`no-letter-switch-${institution.id}`}
+                          labelledBy={`no-letter-${institution.id}`}
+                          checked={
+                            noLetter.isPending && noLetter.variables?.id === institution.id
+                              ? noLetter.variables.on
+                              : institution.no_letter
+                          }
+                          onChange={(on) => {
+                            if (noLetter.isPending) return;
                             setLine(undefined);
                             onStart?.();
-                            setEditing(institution.id);
+                            noLetter.mutate(
+                              { id: institution.id, on },
+                              {
+                                onSuccess: (saved) =>
+                                  setLine({
+                                    key: institution.id,
+                                    text: copy.noLetter.saved(saved.name, saved.no_letter),
+                                    refused: false,
+                                  }),
+                                onError: () =>
+                                  setLine({ key: institution.id, text: copy.noLetter.failed, refused: true }),
+                              },
+                            );
                           }}
                         >
-                          {copy.rename.open(institution.name)}
-                        </Button>
-                      )}
-                      <RowMessage line={line?.key === institution.id && editing !== institution.id ? line : undefined} />
-                    </td>
-                  </tr>
+                          {(
+                            noLetter.isPending && noLetter.variables?.id === institution.id
+                              ? noLetter.variables.on
+                              : institution.no_letter
+                          )
+                            ? copy.noLetter.on
+                            : copy.noLetter.off}
+                        </Switch>
+                      </Cell>
+                      <Cell label={copy.processingAgreement.column}>
+                        {/* Story 15.12 (FR-8): who signed and the day, or that none is recorded;
+                          the button opens the form in a row of its own under this one. */}
+                        <span className="block [overflow-wrap:anywhere]">
+                          {institution.processing_agreement
+                            ? copy.processingAgreement.signed(
+                                institution.processing_agreement.signed_by,
+                                formatDay(institution.processing_agreement.signed_on),
+                              )
+                            : institution.operator_owned
+                              ? copy.processingAgreement.notNeeded
+                              : copy.processingAgreement.none}
+                        </span>
+                        {agreementOpen === institution.id ? null : (
+                          <Button
+                            id={`agreement-${institution.id}`}
+                            className="mt-2 [overflow-wrap:anywhere] @max-[60em]:w-full @min-[60em]:px-3 @min-[60em]:text-left"
+                            onClick={() => {
+                              setLine(undefined);
+                              onStart?.();
+                              setEditing(undefined);
+                              setRetentionOpen(undefined);
+                              setAgreementOpen(institution.id);
+                            }}
+                          >
+                            {institution.processing_agreement
+                              ? copy.processingAgreement.change(institution.name)
+                              : copy.processingAgreement.record(institution.name)}
+                          </Button>
+                        )}
+                      </Cell>
+                      <Cell label={copy.retention.column}>
+                        {/* Story 15.3 (FR-77): the Institution's own period or the placeholder;
+                          the button opens the form in a row of its own under this one. */}
+                        <span className="block [overflow-wrap:anywhere]">
+                          {copy.retention.months(
+                            institution.retention_months ?? institution.retention_default_months ?? 6,
+                            institution.retention_months == null,
+                          )}
+                        </span>
+                        {retentionOpen === institution.id ? null : (
+                          <Button
+                            id={`retention-${institution.id}`}
+                            className="mt-2 [overflow-wrap:anywhere] @max-[60em]:w-full @min-[60em]:px-3 @min-[60em]:text-left"
+                            onClick={() => {
+                              setLine(undefined);
+                              onStart?.();
+                              setEditing(undefined);
+                              setAgreementOpen(undefined);
+                              setRetentionOpen(institution.id);
+                            }}
+                          >
+                            {copy.retention.change(institution.name)}
+                          </Button>
+                        )}
+                      </Cell>
+                      <td className="py-3 @max-[60em]:block @max-[60em]:pt-2 @max-[60em]:pb-0 @min-[60em]:w-[24em]">
+                        {editing === institution.id ? (
+                          <RenameForm institution={institution} onDone={(renamed) => close(institution.id, renamed)} />
+                        ) : (
+                          <Button
+                            id={`rename-${institution.id}`}
+                            className="[overflow-wrap:anywhere] @max-[60em]:w-full @min-[60em]:px-3 @min-[60em]:text-left"
+                            onClick={() => {
+                              setLine(undefined);
+                              onStart?.();
+                              setAgreementOpen(undefined);
+                              setRetentionOpen(undefined);
+                              setEditing(institution.id);
+                            }}
+                          >
+                            {copy.rename.open(institution.name)}
+                          </Button>
+                        )}
+                        <RowMessage
+                          line={line?.key === institution.id && editing !== institution.id ? line : undefined}
+                        />
+                      </td>
+                    </tr>
+                    {agreementOpen === institution.id ? (
+                      // The form takes the row's full width under it, not one column's.
+                      <tr className="border-b border-hairline @max-[60em]:block">
+                        <td colSpan={7} className="pt-1 pb-6 @max-[60em]:block">
+                          <AgreementForm
+                            institution={institution}
+                            onDone={(saved) => closeAgreement(institution, saved)}
+                          />
+                        </td>
+                      </tr>
+                    ) : null}
+                    {retentionOpen === institution.id ? (
+                      <tr className="border-b border-hairline @max-[60em]:block">
+                        <td colSpan={7} className="pt-1 pb-6 @max-[60em]:block">
+                          <RetentionForm
+                            institution={institution}
+                            onDone={(saved) => closeRetention(institution, saved)}
+                          />
+                        </td>
+                      </tr>
+                    ) : null}
+                  </Fragment>
                 ))}
               </tbody>
             </table>
@@ -293,4 +431,189 @@ function RenameForm({
       </div>
     </form>
   );
+}
+
+/** The inline data processing agreement form of one Institution (Story 15.12): who signed for
+ * it, the day, «Lagre avtalen» and «Avbryt». Each field's reason stands under it. */
+function AgreementForm({ institution, onDone }: { institution: Institution; onDone: (saved: boolean) => void }) {
+  const record = useRecordProcessingAgreement();
+  const form = copy.processingAgreement;
+  const [values, setValues] = useState({
+    signedBy: institution.processing_agreement?.signed_by ?? "",
+    signedOn: institution.processing_agreement?.signed_on ?? "",
+  });
+  const [errors, setErrors] = useState<ProcessingAgreementErrors>({});
+  const [submitted, setSubmitted] = useState(false);
+  const firstRef = useRef<HTMLInputElement>(null);
+  const id = (name: string) => `${name}-${institution.id}`;
+  const title = institution.processing_agreement ? form.change(institution.name) : form.record(institution.name);
+
+  useEffect(() => {
+    firstRef.current?.focus();
+  }, []);
+
+  function change(next: Partial<typeof values>) {
+    const merged = { ...values, ...next };
+    setValues(merged);
+    if (submitted) setErrors(processingAgreementErrors(merged, todayInOslo()));
+  }
+
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (record.isPending) return;
+    const found = processingAgreementErrors(values, todayInOslo());
+    setErrors(found);
+    setSubmitted(true);
+    record.reset();
+    const first = (["signedBy", "signedOn"] as const).find((name) => found[name]);
+    if (first) {
+      document.getElementById(id(first))?.focus();
+      return;
+    }
+    record.mutate(
+      { id: institution.id, body: { signed_by: values.signedBy.trim(), signed_on: values.signedOn } },
+      {
+        onSuccess: () => onDone(true),
+        onError: (failure) => {
+          // The api's clock has the last word on «not after today»: its reason stands under the field.
+          if (dayRefused(failure)) {
+            setErrors({ signedOn: form.inFuture });
+            document.getElementById(id("signedOn"))?.focus();
+          }
+        },
+      },
+    );
+  }
+
+  return (
+    <form
+      method="post"
+      noValidate
+      onSubmit={onSubmit}
+      aria-label={title}
+      className="grid max-w-3xl grid-cols-1 items-start gap-4 @min-[60em]:grid-cols-2 @min-[60em]:gap-x-6"
+    >
+      <TextField
+        ref={firstRef}
+        id={id("signedBy")}
+        label={form.signedBy}
+        hint={form.signedByHint}
+        autoComplete="off"
+        maxLength={SIGNED_BY_MAX_LENGTH}
+        value={values.signedBy}
+        error={errors.signedBy}
+        onChange={(event) => change({ signedBy: event.target.value })}
+      />
+      <TextField
+        id={id("signedOn")}
+        type="date"
+        label={form.signedOn}
+        max={todayInOslo()}
+        value={values.signedOn}
+        error={errors.signedOn}
+        onChange={(event) => change({ signedOn: event.target.value })}
+      />
+      <ActionError
+        message={record.isError && !dayRefused(record.error) ? form.failed : undefined}
+        className="@min-[60em]:col-span-2"
+      />
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 @min-[60em]:col-span-2">
+        <Button type="submit" unavailable={record.isPending} className="@max-[60em]:w-full">
+          {form.save}
+        </Button>
+        <button
+          type="button"
+          aria-disabled={record.isPending ? true : undefined}
+          onClick={() => {
+            if (!record.isPending) onDone(false);
+          }}
+          className="inline-flex min-h-tap-target-min min-w-tap-target-min cursor-pointer items-center text-label text-lager underline underline-offset-2 hover:decoration-2 active:text-ink"
+        >
+          {form.cancel}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/** The inline retention form of one Institution (Story 15.3, FR-77): the months after the latest
+ * Testfrist, empty for the placeholder, «Lagre oppbevaringstiden» and «Avbryt». */
+function RetentionForm({ institution, onDone }: { institution: Institution; onDone: (saved: boolean) => void }) {
+  const save = useSetRetention();
+  const form = copy.retention;
+  const standard = institution.retention_default_months ?? 6;
+  const [value, setValue] = useState(institution.retention_months == null ? "" : String(institution.retention_months));
+  const [error, setError] = useState<string>();
+  const [submitted, setSubmitted] = useState(false);
+  const fieldRef = useRef<HTMLInputElement>(null);
+  const fieldId = `retention-months-${institution.id}`;
+
+  useEffect(() => {
+    fieldRef.current?.focus();
+  }, []);
+
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (save.isPending) return;
+    const months = retentionMonths(value);
+    setSubmitted(true);
+    save.reset();
+    if (months === undefined) {
+      setError(form.invalid);
+      fieldRef.current?.focus();
+      return;
+    }
+    setError(undefined);
+    save.mutate({ id: institution.id, months }, { onSuccess: () => onDone(true) });
+  }
+
+  return (
+    <form
+      method="post"
+      noValidate
+      onSubmit={onSubmit}
+      aria-label={form.change(institution.name)}
+      className="flex max-w-xl flex-col items-start gap-4"
+    >
+      <TextField
+        ref={fieldRef}
+        id={fieldId}
+        inputMode="numeric"
+        autoComplete="off"
+        label={form.field}
+        hint={form.hint(standard)}
+        inputClassName="max-w-[8em] tabular-nums"
+        value={value}
+        error={error}
+        onChange={(event) => {
+          setValue(event.target.value);
+          if (submitted) setError(retentionMonths(event.target.value) === undefined ? form.invalid : undefined);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Escape" && !save.isPending) onDone(false);
+        }}
+      />
+      <ActionError message={save.isError ? form.failed : undefined} />
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <Button type="submit" unavailable={save.isPending} className="@max-[60em]:w-full">
+          {form.save}
+        </Button>
+        <button
+          type="button"
+          aria-disabled={save.isPending ? true : undefined}
+          onClick={() => {
+            if (!save.isPending) onDone(false);
+          }}
+          className="inline-flex min-h-tap-target-min min-w-tap-target-min cursor-pointer items-center text-label text-lager underline underline-offset-2 hover:decoration-2 active:text-ink"
+        >
+          {form.cancel}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/** The api refused the day as after today in Europe/Oslo (422 `fields.signed_on` = `in_future`). */
+function dayRefused(error: unknown): boolean {
+  return error instanceof ApiRequestError && error.fields.signed_on === "in_future";
 }

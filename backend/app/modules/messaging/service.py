@@ -37,6 +37,7 @@ from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker
 
 __all__ = [
+    "own_records",
     "MAX_ATTEMPTS",
     "SEND_MAIL",
     "DueItem",
@@ -488,3 +489,14 @@ async def simulate_bounce(address: str, bounce_class: str, now: datetime) -> uui
     }
     await receive_webhook(body, headers, now)
     return row["id"]
+
+
+# Story 15.2 (FR-76, AD-14): what `messaging` holds of a Student goes in the one erasure routine.
+identity.register_erasure_step(
+    "messaging",
+    {"messages", "message_recipients", "notices", "mail_deliveries"},
+    repo.erase_user,
+)
+
+# «Mine data» (Story 15.1, FR-75): the Student's own rows of this module, by their own id.
+from app.modules.messaging.own_data import own_records  # noqa: E402

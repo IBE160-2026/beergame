@@ -101,7 +101,7 @@ jobs:
   # Playwright with axe against the compose stack (NFR-6, UX-DR75, UX-DR76).
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     env:
       NEXT_TELEMETRY_DISABLED: "1"
     steps:
@@ -153,6 +153,23 @@ jobs:
       # Story 13.11: the sample with the «KI-vurdering» section the Student added.
       - name: Student report with the AI section PDF/UA check (veraPDF)
         run: python3 scripts/verapdf frontend/test-results/student-report-ai.pdf
+      # The conformance scan (Story 15.13): every surface at every NFR-6 viewport, recorded rather
+      # than failed on (the specs above fail on a violation). `npm run conformance -- --from <dir>`
+      # makes the dated report from the artifact.
+      - name: Conformance scan
+        run: npx playwright test e2e/conformance.spec.ts
+        working-directory: frontend
+        env:
+          CONFORMANCE: "1"
+          CONFORMANCE_OUT: conformance-results
+      - name: Keep the conformance results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: conformance-results
+          path: frontend/conformance-results/
+          if-no-files-found: ignore
+          retention-days: 30
       - name: Stack logs on failure
         if: failure()
         run: docker compose logs --no-color

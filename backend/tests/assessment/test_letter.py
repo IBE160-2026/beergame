@@ -413,3 +413,41 @@ def test_letter_for_gives_no_letter_without_a_ready_total():
             )
             is None
         )
+
+
+def mine_letter(body: dict) -> list[dict]:
+    """The «Veiledende bokstav» rows of «Mine data» (Story 15.1), as field key to value."""
+    [category] = [c for c in body["categories"] if c["key"] == "letter"]
+    return [{f["key"]: f["value"] for f in item["fields"]} for item in category["items"]]
+
+
+@pytest.mark.parametrize("setting", ["student_choice", "all"])
+async def test_mine_data_shows_the_letter_exactly_as_the_students_own_view(
+    klass, monkeypatch, setting
+):
+    """Story 15.1 (FR-75) close-out: «Mine data» reads the letter through the Student's own
+    KI-vurdering, so it matches it for `student_choice` (not chosen, then chosen) and `all`."""
+    session_id = await locked(klass, monkeypatch, n=2)
+    if setting == "all":
+        assert (await save(session_id, letter_setting="all")).status_code == 200
+    await assessed(session_id, monkeypatch)
+
+    async def both() -> tuple[dict, list[dict]]:
+        data = await call(email(0), "GET", "/api/me/data")
+        assert data.status_code == 200, data.text
+        return (await own(session_id))["letter"], mine_letter(data.json())
+
+    view, found = await both()
+    if setting == "student_choice":
+        assert view == {"setting": "student_choice", "chosen": False, "value": None}
+        assert found == [{"setting": "student_choice", "chosen": "false", "letter": None}]
+        assert (
+            await call(email(0), "PUT", letter_url(session_id), json={"on": True})
+        ).status_code == 200
+        view, found = await both()
+    assert view["setting"] == setting and view["value"] is not None
+    chosen = "true" if view["chosen"] else "false"
+    assert found == [{"setting": setting, "chosen": chosen, "letter": view["value"]}]
+    # The other Student, who handed nothing in, has no letter row.
+    other = await call(email(1), "GET", "/api/me/data")
+    assert mine_letter(other.json()) == []

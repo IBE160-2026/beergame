@@ -19,7 +19,7 @@ session's row with `set_budget(BudgetScope.class_session(id))`, whose limit defa
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Literal
 
@@ -30,7 +30,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai import config
 from app.ai.db import transaction
-from app.ai.models import budgets
+from app.ai.models import budgets, spend_alerts
 from app.platform.config import get_settings
 
 ScopeKind = Literal["evaluation", "class_session"]
@@ -186,6 +186,98 @@ async def state(scope: BudgetScope, *, session: AsyncSession | None = None) -> B
 
 
 @dataclass(frozen=True)
+class LimitChange:
+    """What `set_limit` did: the row after it and the limit before (None: the row was made)."""
+
+    budget: Budget
+    previous_limit: Decimal | None
+    previous: Budget | None = None
+    """The row as it stood under the lock, before the change (None: the row was made)."""
+
+    @property
+    def changed(self) -> bool:
+        return self.previous_limit != self.budget.limit
+
+
+async def set_limit(
+    scope: BudgetScope, limit: Decimal, *, session: AsyncSession | None = None
+) -> LimitChange:
+    """Set the scope's cost limit on its one row, under the row's lock, keeping the reserve, the
+    spend and `players_exhausted_at` (Story 15.6, FR-69); a missing row is made with the default
+    reserve. Raises `BudgetRefused`: `amount_invalid`, `reserve_above_limit` (below the reserve)
+    or `limit_below_spent` (below what is spent and held)."""
+    limit = _amount("limit", limit)
+    async with transaction(session) as s:
+        row = (
+            await s.execute(select(budgets).where(_where(scope)).with_for_update())
+        ).one_or_none()
+        if row is None:
+            made = await set_budget(scope, limit=limit, session=s)
+            return LimitChange(made, None)
+        if limit == row.limit_usd:
+            return LimitChange(_row(row), row.limit_usd, _row(row))
+        if limit < row.reserve_usd:
+            raise BudgetRefused(
+                "reserve_above_limit", f"the reserve {row.reserve_usd} is larger than {limit}"
+            )
+        if limit < row.spent_usd + row.reserved_usd:
+            raise BudgetRefused(
+                "limit_below_spent", f"{row.spent_usd + row.reserved_usd} is spent or held"
+            )
+        updated = (
+            await s.execute(
+                update(budgets)
+                .where(_where(scope))
+                .values(limit_usd=limit, updated_at=func.now())
+                .returning(*budgets.c)
+            )
+        ).one()
+    return LimitChange(_row(updated), row.limit_usd, _row(row))
+
+
+async def class_session_states(
+    ids: list[uuid.UUID] | None = None, *, session: AsyncSession | None = None
+) -> dict[uuid.UUID, Budget]:
+    """The budget rows of these Class sessions (every Class session's when None), by id (Story
+    15.6's cost view and the sweep's cost-limit notice)."""
+    query = select(budgets).where(budgets.c.scope_kind == "class_session")
+    if ids is not None:
+        if not ids:
+            return {}
+        query = query.where(budgets.c.scope_id.in_(ids))
+    async with transaction(session) as s:
+        rows = (await s.execute(query)).all()
+    return {row.scope_id: _row(row) for row in rows}
+
+
+async def exhausted_class_sessions(*, session: AsyncSession | None = None) -> list[uuid.UUID]:
+    """The Class sessions whose players' limit was reached (`players_exhausted_at` set), by id."""
+    async with transaction(session) as s:
+        rows = await s.execute(
+            select(budgets.c.scope_id)
+            .where(
+                budgets.c.scope_kind == "class_session",
+                budgets.c.players_exhausted_at.is_not(None),
+            )
+            .order_by(budgets.c.scope_id)
+        )
+    return list(rows.scalars())
+
+
+async def evaluation_states(*, session: AsyncSession | None = None) -> list[Budget]:
+    """Every evaluation budget (simulation runs, AD-22), by model config id."""
+    async with transaction(session) as s:
+        rows = (
+            await s.execute(
+                select(budgets)
+                .where(budgets.c.scope_kind == "evaluation")
+                .order_by(budgets.c.scope_id)
+            )
+        ).all()
+    return [_row(row) for row in rows]
+
+
+@dataclass(frozen=True)
 class Reservation:
     """An amount held on a scope's row until `settle` or `release`."""
 
@@ -256,6 +348,53 @@ async def settle(
             updated_at=func.now(),
         )
     )
+
+
+@dataclass(frozen=True)
+class DailyAlert:
+    """The day the AI spend passed `AI_DAILY_ALERT_USD` (Story 15.7, FR-69): the amount and the
+    spend when the sweep found it, and when (the sweep's clock)."""
+
+    id: uuid.UUID
+    day: date
+    alert_usd: Decimal
+    spent_usd: Decimal
+    alerted_at: datetime
+
+
+def _alert(row: Any) -> DailyAlert:
+    return DailyAlert(row.id, row.day, row.alert_usd, row.spent_usd, row.alerted_at)
+
+
+async def record_daily_alert(
+    day: date, alert_usd: Decimal, spent_usd: Decimal, now: datetime, *, session: AsyncSession
+) -> DailyAlert:
+    """Record that `day`'s spend passed `alert_usd`, in the caller's transaction; the first record
+    of a day stands, so a repeat returns it unchanged."""
+    if spent_usd <= alert_usd:
+        raise ValueError("a daily alert records a spend above its amount")
+    await session.execute(
+        insert(spend_alerts)
+        .values(id=uuid.uuid7(), day=day, alert_usd=alert_usd, spent_usd=spent_usd, alerted_at=now)
+        .on_conflict_do_nothing(constraint="uq_ai_spend_alerts_day")
+    )
+    row = (await session.execute(select(spend_alerts).where(spend_alerts.c.day == day))).one()
+    return _alert(row)
+
+
+async def daily_alert(
+    *,
+    day: date | None = None,
+    alert_id: uuid.UUID | None = None,
+    session: AsyncSession | None = None,
+) -> DailyAlert | None:
+    """The alert recorded for `day`, or the one with `alert_id`; None when there is none."""
+    if (day is None) == (alert_id is None):
+        raise ValueError("name the alert by its day or by its id")
+    where = spend_alerts.c.day == day if day is not None else spend_alerts.c.id == alert_id
+    async with transaction(session) as s:
+        row = (await s.execute(select(spend_alerts).where(where))).one_or_none()
+    return None if row is None else _alert(row)
 
 
 async def release(reservation: Reservation) -> None:

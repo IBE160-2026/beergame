@@ -133,6 +133,16 @@ RECLAIM_TABLES = {"seat_reclaims"}
 """The table of revision 0055 (Story 8.4)."""
 ADJUSTMENT_TABLES = {"student_adjustments"}
 """The table of revision 0059 (Story 8.9)."""
+EVALUATION_TABLES = {"evaluation_agreements", "pseudonym_key_fingerprints"}
+"""The tables of revision 0066 (Story 15.4)."""
+FREEZE_TABLES = {"ai_model_freezes"}
+"""The table of revision 0067 (Story 15.5)."""
+SPEND_ALERT_TABLES = {"ai_spend_alerts"}
+"""The table of revision 0068 (Story 15.7)."""
+ERROR_EVENT_TABLES = {"error_events"}
+"""The table of revision 0069 (Story 15.8)."""
+CONNECTION_REPORT_TABLES = {"db_connection_reports"}
+"""The table of revision 0070 (Story 15.9)."""
 FLAG_TABLES = {"ai_feedback_flags"}
 """The table of revision 0205 (Story 12.5)."""
 CONSENT_TABLES = {"test_student_consents"}
@@ -182,14 +192,20 @@ HEAD_TABLES = (
     | CONSENT_TABLES
     | SCORING_TABLES
     | CHECK_TABLES
+    | EVALUATION_TABLES
+    | FREEZE_TABLES
+    | SPEND_ALERT_TABLES
+    | ERROR_EVENT_TABLES
+    | CONNECTION_REPORT_TABLES
 )
+# 0065-0071 (Epic 15) follow 0308 since the merge of main's Epic 13;
 # 0301-0305 follow 0209: corrections (13.3), Oppfølgingsspill (13.4), Message kind (13.6),
 # Student report (13.7), deletion date (13.9); 0306 the report variants (13.11), 0307 the
 # staff's (13.12), 0308 the ZIP of all Student reports (13.13);
 # 0209 (12.10), 0208 (12.9), 0207 (12.8), 0206 (12.6), 0205 (12.5), 0204 (12.4), 0203 (12.3)
 # and 0202 (12.2) follow 0201 (12.7);
 # 0120-0130 follow 0064
-HEAD = "0308"
+HEAD = "0073"  # 0073 the deletion date of a Class session without a Test deadline (Epic 15)
 
 
 def reset_schema(url: str) -> None:
@@ -324,6 +340,123 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     assert "'class_session'" in sent["ck_messages_recipient_kind"]
     # 0303 (Story 13.6): and the Students who have not met the requirement.
     assert "'requirement_not_met'" in sent["ck_messages_recipient_kind"]
+
+    # 0072 (Story 15.3): the Institution's retention period (1-120 months or NULL) and when
+    # retention deleted a Class session's Student data, and back.
+    assert (
+        "retention_months <= 120"
+        in (constraints(url, "institutions")["ck_institutions_retention_months"])
+    )
+    assert "data_deleted_at" in columns(url, "class_sessions")
+    command.downgrade(cfg, "0071")
+    assert "retention_months" not in columns(url, "institutions")
+    assert "data_deleted_at" not in columns(url, "class_sessions")
+
+    # 0071 (Story 15.12): an Institution's data processing agreement, all set or none, and back.
+    assert (
+        "dpa_signed_on IS NOT NULL"
+        in constraints(url, "institutions")["ck_institutions_processing_agreement"]
+    )
+    command.downgrade(cfg, "0070")
+    assert "dpa_signed_by" not in columns(url, "institutions")
+    command.upgrade(cfg, "0071")
+    assert {"dpa_signed_by", "dpa_signed_on", "dpa_recorded_at"} <= set(
+        columns(url, "institutions")
+    )
+    command.downgrade(cfg, "0070")
+
+    # 0070 (Story 15.9): the connections each process reports at start, and back.
+    reports = constraints(url, "db_connection_reports")
+    assert "'worker-batch'" in reports["ck_db_connection_reports_process"]
+    assert "listen >= 0" in reports["ck_db_connection_reports_counts"]
+    command.downgrade(cfg, "0069")
+    assert tables(url) == HEAD_TABLES - CONNECTION_REPORT_TABLES
+    command.upgrade(cfg, "0070")
+    assert tables(url) == HEAD_TABLES
+    command.downgrade(cfg, "0069")
+
+    # 0069 (Story 15.8): the per-session error counts, of three sources, and back.
+    events = constraints(url, "error_events")
+    assert "'conservation_check'" in events["ck_error_events_source"]
+    assert "'api_error'" in events["ck_error_events_source"]
+    assert rows(url, "SELECT 1 FROM pg_indexes WHERE indexname = 'ix_error_events_session_time'")
+    command.downgrade(cfg, "0068")
+    assert tables(url) == HEAD_TABLES - CONNECTION_REPORT_TABLES - ERROR_EVENT_TABLES
+    command.upgrade(cfg, "0069")
+    assert tables(url) == HEAD_TABLES - CONNECTION_REPORT_TABLES
+    command.downgrade(cfg, "0068")
+
+    # 0068 (Story 15.7): the daily AI spend alerts, one per day, and back.
+    alerts = constraints(url, "ai_spend_alerts")
+    assert "UNIQUE (day)" in alerts["uq_ai_spend_alerts_day"]
+    assert "spent_usd > alert_usd" in alerts["ck_ai_spend_alerts_money"]
+    assert rows(url, "SELECT 1 FROM pg_indexes WHERE indexname = 'ix_llm_call_started_at'")
+    command.downgrade(cfg, "0067")
+    assert (
+        tables(url)
+        == HEAD_TABLES - SPEND_ALERT_TABLES - ERROR_EVENT_TABLES - CONNECTION_REPORT_TABLES
+    )
+    command.upgrade(cfg, "0068")
+    assert tables(url) == HEAD_TABLES - ERROR_EVENT_TABLES - CONNECTION_REPORT_TABLES
+    command.downgrade(cfg, "0067")
+
+    # 0067 (Story 15.5): the study freeze, at most one in force, and back.
+    [(index,)] = rows(
+        url, "SELECT indexdef FROM pg_indexes WHERE indexname = 'uq_ai_model_freezes_active'"
+    )
+    assert "UNIQUE" in index and "lifted_at IS NULL" in index
+    command.downgrade(cfg, "0066")
+    assert (
+        tables(url)
+        == HEAD_TABLES
+        - FREEZE_TABLES
+        - SPEND_ALERT_TABLES
+        - ERROR_EVENT_TABLES
+        - CONNECTION_REPORT_TABLES
+    )
+    command.upgrade(cfg, "0067")
+    assert (
+        tables(url)
+        == HEAD_TABLES - SPEND_ALERT_TABLES - ERROR_EVENT_TABLES - CONNECTION_REPORT_TABLES
+    )
+    command.downgrade(cfg, "0066")
+
+    # 0066 (Story 15.4): the evaluation agreements and the key fingerprint, and back.
+    command.downgrade(cfg, "0065")
+    assert (
+        tables(url)
+        == HEAD_TABLES
+        - EVALUATION_TABLES
+        - FREEZE_TABLES
+        - SPEND_ALERT_TABLES
+        - ERROR_EVENT_TABLES
+        - CONNECTION_REPORT_TABLES
+    )
+    command.upgrade(cfg, "0066")
+    assert (
+        tables(url)
+        == HEAD_TABLES
+        - FREEZE_TABLES
+        - SPEND_ALERT_TABLES
+        - ERROR_EVENT_TABLES
+        - CONNECTION_REPORT_TABLES
+    )
+    command.downgrade(cfg, "0065")
+
+    # 0065 (Story 15.2): when a User was erased; a Debrief summary takes the one update that
+    # empties its reflection, and its downgrade makes the summary immutable again.
+    assert "deleted_at" in columns(url, "users")
+    [(summary,)] = rows(
+        url, "SELECT prosrc FROM pg_proc WHERE proname = 'debrief_summaries_immutable'"
+    )
+    assert "reflection" in summary
+    # Epic 15's revisions follow Epic 13's (0065's down_revision is 0308 since the merge of main).
+    command.downgrade(cfg, "0308")
+    assert "deleted_at" not in columns(url, "users")
+    [(summary,)] = rows(
+        url, "SELECT prosrc FROM pg_proc WHERE proname = 'debrief_summaries_immutable'"
+    )
+    assert "reflection" not in summary
 
     # 0101 (Story 9.1): version 1 of the Detected patterns; a facts set is never changed.
     [(patterns,)] = rows(url, "SELECT body FROM content_records WHERE kind = 'detected_patterns'")
@@ -1073,6 +1206,53 @@ def test_0305_backfills_the_deletion_date_by_the_rule_of_platform_retention(migr
     assert found["00000000-0000-0000-0000-000000000302"].isoformat() == "2027-02-28"
     command.downgrade(cfg, "0304")
     assert "deletion_date" not in columns(migrations_database, "class_sessions")
+    command.upgrade(cfg, "head")
+    assert current_version(migrations_database) == HEAD
+
+
+def test_0073_dates_a_session_without_a_test_deadline_from_its_latest_other_date(
+    migrations_database,
+):
+    """0073 (Epic 15 close-out): a Class session with no Test deadline gets the deletion date of
+    `platform.retention.deletion_base`, its latest other date plus its Institution's period; one
+    with no date at all keeps none."""
+    from datetime import UTC, datetime
+
+    from app.platform.retention import deletion_base, deletion_date
+
+    reset_schema(migrations_database)
+    cfg = config(migrations_database)
+    command.upgrade(cfg, "0072")
+    debrief = datetime(2026, 8, 31, 22, 30, tzinfo=UTC)
+    with psycopg.connect(libpq_dsn(migrations_database), autocommit=True) as conn:
+        conn.execute(
+            "INSERT INTO institutions (id, name, created_at, updated_at, retention_months) VALUES "
+            "('00000000-0000-0000-0000-000000000009', 'I', now(), now(), 3)"
+        )
+        conn.execute(
+            "INSERT INTO classes (id, name, institution_id, created_at) VALUES "
+            "('00000000-0000-0000-0000-000000000002', 'K', "
+            "'00000000-0000-0000-0000-000000000009', now())"
+        )
+        for session, start, end in (
+            ("00000000-0000-0000-0000-000000000311", debrief.replace(day=1), debrief),
+            ("00000000-0000-0000-0000-000000000312", None, None),
+        ):
+            conn.execute(
+                "INSERT INTO class_sessions (id, class_id, game_settings, ai_mode, debrief_mode, "
+                "inactivity_limit_hours, obligatory, required_share_percent, created_at, "
+                "start_at, debrief_deadline) VALUES (%s, '00000000-0000-0000-0000-000000000002', "
+                "'{}', 'rule_based', 'group', 24, false, 80, now(), %s, %s)",
+                (session, start, end),
+            )
+    command.upgrade(cfg, "0073")
+    found = dict(rows(migrations_database, "SELECT id::text, deletion_date FROM class_sessions"))
+    expected = deletion_date(deletion_base(None, [debrief, debrief.replace(day=1)]), 3)
+    assert found == {
+        "00000000-0000-0000-0000-000000000311": expected,
+        "00000000-0000-0000-0000-000000000312": None,
+    }
+    assert expected.isoformat() == "2026-12-01"
     command.upgrade(cfg, "head")
     assert current_version(migrations_database) == HEAD
 

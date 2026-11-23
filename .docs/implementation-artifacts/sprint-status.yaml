@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-17-2026 12:28
-last_updated: 11-22-2026 12:13
+last_updated: 11-23-2026 17:36
 project: beergame
 project_key: NOKEY
 tracking_system: file-system
@@ -157,7 +157,7 @@ development_status:
   7-11-act-on-the-longest-waiting-game-from-the-varselbånd: done
   epic-7-retrospective: optional
 
-  epic-8: in-progress
+  epic-8: done
   8-1-record-when-each-week-opened-and-when-each-seat-ordered: done
   8-2-an-ai-player-takes-over-after-the-inactivity-limit: done
   8-3-see-on-the-oversikt-which-class-game-is-closest-to-takeover: done
@@ -204,77 +204,77 @@ development_status:
   10-9-let-information-visibility-differ-in-the-replay-cut-list-beh: done
   epic-10-retrospective: optional
 
-  epic-11: in-progress
-  11-1-review-the-question-set-and-item-weights: in-progress
-  11-2-edit-the-scoring-guide-for-a-class-session: backlog
-  11-3-open-the-individual-test-with-the-own-work-statement: backlog
-  11-4-answer-multiple-choice-items-with-autosave: backlog
-  11-5-answer-table-and-number-interactive-items: backlog
-  11-6-write-long-answers-with-autosave: backlog
-  11-7-get-adapted-items-from-my-own-game-and-replay: backlog
-  11-8-read-adapted-items-in-natural-wording: backlog
-  11-9-preview-the-adapted-item-templates-with-a-sample-student: backlog
-  11-10-review-and-submit-the-individual-test: backlog
-  11-11-have-saved-answers-submitted-automatically-at-the-test-deadl: backlog
-  11-12-require-one-timed-sitting: backlog
-  11-13-extend-one-student-s-test-deadline: backlog
-  11-14-answer-drawn-interactive-items-in-a-graph-after-the-rehearsa: backlog
+  epic-11: done
+  11-1-review-the-question-set-and-item-weights: done
+  11-2-edit-the-scoring-guide-for-a-class-session: done
+  11-3-open-the-individual-test-with-the-own-work-statement: done
+  11-4-answer-multiple-choice-items-with-autosave: done
+  11-5-answer-table-and-number-interactive-items: done
+  11-6-write-long-answers-with-autosave: done
+  11-7-get-adapted-items-from-my-own-game-and-replay: done
+  11-8-read-adapted-items-in-natural-wording: done
+  11-9-preview-the-adapted-item-templates-with-a-sample-student: done
+  11-10-review-and-submit-the-individual-test: done
+  11-11-have-saved-answers-submitted-automatically-at-the-test-deadl: done
+  11-12-require-one-timed-sitting: done
+  11-13-extend-one-student-s-test-deadline: done
+  11-14-answer-drawn-interactive-items-in-a-graph-after-the-rehearsa: done
   epic-11-retrospective: optional
 
-  epic-12: in-progress
+  epic-12: done
   12-1-switch-the-ai-assessment-off-for-a-class-session: done
-  12-2-get-an-ai-assessment-with-scores-and-a-weighted-total: backlog
-  12-3-read-written-feedback-that-quotes-my-answer-and-matches-my-g: backlog
-  12-4-be-told-when-the-ai-assessment-is-ready: backlog
-  12-5-flag-feedback-and-read-assessments-as-staff: backlog
-  12-6-show-the-indicative-letter-where-it-is-allowed: backlog
-  12-7-set-up-a-control-test-in-the-operator-s-own-institution: backlog
-  12-8-invite-test-students-who-consent-before-they-take-part: backlog
-  12-9-score-control-test-answers-blind: backlog
-  12-10-compare-human-and-ai-scores-and-mark-the-scoring-guide-as-ch: backlog
+  12-2-get-an-ai-assessment-with-scores-and-a-weighted-total: done
+  12-3-read-written-feedback-that-quotes-my-answer-and-matches-my-g: done
+  12-4-be-told-when-the-ai-assessment-is-ready: done
+  12-5-flag-feedback-and-read-assessments-as-staff: done
+  12-6-show-the-indicative-letter-where-it-is-allowed: done
+  12-7-set-up-a-control-test-in-the-operator-s-own-institution: done
+  12-8-invite-test-students-who-consent-before-they-take-part: done
+  12-9-score-control-test-answers-blind: done
+  12-10-compare-human-and-ai-scores-and-mark-the-scoring-guide-as-ch: done
   epic-12-retrospective: optional
 
-  epic-13: backlog
-  13-1-completion-is-computed-in-one-place-and-shown-on-the-student: backlog
-  13-2-studentside-with-the-fullføring-block: backlog
-  13-3-correct-a-student-s-completion-status-with-a-reason: backlog
-  13-4-give-a-student-an-oppfølgingsspill: backlog
-  13-5-continue-to-the-debrief-the-replay-and-the-test-from-a-finis: backlog
-  13-6-message-the-students-who-have-not-met-the-requirement: backlog
-  13-7-a-student-downloads-the-student-report-as-a-tagged-pdf: backlog
-  13-8-the-student-report-shows-the-game-with-its-charts: backlog
-  13-9-a-student-is-told-when-their-data-will-be-deleted: backlog
-  13-10-the-student-report-documents-the-debrief-the-replay-and-the: backlog
-  13-11-the-person-downloading-can-add-the-ai-assessment-section: backlog
-  13-12-staff-download-one-student-s-report-at-any-time: backlog
-  13-13-download-all-student-reports-as-one-zip: backlog
-  13-14-export-the-completion-status: backlog
+  epic-13: done
+  13-1-completion-is-computed-in-one-place-and-shown-on-the-student: done
+  13-2-studentside-with-the-fullføring-block: done
+  13-3-correct-a-student-s-completion-status-with-a-reason: done
+  13-4-give-a-student-an-oppfølgingsspill: done
+  13-5-continue-to-the-debrief-the-replay-and-the-test-from-a-finis: done
+  13-6-message-the-students-who-have-not-met-the-requirement: done
+  13-7-a-student-downloads-the-student-report-as-a-tagged-pdf: done
+  13-8-the-student-report-shows-the-game-with-its-charts: done
+  13-9-a-student-is-told-when-their-data-will-be-deleted: done
+  13-10-the-student-report-documents-the-debrief-the-replay-and-the: done
+  13-11-the-person-downloading-can-add-the-ai-assessment-section: done
+  13-12-staff-download-one-student-s-report-at-any-time: done
+  13-13-download-all-student-reports-as-one-zip: done
+  13-14-export-the-completion-status: done
   epic-13-retrospective: optional
 
-  epic-14: backlog
-  14-1-class-report-of-the-games: backlog
-  14-2-class-report-of-learning-results: backlog
-  14-3-compare-class-sessions-in-tverrklasse-statistikk: backlog
+  epic-14: in-progress
+  14-1-class-report-of-the-games: done
+  14-2-class-report-of-learning-results: done
+  14-3-compare-class-sessions-in-tverrklasse-statistikk: in-progress
   14-4-filter-comparisons-and-label-class-sessions-that-differ: backlog
-  14-5-students-see-all-class-games-side-by-side: backlog
-  14-6-the-lecturer-shows-all-class-games-in-a-plenary: backlog
+  14-5-students-see-all-class-games-side-by-side: done
+  14-6-the-lecturer-shows-all-class-games-in-a-plenary: done
   14-7-the-admin-compares-across-institutions-cut-list: backlog
-  14-8-export-a-class-session-s-game-data-cut-list: backlog
+  14-8-export-a-class-session-s-game-data-cut-list: done
   epic-14-retrospective: optional
 
-  epic-15: backlog
-  15-1-a-student-sees-their-own-data-in-mine-data: backlog
-  15-2-the-admin-deletes-a-user-on-the-institution-s-instruction: backlog
-  15-3-student-data-is-deleted-automatically-when-retention-ends: backlog
-  15-4-the-admin-exports-pseudonymised-data-for-evaluation: backlog
-  15-5-the-admin-pins-and-freezes-a-model-for-class-sessions: backlog
-  15-6-the-admin-sees-ai-cost-and-sets-the-cost-limit: backlog
-  15-7-the-admin-is-alerted-when-daily-ai-spend-is-high: backlog
-  15-8-the-admin-sees-errors-fallback-and-response-times-per-class: backlog
-  15-9-the-database-connection-budget-is-written-and-checked: backlog
+  epic-15: in-progress
+  15-1-a-student-sees-their-own-data-in-mine-data: done
+  15-2-the-admin-deletes-a-user-on-the-institution-s-instruction: done
+  15-3-student-data-is-deleted-automatically-when-retention-ends: done
+  15-4-the-admin-exports-pseudonymised-data-for-evaluation: done
+  15-5-the-admin-pins-and-freezes-a-model-for-class-sessions: done
+  15-6-the-admin-sees-ai-cost-and-sets-the-cost-limit: done
+  15-7-the-admin-is-alerted-when-daily-ai-spend-is-high: done
+  15-8-the-admin-sees-errors-fallback-and-response-times-per-class: done
+  15-9-the-database-connection-budget-is-written-and-checked: done
   15-10-a-load-test-shows-250-students-playing-at-once: backlog
-  15-11-errors-reach-an-error-tracker-without-personal-data-and-back: backlog
-  15-12-hold-student-invitations-until-the-institution-s-data-proces: backlog
-  15-13-publish-the-accessibility-statement-and-the-conformance-repo: backlog
+  15-11-errors-reach-an-error-tracker-without-personal-data-and-back: done
+  15-12-hold-student-invitations-until-the-institution-s-data-proces: review
+  15-13-publish-the-accessibility-statement-and-the-conformance-repo: done
   15-14-the-pre-pilot-checks-pass-before-the-first-class-session: backlog
   epic-15-retrospective: optional

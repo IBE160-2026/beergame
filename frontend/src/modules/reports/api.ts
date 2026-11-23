@@ -263,3 +263,19 @@ export type CompletionExportFormat = "csv" | "xlsx";
 export function completionExportPath(sessionId: string, format: CompletionExportFormat): string {
   return `/api/class-sessions/${encodeURIComponent(sessionId)}/completion-export?format=${format}`;
 }
+
+/** «Mine data» (Story 15.1, FR-75): everything stored about the caller, by category. Under the
+ * User's own `user:<id>` event (`topics.ts`). */
+export type MyData = components["schemas"]["MyDataOut"];
+export type MyDataCategory = components["schemas"]["MyDataCategoryOut"];
+export type MyDataItem = components["schemas"]["MyDataItemOut"];
+export type MyDataField = components["schemas"]["MyDataFieldOut"];
+export const myDataKey = ["me", "data"] as const;
+
+export function useMyData() {
+  return useQuery({
+    queryKey: myDataKey,
+    queryFn: () => request(() => api.GET("/api/me/data", { cache: "no-store" })),
+    retry: false,
+  });
+}

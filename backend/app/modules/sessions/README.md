@@ -345,8 +345,10 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
 - `class_sessions.deletion_date` (migration 0305): the Oslo calendar day the Class session's
   Student data is deleted, `platform.retention.deletion_date` over the latest effective Test
   deadline (the Class session's or the latest `student_deadline_extensions.test_deadline`) plus
-  `RETENTION_MONTHS` (placeholder 6); NULL without a Test deadline. `service._store_deletion_date`
-  is the only writer, called under the row lock by the Class session save when the Test deadline
+  the Institution's period or `RETENTION_MONTHS` (placeholder 6); without a Test deadline the
+  latest other date counts (`retention.deletion_base`, migration 0073), NULL with no date at all.
+  Once the date has come (or retention ran) it never moves. `service._store_deletion_date`
+  is the only writer, called under the row lock by the Class session save when a date
   changed, by `save_extension` (the row is locked for update, so `tests.extend_deadline` takes it
   with `test_session(lock=True)`) and by the dev route that moves the dates. Hjem reads it as
   `EnrolledSessionOut.deletion_date`. Epic 15 deletes on it (`ops.retention`) by the same rule.

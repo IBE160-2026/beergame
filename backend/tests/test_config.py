@@ -50,7 +50,14 @@ REQUIRED = [
 
 @pytest.fixture
 def clean_env(monkeypatch):
-    for name in ["DB_POOL_SIZE", "LOG_LEVEL", "TRUSTED_PROXY_CIDRS", *PRODUCTION_ENV, *FLAGS]:
+    for name in [
+        "DB_POOL_SIZE",
+        "DB_POOLER_SIZE",
+        "LOG_LEVEL",
+        "TRUSTED_PROXY_CIDRS",
+        *PRODUCTION_ENV,
+        *FLAGS,
+    ]:
         monkeypatch.delenv(name, raising=False)
     for name in Settings.model_fields:
         if "_rate_limit_" in name:
@@ -125,6 +132,10 @@ def test_production_refuses_without_each_required_variable(clean_env, name):
         ("DATABASE_URL", "postgresql://u:p@db.example:5432/prod"),
         ("DATABASE_URL", "postgresql://u:p@db.example:5432/prod?sslmode=prefer"),
         ("DATABASE_URL", "postgresql://u:p@db.example:5432/prod?sslmode=disable"),
+        # Story 15.9: the transaction pooler breaks LISTEN/NOTIFY and procrastinate.
+        ("DATABASE_URL", "postgresql://u:p@pooler.example:6543/prod?sslmode=require"),
+        ("DATABASE_URL", "postgresql://u:p@pooler.example:65x3/prod?sslmode=require"),
+        ("DATABASE_URL", "postgresql://u:p@pooler.example/prod?sslmode=require&port=6543"),
         ("PASSWORD_RESET_RATE_LIMIT_PER_IP", "10000"),
         ("LOGIN_RATE_LIMIT_PER_ACCOUNT", "51"),
         ("ACCESS_REQUEST_RATE_LIMIT_PER_IP", "10000"),
@@ -214,3 +225,34 @@ def test_invalid_values_refuse_with_the_variable_name(clean_env, name, value):
 def test_plain_postgresql_url_uses_psycopg(clean_env):
     clean_env.setenv("DATABASE_URL", "postgresql://u:p@db.example:5432/prod")
     assert load_settings().database_url == "postgresql+psycopg://u:p@db.example:5432/prod"
+
+
+def test_production_names_the_transaction_pooler_port_and_only_in_production(clean_env):
+    """Story 15.9: a `DATABASE_URL` on port 6543 is refused in production with the reason; the
+    session pooler (5432) starts; outside production the port is not judged."""
+    url = "postgresql://u:p@aws-0-eu-central-1.pooler.supabase.com:6543/postgres?sslmode=require"
+    production_env(clean_env)
+    clean_env.setenv("DATABASE_URL", url)
+    with pytest.raises(ConfigError, match=r"transaction pooler \(port 6543\)"):
+        load_settings()
+    clean_env.setenv("DATABASE_URL", url.replace(":6543/", ":65x3/"))
+    with pytest.raises(ConfigError) as refused:  # unreadable: refused, but not blamed on 6543
+        load_settings()
+    assert "transaction pooler" not in str(refused.value)
+    clean_env.setenv("DATABASE_URL", url.replace(":6543/", ":5432/"))
+    assert load_settings().app_env == "production"
+    clean_env.setenv("APP_ENV", "local")
+    clean_env.setenv("DATABASE_URL", url)
+    assert load_settings().app_env == "local"
+
+
+@pytest.mark.parametrize("value,expected", [("", None), ("  ", None), ("60", 60)])
+def test_db_pooler_size_is_unset_when_empty(clean_env, value, expected):
+    clean_env.setenv("DB_POOLER_SIZE", value)
+    assert load_settings().db_pooler_size == expected
+
+
+def test_db_pooler_size_below_one_refuses(clean_env):
+    clean_env.setenv("DB_POOLER_SIZE", "0")
+    with pytest.raises(ConfigError, match="DB_POOLER_SIZE"):
+        load_settings()

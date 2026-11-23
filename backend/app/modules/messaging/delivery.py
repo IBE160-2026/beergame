@@ -22,11 +22,15 @@ import uuid
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
+from decimal import ROUND_HALF_UP, Decimal
 from types import MappingProxyType
 from typing import Literal
 from zoneinfo import ZoneInfo
 
 from sqlalchemy.ext.asyncio import AsyncSession
+
+# The daily AI spend and its alert (Story 15.7), read through `app/ai` (AD-6).
+from app.ai import budget, calls
 
 # Imported for its registration: a Student Invitation's mail names its Class through the resolver
 # `classes.service` registers with `identity` at import (Story 4.4), also in the worker.
@@ -277,6 +281,63 @@ async def _message_context(
     return await messages.message_mail_context(session, user_id, ref, now)
 
 
+DAILY_SPEND_KIND = "ai_daily_spend"
+"""`ops.spend_alert.DAILY_SPEND_NOTICE` (Story 15.7), named here because no module imports `ops`
+(a test keeps the two equal)."""
+DAILY_SPEND_SESSIONS = 3
+"""The dearest Class sessions the daily spend alert names."""
+
+
+def usd_text(amount: Decimal) -> str:
+    """«1 234,50 USD»: two decimals rounded half up, a no-break space between thousands and a
+    decimal comma, as the web app's number formatter writes them."""
+    rounded = amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    whole, fraction = f"{rounded:,.2f}".split(".")
+    return whole.replace(",", " ") + "," + fraction + " USD"
+
+
+async def _daily_spend_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    """The day, its spend and alert amount and its dearest Class sessions by name, read through
+    `app/ai` and `sessions.service` when the mail is composed; None, so no mail goes, when the
+    alert is gone or the recipient is no longer an active Admin. No Student data."""
+    if ref is None or user_id not in await identity.active_admins(session):
+        return None
+    alert = await budget.daily_alert(alert_id=ref, session=session)
+    if alert is None:
+        return None
+    spent = await calls.day_spend(alert.day, top=DAILY_SPEND_SESSIONS, session=session)
+    ids = [line.class_session_id for line in spent.sessions]
+    names = {
+        found.id: f"{found.class_name} · Klasseøkt {found.number}"
+        for found in (await sessions.evaluation_sessions(session, ids) if ids else [])
+    }
+    return {
+        "day": alert.day,
+        "day_path": f"/admin/ki-kostnad?dag={alert.day.isoformat()}",
+        # The spend when the mail is composed; calls only add to it, so never below the record.
+        "spent": usd_text(max(spent.total_usd, alert.spent_usd)),
+        "alert": usd_text(alert.alert_usd),
+        "sessions": [
+            {"name": names[line.class_session_id], "spent": usd_text(line.usd)}
+            for line in spent.sessions
+            if line.class_session_id in names
+        ],
+    }
+
+
+COST_LIMIT_KIND = "ai_cost_limit"
+"""`ops.cost_limit.COST_LIMIT_NOTICE` (Story 15.6), named here because no module imports `ops`
+(a test keeps the two equal)."""
+
+
+async def _cost_limit_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    return await sessions.cost_limit_mail_context(session, user_id, ref, now)
+
+
 KINDS: Mapping[str, Delivery] = MappingProxyType(
     {
         **{
@@ -329,6 +390,11 @@ KINDS: Mapping[str, Delivery] = MappingProxyType(
         ),
         # Immediate: a Message a staff member sent (Story 7.9, AD-9).
         MESSAGE_KIND: Delivery(IMMEDIATE, MESSAGE_KIND, context=_message_context),
+        # Digest (Story 15.6, FR-69): a Class session's players' cost limit was reached.
+        COST_LIMIT_KIND: Delivery(DIGEST, COST_LIMIT_KIND, context=_cost_limit_context),
+        # Immediate (decided by Story 15.7, FR-69): today's AI spend passed `AI_DAILY_ALERT_USD`;
+        # a runaway cost is noticed the same day, also between 22:00 and 07:00.
+        DAILY_SPEND_KIND: Delivery(IMMEDIATE, DAILY_SPEND_KIND, context=_daily_spend_context),
         identity.PASSWORD_RESET: Delivery(
             IMMEDIATE, "password_reset", context=identity.password_reset_mail_context
         ),
@@ -352,8 +418,9 @@ quiz (Story 9.10, digest), the opened Group debrief (Story 9.11, immediate) and 
 fallback to a Personal debrief (Story 9.12, digest), a staff member's Message (Story 7.9,
 immediate), the Takeover notice (Story 8.2, immediate), the turn reminder (Story 8.13,
 digest), the Oppfølgingsspill given (Story 13.4, digest), the deletion reminder (Story
-13.9, digest), the ready and failed AI assessment notices (Story 12.4, digest) and the ready ZIP
-of all Student reports (Story 13.13, immediate)."""
+13.9, digest), the ready and failed AI assessment notices (Story 12.4, digest), the ready ZIP
+of all Student reports (Story 13.13, immediate), the daily AI spend alert to each Admin (Story
+15.7, immediate) and the cost-limit notice to the owners (Story 15.6, digest)."""
 
 TEST_KINDS: Mapping[str, Delivery] = MappingProxyType(
     {

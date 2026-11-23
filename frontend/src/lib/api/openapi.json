@@ -326,6 +326,35 @@
         "title": "AdjustmentOut",
         "type": "object"
       },
+      "AgreementIn": {
+        "description": "An Institution agreement for one Class session: who agreed, on which day, and who is\ncontroller for the evaluation (FR-71).",
+        "properties": {
+          "agreed_by": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Agreed By",
+            "type": "string"
+          },
+          "agreed_on": {
+            "format": "date",
+            "title": "Agreed On",
+            "type": "string"
+          },
+          "controller": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Controller",
+            "type": "string"
+          }
+        },
+        "required": [
+          "agreed_by",
+          "agreed_on",
+          "controller"
+        ],
+        "title": "AgreementIn",
+        "type": "object"
+      },
       "AgreementOut": {
         "description": "The FR-82 measures from `analysis.agreement`: shares 0 to 1, `offset` in steps (positive:\nthe AI scores higher), `compression` the AI's spread over the humans' (under 1: compressed;\nnull: the human steps do not vary).",
         "properties": {
@@ -1395,6 +1424,48 @@
         "title": "BouncedRegistration",
         "type": "string"
       },
+      "BudgetOut": {
+        "description": "A budget row as `ai.budget` holds it.",
+        "properties": {
+          "limit_usd": {
+            "title": "Limit Usd",
+            "type": "string"
+          },
+          "players_exhausted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Players Exhausted At"
+          },
+          "reserve_usd": {
+            "title": "Reserve Usd",
+            "type": "string"
+          },
+          "reserved_usd": {
+            "title": "Reserved Usd",
+            "type": "string"
+          },
+          "spent_usd": {
+            "title": "Spent Usd",
+            "type": "string"
+          }
+        },
+        "required": [
+          "limit_usd",
+          "reserve_usd",
+          "spent_usd",
+          "reserved_usd",
+          "players_exhausted_at"
+        ],
+        "title": "BudgetOut",
+        "type": "object"
+      },
       "ChainOut": {
         "description": "Step 3, the whole chain (Story 9.5, FR-44, UX-DR33, UX-DR34): all four Roles, Fabrikk\nfirst (upstream first, the order the Ordrestolper rows and the scrubber's reading take), each\nwith every logged Uke, oldest first. Every number is the api's (AD-10).",
         "properties": {
@@ -2043,6 +2114,18 @@
                 "type": "null"
               }
             ]
+          },
+          "cost_limit_reached_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Limit Reached At"
           },
           "created_at": {
             "format": "date-time",
@@ -2914,6 +2997,87 @@
         "title": "ComputedScoreOut",
         "type": "object"
       },
+      "ConnectionBudgetOut": {
+        "description": "The database connection budget against the running processes (Story 15.9, NFR-3,\nNFR-4).",
+        "properties": {
+          "budget_total": {
+            "title": "Budget Total",
+            "type": "integer"
+          },
+          "configured_total": {
+            "title": "Configured Total",
+            "type": "integer"
+          },
+          "overlap_total": {
+            "title": "Overlap Total",
+            "type": "integer"
+          },
+          "pooler": {
+            "$ref": "#/components/schemas/PoolerCheckOut"
+          },
+          "processes": {
+            "items": {
+              "$ref": "#/components/schemas/ProcessConnectionsOut"
+            },
+            "title": "Processes",
+            "type": "array"
+          },
+          "read_at": {
+            "format": "date-time",
+            "title": "Read At",
+            "type": "string"
+          },
+          "running": {
+            "enum": [
+              "within",
+              "over",
+              "incomplete"
+            ],
+            "title": "Running",
+            "type": "string"
+          }
+        },
+        "required": [
+          "read_at",
+          "processes",
+          "budget_total",
+          "overlap_total",
+          "configured_total",
+          "running",
+          "pooler"
+        ],
+        "title": "ConnectionBudgetOut",
+        "type": "object"
+      },
+      "ConnectionCountsOut": {
+        "description": "Database connections of one process: its SQLAlchemy pool, its procrastinate pool, its\nLISTEN connection, and their total.",
+        "properties": {
+          "listen": {
+            "title": "Listen",
+            "type": "integer"
+          },
+          "procrastinate_pool": {
+            "title": "Procrastinate Pool",
+            "type": "integer"
+          },
+          "sqlalchemy_pool": {
+            "title": "Sqlalchemy Pool",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sqlalchemy_pool",
+          "procrastinate_pool",
+          "listen",
+          "total"
+        ],
+        "title": "ConnectionCountsOut",
+        "type": "object"
+      },
       "ConsentIn": {
         "additionalProperties": false,
         "description": "A test student's decision on the consent text they read (Story 12.8).",
@@ -3531,6 +3695,40 @@
         "title": "CostLine",
         "type": "object"
       },
+      "CostListOut": {
+        "properties": {
+          "evaluations": {
+            "items": {
+              "$ref": "#/components/schemas/EvaluationCostOut"
+            },
+            "title": "Evaluations",
+            "type": "array"
+          },
+          "game_target_usd": {
+            "title": "Game Target Usd",
+            "type": "string"
+          },
+          "sessions": {
+            "items": {
+              "$ref": "#/components/schemas/SessionCostOut"
+            },
+            "title": "Sessions",
+            "type": "array"
+          },
+          "student_target_usd": {
+            "title": "Student Target Usd",
+            "type": "string"
+          }
+        },
+        "required": [
+          "game_target_usd",
+          "student_target_usd",
+          "sessions",
+          "evaluations"
+        ],
+        "title": "CostListOut",
+        "type": "object"
+      },
       "CostSum": {
         "additionalProperties": false,
         "description": "Holding and backlog cost and their sum, in kroner (Story 6.18).",
@@ -3554,6 +3752,85 @@
           "total_cost"
         ],
         "title": "CostSum",
+        "type": "object"
+      },
+      "DailySpendOut": {
+        "description": "The AI spend of one Europe/Oslo day and its alert (Story 15.7, FR-69): decimal strings as\nsummed by `ai.calls.day_spend`, unrounded.",
+        "properties": {
+          "alert_usd": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alert Usd"
+          },
+          "alerted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alerted At"
+          },
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "day": {
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "evaluation_usd": {
+            "title": "Evaluation Usd",
+            "type": "string"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          },
+          "session_count": {
+            "title": "Session Count",
+            "type": "integer"
+          },
+          "sessions": {
+            "items": {
+              "$ref": "#/components/schemas/DaySessionSpendOut"
+            },
+            "title": "Sessions",
+            "type": "array"
+          },
+          "today": {
+            "format": "date",
+            "title": "Today",
+            "type": "string"
+          },
+          "total_usd": {
+            "title": "Total Usd",
+            "type": "string"
+          }
+        },
+        "required": [
+          "day",
+          "today",
+          "total_usd",
+          "calls",
+          "evaluation_usd",
+          "alert_usd",
+          "passed",
+          "alerted_at",
+          "sessions",
+          "session_count"
+        ],
+        "title": "DailySpendOut",
         "type": "object"
       },
       "DatesIn": {
@@ -3616,6 +3893,72 @@
           "test_deadline"
         ],
         "title": "DatesIn",
+        "type": "object"
+      },
+      "DayCostOut": {
+        "properties": {
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "day": {
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "usd": {
+            "title": "Usd",
+            "type": "string"
+          }
+        },
+        "required": [
+          "day",
+          "usd",
+          "calls"
+        ],
+        "title": "DayCostOut",
+        "type": "object"
+      },
+      "DaySessionSpendOut": {
+        "description": "One Class session's AI spend on the day, named as the Admin names it (no Student data).",
+        "properties": {
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "class_session_id": {
+            "format": "uuid",
+            "title": "Class Session Id",
+            "type": "string"
+          },
+          "institution_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Institution Name"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "usd": {
+            "title": "Usd",
+            "type": "string"
+          }
+        },
+        "required": [
+          "class_session_id",
+          "label",
+          "institution_name",
+          "usd",
+          "calls"
+        ],
+        "title": "DaySessionSpendOut",
         "type": "object"
       },
       "DeadlineExtensionIn": {
@@ -4031,6 +4374,47 @@
         "title": "DemandWeekOut",
         "type": "object"
       },
+      "EffortLevelEntryOut": {
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "measurement": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MeasurementOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "offered": {
+            "title": "Offered",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "label",
+          "offered",
+          "measurement"
+        ],
+        "title": "EffortLevelEntryOut",
+        "type": "object"
+      },
       "EnrolledClassListOut": {
         "description": "The Classes the User is a Student in, by name. No paging: a Student has a handful.",
         "properties": {
@@ -4344,6 +4728,30 @@
         "title": "ErrorBody",
         "type": "object"
       },
+      "ErrorCountsOut": {
+        "description": "Counted errors per source.",
+        "properties": {
+          "api_error": {
+            "title": "Api Error",
+            "type": "integer"
+          },
+          "conservation_check": {
+            "title": "Conservation Check",
+            "type": "integer"
+          },
+          "job_failed": {
+            "title": "Job Failed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "conservation_check",
+          "job_failed",
+          "api_error"
+        ],
+        "title": "ErrorCountsOut",
+        "type": "object"
+      },
       "ErrorEnvelope": {
         "properties": {
           "error": {
@@ -4354,6 +4762,204 @@
           "error"
         ],
         "title": "ErrorEnvelope",
+        "type": "object"
+      },
+      "ErrorHourOut": {
+        "properties": {
+          "api_error": {
+            "title": "Api Error",
+            "type": "integer"
+          },
+          "conservation_check": {
+            "title": "Conservation Check",
+            "type": "integer"
+          },
+          "hour": {
+            "format": "date-time",
+            "title": "Hour",
+            "type": "string"
+          },
+          "job_failed": {
+            "title": "Job Failed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "conservation_check",
+          "job_failed",
+          "api_error",
+          "hour"
+        ],
+        "title": "ErrorHourOut",
+        "type": "object"
+      },
+      "EvaluationAgreementOut": {
+        "properties": {
+          "agreed_by": {
+            "title": "Agreed By",
+            "type": "string"
+          },
+          "agreed_on": {
+            "format": "date",
+            "title": "Agreed On",
+            "type": "string"
+          },
+          "controller": {
+            "title": "Controller",
+            "type": "string"
+          },
+          "recorded_at": {
+            "format": "date-time",
+            "title": "Recorded At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "agreed_by",
+          "agreed_on",
+          "controller",
+          "recorded_at"
+        ],
+        "title": "EvaluationAgreementOut",
+        "type": "object"
+      },
+      "EvaluationCostOut": {
+        "description": "A model config's evaluation budget (simulation runs, AD-22), apart from Class sessions.",
+        "properties": {
+          "budget": {
+            "$ref": "#/components/schemas/BudgetOut"
+          },
+          "model_config_id": {
+            "format": "uuid",
+            "title": "Model Config Id",
+            "type": "string"
+          },
+          "model_name": {
+            "title": "Model Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "model_config_id",
+          "model_name",
+          "budget"
+        ],
+        "title": "EvaluationCostOut",
+        "type": "object"
+      },
+      "EvaluationSessionListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/EvaluationSessionOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "EvaluationSessionListOut",
+        "type": "object"
+      },
+      "EvaluationSessionOut": {
+        "description": "A Class session as the export page lists it: how it is named, its Test deadline, the day\nits Student data is deleted (null while there is no Test deadline), and its agreement.",
+        "properties": {
+          "agreement": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EvaluationAgreementOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "course_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Code"
+          },
+          "deletion_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deletion Date"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "institution_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Institution Name"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "start_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start At"
+          },
+          "test_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test Deadline"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "class_name",
+          "course_code",
+          "institution_name",
+          "start_at",
+          "test_deadline",
+          "deletion_date",
+          "agreement"
+        ],
+        "title": "EvaluationSessionOut",
         "type": "object"
       },
       "ExplanationIn": {
@@ -4393,6 +4999,201 @@
           "saved_at"
         ],
         "title": "ExplanationOut",
+        "type": "object"
+      },
+      "ExportIn": {
+        "properties": {
+          "class_session_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Class Session Ids",
+            "type": "array"
+          },
+          "key": {
+            "format": "password",
+            "title": "Key",
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "class_session_ids",
+          "key"
+        ],
+        "title": "ExportIn",
+        "type": "object"
+      },
+      "ExportListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ExportOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ExportListOut",
+        "type": "object"
+      },
+      "ExportOut": {
+        "description": "One export run or refusal, from its audit row.",
+        "properties": {
+          "actor_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Id"
+          },
+          "actor_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Name"
+          },
+          "class_sessions": {
+            "items": {
+              "$ref": "#/components/schemas/ExportSessionOut"
+            },
+            "title": "Class Sessions",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "key_fingerprint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Fingerprint"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "outcome": {
+            "title": "Outcome",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "occurred_at",
+          "actor_id",
+          "actor_name",
+          "outcome",
+          "key_fingerprint",
+          "class_sessions"
+        ],
+        "title": "ExportOut",
+        "type": "object"
+      },
+      "ExportSessionOut": {
+        "description": "A Class session of an export, with the day by which the exported data must be deleted;\nthe name fields are null for a Class session that is gone.",
+        "properties": {
+          "class_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Class Name"
+          },
+          "deletion_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deletion Date"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "class_name",
+          "deletion_date"
+        ],
+        "title": "ExportSessionOut",
+        "type": "object"
+      },
+      "FallbackOut": {
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "orders": {
+            "title": "Orders",
+            "type": "integer"
+          },
+          "share": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Share"
+          }
+        },
+        "required": [
+          "kind",
+          "orders",
+          "share"
+        ],
+        "title": "FallbackOut",
         "type": "object"
       },
       "FeedbackOut": {
@@ -4588,6 +5389,195 @@
         "title": "FollowUpOut",
         "type": "object"
       },
+      "FreezeIn": {
+        "additionalProperties": false,
+        "properties": {
+          "class_session_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Class Session Ids",
+            "type": "array"
+          },
+          "model_config_id": {
+            "format": "uuid",
+            "title": "Model Config Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "model_config_id",
+          "class_session_ids"
+        ],
+        "title": "FreezeIn",
+        "type": "object"
+      },
+      "FreezeOut": {
+        "properties": {
+          "class_session_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Class Session Ids",
+            "type": "array"
+          },
+          "frozen_at": {
+            "format": "date-time",
+            "title": "Frozen At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "lifted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lifted At"
+          },
+          "model_config_id": {
+            "format": "uuid",
+            "title": "Model Config Id",
+            "type": "string"
+          },
+          "model_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Name"
+          },
+          "model_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Version"
+          }
+        },
+        "required": [
+          "id",
+          "model_config_id",
+          "model_name",
+          "model_version",
+          "class_session_ids",
+          "frozen_at",
+          "lifted_at"
+        ],
+        "title": "FreezeOut",
+        "type": "object"
+      },
+      "FreezeStateOut": {
+        "description": "The freeze in force, or null.",
+        "properties": {
+          "active": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FreezeOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "active"
+        ],
+        "title": "FreezeStateOut",
+        "type": "object"
+      },
+      "FrozenSettingOut": {
+        "description": "What the lock froze in `SessionRuntime` (AD-4), read-only.",
+        "properties": {
+          "effort_level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effort Level"
+          },
+          "endpoint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Endpoint"
+          },
+          "model_config_id": {
+            "format": "uuid",
+            "title": "Model Config Id",
+            "type": "string"
+          },
+          "model_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Name"
+          },
+          "model_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Version"
+          },
+          "prompt_versions": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Prompt Versions",
+            "type": "object"
+          }
+        },
+        "required": [
+          "model_config_id",
+          "model_name",
+          "model_version",
+          "endpoint",
+          "effort_level",
+          "prompt_versions"
+        ],
+        "title": "FrozenSettingOut",
+        "type": "object"
+      },
       "FunnelStageOut": {
         "description": "One stage of the Trakt (Story 7.6, FR-39): how many registered Students reached it.",
         "properties": {
@@ -4614,6 +5604,54 @@
           "count"
         ],
         "title": "FunnelStageOut",
+        "type": "object"
+      },
+      "GameCostOut": {
+        "properties": {
+          "above": {
+            "title": "Above",
+            "type": "boolean"
+          },
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "game_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Id"
+          },
+          "number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number"
+          },
+          "usd": {
+            "title": "Usd",
+            "type": "string"
+          }
+        },
+        "required": [
+          "game_id",
+          "number",
+          "usd",
+          "calls",
+          "above"
+        ],
+        "title": "GameCostOut",
         "type": "object"
       },
       "GameInsightOut": {
@@ -5974,6 +7012,32 @@
             "default": false,
             "title": "Operator Owned",
             "type": "boolean"
+          },
+          "processing_agreement": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProcessingAgreementOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "retention_default_months": {
+            "default": 6,
+            "title": "Retention Default Months",
+            "type": "integer"
+          },
+          "retention_months": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Months"
           }
         },
         "required": [
@@ -6356,6 +7420,56 @@
         "type": "object"
       },
       "JsonValue": {},
+      "KeyIn": {
+        "description": "The pseudonym key, typed by the key holder; never stored, logged or echoed.",
+        "properties": {
+          "key": {
+            "format": "password",
+            "title": "Key",
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "key"
+        ],
+        "title": "KeyIn",
+        "type": "object"
+      },
+      "KeyStateOut": {
+        "description": "The stored fingerprint of the pseudonym key, or nulls before the first export.",
+        "properties": {
+          "fingerprint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fingerprint"
+          },
+          "set_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Set At"
+          }
+        },
+        "required": [
+          "fingerprint",
+          "set_at"
+        ],
+        "title": "KeyStateOut",
+        "type": "object"
+      },
       "LabHourIn": {
         "additionalProperties": false,
         "description": "A Lab hour as the Lecturer adds or changes it (Story 5.6, FR-19): its start and end as\ninstants with their offset, and its place. The service judges the rules (`invalid_lab_hour`),\nso a blank or long place gets its reason rather than a schema error.",
@@ -6685,6 +7799,28 @@
         "title": "Lifecycle",
         "type": "string"
       },
+      "LimitIn": {
+        "additionalProperties": false,
+        "properties": {
+          "limit_usd": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Limit Usd"
+          }
+        },
+        "required": [
+          "limit_usd"
+        ],
+        "title": "LimitIn",
+        "type": "object"
+      },
       "LoginIn": {
         "properties": {
           "email": {
@@ -6746,6 +7882,86 @@
           "name"
         ],
         "title": "ManualRegistrationIn",
+        "type": "object"
+      },
+      "MeasurementOut": {
+        "description": "The newest measurement of an Effort level that counts here, as the approval of Story 2.12\nstored it: decimal strings, never recomputed. A mock measurement has no\nfigures.",
+        "properties": {
+          "approved_at": {
+            "format": "date-time",
+            "title": "Approved At",
+            "type": "string"
+          },
+          "cost_per_game_usd": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Per Game Usd"
+          },
+          "fallback_share": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fallback Share"
+          },
+          "games": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Games"
+          },
+          "mock": {
+            "title": "Mock",
+            "type": "boolean"
+          },
+          "switched_share": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Switched Share"
+          },
+          "time_per_order_p95_s": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Per Order P95 S"
+          }
+        },
+        "required": [
+          "mock",
+          "games",
+          "cost_per_game_usd",
+          "fallback_share",
+          "switched_share",
+          "time_per_order_p95_s",
+          "approved_at"
+        ],
+        "title": "MeasurementOut",
         "type": "object"
       },
       "MessageFormOut": {
@@ -6928,6 +8144,256 @@
           "sent_before"
         ],
         "title": "MessageSentOut",
+        "type": "object"
+      },
+      "ModelConfigListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ModelConfigOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ModelConfigListOut",
+        "type": "object"
+      },
+      "ModelConfigOut": {
+        "properties": {
+          "active_default": {
+            "title": "Active Default",
+            "type": "boolean"
+          },
+          "effort_levels": {
+            "items": {
+              "$ref": "#/components/schemas/EffortLevelEntryOut"
+            },
+            "title": "Effort Levels",
+            "type": "array"
+          },
+          "endpoint": {
+            "title": "Endpoint",
+            "type": "string"
+          },
+          "frozen": {
+            "title": "Frozen",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "may_answer": {
+            "title": "May Answer",
+            "type": "boolean"
+          },
+          "model_version": {
+            "title": "Model Version",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "pinnable": {
+            "title": "Pinnable",
+            "type": "boolean"
+          },
+          "prompts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Prompts",
+            "type": "object"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "quantisation": {
+            "title": "Quantisation",
+            "type": "string"
+          },
+          "referenced": {
+            "title": "Referenced",
+            "type": "boolean"
+          },
+          "region": {
+            "title": "Region",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "provider",
+          "endpoint",
+          "region",
+          "model_version",
+          "quantisation",
+          "prompts",
+          "referenced",
+          "may_answer",
+          "pinnable",
+          "active_default",
+          "frozen",
+          "effort_levels"
+        ],
+        "title": "ModelConfigOut",
+        "type": "object"
+      },
+      "ModelSessionListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ModelSessionOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ModelSessionListOut",
+        "type": "object"
+      },
+      "ModelSessionOut": {
+        "description": "A saved Class session with its model setting.",
+        "properties": {
+          "ai_mode": {
+            "title": "Ai Mode",
+            "type": "string"
+          },
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "effort_level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effort Level"
+          },
+          "frozen": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FrozenSettingOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "in_freeze": {
+            "title": "In Freeze",
+            "type": "boolean"
+          },
+          "institution_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Institution Name"
+          },
+          "locked": {
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "model_config_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Config Id"
+          },
+          "model_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Name"
+          },
+          "model_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Version"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "start_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start At"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "class_name",
+          "institution_name",
+          "start_at",
+          "locked",
+          "ai_mode",
+          "model_config_id",
+          "model_name",
+          "model_version",
+          "effort_level",
+          "in_freeze",
+          "frozen",
+          "warnings"
+        ],
+        "title": "ModelSessionOut",
         "type": "object"
       },
       "MomentOut": {
@@ -7122,6 +8588,159 @@
           "total_max"
         ],
         "title": "MyAssessmentOut",
+        "type": "object"
+      },
+      "MyDataCategoryOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MyDataItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "key": {
+            "enum": [
+              "account",
+              "orders",
+              "game",
+              "explanation",
+              "reflection",
+              "follow_ups",
+              "debrief",
+              "quiz",
+              "starting_task",
+              "test",
+              "assessment",
+              "letter",
+              "adjustments",
+              "messages",
+              "completion"
+            ],
+            "title": "Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "items"
+        ],
+        "title": "MyDataCategoryOut",
+        "type": "object"
+      },
+      "MyDataFieldOut": {
+        "description": "One stored value: `key` and, for `kind` `code`, the value are labelled by the page from\n`nb.ts`; `datetime` and `date` values are ISO 8601; `bool` is `true` or `false`.",
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "text",
+              "number",
+              "bool",
+              "datetime",
+              "date",
+              "code"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "key",
+          "kind",
+          "value"
+        ],
+        "title": "MyDataFieldOut",
+        "type": "object"
+      },
+      "MyDataItemOut": {
+        "description": "One stored row of the Student: what it is (`kind`), the Class and Klasseøkt it belongs to\n(null for the account), when it was stored, and its fields.",
+        "properties": {
+          "at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "At"
+          },
+          "class_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Class Name"
+          },
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/MyDataFieldOut"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "session_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Number"
+          }
+        },
+        "required": [
+          "kind",
+          "class_name",
+          "session_number",
+          "at",
+          "fields"
+        ],
+        "title": "MyDataItemOut",
+        "type": "object"
+      },
+      "MyDataOut": {
+        "description": "Everything the product stores about the caller, by «Mine data» category in page order.\n`adjustments` is left out when the Student has no Tilrettelegging.",
+        "properties": {
+          "categories": {
+            "items": {
+              "$ref": "#/components/schemas/MyDataCategoryOut"
+            },
+            "title": "Categories",
+            "type": "array"
+          }
+        },
+        "required": [
+          "categories"
+        ],
+        "title": "MyDataOut",
         "type": "object"
       },
       "MyExplanationOut": {
@@ -7721,6 +9340,168 @@
         "title": "OfferedEffortLevelOut",
         "type": "object"
       },
+      "OperationsOut": {
+        "description": "One Class session's operations figures (Story 15.8, NFR-8, FR-79).",
+        "properties": {
+          "ai_calls": {
+            "title": "Ai Calls",
+            "type": "integer"
+          },
+          "class_session_id": {
+            "format": "uuid",
+            "title": "Class Session Id",
+            "type": "string"
+          },
+          "cost_usd": {
+            "title": "Cost Usd",
+            "type": "string"
+          },
+          "fallbacks": {
+            "items": {
+              "$ref": "#/components/schemas/FallbackOut"
+            },
+            "title": "Fallbacks",
+            "type": "array"
+          },
+          "hours": {
+            "items": {
+              "$ref": "#/components/schemas/ErrorHourOut"
+            },
+            "title": "Hours",
+            "type": "array"
+          },
+          "institution_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Institution Name"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "llm_orders": {
+            "title": "Llm Orders",
+            "type": "integer"
+          },
+          "llm_seats": {
+            "title": "Llm Seats",
+            "type": "integer"
+          },
+          "read_at": {
+            "format": "date-time",
+            "title": "Read At",
+            "type": "string"
+          },
+          "response_times": {
+            "items": {
+              "$ref": "#/components/schemas/ResponseTimeOut"
+            },
+            "title": "Response Times",
+            "type": "array"
+          },
+          "switched_seats": {
+            "title": "Switched Seats",
+            "type": "integer"
+          },
+          "switched_share": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Switched Share"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/ErrorCountsOut"
+          }
+        },
+        "required": [
+          "class_session_id",
+          "label",
+          "institution_name",
+          "read_at",
+          "hours",
+          "totals",
+          "llm_orders",
+          "fallbacks",
+          "response_times",
+          "llm_seats",
+          "switched_seats",
+          "switched_share",
+          "cost_usd",
+          "ai_calls"
+        ],
+        "title": "OperationsOut",
+        "type": "object"
+      },
+      "OperationsSessionListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OperationsSessionOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "read_at": {
+            "format": "date-time",
+            "title": "Read At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "read_at",
+          "items"
+        ],
+        "title": "OperationsSessionListOut",
+        "type": "object"
+      },
+      "OperationsSessionOut": {
+        "description": "A Class session as «Drift» lists it, with its errors of the last 24 hours.",
+        "properties": {
+          "errors_24h": {
+            "title": "Errors 24H",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "institution_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Institution Name"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "institution_name",
+          "errors_24h"
+        ],
+        "title": "OperationsSessionOut",
+        "type": "object"
+      },
       "OrderIn": {
         "additionalProperties": false,
         "description": "The Student's Order for the open Week (Story 6.12): one whole number; the command checks\nit lies from 0 to the Game settings maximum (`order_invalid`).",
@@ -8296,6 +10077,21 @@
         "title": "PauseOut",
         "type": "object"
       },
+      "PinIn": {
+        "additionalProperties": false,
+        "properties": {
+          "model_config_id": {
+            "format": "uuid",
+            "title": "Model Config Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "model_config_id"
+        ],
+        "title": "PinIn",
+        "type": "object"
+      },
       "PlayOut": {
         "description": "The play screen's one envelope (Story 6.6, AD-3): what the Student's own Seat sees in the\nopen Week (`seat_state`, numbers and Roles only), the own turn (`turn`, Story 6.10) and who\nsits where (`table_status`), with the server's clock. Never the number of Weeks, future\ndemand, another Seat's numbers or a reference Order (FR-14, FR-23).",
         "properties": {
@@ -8370,6 +10166,141 @@
           "viewed"
         ],
         "title": "PlayTurnOut",
+        "type": "object"
+      },
+      "PoolerCheckOut": {
+        "properties": {
+          "pooler_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pooler Size"
+          },
+          "required": {
+            "title": "Required",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "passed",
+              "failed",
+              "not_checked"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "pooler_size",
+          "required"
+        ],
+        "title": "PoolerCheckOut",
+        "type": "object"
+      },
+      "ProcessConnectionsOut": {
+        "properties": {
+          "budget": {
+            "$ref": "#/components/schemas/ConnectionCountsOut"
+          },
+          "configured": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConnectionCountsOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "over_budget": {
+            "title": "Over Budget",
+            "type": "boolean"
+          },
+          "process": {
+            "enum": [
+              "backend",
+              "worker-ai",
+              "worker-batch"
+            ],
+            "title": "Process",
+            "type": "string"
+          },
+          "reported_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reported At"
+          }
+        },
+        "required": [
+          "process",
+          "budget",
+          "configured",
+          "reported_at",
+          "over_budget"
+        ],
+        "title": "ProcessConnectionsOut",
+        "type": "object"
+      },
+      "ProcessingAgreementIn": {
+        "additionalProperties": false,
+        "description": "Story 15.12: who signed the Institution's data processing agreement and on which day (not\nafter today in Europe/Oslo, checked by the route).",
+        "properties": {
+          "signed_by": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Signed By",
+            "type": "string"
+          },
+          "signed_on": {
+            "format": "date",
+            "title": "Signed On",
+            "type": "string"
+          }
+        },
+        "required": [
+          "signed_by",
+          "signed_on"
+        ],
+        "title": "ProcessingAgreementIn",
+        "type": "object"
+      },
+      "ProcessingAgreementOut": {
+        "description": "A recorded data processing agreement (Story 15.12): who signed for the Institution, the day,\nand when the Admin recorded it.",
+        "properties": {
+          "recorded_at": {
+            "format": "date-time",
+            "title": "Recorded At",
+            "type": "string"
+          },
+          "signed_by": {
+            "title": "Signed By",
+            "type": "string"
+          },
+          "signed_on": {
+            "format": "date",
+            "title": "Signed On",
+            "type": "string"
+          }
+        },
+        "required": [
+          "signed_by",
+          "signed_on",
+          "recorded_at"
+        ],
+        "title": "ProcessingAgreementOut",
         "type": "object"
       },
       "ProposalPersonOut": {
@@ -10967,6 +12898,45 @@
         "title": "ResetTokenIn",
         "type": "object"
       },
+      "ResponseTimeOut": {
+        "properties": {
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "effort_level": {
+            "title": "Effort Level",
+            "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "median_ms": {
+            "title": "Median Ms",
+            "type": "integer"
+          },
+          "p95_ms": {
+            "title": "P95 Ms",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "effort_level",
+          "calls",
+          "median_ms",
+          "p95_ms"
+        ],
+        "title": "ResponseTimeOut",
+        "type": "object"
+      },
       "ResultsConfigOut": {
         "description": "The model config the Control test is pinned to.",
         "properties": {
@@ -11077,6 +13047,30 @@
           "name"
         ],
         "title": "ResultsScorerOut",
+        "type": "object"
+      },
+      "RetentionIn": {
+        "additionalProperties": false,
+        "description": "Story 15.3 (FR-77): the Institution's retention period in whole calendar months, or None to\ngo back to the configured placeholder.",
+        "properties": {
+          "months": {
+            "anyOf": [
+              {
+                "maximum": 120.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Months"
+          }
+        },
+        "required": [
+          "months"
+        ],
+        "title": "RetentionIn",
         "type": "object"
       },
       "RevealOut": {
@@ -12523,6 +14517,249 @@
           "items"
         ],
         "title": "SentMessagesOut",
+        "type": "object"
+      },
+      "SessionCostDetailOut": {
+        "description": "One Class session's cost per Game and per day, with its cost-limit state.",
+        "properties": {
+          "ai_mode": {
+            "title": "Ai Mode",
+            "type": "string"
+          },
+          "assessment_stopped_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assessment Stopped At"
+          },
+          "budget": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BudgetOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "can_stop": {
+            "title": "Can Stop",
+            "type": "boolean"
+          },
+          "class_session_id": {
+            "format": "uuid",
+            "title": "Class Session Id",
+            "type": "string"
+          },
+          "games": {
+            "title": "Games",
+            "type": "integer"
+          },
+          "institution_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Institution Name"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "per_day": {
+            "items": {
+              "$ref": "#/components/schemas/DayCostOut"
+            },
+            "title": "Per Day",
+            "type": "array"
+          },
+          "per_game": {
+            "items": {
+              "$ref": "#/components/schemas/GameCostOut"
+            },
+            "title": "Per Game",
+            "type": "array"
+          },
+          "per_game_above": {
+            "title": "Per Game Above",
+            "type": "boolean"
+          },
+          "per_game_usd": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Per Game Usd"
+          },
+          "per_student_above": {
+            "title": "Per Student Above",
+            "type": "boolean"
+          },
+          "per_student_usd": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Per Student Usd"
+          },
+          "reserve_used_up": {
+            "title": "Reserve Used Up",
+            "type": "boolean"
+          },
+          "students": {
+            "title": "Students",
+            "type": "integer"
+          },
+          "total_usd": {
+            "title": "Total Usd",
+            "type": "string"
+          }
+        },
+        "required": [
+          "class_session_id",
+          "label",
+          "institution_name",
+          "ai_mode",
+          "budget",
+          "total_usd",
+          "calls",
+          "games",
+          "students",
+          "per_game_usd",
+          "per_student_usd",
+          "per_game_above",
+          "per_student_above",
+          "per_game",
+          "per_day",
+          "reserve_used_up",
+          "assessment_stopped_at",
+          "can_stop"
+        ],
+        "title": "SessionCostDetailOut",
+        "type": "object"
+      },
+      "SessionCostOut": {
+        "description": "One saved Class session's AI cost against its budget.",
+        "properties": {
+          "ai_mode": {
+            "title": "Ai Mode",
+            "type": "string"
+          },
+          "budget": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BudgetOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "class_session_id": {
+            "format": "uuid",
+            "title": "Class Session Id",
+            "type": "string"
+          },
+          "games": {
+            "title": "Games",
+            "type": "integer"
+          },
+          "institution_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Institution Name"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "per_game_above": {
+            "title": "Per Game Above",
+            "type": "boolean"
+          },
+          "per_game_usd": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Per Game Usd"
+          },
+          "per_student_above": {
+            "title": "Per Student Above",
+            "type": "boolean"
+          },
+          "per_student_usd": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Per Student Usd"
+          },
+          "students": {
+            "title": "Students",
+            "type": "integer"
+          },
+          "total_usd": {
+            "title": "Total Usd",
+            "type": "string"
+          }
+        },
+        "required": [
+          "class_session_id",
+          "label",
+          "institution_name",
+          "ai_mode",
+          "budget",
+          "total_usd",
+          "calls",
+          "games",
+          "students",
+          "per_game_usd",
+          "per_student_usd",
+          "per_game_above",
+          "per_student_above"
+        ],
+        "title": "SessionCostOut",
         "type": "object"
       },
       "SessionOut": {
@@ -14926,6 +17163,36 @@
         "title": "UploadRow",
         "type": "object"
       },
+      "UserDeleteIn": {
+        "description": "The Admin's deletion of a User (Story 15.2): the reference to the Institution's\ninstruction, checked by `delete_reference`; a bad one answers `fields.reference`.",
+        "properties": {
+          "reference": {
+            "maxLength": 800,
+            "title": "Reference",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reference"
+        ],
+        "title": "UserDeleteIn",
+        "type": "object"
+      },
+      "UserDeletedOut": {
+        "description": "The erased User's id (Story 15.2): the row is gone from every list.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "UserDeletedOut",
+        "type": "object"
+      },
       "UserListItem": {
         "description": "One User on «Brukere og roller» (Story 3.9).",
         "properties": {
@@ -15924,6 +18191,749 @@
         ]
       }
     },
+    "/api/admin/ai/class-sessions": {
+      "get": {
+        "description": "Every saved Class session, newest first, with its model config and Effort level; once\nlocked, what `SessionRuntime` froze (model version, endpoint, prompt versions).",
+        "operationId": "listModelSessions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelSessionListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "summary": "List Sessions",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ai/class-sessions/{class_session_id}/assessment/stop": {
+      "post": {
+        "description": "Stop the Class session's AI assessment while its reserve is used up (Story 12.4's\n`stop_for_session`, audited): the retries end and Students see it switched off. Refused with\n409 `reserve_not_used_up`; 404 `not_found`.",
+        "operationId": "stopSessionAssessment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Class Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionCostDetailOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stop Assessment",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ai/class-sessions/{class_session_id}/budget": {
+      "put": {
+        "description": "Set the Class session's cost limit on its one budget row (FR-69), audited as\n`ai_budget.limit_set`; the reserve and the spend stay. A raise while the AI assessment waits\nfor the Admin also resumes it (Story 12.4). Refused with 422 `limit_below_spent` or\n`reserve_above_limit` (`fields.limit_usd`); 404 `not_found`.",
+        "operationId": "setSessionCostLimit",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Class Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LimitIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionCostDetailOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Set Limit",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ai/class-sessions/{class_session_id}/model-config": {
+      "put": {
+        "description": "Pin a model config for a Class session before its Start date (FR-68), audited as\n`model_config.pinned`. Refused with 409 `model_config_frozen` once the session is locked,\n`study_frozen` for another config in a frozen study, `no_measured_level` for a config with no\nmeasured Effort level here; 404 `config_not_found` or `not_found`. The answer warns\n`provider_key_missing` when its LLM players' provider has no key here (AD-17).",
+        "operationId": "pinModelConfig",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Class Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PinIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelSessionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Pin",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ai/costs": {
+      "get": {
+        "description": "Every saved Class session's AI cost against its budget (limit, reserve, spent), per Game\nand per Student against the targets, and the simulation budgets apart (Story 15.6, FR-69,\nAD-22).",
+        "operationId": "listSessionCosts",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CostListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "summary": "List Costs",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ai/costs/{class_session_id}": {
+      "get": {
+        "description": "One Class session's AI cost per Game and per Europe/Oslo day, its budget and cost-limit\nstate: the players' limit reached, the reserve used up, the AI assessment stopped.",
+        "operationId": "getSessionCost",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Class Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionCostDetailOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Session Cost",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ai/daily-spend": {
+      "get": {
+        "description": "The AI spend of a Europe/Oslo day (today when no `day` is given) across every scope, with\nits dearest Class sessions by name, the evaluation runs apart, `AI_DAILY_ALERT_USD` (null when\nnot set; for an alerted day the amount it was alerted at) and when the Admins were alerted\nabout the day (Story 15.7, FR-69). A day after today is refused with 422 `day_in_future`.",
+        "operationId": "getDailySpend",
+        "parameters": [
+          {
+            "description": "A Europe/Oslo day.",
+            "in": "query",
+            "name": "day",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "A Europe/Oslo day.",
+              "title": "Day"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailySpendOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Daily Spend",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ai/freeze": {
+      "get": {
+        "description": "The study freeze in force, or null.",
+        "operationId": "getModelFreeze",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FreezeStateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "summary": "Freeze State",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ai/freezes": {
+      "post": {
+        "description": "Freeze a model config for a learning study (FR-68): the chosen Class sessions get it and\nnew ones get it as their default until it is lifted. Refused with 409 `freeze_active`,\n`no_measured_level` or `model_config_frozen` (a chosen session locked with another config,\n`fields.class_session_ids`); 404 `config_not_found` or `not_found`. Audited as\n`model_config.frozen`.",
+        "operationId": "freezeModelConfig",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FreezeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FreezeStateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Freeze",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ai/freezes/{freeze_id}/lift": {
+      "post": {
+        "description": "Lift the study freeze, audited as `model_config.freeze_lifted`; 409 `freeze_lifted` when\nit was lifted already.",
+        "operationId": "liftModelFreeze",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "freeze_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Freeze Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FreezeStateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Lift",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ai/model-configs": {
+      "get": {
+        "description": "Every model config with provider, endpoint, region, model version and per Effort level the\nnewest measurement that counts here (cost per Game, fallback share, Play-guard switched\nshare), as stored by Story 2.12.",
+        "operationId": "listModelConfigs",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelConfigListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "summary": "List Configs",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/admin/audit": {
       "get": {
         "description": "Audit events newest first, with actor and target names read now (FR-3, AD-14). Filter by\n`actor` (a User id, or `system` for the rows with no actor), `action`, and the inclusive\nEurope/Oslo days `since` and `until`.",
@@ -16538,6 +19548,347 @@
         ]
       }
     },
+    "/api/admin/evaluation/class-sessions": {
+      "get": {
+        "description": "Every saved Class session, newest first, with its Institution agreement (or null) and the\nday its Student data is deleted (null while it has no Test deadline). No Student data.",
+        "operationId": "listEvaluationSessions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvaluationSessionListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "summary": "List Sessions",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/evaluation/class-sessions/{class_session_id}/agreement": {
+      "put": {
+        "description": "Record or replace the Institution agreement of a Class session (FR-71): who agreed, on\nwhich day, and who is controller for the evaluation. Audited as\n`evaluation_agreement.recorded`.",
+        "operationId": "recordEvaluationAgreement",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Class Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgreementIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvaluationSessionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Record Agreement",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/evaluation/exports": {
+      "get": {
+        "description": "The newest export runs and refusals: who, when, the Class sessions with their deletion\ndates, the key fingerprint and the outcome.",
+        "operationId": "listEvaluationExports",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "summary": "List Exports",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "description": "Run the pseudonymised export of the chosen Class sessions and stream it as a ZIP (FR-71).\nRefused with 403 `no_agreement` (`fields.class_session_ids`) when a Class session has no\nagreement, and 409 `pseudonym_key_changed` when the key is not the one whose fingerprint is\nstored. Every run and refusal is audited as `evaluation_export.run`.",
+        "operationId": "runEvaluationExport",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExportIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/zip": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Run Export",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/evaluation/key": {
+      "get": {
+        "description": "The stored fingerprint of the pseudonym key, or nulls before the first export.",
+        "operationId": "getPseudonymKeyState",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KeyStateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "summary": "Key State",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "description": "Replace the stored fingerprint with the new key's (AD-14), audited as\n`pseudonym_key.replaced`. Later exports must use the new key.",
+        "operationId": "replacePseudonymKey",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KeyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KeyStateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Replace Key",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/admin/institutions": {
       "get": {
         "description": "The Institutions with name and creation date, newest first (FR-3).",
@@ -16943,6 +20294,174 @@
         ]
       }
     },
+    "/api/admin/institutions/{institution_id}/processing-agreement": {
+      "put": {
+        "description": "Record or replace the Institution's data processing agreement with the operator (Story\n15.12, FR-8, PRD §6.1): who signed for the Institution and the day, not after today in\nEurope/Oslo (422 `fields.signed_on` = `in_future`). Audited as\n`institution.processing_agreement_recorded`; the same agreement again writes nothing. While\n`REQUIRE_DPA_FOR_INVITATIONS` is on, Students of the Institution are invited only once it is\nrecorded. An unknown id is `not_found`.",
+        "operationId": "recordProcessingAgreement",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "institution_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Institution Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProcessingAgreementIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstitutionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Record Processing Agreement",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/institutions/{institution_id}/retention": {
+      "put": {
+        "description": "The Institution's retention period (Story 15.3, FR-77, FR-3): whole calendar months, 1 to\n120, after the latest effective Test deadline of each Class session, or null for the\nconfigured placeholder. Every Class session of the Institution whose deletion date has not\ncome gets its date recomputed in the same transaction, and its Students see the new date on\nHjem. Audited as `institution.retention_changed`; the same value again writes nothing. An\nunknown id is `not_found`.",
+        "operationId": "setInstitutionRetention",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "institution_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Institution Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetentionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstitutionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Set Institution Retention",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/admin/invitations": {
       "get": {
         "description": "The newest Invitation to each address and role, newest first, with its status and whether\nthe recipient asked for a new one (FR-1, FR-3).",
@@ -17180,6 +20699,236 @@
         ]
       }
     },
+    "/api/admin/operations/class-sessions": {
+      "get": {
+        "description": "Every saved Class session, newest first, with its errors of the last 24 hours.",
+        "operationId": "listOperationsSessions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationsSessionListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "summary": "List Sessions",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/operations/class-sessions/{class_session_id}": {
+      "get": {
+        "description": "One Class session's errors by source and hour (the last 24 hours) and in total, the share\nof its LLM players' Orders each fallback kind replaced, their response times per Effort level\n(median and 95th percentile), the share of LLM Seats the Play guard switched, and its AI\ncost. 404 `not_found` for an unknown Class session.",
+        "operationId": "getSessionOperations",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Class Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Session Figures",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/operations/class-sessions/{class_session_id}/test-error": {
+      "post": {
+        "description": "Raise a deliberate error in one Class session (Story 15.11, NFR-4): the answer is 500, the\nerror tracker gets a report of type `DeliberateTestError`, and «Drift» counts one `api_error`\nfor the session. The readiness record's check of the tracker in production. 404 `not_found`\nfor an unknown Class session; nothing else is changed.",
+        "operationId": "raiseOperationsTestError",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Class Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Test Error",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/operations/connections": {
+      "get": {
+        "description": "The database connection budget (Story 15.9, NFR-3, NFR-4): per process its written budget\nand what its latest start reported, the sums against the budget and a deploy overlap, and the\npooler check (`DB_POOLER_SIZE` against twice the budget plus the migration's connection; not\nchecked while it is unset).",
+        "operationId": "getConnectionBudget",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectionBudgetOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "summary": "Connections",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/admin/users": {
       "get": {
         "description": "Users with their account roles and status, by name, searched by part of the e-mail or\nthe name (FR-2, FR-3). The search text is never logged (AD-14).",
@@ -17353,6 +21102,100 @@
           }
         },
         "summary": "Deactivate User",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/users/{user_id}/delete": {
+      "post": {
+        "description": "Erase a User on the Institution's instruction (Story 15.2, FR-76, AD-14): a Seat they hold\nin a running Class game goes to an AI player first, then the User is anonymised in place and\ntheir personal data deleted; their Games keep the Seat by Role. `reference` names the\ninstruction and is audited; it may not hold `@` or the User's name (422 `fields.reference`\n`reference_empty`, `reference_too_long`, `reference_invalid`, `reference_names_user`).\nRefused 409 `last_admin` for oneself or the last active Admin and `role_revoke_blocked`\n(`fields.classes`) for a User who owns Classes. Repeating it on an erased User finishes any\npart left undone and answers the same.",
+        "operationId": "deleteUser",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserDeleteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDeletedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Delete User",
         "tags": [
           "admin"
         ]
@@ -21258,7 +25101,7 @@
     },
     "/api/class-sessions/{session_id}/students/{user_id}/record": {
       "get": {
-        "description": "The Studentside's record (Story 13.2, FR-63, FR-17, UX-DR54, UX-DR55): one Student of the\nClass session with the Completion status per step, the participation signals (information\nonly), the game, the Explanation, the Debrief summary, the Debrief quiz attempts, the Replay,\nthe Individual test and the AI assessment's state, for the Lecturers and Assistant lecturers\nof its Class. 403 `forbidden` for anyone else, an Admin without a staff role in the Class\nincluded, for a User who is no Student of the Class now and for a Class session that does not\nexist (FR-5, AD-12).",
+        "description": "The Studentside's record (Story 13.2, FR-63, FR-17, UX-DR54, UX-DR55): one Student of the\nClass session with the Completion status per step, the participation signals (information\nonly), the game, the Explanation, the Debrief summary, the Debrief quiz attempts, the Replay,\nthe Individual test and the AI assessment's state, for the Lecturers and Assistant lecturers\nof its Class. 403 `forbidden` for anyone else, an Admin without a staff role in the Class\nincluded, for a User who is no Student of the Class now and for a Class session that does not\nexist (FR-5, AD-12). 409 `data_deleted` for its staff once the Class session's Student data\nis deleted (Story 15.3, FR-77).",
         "operationId": "getStudentRecord",
         "parameters": [
           {
@@ -21310,6 +25153,16 @@
               }
             },
             "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {
@@ -22556,7 +26409,7 @@
         ]
       },
       "post": {
-        "description": "«Send N Invitasjoner» (Story 4.4): write the staged upload's valid addresses to the Roster\nand send each new address a Student Invitation valid through the `valid_days`-th day after\ntoday (Europe/Oslo), in one transaction; the mails leave from `worker-batch`. 404\n`not_found` when `upload_id` is not the Class's staging (sent already, replaced or expired);\n422 `nothing_to_send` when no staged row is valid; 422 `invalid_request` with\n`fields.valid_days` for a validity outside 1–60 days. Nothing changes on a refusal.",
+        "description": "«Send N Invitasjoner» (Story 4.4): write the staged upload's valid addresses to the Roster\nand send each new address a Student Invitation valid through the `valid_days`-th day after\ntoday (Europe/Oslo), in one transaction; the mails leave from `worker-batch`. 404\n`not_found` when `upload_id` is not the Class's staging (sent already, replaced or expired);\n422 `nothing_to_send` when no staged row is valid; 422 `invalid_request` with\n`fields.valid_days` for a validity outside 1–60 days; 409 `processing_agreement_missing` while\n`REQUIRE_DPA_FOR_INVITATIONS` is on and the Class's Institution has no recorded data processing\nagreement (Story 15.12). Nothing changes on a refusal.",
         "operationId": "sendRosterInvitations",
         "parameters": [
           {
@@ -22619,6 +26472,16 @@
               }
             },
             "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {
@@ -22702,7 +26565,7 @@
     },
     "/api/classes/{class_id}/reminders": {
       "post": {
-        "description": "«Send påminnelse» (Story 4.7, FR-9, NFR-10): a new Invitation valid through the\n`valid_days`-th day after today (Europe/Oslo) to every address that has not registered, or\nwith `roster_entry_id` to that one alone; their old links stop working. Addresses whose last\nmail bounced hard are left out and named in `left_out`. 422 `nothing_to_send` when nothing\nwould be sent or left out (all registered, or the entry is registered or not on the Roster);\n422 `invalid_request` with `fields.valid_days` for a validity outside 1–60 days.",
+        "description": "«Send påminnelse» (Story 4.7, FR-9, NFR-10): a new Invitation valid through the\n`valid_days`-th day after today (Europe/Oslo) to every address that has not registered, or\nwith `roster_entry_id` to that one alone; their old links stop working. Addresses whose last\nmail bounced hard are left out and named in `left_out`. 422 `nothing_to_send` when nothing\nwould be sent or left out (all registered, or the entry is registered or not on the Roster);\n422 `invalid_request` with `fields.valid_days` for a validity outside 1–60 days; 409\n`processing_agreement_missing` as for the first sending (Story 15.12).",
         "operationId": "sendReminders",
         "parameters": [
           {
@@ -22755,6 +26618,16 @@
               }
             },
             "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {
@@ -23277,7 +27150,7 @@
     },
     "/api/classes/{class_id}/roster/manual": {
       "post": {
-        "description": "«Registrer manuelt» (Story 4.8, FR-9): the address's User (created without a password, or\nthe existing one) is a Student in the Class at once, registered manually, and is mailed a\nsingle-use link to set a password when it has none. 422 `invalid_request` with\n`fields.email` (an address problem or `already_registered`) or `fields.name`.",
+        "description": "«Registrer manuelt» (Story 4.8, FR-9): the address's User (created without a password, or\nthe existing one) is a Student in the Class at once, registered manually, and is mailed a\nsingle-use link to set a password when it has none. 422 `invalid_request` with\n`fields.email` (an address problem or `already_registered`) or `fields.name`; 409\n`processing_agreement_missing` as for a sending of Invitations (Story 15.12).",
         "operationId": "registerStudentManually",
         "parameters": [
           {
@@ -23330,6 +27203,16 @@
               }
             },
             "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {
@@ -27062,6 +30945,38 @@
         "summary": "Submit My Test",
         "tags": [
           "tests"
+        ]
+      }
+    },
+    "/api/me/data": {
+      "get": {
+        "description": "«Mine data» (Story 15.1, FR-75): every category of data stored about the caller, their own\nrows only, labelled by the page. Never cached.",
+        "operationId": "getMyData",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyDataOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "summary": "Get My Data",
+        "tags": [
+          "reports"
         ]
       }
     },
