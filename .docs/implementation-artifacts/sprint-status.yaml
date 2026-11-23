@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-17-2026 12:28
-last_updated: 11-23-2026 14:27
+last_updated: 11-23-2026 15:33
 project: beergame
 project_key: NOKEY
 tracking_system: file-system
@@ -234,7 +234,7 @@ development_status:
   12-10-compare-human-and-ai-scores-and-mark-the-scoring-guide-as-ch: done
   epic-12-retrospective: optional
 
-  epic-13: in-progress
+  epic-13: done
   13-1-completion-is-computed-in-one-place-and-shown-on-the-student: done
   13-2-studentside-with-the-fullføring-block: done
   13-3-correct-a-student-s-completion-status-with-a-reason: done

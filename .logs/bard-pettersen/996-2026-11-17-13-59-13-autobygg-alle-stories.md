@@ -4180,3 +4180,19 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
 
 ### Åpne punkter
 - Issue #255: beslutninger for storyen.
+
+## Avslutning av Epic 13 (spor 2) og merge til main
+
+### Oppgave
+Avslutte Epic 13 og merge den til `main`.
+
+### Plan
+Én agent: punktene i avslutningslista, oppfølgingsgjennomgang, visuell sjekk av skjermene i Epic 13, fart, full stabilisering, PR og CI.
+
+### Resultat
+- Commits: 9b6cf76 («Epic 13: avslutning»), 1b9d426 (api-klienten). PR #256, CI grønn, merget (b8af7a9).
+- Rettet: Studentens egen rapport følger slettedatoen, ZIP-køen har egen worker, slettetest mot triggeren, e2e for assistentens visning, tidstesten for 250 studenter merket `slow`, 11 skjermbilder i `screenshots/epic-13/`, to ustabile e2e-tester.
+- Status: `epic-13` done.
+
+### Åpne punkter
+- Issue #257: beslutninger, punkter som står igjen, og tabeller for persondataregisteret.
