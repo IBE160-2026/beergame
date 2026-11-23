@@ -4028,3 +4028,20 @@ Byggeagent: merge og sømmer først, så storyen med `bmad-build-auto` og fire g
 
 ### Åpne punkter
 - Issue #246: beslutninger for merge, sømmer og storyen.
+## Story 15.12: Hold tilbake studentinvitasjoner til databehandleravtalen er registrert (spor 1)
+
+### Oppgave
+Bygge Story 15.12 på `epic-15` i spor 1.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-15-12-hold-student-invitations-until-dpa-recorded.md`. Commit: b03ddb0. Migrasjon 0071.
+- Admin registrerer avtalen i «Institusjoner». Med `REQUIRE_DPA_FOR_INVITATIONS` på holdes studentinvitasjoner, påminnelser og manuell registrering tilbake til avtalen finnes. Operatørens institusjon og Kontrolltester slipper gjennom.
+- Innstillingen leveres av, fordi storyen sier at grunnleggeren skal avgjøre den.
+- Tester: backend 4017, Vitest 1267, frontend-sjekkene, Playwright med axe.
+- Status: review (beslutningen er grunnleggerens).
+
+### Åpne punkter
+- Issue #247: beslutningen om å slå holdet på.
