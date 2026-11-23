@@ -3,7 +3,7 @@ import fs from "node:fs";
 import { expect } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
-import { expectAccessible, lecturerPage, test, VIEWPORTS } from "./support/classes";
+import { assistantOf, expectAccessible, lecturerPage, test, VIEWPORTS } from "./support/classes";
 import { lockedClassGames } from "./support/live-game";
 
 /** The Klasseøkt's «Eksport» block (Story 13.13, FR-59, NFR-6, NFR-7, UX-DR49) on the local stack: a
@@ -58,6 +58,23 @@ test("staff make and download one ZIP of every Student report, and the Completio
     const xlsxFile = await xlsxSaved;
     expect(xlsxFile.suggestedFilename()).toMatch(/^fullforingsliste-klasseokt-\d+\.xlsx$/);
     expect(fs.readFileSync(await xlsxFile.path()).subarray(0, 2).toString()).toBe("PK");
+
+    // An Assistant lecturer of the Class sees the same ZIP, but not the Completion export, and the
+    // export route refuses them.
+    const classId = (await (await page.request.get(`/api/class-sessions/${locked.sessionId}`)).json())
+      .class_id as string;
+    const assistant = await assistantOf(browser, lecturerSession, classId);
+    const helper = await assistant.newPage();
+    await helper.setViewportSize({ width: 1280, height: 800 });
+    await helper.goto(`/klasseokter/${locked.sessionId}`);
+    const helperBlock = helper.locator("[data-export]");
+    await expect(helperBlock.getByRole("link", { name: copy.zip.action })).toBeVisible();
+    await expect(helperBlock).toContainText("med 2 Studentrapporter.");
+    await expect(helperBlock.getByRole("button", { name: completion.action })).toHaveCount(0);
+    await expect(helperBlock).not.toContainText(completion.note);
+    const refused = await helper.request.get(`/api/class-sessions/${locked.sessionId}/completion-export?format=csv`);
+    expect(refused.status()).toBe(403);
+    await assistant.close();
 
     // Each width: the block reflows and axe is clean.
     for (const viewport of VIEWPORTS) {

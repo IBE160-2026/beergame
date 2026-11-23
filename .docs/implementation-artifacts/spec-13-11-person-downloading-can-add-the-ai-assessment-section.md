@@ -194,3 +194,7 @@ Status: done
 **Residual risks:**
 - Prettier reformatted `report-download.tsx`.
 - Stories 13.12–13.14 must pass `requested_by_student=False` and use the `zip` / `export` readers.
+
+## Epic 13 close-out: follow-up review
+
+Access and variant isolation are clean. Left (low): an `ai_letter` request whose letter was turned off before the render is stored as `ai_letter` without a letter; `ai`/`staff_ai` PDFs are not invalidated when the assessment is rescored (each press makes a new PDF).

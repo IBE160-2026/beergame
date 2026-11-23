@@ -64,7 +64,7 @@ export function downloadView(
  */
 export function ReportDownload({ sessionId }: { sessionId: string }) {
   const source = useMemo(() => myReportSource(sessionId), [sessionId]);
-  return <ReportDownloadBlock source={source} note={copy.note} aiHelp={copy.ai.help} />;
+  return <ReportDownloadBlock source={source} note={copy.note} aiHelp={copy.ai.help} deleted={copy.deleted} />;
 }
 
 /**
@@ -82,6 +82,7 @@ export function StaffReportDownload({ sessionId, userId }: { sessionId: string; 
       source={source}
       note={copy.staff.note}
       aiHelp={copy.staff.aiHelp}
+      deleted={copy.staff.deleted}
     />
   );
 }
@@ -90,10 +91,12 @@ function ReportDownloadBlock({
   source,
   note,
   aiHelp,
+  deleted,
 }: {
   source: ReportSource;
   note: string;
   aiHelp: string;
+  deleted: string;
 }) {
   const queryClient = useQueryClient();
   const ids = useId();
@@ -171,7 +174,7 @@ function ReportDownloadBlock({
       {state && view ? (
         <>
           {view.kind === "deleted" ? (
-            <p className={LINE}>{copy.staff.deleted}</p>
+            <p className={LINE}>{deleted}</p>
           ) : null}
           {view.kind === "closed" ? (
             view.opensAt ? (

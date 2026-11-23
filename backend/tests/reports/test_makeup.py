@@ -8,6 +8,8 @@ import asyncio
 import uuid
 from datetime import timedelta
 
+import pytest
+
 from app.modules.games import commands
 from app.modules.games import service as games_service
 from app.modules.games.service import Purpose
@@ -79,6 +81,7 @@ def class_step(body: dict) -> dict:
     return next(s for s in body["completion"]["steps"] if s["step"] == "class_game")
 
 
+@pytest.mark.long
 async def test_a_lecturer_gives_a_makeup_that_the_student_plays_and_completion_reads(
     klass, emitted
 ):
@@ -206,6 +209,7 @@ async def test_a_lecturer_gives_a_makeup_that_the_student_plays_and_completion_r
         assert await sessions.makeup_given_mail_context(s, me, sid, NOW) is None
 
 
+@pytest.mark.long
 async def test_a_late_registrant_gets_a_drawn_role_and_refusals_write_nothing(klass, monkeypatch):
     session_id = await dated(klass)
     sid = uuid.UUID(session_id)

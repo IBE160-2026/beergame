@@ -205,10 +205,30 @@ async def test_reports_single_beside_other_queues_runs_on_slots_of_its_own(monke
     assert [
         c["install_signal_handlers"] for c in calls if c["queues"] == [jobs.REPORTS_SINGLE]
     ] == [False]
-    for alone in ([jobs.REPORTS_SINGLE], [jobs.MAIL]):
+    for alone in ([jobs.REPORTS_SINGLE], [jobs.MAIL], [jobs.REPORTS_BULK]):
         calls.clear()
         await jobs.run_worker(alone, wait=False, install_signal_handlers=False)
         assert [(c["queues"], c["concurrency"]) for c in calls] == [(alone, 1)]
+
+    # The close-out of Epic 13: `reports-bulk` beside other queues gets a worker of its own, so a
+    # long ZIP never holds the sweep, the mail or the LLM batches behind it.
+    calls.clear()
+    batch = [jobs.LLM_BATCH, jobs.MAIL, jobs.REPORTS_BULK, jobs.REPORTS_SINGLE, jobs.SWEEP]
+    await jobs.run_worker(batch, wait=False, install_signal_handlers=False)
+    assert sorted((c["queues"], c["concurrency"]) for c in calls) == [
+        ([jobs.LLM_BATCH, jobs.MAIL, jobs.SWEEP], 1),
+        ([jobs.REPORTS_BULK], 1),
+        ([jobs.REPORTS_SINGLE], reserved),
+    ]
+    # The two report queues alone: the bulk one is the main worker, the single one beside it.
+    calls.clear()
+    await jobs.run_worker(
+        [jobs.REPORTS_BULK, jobs.REPORTS_SINGLE], wait=False, install_signal_handlers=False
+    )
+    assert sorted((c["queues"], c["concurrency"]) for c in calls) == [
+        ([jobs.REPORTS_BULK], 1),
+        ([jobs.REPORTS_SINGLE], reserved),
+    ]
 
 
 class _no_pool:

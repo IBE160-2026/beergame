@@ -12,7 +12,8 @@ Queues: `ai-orders` (`worker-ai`, the LLM players' Orders), `llm-batch` and `mai
 (`worker-batch`, Story 3.5), `reports-single` (`worker-batch`, Story 13.7: one Student report,
 with `REPORTS_SINGLE_RESERVED` slots no other queue takes, so a report meets its 30 seconds while
 the worker's other queues are busy), `reports-bulk` (`worker-batch`, Story 13.12: the long report
-jobs, the ZIP of Story 13.13, beside which a single report keeps its slots), and `sweep`, which
+jobs, the ZIP of Story 13.13, beside which a single report keeps its slots; beside other queues
+it runs in a worker of its own, so a long ZIP never holds the sweep or the mail), and `sweep`, which
 only the `--sweeper` worker runs: it holds the per-minute `ops.sweep` (AD-9). Later epics add
 theirs. Alembic owns the procrastinate schema
 (revision 0008).
@@ -202,11 +203,17 @@ async def run_worker(
         raise ValueError(f"unknown queue(s): {', '.join(unknown)}")
     load_tasks()
     # Story 13.7: `reports-single` beside other queues runs in a worker of its own with
-    # `REPORTS_SINGLE_RESERVED` slots, so no other queue's job takes them (AD-9).
-    reports = REPORTS_SINGLE in queues and len(queues) > 1
-    others = [queue for queue in queues if queue != REPORTS_SINGLE] if reports else list(queues)
-    reserved = get_settings().reports_single_reserved if reports else 0
-    size = max(2, concurrency + reserved + 1)
+    # `REPORTS_SINGLE_RESERVED` slots, so no other queue's job takes them (AD-9). The close-out of
+    # Epic 13: `reports-bulk` beside other queues runs in a worker of its own too (one slot), so a
+    # ZIP of many minutes never holds the sweep, the mail or the LLM batches behind it.
+    sides: dict[str, int] = {}
+    if len(queues) > 1:
+        if REPORTS_SINGLE in queues:
+            sides[REPORTS_SINGLE] = get_settings().reports_single_reserved
+        if REPORTS_BULK in queues and len(queues) > len(sides) + 1:
+            sides[REPORTS_BULK] = 1
+    others = [queue for queue in queues if queue not in sides]
+    size = max(2, concurrency + sum(sides.values()) + 1)
     # The app gets a pool that lives as long as this worker. It is the app itself, not a copy
     # (`with_connector`): the periodic deferrer of `ops.sweep` defers through the task's own app,
     # which must be the open one (Story 3.5).
@@ -220,39 +227,44 @@ async def run_worker(
                 install_signal_handlers=install_signal_handlers,
                 delete_jobs="successful",
             )
-            if not reports:
+            if not sides:
                 await main
                 return
-            side = asyncio.ensure_future(
-                worker_app.run_worker_async(
-                    queues=[REPORTS_SINGLE],
-                    name="reports-single",
-                    wait=wait,
-                    concurrency=reserved,
-                    listen_notify=wait,
-                    install_signal_handlers=False,
-                    delete_jobs="successful",
+            side = [
+                asyncio.ensure_future(
+                    worker_app.run_worker_async(
+                        queues=[queue],
+                        name=queue,
+                        wait=wait,
+                        concurrency=slots,
+                        listen_notify=wait,
+                        install_signal_handlers=False,
+                        delete_jobs="successful",
+                    )
                 )
-            )
+                for queue, slots in sides.items()
+            ]
             first = asyncio.ensure_future(main)
+            every = [first, *side]
             try:
                 if not wait:
-                    await asyncio.gather(first, side)  # run until idle: the reports too
+                    await asyncio.gather(*every)  # run until idle: the reports too
                     return
-                await asyncio.wait({first, side}, return_when=asyncio.FIRST_COMPLETED)
-                if side.done() and not first.done():
-                    # The reports worker stopped on its own: the process stops, so it restarts.
+                await asyncio.wait(every, return_when=asyncio.FIRST_COMPLETED)
+                stopped = [task for task in side if task.done()]
+                if stopped and not first.done():
+                    # A reports worker stopped on its own: the process stops, so it restarts.
                     log.error("reports_worker_stopped")
-                    side.result()
-                    raise RuntimeError("the reports-single worker stopped")
+                    stopped[0].result()
+                    raise RuntimeError("a reports worker stopped")
                 await first
             finally:
                 # On a stop, a render in flight is cancelled; its request ends `failed` and the
                 # Student presses again.
-                for task in (first, side):
+                for task in every:
                     if not task.done():
                         task.cancel()
-                await asyncio.gather(first, side, return_exceptions=True)
+                await asyncio.gather(*every, return_exceptions=True)
 
 
 async def run_until_idle(queues: Iterable[str], *, database_url: str | None = None) -> None:

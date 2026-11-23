@@ -8,6 +8,8 @@ game (`short_game`, six Weeks), as in `test_makeup.py`."""
 
 import uuid
 
+import pytest
+
 from app.modules.games import commands
 from app.modules.games import service as games_service
 from app.modules.reports import service as reports
@@ -55,6 +57,7 @@ async def given(session_id: str, user_id: uuid.UUID) -> str:
     return answer.json()["makeup"]["game_id"]
 
 
+@pytest.mark.long
 async def test_a_finished_makeup_becomes_the_students_game_but_a_started_debrief_stays(
     klass, emitted
 ):
@@ -162,6 +165,7 @@ async def test_a_finished_makeup_becomes_the_students_game_but_a_started_debrief
     )
 
 
+@pytest.mark.long
 async def test_a_late_registrants_makeup_opens_the_debrief_replay_and_test(klass, emitted):
     session_id, _, _ = await short_game(klass, students=1)
     sid = uuid.UUID(session_id)

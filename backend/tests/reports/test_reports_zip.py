@@ -352,8 +352,11 @@ def test_file_names_find_a_student_and_never_clash():
     assert len(set(found.values())) == 4
 
 
+@pytest.mark.slow
+@pytest.mark.long
 async def test_a_zip_of_250_students_is_ready_within_ten_minutes(klass, monkeypatch, files):
-    """The placeholder target (FR-59), on 250 generated Students and the fast fake converter."""
+    """The placeholder target (FR-59), on 250 generated Students and the fast fake converter.
+    About 15 s: run in CI only (`slow`), or locally with `RUN_SLOW=1`."""
     session_id = await new_session(klass)
     for n in range(250):
         student = uuid.uuid7()

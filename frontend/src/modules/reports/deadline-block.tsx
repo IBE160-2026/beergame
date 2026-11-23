@@ -48,7 +48,7 @@ export function DeadlineBlock({
   }, [focusSaved]);
   const classTest = deadlines.class_test_deadline;
   return (
-    <section aria-labelledby={titleId} className="mt-8 max-w-xl border-t border-hairline pt-4" data-deadline="">
+    <section aria-labelledby={titleId} className="mt-8 max-w-2xl border-t border-hairline pt-4" data-deadline="">
       <h2 id={titleId} className="text-headline text-ink">
         {copy.title}
       </h2>

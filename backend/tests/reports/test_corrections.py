@@ -214,6 +214,22 @@ async def test_corrections_are_refused_and_write_nothing(klass):
     assert stored() == [] and audited() == []
 
 
+async def test_deleting_the_users_rows_passes_the_append_only_trigger(klass):
+    """User erasure (Story 15.2) deletes the users row: the corrector's key goes to NULL through
+    the trigger's one allowed change, and the Student's corrections go with the Student."""
+    session_id = await dated(klass)
+    me, _ = await students(klass, 2)
+    obligatory(session_id)
+    co_owner = await make("medeier@x.no")
+    put_staff(klass, co_owner, "owner")
+    assert (await correct("medeier@x.no", session_id, me, "replay", True, REASON)).is_success
+
+    execute("DELETE FROM users WHERE id = %s", co_owner)
+    assert [row[5] for row in stored()] == [None]
+    execute("DELETE FROM users WHERE id = %s", me)
+    assert stored() == []
+
+
 def test_the_correctable_steps_are_the_steps_of_the_requirement():
     """One list, kept by hand in three places: the table's, the api's and Completion's."""
     assert tuple(CORRECTABLE_STEPS) == COMPLETION_STEPS

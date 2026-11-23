@@ -214,3 +214,7 @@ Status: done
 - Other staff with the page open see a new staff PDF only on load or by the 15 s poll while pending.
 - The 0307 downgrade's DELETE is untested with rows.
 - New personal data: no new table. `report_requests` gains staff-requested rows (`user_id`, `requested_by`), and `audit_events` gains rows naming the Student.
+
+## Epic 13 close-out: follow-up review
+
+Fixed (medium): `reports-bulk` shared `worker-batch`'s one main slot with the sweep, mail and LLM batches, so a ZIP of many minutes held them. Beside other queues it now runs in a worker of its own (one slot), as `reports-single` does (`test_worker.py`; `docs/ops/connection-budget.md` updated: worker-batch 10, pool size at least 57). The download audit: one row per file call, actor the staff user, none on 403/409. Left (low): the audit is written when the signed URL is minted, not on delivery. Registry: staff ids in `report_requests.requested_by` and `audit_events.actor_user_id` (`report.requested`, `report.downloaded`).

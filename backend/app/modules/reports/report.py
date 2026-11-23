@@ -166,6 +166,12 @@ async def own_state(
         row = await sessions.own_report_session(s, user, class_session_id)
     if row is None:
         return None
+    opens_at = sessions.report_opens_at(user, row)
+    if sessions.data_deleted(row, now):
+        # The close-out of Epic 13: as for the staff, no report once the data is deleted.
+        return ReportState(
+            opens_at=opens_at, open=True, status="none", generated_at=None, deleted=True
+        )
     if ai:
         choice = await _choice(user.id, class_session_id, True)
     else:
@@ -174,7 +180,6 @@ async def own_state(
         latest, ready = await repo.latest_report_requests(
             s, class_session_id, user.id, choice.variant
         )
-    opens_at = sessions.report_opens_at(user, row)
     return ReportState(
         opens_at=opens_at,
         open=_is_open(opens_at, now),
@@ -242,6 +247,8 @@ async def request_own(
         opens_at = sessions.report_opens_at(user, row)
         if not _is_open(opens_at, now):
             raise ReportRefused("report_not_open")
+        if sessions.data_deleted(row, now):
+            raise ReportRefused("data_deleted")
         if user.id not in await scope.reporting_students(s, class_session_id):
             raise ReportRefused("not_counted")
         # Without `ai` the AI assessment is never read: the standard report stands on its own.
@@ -280,6 +287,8 @@ async def own_file_url(
             return None
         if not _is_open(sessions.report_opens_at(user, row), now):
             raise ReportRefused("report_not_open")
+        if sessions.data_deleted(row, now):
+            raise ReportRefused("data_deleted")
         if user.id not in await scope.reporting_students(s, class_session_id):
             raise ReportRefused("not_counted")
         # Without `ai` the AI assessment is never read: the standard report stands on its own.

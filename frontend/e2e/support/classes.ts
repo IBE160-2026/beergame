@@ -149,6 +149,28 @@ export const test = base.extend<{ ownContextsClosed: void }, { lecturerSession: 
   ],
 });
 
+/** An Assistant lecturer of the Class, from a mailed Invitation accepted through the api: its
+ * browser context, signed in. */
+export async function assistantOf(browser: Browser, lecturerSession: Session, classId: string) {
+  const lecturer = await lecturerPage(browser, lecturerSession, { width: 1280, height: 800 });
+  const address = `assistent-${Date.now()}${Math.floor(Math.random() * 1e6)}@example.com`;
+  const sent = await lecturer.request.post(`/api/classes/${classId}/staff/assistants`, {
+    data: { email: address },
+    headers: CSRF,
+  });
+  expect(sent.status()).toBe(201);
+  const mail = await nextMail(lecturer, address, null);
+  await lecturer.context().close();
+  const token = mail.text.match(/\/invitasjon#([A-Za-z0-9_-]+)/)![1];
+  const context = await browser.newContext({ baseURL: test.info().project.use.baseURL });
+  const accepted = await context.request.post("/api/auth/invitation/accept", {
+    data: { token, name: "Ada Assistent", password: "spill-passord-1" },
+    headers: CSRF,
+  });
+  expect(accepted.status()).toBe(200);
+  return context;
+}
+
 /** A fresh Class of `lecturer`, at the demo Institution, made through the api (Story 5.1). */
 export async function freshClass(lecturer: Page): Promise<{ id: string; name: string }> {
   const places = await lecturer.request.get("/api/classes/institutions");

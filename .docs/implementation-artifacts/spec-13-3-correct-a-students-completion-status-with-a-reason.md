@@ -235,3 +235,7 @@ The personal-data registry of Story 15.2 must list it.
 - Two simultaneous corrections are ordered by host time.
 - A corrected Student without a game sees no mark on Hjem until Story 13.4 gives a game.
 - The correction form has no unit test (deferred).
+
+## Epic 13 close-out: follow-up review
+
+Independent review (sonnet, read-only): access and the append-only trigger are clean. Added a real `DELETE FROM users` test (`test_deleting_the_users_rows_passes_the_append_only_trigger`): the corrector's key goes to NULL through the trigger, the Student's rows cascade. Left (low): a correction for a Student outside the reporting scope is stored though never shown; a reason of only zero-width characters passes the trim; lane databases migrated before 0301's in-place trigger patch keep the old trigger (fresh databases and main are fine).

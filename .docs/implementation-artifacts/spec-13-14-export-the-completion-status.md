@@ -171,3 +171,7 @@ Status: done
 - Decisions taken without the founder: the make-up column holds the date given; shares are whole percents rounded down (as the Studentside); «Kravet (%)» is an extra column; the format choice is a disclosure; no `no_students` refusal (an empty file has the header).
 - New personal data: no new table. The file holds names and e-mails but is never stored.
 
+
+## Epic 13 close-out: follow-up review
+
+Access, formula-injection guards, BOM/CRLF and scope are clean. Added the promised e2e check: an Assistant lecturer of the Class sees the ZIP but not the Completion export, and the export route answers 403 (`class-session-export.spec.ts`).

@@ -4264,6 +4264,8 @@ export const nb = {
       retry: "Prøv igjen",
       /** Before the Testfrist (Story 15.1 shows it at the top of «Mine data»). */
       opens: (when: string) => `Studentrapporten kan lastes ned fra ${when}.`,
+      /** Once the Class session's deletion date has come (FR-77): no report is made. [ASSUMPTION] */
+      deleted: "Dataene dine i denne Klasseøkten er slettet. Det kan ikke lages en Studentrapport.",
       errors: {
         report_not_open: "Studentrapporten kan lastes ned når Testfristen er ute.",
         not_counted: "Det lages ingen Studentrapport for denne Klasseøkten.",

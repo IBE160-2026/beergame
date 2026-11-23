@@ -1,15 +1,14 @@
 import fs from "node:fs";
 
-import { type Browser, expect, type Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
-import { nextMail } from "./support/auth";
 import {
+  assistantOf,
   expectAccessible,
   expectReflow,
   freshLecturer,
   lecturerPage,
-  type Session,
   test,
   VIEWPORTS,
   type Viewport,
@@ -27,34 +26,12 @@ import { liveClassGame, orderByApi } from "./support/live-game";
  * of another Class sees the permission-denied page. Axe and reflow at 320 px, 1280 px with 200 %
  * text and 1440 px. The rules are `backend/tests/reports/test_studentside.py`. */
 const CSRF = { "X-Requested-With": "olspillet" };
-const PASSWORD = "spill-passord-1";
 const copy = nb.reports.completion;
 const record = nb.reports.record;
 const download = nb.reports.download;
 
 async function untilLive(page: Page) {
   await expect(page.locator("html")).toHaveAttribute("data-live", "live", { timeout: 10_000 });
-}
-
-/** An Assistant lecturer of the Class, from a mailed Invitation accepted through the api. */
-async function assistantOf(browser: Browser, lecturerSession: Session, classId: string) {
-  const lecturer = await lecturerPage(browser, lecturerSession, { width: 1280, height: 800 });
-  const address = `assistent-${Date.now()}${Math.floor(Math.random() * 1e6)}@example.com`;
-  const sent = await lecturer.request.post(`/api/classes/${classId}/staff/assistants`, {
-    data: { email: address },
-    headers: CSRF,
-  });
-  expect(sent.status()).toBe(201);
-  const mail = await nextMail(lecturer, address, null);
-  await lecturer.context().close();
-  const token = mail.text.match(/\/invitasjon#([A-Za-z0-9_-]+)/)![1];
-  const context = await browser.newContext({ baseURL: test.info().project.use.baseURL });
-  const accepted = await context.request.post("/api/auth/invitation/accept", {
-    data: { token, name: "Ada Assistent", password: PASSWORD },
-    headers: CSRF,
-  });
-  expect(accepted.status()).toBe(200);
-  return context;
 }
 
 async function textAt(page: Page, viewport: Viewport) {

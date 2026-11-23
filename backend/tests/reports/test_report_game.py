@@ -10,6 +10,8 @@ import json
 import uuid
 from datetime import UTC, datetime
 
+import pytest
+
 from app.modules.classes import service as classes
 from app.modules.reports import report_data
 from app.modules.sessions import service as sessions
@@ -85,6 +87,7 @@ async def _class_of(s, session_id: str, user_id: uuid.UUID) -> uuid.UUID:
     return heading.class_id
 
 
+@pytest.mark.long
 async def test_a_finished_makeup_is_the_game_section_headed_oppfolgingsspill(klass, emitted):
     session_id, game_id, (a, b) = await short_game(klass)
     await play_weeks(game_id, WEEKS)

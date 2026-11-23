@@ -192,3 +192,7 @@ Status: done
 - Other staff see a new ZIP only on load or by the 15 s poll while it is pending.
 - Ready ZIP objects are removed by Epic 15's retention, under the Class session's prefix.
 - New personal data: the table `report_zips` (`requested_by`), and ZIP objects holding Student names and work.
+
+## Epic 13 close-out: follow-up review
+
+The four late patches were verified correct. The 250-Student timing test is marked `slow` (and `long`): skipped in the default local run, run in CI (`CI` set) or with `RUN_SLOW=1`. Left (low): two runs of one `zip_id` could remove the live object (procrastinate's queueing lock prevents the second run); an object stored before a failed final transaction is orphaned; staleness is by request age (900 s); the ready mail does not re-check that the requester is still staff (it holds no Student data); no limit on rebuilds. Registry must list `report_zips` and the ZIP objects.

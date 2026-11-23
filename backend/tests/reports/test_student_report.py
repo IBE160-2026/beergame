@@ -269,6 +269,29 @@ async def test_a_later_correction_shows_in_the_next_report(klass, monkeypatch, f
     assert str(newest) in (await file(email(0), session_id)).headers["location"]
 
 
+async def test_once_the_data_is_deleted_the_student_gets_no_report(
+    klass, monkeypatch, files, converter
+):
+    """The close-out of Epic 13: as for the staff (Story 13.12), the deletion date (Story 13.9)
+    ends the Student's own report: the state says so, and no press or download is allowed."""
+    session_id, _ = await locked_session(klass)
+    set_clock(monkeypatch, AFTER)
+    await press(email(0), session_id)
+    await run_reports()
+    assert (await file(email(0), session_id)).status_code == 303
+    execute(
+        "UPDATE class_sessions SET deletion_date = %s WHERE id = %s",
+        (AFTER - timedelta(days=1)).date(),
+        session_id,
+    )
+    found = (await state(email(0), session_id)).json()
+    assert (found["deleted"], found["status"], found["generated_at"]) == (True, "none", None)
+    before = requests_of(session_id)
+    assert code(await press(email(0), session_id)) == (409, "data_deleted")
+    assert code(await file(email(0), session_id)) == (409, "data_deleted")
+    assert requests_of(session_id) == before and queued() == 0
+
+
 async def test_a_student_reports_leave_out_gets_no_report(klass, monkeypatch, files, converter):
     session_id, seated = await locked_session(klass)
     set_clock(monkeypatch, AFTER)

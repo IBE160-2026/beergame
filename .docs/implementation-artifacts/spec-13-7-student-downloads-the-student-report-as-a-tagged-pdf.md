@@ -205,3 +205,7 @@ Status: done
 **Personal data.** New tables `report_requests` (`user_id`, `requested_by`) and `report_snapshots` (the Student's name and report content, for one render; purged when expired).
 
 **Residual risks.** No bucket creation or retention in production yet (deferred); a render cancelled by a deploy ends `failed` and needs a new press.
+
+## Epic 13 close-out: follow-up review
+
+Fixed (medium): the Student's own report ignored the deletion date while the staff's refused. Now `own_state` answers `deleted`, and the press and the download answer 409 `data_deleted` (`test_once_the_data_is_deleted_the_student_gets_no_report`); Hjem says «Dataene dine i denne Klasseøkten er slettet. …» [ASSUMPTION]. Left (low): no test of a stale render that ends after a newer one; the render job does not re-check the deletion date when it runs.

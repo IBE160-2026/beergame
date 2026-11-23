@@ -74,7 +74,8 @@ test("the Oversikt's Lenke writes to those who have not met the requirement", as
     await main.getByRole("button", { name: copy.send }).click();
     const result = main.getByRole("status").filter({ hasText: copy.sent(1) });
     await expect(result).toBeFocused();
-    expect((await nextMail(page, second.email, null)).text).toContain(text);
+    // Waits for the Melding's own mail: the obligatory notice queued at the lock may still arrive later.
+    expect((await nextMail(page, second.email, null, text)).text).toContain(text);
 
     // Once everyone has met the requirement, the Oversikt has no such Lenke.
     const secondId = ((await (await second.context.request.get("/api/auth/me")).json()) as { user: { id: string } }).user.id;
