@@ -154,8 +154,7 @@ Status: done
 - Frontend: `export-block.tsx`, `api.ts` (`completionExportPath`), `nb.ts` (spine strings; `choose`, `csv`, `xlsx` draft), regenerated client.
 - Tests: `backend/tests/reports/test_completion_export.py` (7), `test_reports_zip.py` (the flag in GET and POST), `export-block.test.tsx` (+2), e2e `class-session-export.spec.ts` (both downloads, axe per width with the choice open).
 
-**Review:** four layers, 36 findings (see the triage log). Patched: 4 medium (audit after the file is built, with a count; unrelated Prettier churn reverted; the POST flag asserted; the Oppfølgingsspill column tested on a real row) and 4 low (`
-` in the formula prefixes and a test of all prefixes; one `Response`; a stray assert). Deferred: none. Rejected with reasons in the log.
+**Review:** four layers, 36 findings (see the triage log). Patched: 4 medium (audit after the file is built, with a count; unrelated Prettier churn reverted; the POST flag asserted; the Oppfølgingsspill column tested on a real row) and 4 low (a newline in the formula prefixes and a test of all prefixes; one `Response`; a stray assert). Deferred: none. Rejected with reasons in the log.
 
 **Follow-up review recommended:** true (4 medium patched). Unverified risk: the Assistant lecturer's view is checked by Vitest and the api only, not in e2e; and the reverted frontend files were re-applied by script, reviewed only by the author.
 
