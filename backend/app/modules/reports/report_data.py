@@ -9,9 +9,10 @@ assembler, AD-16).
 
 The report is a header and an ordered list of sections. `SECTIONS` is the registry: each entry
 names a section `kind` and its builder. A builder answers the section's model, or None to leave
-it out. Story 13.8 adds `game`, Story 13.10 `debrief`, `replay` and `test`, Story 13.11 the AI
-assessment (from `options`); each adds its model to `ReportSection`, a builder here, and a
-renderer to the print route's registry (`frontend/src/app/print/report/sections.tsx`). The
+it out. `completion` (Story 13.7) and `game` (Story 13.8) are built; Story 13.10 adds `debrief`,
+`replay` and `test`, Story 13.11 the AI assessment (from `options`); each adds its model to
+`AnySection`, a builder here, and a renderer to the print route's registry
+(`frontend/src/app/print/report/sections.tsx`). The
 report holds no other Student's name or free text, and no AI data unless an option asks for it.
 """
 
@@ -21,13 +22,17 @@ import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Literal
+from decimal import Decimal
+from typing import Annotated, Literal
 
-from pydantic import AwareDatetime, BaseModel
+from pydantic import AwareDatetime, BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.analysis.completion import CompletionStatus
+from app.engine.settings import Role
 from app.modules.classes import service as classes
+from app.modules.games import service as games
+from app.modules.games.service import GameStatus, OccupantKind, SeatMark, SeatState
 from app.modules.reports import service
 from app.modules.reports.schemas import CompletionStepName
 from app.modules.sessions import service as sessions
@@ -35,6 +40,12 @@ from app.modules.sessions import service as sessions
 __all__ = [
     "SECTIONS",
     "CompletionSectionOut",
+    "AnySection",
+    "GameSectionOut",
+    "ReportDemandWeekOut",
+    "ReportGameOut",
+    "ReportGameRoleOut",
+    "ReportGameWeekOut",
     "ReportDataOut",
     "ReportOptions",
     "ReportSection",
@@ -75,9 +86,62 @@ class CompletionSectionOut(BaseModel):
     steps: list[ReportStepOut]
 
 
-ReportSection = CompletionSectionOut
-"""Every section model. Story 13.8 turns this into a union discriminated by `kind`
-(`Annotated[CompletionSectionOut | GameSectionOut, Field(discriminator="kind")]`)."""
+class ReportGameWeekOut(BaseModel):
+    """One Role in one opened Week of the chain (Spillinnsikt's read, Story 7.7): its placed
+    Order (null for none), stored inventory and backlog, who held the Seat (`student`, `ai`, or
+    `free`; never who) and the marks of the one AD-15 mapping (`games.service.seat_mark`)."""
+
+    week: int
+    order: int | None
+    inventory: int
+    backlog: int
+    holder: Literal["student", "ai", "free"]
+    marks: list[SeatMark]
+
+
+class ReportGameRoleOut(BaseModel):
+    """One Role of the chain, by Role only (never a name, AD-14), its Weeks in order."""
+
+    role: Role
+    weeks: list[ReportGameWeekOut]
+    first_large_order_week: int | None
+
+
+class ReportDemandWeekOut(BaseModel):
+    week: int
+    demand: int
+
+
+class ReportGameOut(BaseModel):
+    """The Student's game (`games.service.student_game`) as the report documents it (FR-58):
+    `seat` is the Student's Seat in the game's last opened Week (its `history` the earlier
+    Weeks), `last_order` that Week's Order; `roles` and `demand` the whole chain in chain order
+    (the Role serving the customer first), as Spillinnsikt reads it (FR-34, AD-15)."""
+
+    makeup: bool
+    game_number: int | None
+    role: Role
+    weeks_played: int
+    weeks_total: int | None
+    finished: bool
+    total_cost: Decimal
+    seat: SeatState
+    last_order: int | None
+    demand: list[ReportDemandWeekOut]
+    roles: list[ReportGameRoleOut]
+
+
+class GameSectionOut(BaseModel):
+    """«Klassespill» or «Oppfølgingsspill» (Story 13.8): `game` null when the Student has no
+    game with an opened Week; the section then says so."""
+
+    kind: Literal["game"] = "game"
+    game: ReportGameOut | None
+
+
+AnySection = CompletionSectionOut | GameSectionOut
+ReportSection = Annotated[AnySection, Field(discriminator="kind")]
+"""Every section model, discriminated by `kind`. Story 13.10 adds its own."""
 
 
 class ReportDatesOut(BaseModel):
@@ -113,7 +177,7 @@ class SectionContext:
     completion: CompletionStatus
 
 
-SectionBuilder = Callable[[SectionContext], Awaitable[ReportSection | None]]
+SectionBuilder = Callable[[SectionContext], Awaitable[AnySection | None]]
 
 
 async def _completion_section(ctx: SectionContext) -> CompletionSectionOut:
@@ -132,7 +196,73 @@ async def _completion_section(ctx: SectionContext) -> CompletionSectionOut:
     )
 
 
-SECTIONS: tuple[tuple[str, SectionBuilder], ...] = (("completion", _completion_section),)
+_AI = frozenset({OccupantKind.LLM, OccupantKind.RULE_BASED, OccupantKind.SCRIPTED})
+
+
+def _holder(kind: object) -> Literal["student", "ai", "free"]:
+    if kind == OccupantKind.STUDENT:
+        return "student"
+    return "ai" if kind in _AI else "free"
+
+
+async def _game_section(ctx: SectionContext) -> GameSectionOut:
+    """The Student's game, read through `games.service`: `student_game` (a finished
+    Oppfølgingsspill wins over the Class game, Story 13.5), the Seat's `seat_state` in its last
+    opened Week, and the chain from `game_insight`, Spillinnsikt's read (Story 7.7). Ids and
+    names never leave this function: other Seats are told apart by Role only (FR-58)."""
+    found = await games.student_game(ctx.s, ctx.user_id, ctx.class_session_id)
+    if found is None:
+        return GameSectionOut(game=None)
+    insight = await games.game_insight(ctx.s, found.game_id)
+    own = (
+        None
+        if insight is None
+        else next((role for role in insight.roles if role.role == found.role), None)
+    )
+    if insight is None or own is None or not own.weeks:
+        return GameSectionOut(game=None)
+    seat = await games.seat_state(str(found.game_id), found.role, session=ctx.s)
+    last = own.weeks[-1]
+    return GameSectionOut(
+        game=ReportGameOut(
+            makeup=found.makeup,
+            game_number=found.number,
+            role=Role(found.role),
+            weeks_played=sum(1 for week in own.weeks if week.order is not None),
+            weeks_total=insight.weeks_total,
+            finished=insight.status == GameStatus.FINISHED and insight.end_reason is None,
+            total_cost=seat.total_cost,
+            seat=seat,
+            last_order=last.order,
+            demand=[
+                ReportDemandWeekOut(week=week, demand=demand) for week, demand in insight.demand
+            ],
+            roles=[
+                ReportGameRoleOut(
+                    role=Role(role.role),
+                    first_large_order_week=role.first_large_order_week,
+                    weeks=[
+                        ReportGameWeekOut(
+                            week=week.week,
+                            order=week.order,
+                            inventory=week.inventory,
+                            backlog=week.backlog,
+                            holder=_holder(week.occupant_kind),
+                            marks=list(week.marks),
+                        )
+                        for week in role.weeks
+                    ],
+                )
+                for role in insight.roles
+            ],
+        )
+    )
+
+
+SECTIONS: tuple[tuple[str, SectionBuilder], ...] = (
+    ("completion", _completion_section),
+    ("game", _game_section),
+)
 """The report's sections in reading order, by `kind` (see the module docstring)."""
 
 

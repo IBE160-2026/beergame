@@ -4172,9 +4172,8 @@ export interface components {
          */
         CompletionSectionOut: {
             /**
-             * Kind
-             * @default completion
-             * @constant
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
              */
             kind: "completion";
             /** Obligatory */
@@ -4859,6 +4858,19 @@ export interface components {
             production_delay: number;
             /** Shipping Delay */
             shipping_delay: number;
+        };
+        /**
+         * GameSectionOut
+         * @description «Klassespill» or «Oppfølgingsspill» (Story 13.8): `game` null when the Student has no
+         *     game with an opened Week; the section then says so.
+         */
+        GameSectionOut: {
+            game: components["schemas"]["ReportGameOut"] | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "game";
         };
         /**
          * GameSettings
@@ -6887,7 +6899,7 @@ export interface components {
              */
             schema_version: 1;
             /** Sections */
-            sections: components["schemas"]["CompletionSectionOut"][];
+            sections: (components["schemas"]["CompletionSectionOut"] | components["schemas"]["GameSectionOut"])[];
             /** Session Number */
             session_number: number;
             /** Student Name */
@@ -6906,6 +6918,76 @@ export interface components {
             start_at: string | null;
             /** Test Deadline */
             test_deadline: string | null;
+        };
+        /** ReportDemandWeekOut */
+        ReportDemandWeekOut: {
+            /** Demand */
+            demand: number;
+            /** Week */
+            week: number;
+        };
+        /**
+         * ReportGameOut
+         * @description The Student's game (`games.service.student_game`) as the report documents it (FR-58):
+         *     `seat` is the Student's Seat in the game's last opened Week (its `history` the earlier
+         *     Weeks), `last_order` that Week's Order; `roles` and `demand` the whole chain in chain order
+         *     (the Role serving the customer first), as Spillinnsikt reads it (FR-34, AD-15).
+         */
+        ReportGameOut: {
+            /** Demand */
+            demand: components["schemas"]["ReportDemandWeekOut"][];
+            /** Finished */
+            finished: boolean;
+            /** Game Number */
+            game_number: number | null;
+            /** Last Order */
+            last_order: number | null;
+            /** Makeup */
+            makeup: boolean;
+            role: components["schemas"]["Role"];
+            /** Roles */
+            roles: components["schemas"]["ReportGameRoleOut"][];
+            seat: components["schemas"]["SeatState"];
+            /** Total Cost */
+            total_cost: string;
+            /** Weeks Played */
+            weeks_played: number;
+            /** Weeks Total */
+            weeks_total: number | null;
+        };
+        /**
+         * ReportGameRoleOut
+         * @description One Role of the chain, by Role only (never a name, AD-14), its Weeks in order.
+         */
+        ReportGameRoleOut: {
+            /** First Large Order Week */
+            first_large_order_week: number | null;
+            role: components["schemas"]["Role"];
+            /** Weeks */
+            weeks: components["schemas"]["ReportGameWeekOut"][];
+        };
+        /**
+         * ReportGameWeekOut
+         * @description One Role in one opened Week of the chain (Spillinnsikt's read, Story 7.7): its placed
+         *     Order (null for none), stored inventory and backlog, who held the Seat (`student`, `ai`, or
+         *     `free`; never who) and the marks of the one AD-15 mapping (`games.service.seat_mark`).
+         */
+        ReportGameWeekOut: {
+            /** Backlog */
+            backlog: number;
+            /**
+             * Holder
+             * @enum {string}
+             */
+            holder: "student" | "ai" | "free";
+            /** Inventory */
+            inventory: number;
+            /** Marks */
+            marks: components["schemas"]["SeatMark"][];
+            /** Order */
+            order: number | null;
+            /** Week */
+            week: number;
         };
         /**
          * ReportStateOut

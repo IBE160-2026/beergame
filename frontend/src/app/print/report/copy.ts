@@ -53,6 +53,50 @@ export const reportCopy = {
     notMet: "Kravet er ikke oppfylt.",
     notObligatory: "Klasseøkten er ikke obligatorisk.",
   },
+  /** The game section (Story 13.8, FR-58, FR-34). The chart words and the marks' words are the
+   * charts' own (`nb.insight`, `nb.games.play`), as on Spillinnsikt and the play screen. */
+  game: {
+    classGame: "Klassespill",
+    makeup: "Oppfølgingsspill",
+    facts: {
+      game: "Spill",
+      role: "Rolle",
+      weeks: "Uker spilt",
+      cost: "Totalkostnad",
+    },
+    /** «36 av 36». */
+    weeks: (played: string, total: string | null) => (total === null ? played : `${played} av ${total}`),
+    cost: (amount: string) => `${amount} kr`,
+    /** A game that ended without its last Uke (closed at the Testfrist) or still open. */
+    notFinished: "Spillet ble ikke spilt ferdig. Rapporten viser ukene som ble spilt.",
+    none: "Du spilte ikke noe spill i denne Klasseøkten.",
+    seat: {
+      title: "Din rolle uke for uke",
+      intro: (role: string) => `Netto lager, posisjon og kost per uke for deg som ${role}, med tabellen under grafen.`,
+      region: (from: number, to: number) => `Din rolle, Uke ${from}–${to}`,
+    },
+    chain: {
+      title: "Hele kjeden",
+      intro:
+        "Ordre, lager og restordre for alle fire rollene og kundenes etterspørsel, uke for uke. De andre i spillet står bare med rollen sin.",
+      block: (from: number, to: number) => `Uke ${from}–${to}`,
+    },
+    holders: {
+      title: "Hvem spilte",
+      caption: "Hvem som spilte hver rolle, og merknadene for ukene",
+      role: "Rolle",
+      playedBy: "Spilt av",
+      marks: "Merknader",
+      student: "Student",
+      ai: "KI-spiller",
+      free: "Ledig",
+      /** «KI-spiller, Uke 5–20». */
+      range: (who: string, from: number, to: number) => (from === to ? `${who}, Uke ${from}` : `${who}, Uke ${from}–${to}`),
+      /** «Uke 21: KI tok over etter ventetiden.» */
+      mark: (week: number, text: string) => `Uke ${week}: ${text}.`,
+      none: "Ingen",
+    },
+  },
 } as const;
 
 const DATE_TIME = new Intl.DateTimeFormat("nb-NO", {

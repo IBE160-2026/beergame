@@ -5,11 +5,12 @@ import { expect } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
 import { expectAccessible, test, VIEWPORTS } from "./support/classes";
-import { lockedClassGames } from "./support/live-game";
+import { liveClassGame, orderByApi } from "./support/live-game";
 
 /** Story 13.7 (FR-57, FR-58, NFR-6, NFR-7, AD-8, AD-11, AD-18, UX-DR29) on the local stack: a fresh
- * locked Obligatorisk Class session of one Student, with steps recorded through the dev route up
- * to the Replay. Before the Testfrist «Rapport» is locked and says what opens it; the dev route
+ * locked Obligatorisk Class session of one Student, whose Class game of 20 Uker is played to its
+ * end through `games.commands` (an Order, then the Play deadline playout, Story 13.8: the report's
+ * game section and its charts), with steps recorded through the dev route up to the Replay. Before the Testfrist «Rapport» is locked and says what opens it; the dev route
  * passes the Testfrist; «Lag Studentrapport» shows the pending line, and without a reload (the
  * render's `user` event) the Lenke «Last ned Studentrapporten (PDF)» appears within 30 seconds:
  * the real pipeline (snapshot, print route, WeasyPrint `pdf/ua-1` in `worker-batch`, the storage
@@ -26,13 +27,18 @@ test("a Student makes and downloads the Student report once the Testfrist has pa
   lecturerSession,
 }) => {
   test.slow(); // Invitations through the worker, a Class session, a lock and a real PDF render
-  const { sessionId, students } = await lockedClassGames(browser, lecturerSession, 1, {
+  const { gameId, sessionId, students } = await liveClassGame(browser, lecturerSession, 1, {
     aiMode: "rule_based",
     obligatory: true,
     width: VIEWPORTS[2]!.width,
+    gameSettings: { weeks: 20 },
   });
   const [sara] = students as [(typeof students)[number]];
   try {
+    // Story 13.8: the game played to its end, so the sample report holds the game with its charts.
+    await orderByApi(sara, gameId, 1, 4);
+    const played = await sara.context.request.post(`/api/dev/games/${gameId}/playout`, { headers: CSRF });
+    expect(played.status()).toBe(200);
     const steps = await sara.context.request.post(`/api/dev/class-sessions/${sessionId}/replay-done`, {
       headers: CSRF,
     });

@@ -3890,6 +3890,32 @@
         "title": "GameRulesOut",
         "type": "object"
       },
+      "GameSectionOut": {
+        "description": "«Klassespill» or «Oppfølgingsspill» (Story 13.8): `game` null when the Student has no\ngame with an opened Week; the section then says so.",
+        "properties": {
+          "game": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportGameOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "const": "game",
+            "default": "game",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "game"
+        ],
+        "title": "GameSectionOut",
+        "type": "object"
+      },
       "GameSettings": {
         "additionalProperties": false,
         "description": "Everything that defines a Game's arithmetic. `GameSettings()` is the Classic game.",
@@ -8513,7 +8539,21 @@
           },
           "sections": {
             "items": {
-              "$ref": "#/components/schemas/CompletionSectionOut"
+              "discriminator": {
+                "mapping": {
+                  "completion": "#/components/schemas/CompletionSectionOut",
+                  "game": "#/components/schemas/GameSectionOut"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/CompletionSectionOut"
+                },
+                {
+                  "$ref": "#/components/schemas/GameSectionOut"
+                }
+              ]
             },
             "title": "Sections",
             "type": "array"
@@ -8597,6 +8637,200 @@
           "test_deadline"
         ],
         "title": "ReportDatesOut",
+        "type": "object"
+      },
+      "ReportDemandWeekOut": {
+        "properties": {
+          "demand": {
+            "title": "Demand",
+            "type": "integer"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "week",
+          "demand"
+        ],
+        "title": "ReportDemandWeekOut",
+        "type": "object"
+      },
+      "ReportGameOut": {
+        "description": "The Student's game (`games.service.student_game`) as the report documents it (FR-58):\n`seat` is the Student's Seat in the game's last opened Week (its `history` the earlier\nWeeks), `last_order` that Week's Order; `roles` and `demand` the whole chain in chain order\n(the Role serving the customer first), as Spillinnsikt reads it (FR-34, AD-15).",
+        "properties": {
+          "demand": {
+            "items": {
+              "$ref": "#/components/schemas/ReportDemandWeekOut"
+            },
+            "title": "Demand",
+            "type": "array"
+          },
+          "finished": {
+            "title": "Finished",
+            "type": "boolean"
+          },
+          "game_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Number"
+          },
+          "last_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Order"
+          },
+          "makeup": {
+            "title": "Makeup",
+            "type": "boolean"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/ReportGameRoleOut"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "seat": {
+            "$ref": "#/components/schemas/SeatState"
+          },
+          "total_cost": {
+            "title": "Total Cost",
+            "type": "string"
+          },
+          "weeks_played": {
+            "title": "Weeks Played",
+            "type": "integer"
+          },
+          "weeks_total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weeks Total"
+          }
+        },
+        "required": [
+          "makeup",
+          "game_number",
+          "role",
+          "weeks_played",
+          "weeks_total",
+          "finished",
+          "total_cost",
+          "seat",
+          "last_order",
+          "demand",
+          "roles"
+        ],
+        "title": "ReportGameOut",
+        "type": "object"
+      },
+      "ReportGameRoleOut": {
+        "description": "One Role of the chain, by Role only (never a name, AD-14), its Weeks in order.",
+        "properties": {
+          "first_large_order_week": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Large Order Week"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "weeks": {
+            "items": {
+              "$ref": "#/components/schemas/ReportGameWeekOut"
+            },
+            "title": "Weeks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "role",
+          "weeks",
+          "first_large_order_week"
+        ],
+        "title": "ReportGameRoleOut",
+        "type": "object"
+      },
+      "ReportGameWeekOut": {
+        "description": "One Role in one opened Week of the chain (Spillinnsikt's read, Story 7.7): its placed\nOrder (null for none), stored inventory and backlog, who held the Seat (`student`, `ai`, or\n`free`; never who) and the marks of the one AD-15 mapping (`games.service.seat_mark`).",
+        "properties": {
+          "backlog": {
+            "title": "Backlog",
+            "type": "integer"
+          },
+          "holder": {
+            "enum": [
+              "student",
+              "ai",
+              "free"
+            ],
+            "title": "Holder",
+            "type": "string"
+          },
+          "inventory": {
+            "title": "Inventory",
+            "type": "integer"
+          },
+          "marks": {
+            "items": {
+              "$ref": "#/components/schemas/SeatMark"
+            },
+            "title": "Marks",
+            "type": "array"
+          },
+          "order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "week",
+          "order",
+          "inventory",
+          "backlog",
+          "holder",
+          "marks"
+        ],
+        "title": "ReportGameWeekOut",
         "type": "object"
       },
       "ReportStateOut": {

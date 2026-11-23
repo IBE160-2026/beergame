@@ -3,7 +3,7 @@
 import { type ReactNode } from "react";
 
 import { flowStep, OrderBars, OrderBarsLabels } from "@/components/charts/order-bars";
-import { type GraphColumn, type GraphField, GraphOverTable } from "@/components/graph-over-table";
+import { fixedCell, type FixedLayout, type GraphColumn, type GraphField, GraphOverTable } from "@/components/graph-over-table";
 import { formatNumber } from "@/lib/number-format";
 import { cn } from "@/lib/utils";
 
@@ -46,6 +46,8 @@ export function OrderBarsTable({
   labelledBy,
   caption,
   texts,
+  fixed,
+  largest: gameLargest,
 }: {
   /** The scroll region's accessible name. */
   label: string;
@@ -69,10 +71,17 @@ export function OrderBarsTable({
     axisSvg: string;
     swipe: string;
   };
+  /** Every width in px, for the server-rendered print page (the Student report, Story 13.8). */
+  fixed?: FixedLayout;
+  /** The game's largest Order when it is drawn in several blocks of Uker (the Student report), so
+   * the bars and the `flow-*` steps of every block share one scale. */
+  largest?: number;
 }) {
   const weeks = [...new Set(roles.flatMap((role) => role.orders.map((o) => o.week)))].sort((a, b) => a - b);
   const columns: GraphColumn[] = weeks.map((week) => ({ week, when: "past", phone: true }));
-  const largest = Math.max(0, ...roles.flatMap((role) => role.orders.map((o) => o.order)));
+  const largest = Math.max(0, gameLargest ?? 0, ...roles.flatMap((role) => role.orders.map((o) => o.order)));
+  const weekCell = fixedCell(fixed, "week");
+  const labelCell = fixedCell(fixed, "label");
   const byWeek = roles.map((role) => new Map(role.orders.map((o) => [o.week, o.order])));
   const amplified = roles.some((role) => role.amplification !== undefined);
   const nameOf = (role: OrderBarsRole) => (role.key === ownRole ? `${role.name} ${texts.own}` : role.name);
@@ -92,6 +101,7 @@ export function OrderBarsTable({
             columnWidth={size.columnWidth}
             chosen={chosenWeek === undefined ? null : (index.get(chosenWeek) ?? null)}
             title={texts.svg}
+            highest={gameLargest}
             rows={roles.map((role, r) => {
               const at = role.firstLargeWeek === null ? undefined : index.get(role.firstLargeWeek);
               return {
@@ -120,10 +130,11 @@ export function OrderBarsTable({
       columns={columns}
       fields={[field]}
       labelledBy={labelledBy}
-      swipe={texts.swipe}
+      swipe={fixed ? undefined : texts.swipe}
+      fixed={fixed}
       head={
         <tr className="border-b border-axis">
-          <th scope="row" className={ROW_LABEL}>
+          <th scope="row" className={ROW_LABEL} style={labelCell}>
             {texts.week}
           </th>
           {weeks.map((week) => (
@@ -131,6 +142,7 @@ export function OrderBarsTable({
               key={week}
               scope="col"
               data-col={week}
+              style={weekCell}
               aria-current={week === chosenWeek ? "true" : undefined}
               className={cn(WEEK_COL, "h-row-phone font-normal text-ink-muted lg:h-row-laptop", week === chosenWeek && "font-bold text-ink")}
             >
@@ -147,7 +159,7 @@ export function OrderBarsTable({
       }
       body={roles.map((role, r) => (
         <tr key={role.key} data-role={role.key} className="border-b border-paper">
-          <th scope="row" className={cn(ROW_LABEL, role.key === ownRole && "font-semibold")}>
+          <th scope="row" className={cn(ROW_LABEL, role.key === ownRole && "font-semibold")} style={labelCell}>
             {nameOf(role)}
           </th>
           {weeks.map((week) => {
@@ -156,6 +168,7 @@ export function OrderBarsTable({
             return (
               <td
                 key={week}
+                style={weekCell}
                 data-flow={flow}
                 className={cn(WEEK_COL, "h-row-phone lg:h-row-laptop", flow === undefined ? "" : FLOW[flow])}
               >

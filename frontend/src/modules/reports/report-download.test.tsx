@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { reportCopy } from "@/app/print/report/copy";
 import { Report } from "@/app/print/report/report";
-import { requirementLine, type ReportData, shareLines, stepStatus } from "@/app/print/report/sections";
+import { type CompletionSection, requirementLine, type ReportData, shareLines, stepStatus } from "@/app/print/report/sections";
 import { nb } from "@/copy/nb";
 import { topicKeys } from "@/lib/api/topics";
 import { stepItems } from "@/modules/games/home";
@@ -64,7 +64,7 @@ describe("the «Rapport» step", () => {
   });
 });
 
-const data = (over: Partial<ReportData["sections"][number]> = {}): ReportData => ({
+const data = (over: Partial<CompletionSection> = {}): ReportData => ({
   schema_version: 1,
   generated_at: "2026-12-11T09:05:00Z",
   student_name: "Sara Nilsen",
@@ -99,7 +99,7 @@ const data = (over: Partial<ReportData["sections"][number]> = {}): ReportData =>
 
 describe("the print route's report", () => {
   it("writes each step's status and the shares in words, through the Norwegian formatter", () => {
-    const [section] = data().sections;
+    const section = data().sections[0] as CompletionSection;
     expect(section.steps.map(stepStatus)).toEqual([
       "ikke gjort",
       "gjort, rettet av faglærer",
@@ -113,7 +113,7 @@ describe("the print route's report", () => {
     ]);
     expect(requirementLine(section)).toBe("Kravet er ikke oppfylt.");
     expect(requirementLine({ ...section, requirement_met: true })).toBe("Kravet er oppfylt.");
-    const free = data({ obligatory: false, requirement_met: null }).sections[0];
+    const free = data({ obligatory: false, requirement_met: null }).sections[0] as CompletionSection;
     expect(requirementLine(free)).toBe("Klasseøkten er ikke obligatorisk.");
     expect(shareLines(free)).toEqual([]);
   });

@@ -186,8 +186,8 @@ async def test_the_report_opens_at_the_test_deadline_and_is_rendered_from_a_snap
     )
     assert data["generated_at"].startswith(AFTER.isoformat()[:16])
     assert data["dates"]["test_deadline"].startswith(TEST.isoformat()[:16])
-    [section] = data["sections"]
-    assert section["kind"] == "completion"
+    section = data["sections"][0]
+    assert [each["kind"] for each in data["sections"]][:2] == ["completion", "game"]  # 13.8
     assert (section["obligatory"], section["requirement_met"]) == (True, False)
     assert [step["step"] for step in section["steps"]] == [
         "class_game",
