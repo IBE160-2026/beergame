@@ -4318,3 +4318,20 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet (data p�
 
 ### Åpne punkter
 - Issue #265: beslutninger for storyen.
+
+## Avslutning av Epic 14 (spor 3) og merge til main
+
+### Oppgave
+Avslutte Epic 14 og merge den til `main`. Dette er den siste epicen.
+
+### Plan
+Én agent: merge av `main` (Epic 15), punktene i avslutningslista og utsatte punkter, oppfølgingsgjennomgang, visuell sjekk, full stabilisering, PR og CI.
+
+### Resultat
+- Commits: f08f7e9 (merge, 0401 etter 0073), 7b58941, 0fbf117 («Epic 14: avslutning»). PR #266, CI grønn, merget (bbb3a25).
+- Faktasett bygges i etterkant for ferdige spill, aggregatet skrives på nytt etter sene spill og vurderinger, like spilloppsett vises som ett filtervalg, og stolpene forsvinner ikke ved 200 % tekst. Backend 4303 og full Playwright-pakke grønne.
+- Status: `epic-14` done. Alle epics 1–15 er merget til `main`.
+
+### Åpne punkter
+- Issue #267: beslutninger og punkter som står igjen.
+- En tom, usporet fil `backend/migrations/versions/0401_class_aggregates.py` i hovedmappa, laget ved et uhell av avslutningsagenten. Agenten fikk ikke lov til å slette den; grunnleggeren bør slette den.
