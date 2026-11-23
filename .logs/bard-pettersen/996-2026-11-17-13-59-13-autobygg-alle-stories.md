@@ -3839,3 +3839,22 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
 
 ### Åpne punkter
 - Issue #235: beslutninger og det som er overlatt til Story 13.5.
+
+## Story 12.9: Gi poeng blindt på svarene i Kontrolltesten (spor 3)
+
+### Oppgave
+Bygge Story 12.9 på `epic-12` i spor 3.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-12-9-score-control-test-answers-blind.md`.
+- Commit: f3ac81c. Migrasjon 0208.
+- Admin navngir sensorer. Etter Testfristen gir sensoren poeng på «Svar N» uten navn, med Sensorveiledningen ved siden av, og ser KI-ens poeng først etterpå. Rekkefølgen bruker en nøkkelhash, så tidsstemplede id-er ikke avslører hvem som skrev hva.
+- Tester: backend 3847, Vitest 1196, tsc, `lint:colours`, `check:copy`, bygg, Playwright 58 med axe.
+- Gjennomgang: 34 funn, 10 rettet.
+- Status: done.
+
+### Åpne punkter
+- Issue #236: beslutninger og gjenværende risiko for at studenter kan kjennes igjen.
