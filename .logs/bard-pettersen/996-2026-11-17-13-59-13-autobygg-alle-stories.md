@@ -4146,3 +4146,20 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
 
 ### Åpne punkter
 - Issue #253: beslutninger for storyen; oppfølgingsgjennomgang tas i avslutningen av Epic 13.
+
+## Story 13.13: Alle studentrapporter som én ZIP (spor 2)
+
+### Oppgave
+Bygge Story 13.13.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-13-13-download-all-student-reports-as-one-zip.md`. Commit: 2f275f4. Migrasjon 0308 (`report_zips`).
+- Blokken «Eksport» på Klasseøkta lager én ZIP med alle studentrapportene, uten KI-vurdering, i køen `reports-bulk`, med e-post når den er klar og signert nedlasting.
+- Tester: backend 4036, frontend-sjekkene og Playwright (172). Tidstesten for 250 studenter tar om lag 15 s.
+- Status: done.
+
+### Åpne punkter
+- Issue #254: beslutninger for storyen; oppfølgingsgjennomgang og den trege tidstesten tas i avslutningen av Epic 13.
