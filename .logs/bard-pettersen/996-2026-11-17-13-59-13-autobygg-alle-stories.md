@@ -4113,3 +4113,20 @@ Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet.
 
 ### Åpne punkter
 - Issue #251: beslutninger.
+## Story 13.11: Den som laster ned kan ta med KI-vurderingen (spor 2), og merge av Epic 12 inn i Epic 13
+
+### Oppgave
+Hente inn `main` (Epic 12) i `epic-13` og bygge Story 13.11.
+
+### Plan
+Byggeagent: mergen først, så storyen med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Merge: 811cab7. 0301 etter 0209, én head. Én tilgangsregel for Studentsiden, KI-vurderingen fra 12.5 inn i Studentsidens data, og avgrensningen i `reports/scope.py` bruker nå Kontrolltest og teststudenter fra Epic 12.
+- Spec: `.docs/implementation-artifacts/spec-13-11-person-downloading-can-add-the-ai-assessment-section.md`. Commit: 2f20c98. Migrasjon 0306.
+- Studenten kan ta med KI-vurderingen i Studentrapporten når den er klar; bokstaven kommer bare med gjennom `assessment.letter_for`. veraPDF: PDF/UA-1 på begge variantene.
+- Tester: backend 4012 (én feil under last), frontend-sjekkene, Playwright for de berørte skjermene.
+- Status: done. Spor 2 stopper her til grunnleggeren har kjørt `/compact`.
+
+### Åpne punkter
+- Issue #252: beslutninger for mergen og storyen.
