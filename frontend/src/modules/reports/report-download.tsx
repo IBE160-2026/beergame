@@ -1,15 +1,24 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import { ActionError } from "@/components/action-error";
 import { Button } from "@/components/button";
+import { Switch } from "@/components/switch";
 import { nb } from "@/copy/nb";
+import { ApiRequestError } from "@/lib/api/client";
 import { useAction } from "@/lib/api/mutation";
 import { osloDateText } from "@/modules/sessions/dates";
 
-import { myReportFilePath, myReportKey, requestMyReport, type ReportState, useMyReport } from "./api";
+import {
+  myReportFilePath,
+  myReportKey,
+  myReportsKey,
+  requestMyReport,
+  type ReportState,
+  useMyReport,
+} from "./api";
 
 const copy = nb.reports.download;
 const LINE = "text-body-phone text-ink lg:text-body";
@@ -26,7 +35,10 @@ export type DownloadView =
   | { kind: "ready" }
   | { kind: "failed" };
 
-export function downloadView(state: ReportState, pressed: boolean): DownloadView {
+export function downloadView(
+  state: ReportState,
+  pressed: boolean,
+): DownloadView {
   if (!state.open) return { kind: "closed", opensAt: state.opens_at };
   if (pressed || state.status === "pending") return { kind: "pending" };
   if (state.status === "failed") return { kind: "failed" };
@@ -43,61 +55,136 @@ export function downloadView(state: ReportState, pressed: boolean): DownloadView
  * render shows the error inline with «Prøv igjen». Every new press makes a new PDF, so a later
  * correction shows. Before the Testfrist it says when it opens. The status line is announced
  * politely; focus stays on the button (UX-DR76).
+ *
+ * Story 13.11 (FR-58, FR-61): while the Student's AI assessment is ready, a Bryter «KI-vurdering i
+ * rapporten», off on every visit, adds the AI assessment section. Each choice is a report of its
+ * own: the state, the press and the link follow the Bryter, so the standard link never serves the
+ * PDF with the section. Not ready, switched off or failed: no Bryter, the standard report only.
  */
 export function ReportDownload({ sessionId }: { sessionId: string }) {
   const queryClient = useQueryClient();
-  const report = useMyReport(sessionId);
+  const ids = useId();
+  const [withAi, setWithAi] = useState(false);
+  const standard = useMyReport(sessionId);
+  const available = standard.data?.ai_available === true;
+  const ai = withAi && available;
+  // Read only once the Student turns the Bryter on.
+  const added = useMyReport(sessionId, true, ai);
+  const report = ai ? added : standard;
   const making = useAction({
-    mutationFn: () => requestMyReport(sessionId),
+    mutationFn: (asked: boolean) => requestMyReport(sessionId, asked),
     messages: copy.errors,
     fallback: copy.failed,
-    onSuccess: (state) => queryClient.setQueryData(myReportKey(sessionId), state),
+    onSuccess: (state, asked) =>
+      queryClient.setQueryData(myReportKey(sessionId, asked), state),
   });
+  const base = standard.data;
+  // While the AI variant's state is read, only the Bryter shows (it stays, with focus on it).
   const state = report.data;
+  // Refused as unavailable (the assessment changed meanwhile): read the state again, so the
+  // Bryter goes and the standard report shows.
+  const refused =
+    making.error instanceof ApiRequestError &&
+    making.error.code === "ai_assessment_unavailable";
+  useEffect(() => {
+    if (refused) void queryClient.invalidateQueries({ queryKey: myReportsKey });
+  }, [refused, queryClient]);
   // The pending line is announced once the press was answered; «klar» once it turned ready here.
   const [announced, setAnnounced] = useState("");
   const previous = useRef<ReportState["status"] | undefined>(undefined);
   useEffect(() => {
     const status = state?.status;
-    if (previous.current === "pending" && status === "ready") setAnnounced(copy.ready);
+    if (previous.current === "pending" && status === "ready")
+      setAnnounced(copy.ready);
     else if (status === "pending") setAnnounced(copy.pending);
     previous.current = status;
   }, [state?.status]);
-  if (!state) return null;
-  const view = downloadView(state, making.isPending);
-  const press = () => making.mutate();
+  if (!base) return null;
+  const view = state ? downloadView(state, making.isPending) : null;
+  const press = () => making.mutate(ai);
+  const nameId = `${ids}-ai`;
+  const helpId = `${ids}-ai-help`;
   return (
-    <div className="mt-2 flex flex-col items-start gap-2" data-report-download={view.kind}>
+    <div
+      className="mt-2 flex flex-col items-start gap-2"
+      data-report-download={view?.kind ?? "loading"}
+    >
       <p role="status" className="sr-only">
         {announced}
       </p>
-      {view.kind === "closed" ? (
-        view.opensAt ? (
-          <p className={`${LINE} text-ink-secondary`}>{copy.opens(osloDateText(view.opensAt))}</p>
-        ) : null
+      {available && base.open ? (
+        <div
+          className="flex flex-col items-start gap-1"
+          data-report-ai={ai ? "on" : "off"}
+        >
+          <p id={nameId} className={`${LINE} font-semibold`}>
+            {copy.ai.control}
+          </p>
+          <Switch
+            id={`${ids}-ai-switch`}
+            checked={ai}
+            labelledBy={nameId}
+            describedBy={helpId}
+            onChange={(on) => {
+              if (!making.isPending) setWithAi(on);
+            }}
+          >
+            {ai ? copy.ai.on : copy.ai.off}
+          </Switch>
+          <p id={helpId} className={`${LINE} text-ink-secondary`}>
+            {copy.ai.help}
+          </p>
+        </div>
       ) : null}
-      {view.kind === "pending" ? (
-        <p className={LINE} aria-hidden="true">
-          {copy.pending}
-        </p>
-      ) : null}
-      {/* The latest PDF made stays downloadable while a new one is made or after one failed. */}
-      {state.open && state.generated_at ? (
+      {state && view ? (
         <>
-          <a href={myReportFilePath(sessionId)} className={LINK} download>
-            {copy.link}
-          </a>
-          <p className={`${LINE} text-ink-secondary`}>{copy.made(osloDateText(state.generated_at))}</p>
+          {view.kind === "closed" ? (
+            view.opensAt ? (
+              <p className={`${LINE} text-ink-secondary`}>
+                {copy.opens(osloDateText(view.opensAt))}
+              </p>
+            ) : null
+          ) : null}
+          {view.kind === "pending" ? (
+            <p className={LINE} aria-hidden="true">
+              {copy.pending}
+            </p>
+          ) : null}
+          {/* The latest PDF made stays downloadable while a new one is made or after one failed. */}
+          {state.open && state.generated_at ? (
+            <>
+              <a
+                href={myReportFilePath(sessionId, state.ai)}
+                className={LINK}
+                download
+              >
+                {copy.link}
+              </a>
+              <p className={`${LINE} text-ink-secondary`}>
+                {copy.made(osloDateText(state.generated_at))}
+              </p>
+            </>
+          ) : null}
+          {view.kind === "failed" ? (
+            <ActionError message={copy.failed} />
+          ) : null}
+          {view.kind === "make" ||
+          view.kind === "ready" ||
+          view.kind === "failed" ? (
+            <>
+              <Button variant="secondary" onClick={press}>
+                {view.kind === "failed"
+                  ? copy.retry
+                  : view.kind === "ready"
+                    ? copy.again
+                    : copy.make}
+              </Button>
+              <p className={`${LINE} text-ink-secondary`}>{copy.note}</p>
+            </>
+          ) : null}
         </>
-      ) : null}
-      {view.kind === "failed" ? <ActionError message={copy.failed} /> : null}
-      {view.kind === "make" || view.kind === "ready" || view.kind === "failed" ? (
-        <>
-          <Button variant="secondary" onClick={press}>
-            {view.kind === "failed" ? copy.retry : view.kind === "ready" ? copy.again : copy.make}
-          </Button>
-          <p className={`${LINE} text-ink-secondary`}>{copy.note}</p>
-        </>
+      ) : report.isError ? (
+        <ActionError message={copy.failed} />
       ) : null}
       <ActionError message={making.errorMessage} />
     </div>

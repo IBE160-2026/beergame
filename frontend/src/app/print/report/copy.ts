@@ -179,6 +179,14 @@ export const reportCopy = {
     /** A number item's column: its headers. */
     column: { row: "Rad", value: "Tall" },
   },
+  /** Story 13.11 (FR-55, FR-56, FR-58, C-2): the AI assessment section, only when the Student added
+   * it. The disclosure, the score lines, the feedback prefix, the total and the letter's label are
+   * the Student's own «KI-vurdering» (`nb.assessment`); these lines are [ASSUMPTION] draft copy. */
+  assessment: {
+    title: "KI-vurdering",
+    /** Why the section is here at all. */
+    added: "Du valgte selv å ta med KI-vurderingen i rapporten. Resten av rapporten er laget uten den.",
+  },
 } as const;
 
 const DATE_TIME = new Intl.DateTimeFormat("nb-NO", {

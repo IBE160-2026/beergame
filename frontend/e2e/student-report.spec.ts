@@ -22,11 +22,16 @@ import { liveClassGame, type LiveStudent, orderByApi } from "./support/live-game
  * URL, and its structure tree marks the AI line (`/UserProperties` `ai_generated`). The proxy
  * refuses the print route and the api's internal snapshot read. Axe and reflow at 320 px and
  * 1440 px. The PDF is kept as the sample CI's veraPDF step checks (`scripts/verapdf`). Story 13.9:
- * «Rapport» states the deletion date, locked and open, and it follows the Testfrist. What the api
- * refuses is `backend/tests/reports/test_student_report.py`. */
+ * «Rapport» states the deletion date, locked and open, and it follows the Testfrist. Story 13.11:
+ * the test is assessed on the mock provider; the Bryter «KI-vurdering i rapporten» is off, so the
+ * first PDF is the standard one; turned on, a second PDF with the «KI-vurdering» section is made
+ * and kept as the second sample (`student-report-ai.pdf`); the standard link still serves the
+ * first. What the api refuses is `backend/tests/reports/test_student_report.py` and
+ * `test_report_assessment.py`. */
 const copy = nb.reports.download;
 const CSRF = { "X-Requested-With": "olspillet" };
 export const SAMPLE = path.join("test-results", "student-report.pdf");
+export const SAMPLE_AI = path.join("test-results", "student-report-ai.pdf");
 /** The Student's own Orders for Uke 1 to 16: at least ten after the Guided Uker, so the Debrief
  * has moments to choose. */
 const ORDERS = [4, 4, 4, 4, 12, 0, 8, 16, 4, 8, 2, 8, 20, 6, 10, 4];
@@ -143,11 +148,25 @@ test("a Student makes and downloads the Student report once the Testfrist has pa
       headers: CSRF,
     });
     expect(passed.status()).toBe(200);
+    // Story 13.11: the Test-deadline lock and the close of the attempt; `worker-batch` assesses
+    // it on the mock provider.
+    await ok(sara.context.request.post(`/api/dev/class-sessions/${sessionId}/lock-test`, { headers: CSRF }));
+    await ok(sara.context.request.post(`/api/dev/class-sessions/${sessionId}/test/close`, { headers: CSRF }), 204);
+    await expect
+      .poll(async () => (await (await sara.context.request.get(`/api/me/class-sessions/${sessionId}/test/assessment`)).json()).state, {
+        timeout: 30_000,
+      })
+      .toBe("ready");
     await page.reload();
-    await expect(report).toHaveAttribute("data-state", "current");
+    // Open; «done» since the AI assessment is ready (Story 12.4 marks the last step so).
+    await expect(report).toHaveAttribute("data-state", "done");
     const make = report.getByRole("button", { name: copy.make });
     await expect(make).toBeVisible();
     await expect(report).toContainText(copy.note);
+    // Story 13.11: the assessment is ready, so the Bryter is offered, off.
+    const bryter = report.getByRole("switch", { name: copy.ai.control });
+    await expect(bryter).toHaveAttribute("aria-checked", "false");
+    await expect(report).toContainText(copy.ai.help);
     // The Testfrist moved into the past: the deletion date moved with it, in the same save.
     await expect(deletion).toBeVisible();
     expect(await deletion.getAttribute("data-deletion-date")).not.toBe(lockedDay);
@@ -177,6 +196,26 @@ test("a Student makes and downloads the Student report once the Testfrist has pa
     const objects = pdfText(pdf);
     expect(objects).toContain("/UserProperties");
     expect(objects).toContain("(ai_generated)");
+    const marks = (text: string) => text.split("(ai_generated)").length - 1;
+
+    // Story 13.11: the Bryter on, a report of its own with the «KI-vurdering» section.
+    await bryter.click();
+    await expect(bryter).toHaveAttribute("aria-checked", "true");
+    await expect(report.getByRole("link", { name: copy.link })).toHaveCount(0);
+    await report.getByRole("button", { name: copy.make }).click();
+    const aiLink = report.getByRole("link", { name: copy.link });
+    await expect(aiLink).toBeVisible({ timeout: 30_000 });
+    await expect(aiLink).toHaveAttribute("href", /\/report\/file\?ai=true$/);
+    const aiDownload = page.waitForEvent("download");
+    await aiLink.click();
+    const aiPdf = fs.readFileSync(await (await aiDownload).path());
+    expect(aiPdf.subarray(0, 5).toString()).toBe("%PDF-");
+    fs.copyFileSync(await (await aiDownload).path(), SAMPLE_AI);
+    // The AI scores, the feedback and the total are marked too: more marks than the standard one.
+    expect(marks(pdfText(aiPdf))).toBeGreaterThan(marks(objects));
+    // Off again: the standard link, to the first PDF.
+    await bryter.click();
+    await expect(report.getByRole("link", { name: copy.link })).toHaveAttribute("href", /\/report\/file$/);
 
     // The print route and the api's internal snapshot read are refused at the proxy (AD-11).
     for (const internal of ["/print/report/00000000-0000-0000-0000-000000000000?token=x", "/api/internal/report-snapshots/x"]) {

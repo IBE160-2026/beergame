@@ -23,8 +23,9 @@ from typing import Literal
 import structlog
 
 from app.modules.reports import repo, scope
-from app.modules.reports.report_data import ReportOptions
+from app.modules.reports.report_data import ReportVariant
 from app.modules.sessions import service as sessions
+from app.modules.tests import service as tests
 from app.platform import auth, authz, events, jobs, storage
 from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker
@@ -53,7 +54,9 @@ REQUESTED = "reports.request_report"
 
 class ReportRefused(Exception):
     """409: `report_not_open` (before the Student's effective Test deadline, or none),
-    `not_counted` (a Student reports leave out), `report_not_ready` (no PDF to download yet)."""
+    `not_counted` (a Student reports leave out), `report_not_ready` (no PDF to download yet),
+    `ai_assessment_unavailable` (the AI section asked for while the Student's AI assessment is not
+    ready, Story 13.11)."""
 
     def __init__(self, code: str) -> None:
         super().__init__(code)
@@ -72,6 +75,44 @@ class ReportState:
     open: bool
     status: Status
     generated_at: datetime | None
+    ai: bool = False
+    """Story 13.11: this state is the variant with the AI assessment section."""
+    ai_available: bool = False
+    """Story 13.11: the Student's AI assessment is ready, so the section may be added."""
+
+
+@dataclass(frozen=True)
+class _Choice:
+    variant: ReportVariant
+    ai_available: bool
+
+
+STANDARD = _Choice("standard", False)
+"""The standard report, without reading the AI assessment (a press or a download without `ai`)."""
+
+
+async def _available(user_id: uuid.UUID, class_session_id: uuid.UUID) -> bool:
+    """Whether the Bryter is offered (Story 13.11). A fault reading the AI assessment only hides
+    the Bryter: the standard report's state, press and download never depend on it."""
+    try:
+        return (await _choice(user_id, class_session_id, False)).ai_available
+    except Exception as exc:
+        log.warning("report_ai_available_unread", exc_type=type(exc).__name__)
+        return False
+
+
+async def _choice(user_id: uuid.UUID, class_session_id: uuid.UUID, ai: bool) -> _Choice:
+    """The variant the Student's choice names now (Story 13.11): `standard` unless they add the
+    AI section and their AI assessment is ready; then `ai_letter` when the Indicative letter's
+    gate (`letter_for`, reader `report`, asked by the Student) gives a letter, else `ai`. The
+    letter's state is part of the variant, so a later change of their letter choice never serves
+    a PDF made under the other."""
+    found = await tests.report_assessment(user_id, class_session_id, requested_by_student=True)
+    if found is None:
+        return _Choice("standard", False)
+    if not ai:
+        return _Choice("standard", True)
+    return _Choice("ai_letter" if found.letter is not None else "ai", True)
 
 
 def object_path(
@@ -103,17 +144,22 @@ def _is_open(opens_at: datetime | None, now: datetime) -> bool:
 
 
 async def own_state(
-    user: authz.Principal, class_session_id: uuid.UUID, options: ReportOptions | None = None
+    user: authz.Principal, class_session_id: uuid.UUID, *, ai: bool = False
 ) -> ReportState | None:
-    """The Student's own report state in the Class session; None (403) for every other case."""
-    options = options or ReportOptions()
+    """The Student's own report state in the Class session, for the variant `ai` names (the
+    standard one while the AI section cannot be added); None (403) for every other case."""
     now = auth.utcnow()
     async with get_sessionmaker()() as s:
         row = await sessions.own_report_session(s, user, class_session_id)
-        if row is None:
-            return None
+    if row is None:
+        return None
+    if ai:
+        choice = await _choice(user.id, class_session_id, True)
+    else:
+        choice = _Choice("standard", await _available(user.id, class_session_id))
+    async with get_sessionmaker()() as s:
         latest, ready = await repo.latest_report_requests(
-            s, class_session_id, user.id, options.variant
+            s, class_session_id, user.id, choice.variant
         )
     opens_at = sessions.report_opens_at(user, row)
     return ReportState(
@@ -121,15 +167,17 @@ async def own_state(
         open=_is_open(opens_at, now),
         status=_status(latest, now),
         generated_at=None if ready is None else ready.finished_at,
+        ai=choice.variant != "standard",
+        ai_available=choice.ai_available,
     )
 
 
 async def request_own(
-    user: authz.Principal, class_session_id: uuid.UUID, options: ReportOptions | None = None
+    user: authz.Principal, class_session_id: uuid.UUID, *, ai: bool = False
 ) -> ReportState | None:
     """«Lag Studentrapport»: record the request and defer its render; a pending one answers
-    itself. None (403) for every other case; raises `ReportRefused`."""
-    options = options or ReportOptions()
+    itself. `ai`: with the AI assessment section (Story 13.11). None (403) for every other case;
+    raises `ReportRefused`."""
     now = auth.utcnow()
     async with get_sessionmaker().begin() as s:
         row = await sessions.own_report_session(s, user, class_session_id)
@@ -140,8 +188,12 @@ async def request_own(
             raise ReportRefused("report_not_open")
         if user.id not in await scope.reporting_students(s, class_session_id):
             raise ReportRefused("not_counted")
+        # Without `ai` the AI assessment is never read: the standard report stands on its own.
+        choice = await _choice(user.id, class_session_id, ai) if ai else STANDARD
+        if ai and not choice.ai_available:
+            raise ReportRefused("ai_assessment_unavailable")
         latest, ready = await repo.latest_report_requests(
-            s, class_session_id, user.id, options.variant
+            s, class_session_id, user.id, choice.variant
         )
         if latest is not None and latest.status == "pending" and _status(latest, now) == "failed":
             # A render that never ended (a crashed worker): it gives way to this press.
@@ -151,7 +203,7 @@ async def request_own(
             class_session_id=class_session_id,
             user_id=user.id,
             requested_by=user.id,
-            variant=options.variant,
+            variant=choice.variant,
             requested_at=now,
         )
         if request_id is not None:
@@ -167,21 +219,25 @@ async def request_own(
                 "report_requested",
                 request_id=str(request_id),
                 class_session_id=str(class_session_id),
+                variant=choice.variant,
             )
     return ReportState(
         opens_at=opens_at,
         open=True,
         status="pending",
         generated_at=None if ready is None else ready.finished_at,
+        ai=choice.variant != "standard",
+        ai_available=choice.ai_available if ai else await _available(user.id, class_session_id),
     )
 
 
 async def own_file_url(
-    user: authz.Principal, class_session_id: uuid.UUID, options: ReportOptions | None = None
+    user: authz.Principal, class_session_id: uuid.UUID, *, ai: bool = False
 ) -> str | None:
-    """A signed URL of the Student's latest ready PDF, made only now that the policy allowed it
-    (NFR-7, AD-12). None (403) for every other case; raises `ReportRefused`."""
-    options = options or ReportOptions()
+    """A signed URL of the Student's latest ready PDF of the variant `ai` names, made only now
+    that the policy allowed it (NFR-7, AD-12). Without `ai` it is always the standard PDF, never
+    one with the AI section (Story 13.11). None (403) for every other case; raises
+    `ReportRefused`."""
     now = auth.utcnow()
     async with get_sessionmaker()() as s:
         row = await sessions.own_report_session(s, user, class_session_id)
@@ -191,7 +247,11 @@ async def own_file_url(
             raise ReportRefused("report_not_open")
         if user.id not in await scope.reporting_students(s, class_session_id):
             raise ReportRefused("not_counted")
-        _, ready = await repo.latest_report_requests(s, class_session_id, user.id, options.variant)
+        # Without `ai` the AI assessment is never read: the standard report stands on its own.
+        choice = await _choice(user.id, class_session_id, ai) if ai else STANDARD
+        if ai and not choice.ai_available:
+            raise ReportRefused("ai_assessment_unavailable")
+        _, ready = await repo.latest_report_requests(s, class_session_id, user.id, choice.variant)
         heading = await sessions.report_heading(s, class_session_id, user.id)
     if ready is None or ready.object_path is None:
         raise ReportRefused("report_not_ready")

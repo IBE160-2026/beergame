@@ -41,6 +41,7 @@ from app.modules.tests.models import (
     test_attempts,
 )
 from app.modules.tests.schemas import (
+    AssessedItemOut,
     ColumnOut,
     GivenRowOut,
     ItemResultOut,
@@ -62,6 +63,7 @@ __all__ = [
     "TableOut",
     "ReportItem",
     "ReportTest",
+    "AssessedItemOut",
     "StaffAssessmentOut",
     "answer",
     "attempt_status",
@@ -71,6 +73,8 @@ __all__ = [
     "read",
     "report_test",
     "staff_assessment",
+    "ReportAssessment",
+    "report_assessment",
 ]
 
 Stored = Mapping[str, Mapping[str, Any]]
@@ -78,6 +82,10 @@ Stored = Mapping[str, Mapping[str, Any]]
 staff_assessment = assessed.staff_read
 """A Student's «KI-vurdering» as the staff of their Class read it, with the Student's flags (Story
 12.5); the Studentside's record (Story 13.2) carries it. None for anyone else (FR-5)."""
+
+ReportAssessment = assessed.ReportAssessment
+report_assessment = assessed.report_assessment
+"""The Student's own ready «KI-vurdering» for their Student report (Story 13.11)."""
 
 
 class UnknownItem(Exception):

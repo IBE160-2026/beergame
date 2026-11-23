@@ -1013,6 +1013,64 @@
         "title": "AssessmentRowOut",
         "type": "object"
       },
+      "AssessmentSectionOut": {
+        "description": "«KI-vurdering» (Story 13.11, FR-55, FR-56, FR-58): only when the Student added it. The\nStudent's own ready view: `checked` (a Control test checked the Scoring guide), the items, the\nweighted total, and `letter` only where `assessment.letter_for` gives one for the report. No\nflags. It counts toward nothing and is no grade.",
+        "properties": {
+          "checked": {
+            "title": "Checked",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReportAssessedItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "kind": {
+            "const": "assessment",
+            "default": "assessment",
+            "title": "Kind",
+            "type": "string"
+          },
+          "letter": {
+            "anyOf": [
+              {
+                "enum": [
+                  "A",
+                  "B",
+                  "C",
+                  "D",
+                  "E",
+                  "F"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Letter"
+          },
+          "total": {
+            "title": "Total",
+            "type": "number"
+          },
+          "total_max": {
+            "title": "Total Max",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "checked",
+          "items",
+          "total",
+          "total_max",
+          "letter"
+        ],
+        "title": "AssessmentSectionOut",
+        "type": "object"
+      },
       "AuditActor": {
         "description": "An actor of the log for the filter: a User with their name, or the system (both null).",
         "properties": {
@@ -9903,6 +9961,141 @@
         "title": "ReplayWalkthroughOut",
         "type": "object"
       },
+      "ReportAiScoreOut": {
+        "description": "The AI's score of a long-answer or Adapted item (Story 12.2): its step on the Scoring\nguide's scale with the label, its written feedback (`ai_generated`, quotes as «…») or that the\nfeedback was left out (`feedback_dropped`).",
+        "properties": {
+          "assessed": {
+            "title": "Assessed",
+            "type": "boolean"
+          },
+          "feedback": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportTextOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "feedback_dropped": {
+            "title": "Feedback Dropped",
+            "type": "boolean"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "step": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step"
+          },
+          "top": {
+            "title": "Top",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "assessed",
+          "step",
+          "top",
+          "label",
+          "feedback",
+          "feedback_dropped"
+        ],
+        "title": "ReportAiScoreOut",
+        "type": "object"
+      },
+      "ReportAssessedItemOut": {
+        "description": "One item of the AI assessment in the test's order: its question, its points of its Item\nweight, and either its computed result or the AI's score.",
+        "properties": {
+          "ai": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportAiScoreOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computed": {
+            "anyOf": [
+              {
+                "enum": [
+                  "right",
+                  "partly",
+                  "wrong",
+                  "not_answered"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Computed"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "points": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Points"
+          },
+          "title": {
+            "$ref": "#/components/schemas/ReportTextOut"
+          },
+          "type": {
+            "enum": [
+              "choice",
+              "table",
+              "number",
+              "long",
+              "adapted"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "weight": {
+            "title": "Weight",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "number",
+          "type",
+          "title",
+          "weight",
+          "points",
+          "computed",
+          "ai"
+        ],
+        "title": "ReportAssessedItemOut",
+        "type": "object"
+      },
       "ReportDataOut": {
         "description": "A Student report's content, as the print route reads it from its snapshot (AD-18).",
         "properties": {
@@ -9928,6 +10121,7 @@
             "items": {
               "discriminator": {
                 "mapping": {
+                  "assessment": "#/components/schemas/AssessmentSectionOut",
                   "completion": "#/components/schemas/CompletionSectionOut",
                   "debrief": "#/components/schemas/DebriefSectionOut",
                   "game": "#/components/schemas/GameSectionOut",
@@ -9951,6 +10145,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/TestSectionOut"
+                },
+                {
+                  "$ref": "#/components/schemas/AssessmentSectionOut"
                 }
               ]
             },
@@ -10344,6 +10541,19 @@
         "title": "ReportReplayOut",
         "type": "object"
       },
+      "ReportRequestIn": {
+        "additionalProperties": false,
+        "description": "«Lag Studentrapport» (Story 13.11): `ai` adds the AI assessment section; off by default.",
+        "properties": {
+          "ai": {
+            "default": false,
+            "title": "Ai",
+            "type": "boolean"
+          }
+        },
+        "title": "ReportRequestIn",
+        "type": "object"
+      },
       "ReportRunOut": {
         "properties": {
           "total_cost": {
@@ -10451,6 +10661,16 @@
       "ReportStateOut": {
         "description": "The Student's own Student report (Story 13.7, FR-57): when it opens (their effective Test\ndeadline; None while the Class session has none), whether it is open now, the latest\nrequest's status, and when the PDF that can be downloaded was made (None without one).\n`failed` covers a render that failed and one that never ended; a new press tries again.",
         "properties": {
+          "ai": {
+            "default": false,
+            "title": "Ai",
+            "type": "boolean"
+          },
+          "ai_available": {
+            "default": false,
+            "title": "Ai Available",
+            "type": "boolean"
+          },
           "generated_at": {
             "anyOf": [
               {
@@ -25190,7 +25410,7 @@
     },
     "/api/me/class-sessions/{session_id}/report": {
       "get": {
-        "description": "The Student's own Student report in the Class session (Story 13.7, FR-57): when it opens\n(their effective Test deadline), whether it is open, the latest request's status and when\nthe PDF to download was made. 403 `forbidden` for a Class session that is not the Student's\nown (not enrolled, not listed on Hjem, not locked, no such session).",
+        "description": "The Student's own Student report in the Class session (Story 13.7, FR-57): when it opens\n(their effective Test deadline), whether it is open, the latest request's status and when\nthe PDF to download was made. Story 13.11: `ai_available` while their AI assessment is ready;\nwith `ai` the state of the report with the AI section (`ai` true in the answer), or the\nstandard one's while it cannot be added. 403 `forbidden` for a Class session that is not the\nStudent's own (not enrolled, not listed on Hjem, not locked, no such session).",
         "operationId": "getMyReport",
         "parameters": [
           {
@@ -25200,6 +25420,18 @@
             "schema": {
               "title": "Session Id",
               "type": "string"
+            }
+          },
+          {
+            "description": "Story 13.11: the report with the AI assessment section (off by default).",
+            "in": "query",
+            "name": "ai",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Story 13.11: the report with the AI assessment section (off by default).",
+              "title": "Ai",
+              "type": "boolean"
             }
           }
         ],
@@ -25251,7 +25483,7 @@
         ]
       },
       "post": {
-        "description": "«Lag Studentrapport» (Story 13.7, FR-57, AD-9, AD-18): records the request and defers its\nrender on `reports-single` with ids only; the api builds no report content. While one is\npending, a press answers it and starts no second render. The finished job emits the\nStudent's `user` topic. 202 with the state; 409 `report_not_open` before the Student's\neffective Test deadline or with none, 409 `not_counted` for a Student reports leave out;\n403 `forbidden` as `getMyReport`.",
+        "description": "«Lag Studentrapport» (Story 13.7, FR-57, AD-9, AD-18): records the request and defers its\nrender on `reports-single` with ids only; the api builds no report content. While one is\npending, a press answers it and starts no second render. The finished job emits the\nStudent's `user` topic. 202 with the state; 409 `report_not_open` before the Student's\neffective Test deadline or with none, 409 `not_counted` for a Student reports leave out;\nStory 13.11: `ai` in the body adds the AI assessment section, a report of its own; 409\n`ai_assessment_unavailable` while the Student's AI assessment is not ready. 403 `forbidden`\nas `getMyReport`.",
         "operationId": "requestMyReport",
         "parameters": [
           {
@@ -25264,6 +25496,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ReportRequestIn"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "202": {
             "content": {
@@ -25324,7 +25573,7 @@
     },
     "/api/me/class-sessions/{session_id}/report/file": {
       "get": {
-        "description": "The Student's latest PDF (Story 13.7, NFR-7, AD-12): 303 to a signed URL that lives\n`SIGNED_URL_TTL_SECONDS` (300), made only now that the policy allowed it. 409\n`report_not_ready` without a ready PDF, `report_not_open` before the deadline,\n`not_counted` for a Student reports leave out; 503 `storage_unavailable`; 403\n`forbidden` as `getMyReport`.",
+        "description": "The Student's latest PDF (Story 13.7, NFR-7, AD-12): 303 to a signed URL that lives\n`SIGNED_URL_TTL_SECONDS` (300), made only now that the policy allowed it. 409\n`report_not_ready` without a ready PDF, `report_not_open` before the deadline,\n`not_counted` for a Student reports leave out; 503 `storage_unavailable`; 403\n`forbidden` as `getMyReport`. Story 13.11: with `ai` the PDF with the AI section (409\n`ai_assessment_unavailable` while the assessment is not ready); without it always the\nstandard PDF.",
         "operationId": "downloadMyReport",
         "parameters": [
           {
@@ -25334,6 +25583,18 @@
             "schema": {
               "title": "Session Id",
               "type": "string"
+            }
+          },
+          {
+            "description": "Story 13.11: the report with the AI assessment section (off by default).",
+            "in": "query",
+            "name": "ai",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Story 13.11: the report with the AI assessment section (off by default).",
+              "title": "Ai",
+              "type": "boolean"
             }
           }
         ],

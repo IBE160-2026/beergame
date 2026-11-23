@@ -112,16 +112,20 @@ export type ReportState = components["schemas"]["ReportStateOut"];
 /** Under `["reports", "mine"]`, which the Student's `user:<id>` event reads again (`topics.ts`):
  * the finished render emits it, so the page updates without a reload (AD-8). */
 export const myReportsKey = ["reports", "mine"] as const;
-export const myReportKey = (sessionId: string) => [...myReportsKey, sessionId] as const;
+/** Story 13.11: the standard report and the one with the AI assessment section are two states. */
+export const myReportKey = (sessionId: string, ai = false) => [...myReportsKey, sessionId, ai ? "ai" : "standard"] as const;
 
-/** `/api/me/class-sessions/{id}/report`: 403 `forbidden` for a Class session not the Student's own. */
-export function useMyReport(sessionId: string) {
+/** `/api/me/class-sessions/{id}/report`: 403 `forbidden` for a Class session not the Student's own.
+ * `ai` (Story 13.11): the state of the report with the AI assessment section; while it cannot be
+ * added the api answers the standard one's (`ai` false), with `ai_available` false. */
+export function useMyReport(sessionId: string, ai = false, enabled = true) {
   return useQuery({
-    queryKey: myReportKey(sessionId),
+    enabled,
+    queryKey: myReportKey(sessionId, ai),
     queryFn: () =>
       request(() =>
         api.GET("/api/me/class-sessions/{session_id}/report", {
-          params: { path: { session_id: sessionId } },
+          params: { path: { session_id: sessionId }, query: ai ? { ai: true } : {} },
           cache: "no-store",
         }),
       ),
@@ -133,17 +137,19 @@ export function useMyReport(sessionId: string) {
 }
 
 /** «Lag Studentrapport»: records the request and answers the pending state; 409
- * `report_not_open` before the Testfrist, `not_counted` for a Student reports leave out. */
-export function requestMyReport(sessionId: string) {
+ * `report_not_open` before the Testfrist, `not_counted` for a Student reports leave out,
+ * `ai_assessment_unavailable` when `ai` asks for the AI section and it cannot be added. */
+export function requestMyReport(sessionId: string, ai = false) {
   return request(() =>
     api.POST("/api/me/class-sessions/{session_id}/report", {
       params: { path: { session_id: sessionId } },
+      body: { ai },
     }),
   );
 }
 
 /** The download: a plain link to the api, which checks the policy and answers 303 to a signed URL
  * that lives five minutes (NFR-7). */
-export function myReportFilePath(sessionId: string): string {
-  return `/api/me/class-sessions/${encodeURIComponent(sessionId)}/report/file`;
+export function myReportFilePath(sessionId: string, ai = false): string {
+  return `/api/me/class-sessions/${encodeURIComponent(sessionId)}/report/file${ai ? "?ai=true" : ""}`;
 }

@@ -194,3 +194,17 @@ class ReportStateOut(BaseModel):
     open: bool
     status: Literal["none", "pending", "ready", "failed"]
     generated_at: datetime | None
+    ai: bool = False
+    """Story 13.11: this state is the report with the AI assessment section (asked with `ai`
+    while the Student's AI assessment is ready); false for the standard report."""
+    ai_available: bool = False
+    """Story 13.11: the Student's AI assessment is ready, so the section may be added (the
+    Bryter is offered)."""
+
+
+class ReportRequestIn(BaseModel):
+    """«Lag Studentrapport» (Story 13.11): `ai` adds the AI assessment section; off by default."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    ai: StrictBool = False

@@ -2844,8 +2844,10 @@ export interface paths {
          * Get My Report
          * @description The Student's own Student report in the Class session (Story 13.7, FR-57): when it opens
          *     (their effective Test deadline), whether it is open, the latest request's status and when
-         *     the PDF to download was made. 403 `forbidden` for a Class session that is not the Student's
-         *     own (not enrolled, not listed on Hjem, not locked, no such session).
+         *     the PDF to download was made. Story 13.11: `ai_available` while their AI assessment is ready;
+         *     with `ai` the state of the report with the AI section (`ai` true in the answer), or the
+         *     standard one's while it cannot be added. 403 `forbidden` for a Class session that is not the
+         *     Student's own (not enrolled, not listed on Hjem, not locked, no such session).
          */
         get: operations["getMyReport"];
         put?: never;
@@ -2856,7 +2858,9 @@ export interface paths {
          *     pending, a press answers it and starts no second render. The finished job emits the
          *     Student's `user` topic. 202 with the state; 409 `report_not_open` before the Student's
          *     effective Test deadline or with none, 409 `not_counted` for a Student reports leave out;
-         *     403 `forbidden` as `getMyReport`.
+         *     Story 13.11: `ai` in the body adds the AI assessment section, a report of its own; 409
+         *     `ai_assessment_unavailable` while the Student's AI assessment is not ready. 403 `forbidden`
+         *     as `getMyReport`.
          */
         post: operations["requestMyReport"];
         delete?: never;
@@ -2878,7 +2882,9 @@ export interface paths {
          *     `SIGNED_URL_TTL_SECONDS` (300), made only now that the policy allowed it. 409
          *     `report_not_ready` without a ready PDF, `report_not_open` before the deadline,
          *     `not_counted` for a Student reports leave out; 503 `storage_unavailable`; 403
-         *     `forbidden` as `getMyReport`.
+         *     `forbidden` as `getMyReport`. Story 13.11: with `ai` the PDF with the AI section (409
+         *     `ai_assessment_unavailable` while the assessment is not ready); without it always the
+         *     standard PDF.
          */
         get: operations["downloadMyReport"];
         put?: never;
@@ -4077,6 +4083,30 @@ export interface components {
              * Format: uuid
              */
             user_id: string;
+        };
+        /**
+         * AssessmentSectionOut
+         * @description «KI-vurdering» (Story 13.11, FR-55, FR-56, FR-58): only when the Student added it. The
+         *     Student's own ready view: `checked` (a Control test checked the Scoring guide), the items, the
+         *     weighted total, and `letter` only where `assessment.letter_for` gives one for the report. No
+         *     flags. It counts toward nothing and is no grade.
+         */
+        AssessmentSectionOut: {
+            /** Checked */
+            checked: boolean;
+            /** Items */
+            items: components["schemas"]["ReportAssessedItemOut"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "assessment";
+            /** Letter */
+            letter: ("A" | "B" | "C" | "D" | "E" | "F") | null;
+            /** Total */
+            total: number;
+            /** Total Max */
+            total_max: number;
         };
         /**
          * AuditActor
@@ -7858,6 +7888,47 @@ export interface components {
             state: "pending" | "ready";
         };
         /**
+         * ReportAiScoreOut
+         * @description The AI's score of a long-answer or Adapted item (Story 12.2): its step on the Scoring
+         *     guide's scale with the label, its written feedback (`ai_generated`, quotes as «…») or that the
+         *     feedback was left out (`feedback_dropped`).
+         */
+        ReportAiScoreOut: {
+            /** Assessed */
+            assessed: boolean;
+            feedback: components["schemas"]["ReportTextOut"] | null;
+            /** Feedback Dropped */
+            feedback_dropped: boolean;
+            /** Label */
+            label: string | null;
+            /** Step */
+            step: number | null;
+            /** Top */
+            top: number;
+        };
+        /**
+         * ReportAssessedItemOut
+         * @description One item of the AI assessment in the test's order: its question, its points of its Item
+         *     weight, and either its computed result or the AI's score.
+         */
+        ReportAssessedItemOut: {
+            ai: components["schemas"]["ReportAiScoreOut"] | null;
+            /** Computed */
+            computed: ("right" | "partly" | "wrong" | "not_answered") | null;
+            /** Number */
+            number: number;
+            /** Points */
+            points: number | null;
+            title: components["schemas"]["ReportTextOut"];
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "choice" | "table" | "number" | "long" | "adapted";
+            /** Weight */
+            weight: number;
+        };
+        /**
          * ReportDataOut
          * @description A Student report's content, as the print route reads it from its snapshot (AD-18).
          */
@@ -7877,7 +7948,7 @@ export interface components {
              */
             schema_version: 1;
             /** Sections */
-            sections: (components["schemas"]["CompletionSectionOut"] | components["schemas"]["GameSectionOut"] | components["schemas"]["DebriefSectionOut"] | components["schemas"]["ReplaySectionOut"] | components["schemas"]["TestSectionOut"])[];
+            sections: (components["schemas"]["CompletionSectionOut"] | components["schemas"]["GameSectionOut"] | components["schemas"]["DebriefSectionOut"] | components["schemas"]["ReplaySectionOut"] | components["schemas"]["TestSectionOut"] | components["schemas"]["AssessmentSectionOut"])[];
             /** Session Number */
             session_number: number;
             /** Student Name */
@@ -8011,6 +8082,17 @@ export interface components {
              */
             state: "finished" | "closed" | "open";
         };
+        /**
+         * ReportRequestIn
+         * @description «Lag Studentrapport» (Story 13.11): `ai` adds the AI assessment section; off by default.
+         */
+        ReportRequestIn: {
+            /**
+             * Ai
+             * @default false
+             */
+            ai: boolean;
+        };
         /** ReportRunOut */
         ReportRunOut: {
             /** Total Cost */
@@ -8064,6 +8146,16 @@ export interface components {
          *     `failed` covers a render that failed and one that never ended; a new press tries again.
          */
         ReportStateOut: {
+            /**
+             * Ai
+             * @default false
+             */
+            ai: boolean;
+            /**
+             * Ai Available
+             * @default false
+             */
+            ai_available: boolean;
             /** Generated At */
             generated_at: string | null;
             /** Open */
@@ -17595,7 +17687,10 @@ export interface operations {
     };
     getMyReport: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Story 13.11: the report with the AI assessment section (off by default). */
+                ai?: boolean;
+            };
             header?: never;
             path: {
                 session_id: string;
@@ -17651,7 +17746,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ReportRequestIn"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             202: {
@@ -17702,7 +17801,10 @@ export interface operations {
     };
     downloadMyReport: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Story 13.11: the report with the AI assessment section (off by default). */
+                ai?: boolean;
+            };
             header?: never;
             path: {
                 session_id: string;

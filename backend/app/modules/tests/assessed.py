@@ -35,6 +35,7 @@ choose). `attempts_opened` tells `sessions` when the letter bounds become read-o
 
 import uuid
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Any
 
 import structlog
@@ -43,6 +44,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.analysis import adapted as adapted_rules
 from app.analysis.facts import FactSet
+from app.analysis.letter import Letter
 from app.analysis.narration import NarrationTemplates
 from app.analysis.total import SCALE_TOP, total_score
 from app.modules.assessment import service as assessment
@@ -73,6 +75,8 @@ from app.platform.db import get_sessionmaker
 
 __all__ = [
     "AI_TYPES",
+    "ReportAssessment",
+    "report_assessment",
     "adapted_facts",
     "LetterNotAvailable",
     "NotFlaggable",
@@ -415,6 +419,44 @@ async def _view(
         checked=checked,
         letter=_own_letter(rules, total, total_max, ready=ready, chosen=record.letter_chosen),
     ), attempt["id"]
+
+
+@dataclass(frozen=True)
+class ReportAssessment:
+    """The Student's own ready «KI-vurdering» as the Student report carries it (Story 13.11):
+    the view without its letter block, and the Indicative letter the report may hold."""
+
+    view: MyAssessmentOut
+    letter: Letter | None
+
+
+async def report_assessment(
+    user_id: uuid.UUID, class_session_id: uuid.UUID, *, requested_by_student: bool
+) -> ReportAssessment | None:
+    """The Student's own view of their AI assessment for their Student report (Story 13.11,
+    FR-55, FR-56, FR-58), or None unless it is `ready` (every item scored, a total). The letter
+    comes only through `assessment.letter_for` (reader `report`): only when the Student asked
+    (`requested_by_student`) and their own view shows it (shown to everyone, or turned on for
+    themselves). No caller check: the report job runs after the policy allowed the request."""
+    view, _ = await _view(class_session_id, user_id)
+    if view.state != "ready":
+        return None
+    async with get_sessionmaker()() as s:
+        rules = await sessions.letter_rules(s, class_session_id)
+    letter = (
+        None
+        if rules is None
+        else assessment.letter_for(
+            rules,
+            total=view.total,
+            total_max=view.total_max,
+            ready=True,
+            opted_in=view.letter is not None and view.letter.chosen,
+            reader="report",
+            requested_by_student=requested_by_student,
+        )
+    )
+    return ReportAssessment(view=view.model_copy(update={"letter": None}), letter=letter)
 
 
 def _own_letter(

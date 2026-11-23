@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import type { components } from "@/lib/api/schema";
 import { formatNumber } from "@/lib/number-format";
 
+import { AssessmentSectionView } from "./assessment-section";
 import { reportCopy } from "./copy";
 import { DebriefSectionView } from "./debrief-section";
 import { GameSectionView } from "./game-section";
@@ -94,7 +95,8 @@ type Renderers = {
 
 /** The print route's section registry, in step with `SECTIONS` in `backend/app/modules/reports/
  * report_data.py`: each `kind` the api builds has its renderer here. `completion` (Story 13.7),
- * `game` (Story 13.8, `game-section.tsx`), `debrief`, `replay` and `test` (Story 13.10). Each
+ * `game` (Story 13.8, `game-section.tsx`), `debrief`, `replay` and `test` (Story 13.10), and
+ * `assessment` (Story 13.11, only when the Student added it, `assessment-section.tsx`). Each
  * renders its charts from `components/charts` at a fixed width with a table after every chart. */
 export const SECTIONS: Renderers = {
   completion: CompletionSectionView,
@@ -102,6 +104,7 @@ export const SECTIONS: Renderers = {
   debrief: DebriefSectionView,
   replay: ReplaySectionView,
   test: TestSectionView,
+  assessment: AssessmentSectionView,
 };
 
 export function ReportSection({ section }: { section: ReportSectionData }) {

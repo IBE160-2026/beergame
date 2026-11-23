@@ -45,8 +45,9 @@ makeup_games = Table(
 # The Student report (Story 13.7, FR-57, AD-9, AD-14, AD-18).
 
 REPORT_STATUSES = ("pending", "ready", "failed")
-REPORT_VARIANTS = ("standard",)
-"""Story 13.11 adds the variant with the AI assessment section, stored under its own name."""
+REPORT_VARIANTS = ("standard", "ai", "ai_letter")
+"""Story 13.11: `standard` holds no AI data; `ai` adds the AI assessment section, `ai_letter` the
+section with the Indicative letter. Each is its own request and its own stored PDF."""
 
 report_requests = Table(
     "report_requests",
@@ -70,7 +71,9 @@ report_requests = Table(
     # A failure's code only (`render_failed`, `stale`), never a message.
     Column("failure", Text),
     CheckConstraint("status IN ('pending', 'ready', 'failed')", name="ck_report_requests_status"),
-    CheckConstraint("variant IN ('standard')", name="ck_report_requests_variant"),
+    CheckConstraint(
+        "variant IN ('standard', 'ai', 'ai_letter')", name="ck_report_requests_variant"
+    ),
     Index("ix_report_requests_student", "class_session_id", "user_id", "requested_at"),
     # One render at a time per Student, Class session and variant: a second press answers it.
     Index(

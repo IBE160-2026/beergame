@@ -10,9 +10,10 @@
    its `pdf/ua-1` variant (only that origin is fetched: the page, its stylesheet, its fonts);
 4. stores the PDF through `platform/storage` in the private `reports` bucket under a path keyed by
    Class session and `user_id`;
-5. marks the request `ready`, or `failed` with the code `render_failed`, deletes the snapshot
-   whether the render succeeded or failed, and emits `user:<student>` (and `user:<requester>`
-   when another asked), so the Student's page updates without reload (AD-8).
+5. marks the request `ready`, or `failed` with the code `render_failed` (`not_reportable`, or
+   `ai_unavailable` when the AI section was asked for and the assessment is no longer ready),
+   deletes the snapshot whether the render succeeded or failed, and emits `user:<student>` (and
+   `user:<requester>` when another asked), so the Student's page updates without reload (AD-8).
 
 A request no longer pending (done, or replaced as stale) is left alone, so a job delivered twice
 renders once. Failures are logged with ids and the error's type only, never a name or a text."""
@@ -32,7 +33,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.reports import pdf_marks, repo
 from app.modules.reports.report import RENDER_TASK, object_path
-from app.modules.reports.report_data import NotReportable, ReportOptions, build_report_data
+from app.modules.reports.report_data import (
+    AssessmentUnavailable,
+    NotReportable,
+    ReportOptions,
+    build_report_data,
+)
 from app.platform import auth, events, jobs, storage
 from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker
@@ -114,7 +120,12 @@ async def render(request_id: uuid.UUID) -> str:
                 s,
                 request.user_id,
                 request.class_session_id,
-                ReportOptions(variant=request.variant),  # type: ignore[arg-type]
+                ReportOptions(
+                    variant=request.variant,  # type: ignore[arg-type]
+                    # The Indicative letter's gate (Story 13.11): only a report the Student
+                    # asked for may carry it.
+                    requested_by_student=request.requested_by == request.user_id,
+                ),
                 now=now,
             )
             snapshot_id = await repo.insert_snapshot(
@@ -138,6 +149,11 @@ async def render(request_id: uuid.UUID) -> str:
     except NotReportable:
         failure = "not_reportable"
         log.warning("report_not_reportable", request_id=str(request.id))
+    except AssessmentUnavailable:
+        # Story 13.11: the AI section was asked for and the assessment is no longer ready (switched
+        # off or stopped meanwhile): nothing stored, never a report quietly without the section.
+        failure = "ai_unavailable"
+        log.warning("report_ai_unavailable", request_id=str(request.id))
     except Exception as exc:  # the type only: a message could hold a URL with the token
         log.error("report_render_failed", request_id=str(request.id), exc_type=type(exc).__name__)
     finally:

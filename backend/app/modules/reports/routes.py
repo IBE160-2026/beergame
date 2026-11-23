@@ -11,12 +11,17 @@ a User who is no Student of the Class all answer the same 403 `forbidden` (FR-5)
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Body, Depends, Header, Query
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 
 from app.modules.reports import corrections, makeup, report, snapshot, studentside
 from app.modules.reports.report_data import ReportDataOut
-from app.modules.reports.schemas import CorrectionIn, ReportStateOut, StudentRecordOut
+from app.modules.reports.schemas import (
+    CorrectionIn,
+    ReportRequestIn,
+    ReportStateOut,
+    StudentRecordOut,
+)
 from app.platform import authz, storage
 from app.platform.errors import documented, error_response
 
@@ -127,7 +132,14 @@ def _state(found: report.ReportState) -> dict:
         open=found.open,
         status=found.status,
         generated_at=found.generated_at,
+        ai=found.ai,
+        ai_available=found.ai_available,
     ).model_dump(mode="json")
+
+
+AI_QUERY = Query(
+    description="Story 13.11: the report with the AI assessment section (off by default).",
+)
 
 
 @router.get(
@@ -139,12 +151,15 @@ def _state(found: report.ReportState) -> dict:
 async def get_my_report(
     session_id: str,
     user: Annotated[authz.Principal, Depends(authz.require(report.DOWNLOAD_OWN))],
+    ai: Annotated[bool, AI_QUERY] = False,
 ) -> Response:
     """The Student's own Student report in the Class session (Story 13.7, FR-57): when it opens
     (their effective Test deadline), whether it is open, the latest request's status and when
-    the PDF to download was made. 403 `forbidden` for a Class session that is not the Student's
-    own (not enrolled, not listed on Hjem, not locked, no such session)."""
-    found = await report.own_state(user, _id(session_id))
+    the PDF to download was made. Story 13.11: `ai_available` while their AI assessment is ready;
+    with `ai` the state of the report with the AI section (`ai` true in the answer), or the
+    standard one's while it cannot be added. 403 `forbidden` for a Class session that is not the
+    Student's own (not enrolled, not listed on Hjem, not locked, no such session)."""
+    found = await report.own_state(user, _id(session_id), ai=ai)
     if found is None:
         raise authz.Forbidden
     return JSONResponse(_state(found), headers=PERSONAL)
@@ -160,15 +175,18 @@ async def get_my_report(
 async def request_my_report(
     session_id: str,
     user: Annotated[authz.Principal, Depends(authz.require(report.DOWNLOAD_OWN))],
+    body: Annotated[ReportRequestIn | None, Body()] = None,
 ) -> Response:
     """«Lag Studentrapport» (Story 13.7, FR-57, AD-9, AD-18): records the request and defers its
     render on `reports-single` with ids only; the api builds no report content. While one is
     pending, a press answers it and starts no second render. The finished job emits the
     Student's `user` topic. 202 with the state; 409 `report_not_open` before the Student's
     effective Test deadline or with none, 409 `not_counted` for a Student reports leave out;
-    403 `forbidden` as `getMyReport`."""
+    Story 13.11: `ai` in the body adds the AI assessment section, a report of its own; 409
+    `ai_assessment_unavailable` while the Student's AI assessment is not ready. 403 `forbidden`
+    as `getMyReport`."""
     try:
-        found = await report.request_own(user, _id(session_id))
+        found = await report.request_own(user, _id(session_id), ai=body is not None and body.ai)
     except report.ReportRefused as refused:
         return error_response(409, refused.code, "The report cannot be made now.")
     if found is None:
@@ -185,14 +203,17 @@ async def request_my_report(
 async def download_my_report(
     session_id: str,
     user: Annotated[authz.Principal, Depends(authz.require(report.DOWNLOAD_OWN))],
+    ai: Annotated[bool, AI_QUERY] = False,
 ) -> Response:
     """The Student's latest PDF (Story 13.7, NFR-7, AD-12): 303 to a signed URL that lives
     `SIGNED_URL_TTL_SECONDS` (300), made only now that the policy allowed it. 409
     `report_not_ready` without a ready PDF, `report_not_open` before the deadline,
     `not_counted` for a Student reports leave out; 503 `storage_unavailable`; 403
-    `forbidden` as `getMyReport`."""
+    `forbidden` as `getMyReport`. Story 13.11: with `ai` the PDF with the AI section (409
+    `ai_assessment_unavailable` while the assessment is not ready); without it always the
+    standard PDF."""
     try:
-        url = await report.own_file_url(user, _id(session_id))
+        url = await report.own_file_url(user, _id(session_id), ai=ai)
     except report.ReportRefused as refused:
         return error_response(409, refused.code, "No report to download.")
     except storage.StorageError:

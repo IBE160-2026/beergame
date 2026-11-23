@@ -4267,7 +4267,17 @@ export const nb = {
       errors: {
         report_not_open: "Studentrapporten kan lastes ned når Testfristen er ute.",
         not_counted: "Det lages ingen Studentrapport for denne Klasseøkten.",
+        /** Story 13.11: the AI section asked for while the AI assessment is not ready. [ASSUMPTION] */
+        ai_assessment_unavailable: "KI-vurderingen kan ikke tas med nå. Studentrapporten kan lages uten den.",
       } as Record<string, string>,
+      /** Story 13.11 (FR-58, FR-55, FR-56): the Bryter that adds the AI assessment section, offered
+       * only while the Student's AI assessment is ready; off on every visit. [ASSUMPTION] draft copy. */
+      ai: {
+        control: "KI-vurdering i rapporten",
+        on: "Tas med",
+        off: "Tas ikke med",
+        help: "Av som standard. Slått på får rapporten en egen del med KI-vurderingen, merket som KI-generert. Den teller ikke og er ingen karakter. Veiledende bokstav kommer bare med hvis du selv ser den.",
+      },
     },
     studentPage: {
       /** The crumb and the link from Spillinnsikt are the Student's name. */

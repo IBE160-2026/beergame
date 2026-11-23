@@ -11,9 +11,10 @@ Replay through `replay.service` and the Individual test through `tests.service`.
 The report is a header and an ordered list of sections. `SECTIONS` is the registry: each entry
 names a section `kind` and its builder. A builder answers the section's model, or None to leave
 it out. `completion` (Story 13.7), `game` (Story 13.8), `debrief`, `replay` and `test` (Story
-13.10) are built, each always (a step not done is a section that says so, FR-58); Story 13.11 adds
-the AI assessment (from `options`) with its model in `AnySection`, a builder here, and a renderer
-in the print route's registry (`frontend/src/app/print/report/sections.tsx`). The report holds no
+13.10) are built, each always (a step not done is a section that says so, FR-58); `assessment`
+(Story 13.11) only when the options add it, with the Indicative letter only through
+`assessment.letter_for`; its renderer is in the print route's registry
+(`frontend/src/app/print/report/sections.tsx`). The report holds no
 other Student's name or free text, and no AI data unless an option asks for it; AI-generated text
 (a Debrief line, an Adapted item's wording) travels as `{text, ai_generated}` and is marked from
 that flag only (FR-34).
@@ -46,6 +47,8 @@ from app.modules.tests.service import ColumnOut, TableOut
 
 __all__ = [
     "SECTIONS",
+    "AssessmentSectionOut",
+    "AssessmentUnavailable",
     "CompletionSectionOut",
     "AnySection",
     "DebriefSectionOut",
@@ -68,17 +71,36 @@ __all__ = [
     "ReportDataOut",
     "ReportOptions",
     "ReportSection",
+    "ReportAiScoreOut",
+    "ReportAssessedItemOut",
+    "ReportVariant",
     "build_report_data",
 ]
 
 SCHEMA_VERSION = 1
 
 
+ReportVariant = Literal["standard", "ai", "ai_letter"]
+"""Story 13.11: `standard` holds no AI data; `ai` adds the AI assessment section; `ai_letter` the
+section with the Indicative letter, which the builder still puts in only where
+`assessment.letter_for` gives one."""
+
+
 @dataclass(frozen=True)
 class ReportOptions:
-    """What the person downloading chose. Story 13.11 adds the AI assessment section."""
+    """What the person downloading chose (Story 13.11): the variant, and whether the Student
+    asked for the report themselves (the letter's gate, `letter_for(reader="report")`)."""
 
-    variant: Literal["standard"] = "standard"
+    variant: ReportVariant = "standard"
+    requested_by_student: bool = False
+
+    @property
+    def assessment(self) -> bool:
+        return self.variant != "standard"
+
+    @property
+    def letter(self) -> bool:
+        return self.variant == "ai_letter"
 
 
 class ReportStepOut(BaseModel):
@@ -286,8 +308,53 @@ class TestSectionOut(BaseModel):
     test: ReportTestOut | None
 
 
+class ReportAiScoreOut(BaseModel):
+    """The AI's score of a long-answer or Adapted item (Story 12.2): its step on the Scoring
+    guide's scale with the label, its written feedback (`ai_generated`, quotes as «…») or that the
+    feedback was left out (`feedback_dropped`)."""
+
+    assessed: bool
+    step: int | None
+    top: int
+    label: str | None
+    feedback: ReportTextOut | None
+    feedback_dropped: bool
+
+
+class ReportAssessedItemOut(BaseModel):
+    """One item of the AI assessment in the test's order: its question, its points of its Item
+    weight, and either its computed result or the AI's score."""
+
+    number: int
+    type: Literal["choice", "table", "number", "long", "adapted"]
+    title: ReportTextOut
+    weight: int
+    points: float | None
+    computed: Literal["right", "partly", "wrong", "not_answered"] | None
+    ai: ReportAiScoreOut | None
+
+
+class AssessmentSectionOut(BaseModel):
+    """«KI-vurdering» (Story 13.11, FR-55, FR-56, FR-58): only when the Student added it. The
+    Student's own ready view: `checked` (a Control test checked the Scoring guide), the items, the
+    weighted total, and `letter` only where `assessment.letter_for` gives one for the report. No
+    flags. It counts toward nothing and is no grade."""
+
+    kind: Literal["assessment"] = "assessment"
+    checked: bool
+    items: list[ReportAssessedItemOut]
+    total: float
+    total_max: int
+    letter: Literal["A", "B", "C", "D", "E", "F"] | None
+
+
 AnySection = (
-    CompletionSectionOut | GameSectionOut | DebriefSectionOut | ReplaySectionOut | TestSectionOut
+    CompletionSectionOut
+    | GameSectionOut
+    | DebriefSectionOut
+    | ReplaySectionOut
+    | TestSectionOut
+    | AssessmentSectionOut
 )
 ReportSection = Annotated[AnySection, Field(discriminator="kind")]
 """Every section model, discriminated by `kind`."""
@@ -517,12 +584,66 @@ async def _test_section(ctx: SectionContext) -> TestSectionOut:
     )
 
 
+class AssessmentUnavailable(Exception):
+    """The report asks for the AI assessment section and the Student's assessment is not `ready`
+    (switched off, stopped, not run, failed): nothing built (Story 13.11, FR-61)."""
+
+
+def _assessed_item(item: tests.AssessedItemOut) -> ReportAssessedItemOut:
+    ai = item.ai
+    return ReportAssessedItemOut(
+        number=item.number,
+        type=item.type,
+        title=(
+            _text(item.wording.text, item.wording.ai_generated)
+            if item.wording
+            else _text(item.title, False)
+        ),
+        weight=item.weight,
+        points=item.points,
+        computed=item.computed.result if item.computed else None,
+        ai=None
+        if ai is None
+        else ReportAiScoreOut(
+            assessed=ai.assessed,
+            step=ai.step,
+            top=ai.top,
+            label=ai.label,
+            feedback=_text(ai.feedback.text, ai.feedback.ai_generated) if ai.feedback else None,
+            feedback_dropped=ai.feedback_dropped,
+        ),
+    )
+
+
+async def _assessment_section(ctx: SectionContext) -> AssessmentSectionOut | None:
+    """The AI assessment, only when the options add it (Story 13.11), read through
+    `tests.service.report_assessment`; the letter only for `ai_letter`, and only where the gate
+    (`letter_for`, reader `report`) still gives one."""
+    if not ctx.options.assessment:
+        return None
+    found = await tests.report_assessment(
+        ctx.user_id,
+        ctx.class_session_id,
+        requested_by_student=ctx.options.requested_by_student,
+    )
+    if found is None or found.view.total is None or found.view.total_max is None:
+        raise AssessmentUnavailable
+    return AssessmentSectionOut(
+        checked=found.view.checked,
+        items=[_assessed_item(item) for item in found.view.items],
+        total=found.view.total,
+        total_max=found.view.total_max,
+        letter=found.letter if ctx.options.letter else None,
+    )
+
+
 SECTIONS: tuple[tuple[str, SectionBuilder], ...] = (
     ("completion", _completion_section),
     ("game", _game_section),
     ("debrief", _debrief_section),
     ("replay", _replay_section),
     ("test", _test_section),
+    ("assessment", _assessment_section),
 )
 """The report's sections in reading order, by `kind` (see the module docstring)."""
 

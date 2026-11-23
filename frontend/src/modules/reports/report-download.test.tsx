@@ -18,6 +18,8 @@ const state = (over: Partial<ReportState> = {}): ReportState => ({
   open: true,
   status: "none",
   generated_at: null,
+  ai: false,
+  ai_available: false,
   ...over,
 });
 
@@ -42,6 +44,9 @@ describe("downloadView", () => {
   it("is read again on the Student's user event", () => {
     expect(topicKeys({ topic: "user", id: "u1", version: null })).toContainEqual(["reports", "mine"]);
     expect(myReportKey("s1").slice(0, 2)).toEqual(["reports", "mine"]);
+    // Story 13.11: the report with the AI section is a state of its own under the same key.
+    expect(myReportKey("s1", true).slice(0, 2)).toEqual(["reports", "mine"]);
+    expect(myReportKey("s1", true)).not.toEqual(myReportKey("s1"));
   });
 });
 

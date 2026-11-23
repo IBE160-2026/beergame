@@ -144,6 +144,8 @@ async def test_the_report_opens_at_the_test_deadline_and_is_rendered_from_a_snap
         "open": False,
         "status": "none",
         "generated_at": None,
+        "ai": False,  # Story 13.11: the standard report, and no AI assessment to add
+        "ai_available": False,
     }
     assert before["opens_at"].startswith(TEST.isoformat()[:16])
     assert code(await press(email(0), session_id)) == (409, "report_not_open")
