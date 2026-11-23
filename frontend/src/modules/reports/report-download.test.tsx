@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
@@ -8,8 +9,10 @@ import { nb } from "@/copy/nb";
 import { topicKeys } from "@/lib/api/topics";
 import { stepItems } from "@/modules/games/home";
 
-import { myReportKey, type ReportState } from "./api";
-import { downloadView } from "./report-download";
+import { myReportKey, type ReportState, staffReportKey, staffReportsKey } from "./api";
+import type { StudentRecord } from "./record";
+import { RecordBlocks } from "./record-blocks";
+import { downloadView, StaffReportDownload } from "./report-download";
 
 /** The Student report (Story 13.7, FR-57, FR-58, UX-DR29): the download's states, the «Rapport»
  * step's words, and the print route's report (header, tables with scopes, lines in words). */
@@ -20,6 +23,7 @@ const state = (over: Partial<ReportState> = {}): ReportState => ({
   generated_at: null,
   ai: false,
   ai_available: false,
+  deleted: false,
   ...over,
 });
 
@@ -47,6 +51,85 @@ describe("downloadView", () => {
     // Story 13.11: the report with the AI section is a state of its own under the same key.
     expect(myReportKey("s1", true).slice(0, 2)).toEqual(["reports", "mine"]);
     expect(myReportKey("s1", true)).not.toEqual(myReportKey("s1"));
+  });
+});
+
+describe("the staff's download on the Studentside (Story 13.12)", () => {
+  const staffCopy = nb.reports.download;
+  const render = (seeded: ReportState) => {
+    const client = new QueryClient();
+    client.setQueryData(staffReportKey("s1", "u1"), seeded);
+    return renderToStaticMarkup(
+      <QueryClientProvider client={client}>
+        <StaffReportDownload sessionId="s1" userId="u1" />
+      </QueryClientProvider>,
+    );
+  };
+
+  it("is open at any time, links to the staff's file and says what the report is", () => {
+    const html = render(state({ opens_at: null, status: "ready", generated_at: "2026-12-11T09:00:00Z" }));
+    expect(html).toContain('href="/api/class-sessions/s1/students/u1/report/file"');
+    expect(html).toContain(staffCopy.link);
+    expect(html).toContain(staffCopy.again);
+    expect(html).toContain(staffCopy.staff.note);
+    expect(html).not.toContain(staffCopy.note);
+    // No AI assessment to add: no Bryter.
+    expect(html).not.toContain(staffCopy.ai.control);
+  });
+
+  it("offers the AI section off by default, with the staff's help line on the letter", () => {
+    const html = render(state({ opens_at: null, ai_available: true }));
+    expect(html).toContain(staffCopy.ai.control);
+    expect(html).toContain('data-report-ai="off"');
+    expect(html).toContain(staffCopy.staff.aiHelp);
+    expect(html).not.toContain(staffCopy.ai.help);
+    expect(html).toContain(staffCopy.make);
+  });
+
+  it("says the data is deleted and offers nothing once the deletion date has come", () => {
+    expect(downloadView(state({ deleted: true }), false)).toEqual({ kind: "deleted" });
+    const html = render(state({ opens_at: null, deleted: true, ai_available: false }));
+    expect(html).toContain(staffCopy.staff.deleted);
+    expect(html).not.toContain(staffCopy.make);
+    expect(html).not.toContain(staffCopy.link);
+  });
+
+  it("is no download for a Student the reports leave out", () => {
+    const record: StudentRecord = {
+      class_session_id: "s1",
+      class_id: "c1",
+      class_name: "Logistikk 1",
+      session_number: 1,
+      user_id: "u1",
+      name: "Sara Student",
+      can_manage: false,
+      can_correct: false,
+      can_give_makeup: false,
+      test_deadline: null,
+      completion: null, // reports leave the Student out
+      participation: null,
+      game: null,
+      makeup: null,
+      debrief: { explanation: null, explanation_saved_at: null, finished_at: null, late: false, moments: 0 },
+      quiz: [],
+      replay: null,
+      test: null,
+      assessment: null,
+    };
+    const html = renderToStaticMarkup(
+      <QueryClientProvider client={new QueryClient()}>
+        <RecordBlocks record={record} />
+      </QueryClientProvider>,
+    );
+    expect(html).toContain('data-record="report"');
+    expect(html).toContain(nb.reports.record.report.notCounted);
+    expect(html).not.toContain(staffCopy.make);
+  });
+
+  it("is read again on the requester's user event, apart from the Student's own", () => {
+    expect(topicKeys({ topic: "user", id: "u1", version: null })).toContainEqual(staffReportsKey);
+    expect(staffReportKey("s1", "u1").slice(0, 2)).toEqual(["reports", "staff"]);
+    expect(staffReportKey("s1", "u1", true)).not.toEqual(staffReportKey("s1", "u1"));
   });
 });
 

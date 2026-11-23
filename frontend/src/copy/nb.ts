@@ -4267,6 +4267,8 @@ export const nb = {
       errors: {
         report_not_open: "Studentrapporten kan lastes ned når Testfristen er ute.",
         not_counted: "Det lages ingen Studentrapport for denne Klasseøkten.",
+        /** Story 13.12: the staff's report once the Student's data is deleted. [ASSUMPTION] */
+        data_deleted: "Dataene til Studenten i denne Klasseøkten er slettet. Det kan ikke lages en Studentrapport.",
         /** Story 13.11: the AI section asked for while the AI assessment is not ready. [ASSUMPTION] */
         ai_assessment_unavailable: "KI-vurderingen kan ikke tas med nå. Studentrapporten kan lages uten den.",
       } as Record<string, string>,
@@ -4277,6 +4279,14 @@ export const nb = {
         on: "Tas med",
         off: "Tas ikke med",
         help: "Av som standard. Slått på får rapporten en egen del med KI-vurderingen, merket som KI-generert. Den teller ikke og er ingen karakter. Veiledende bokstav kommer bare med hvis du selv ser den.",
+      },
+      /** Story 13.12 (FR-59, FR-58, FR-56): the staff's download of one Student's report on the
+       * Studentside, at any time. [ASSUMPTION] draft copy. */
+      staff: {
+        note: "Rapporten viser hva Studenten har gjort i Klasseøkten til nå. Steg som ikke er gjort, står som ikke gjort. Den er ikke en karakter.",
+        aiHelp: "Av som standard. Slått på får rapporten en egen del med KI-vurderingen, merket som KI-generert. Den teller ikke og er ingen karakter. Veiledende bokstav kommer aldri med i en rapport du laster ned.",
+        /** Once the Class session's deletion date has come (FR-77): nothing is built. */
+        deleted: "Dataene til Studenten i denne Klasseøkten er slettet. Det kan ikke lages en Studentrapport.",
       },
     },
     studentPage: {
@@ -4394,6 +4404,11 @@ export const nb = {
     },
     /** The record blocks of the Studentside (Story 13.2, FR-63). All [ASSUMPTION] draft copy. */
     record: {
+      /** Story 13.12: the block with the staff's download of the Student report. */
+      report: {
+        title: "Studentrapport",
+        notCounted: "Det lages ingen Studentrapport for denne Studenten.",
+      },
       game: {
         title: "Spillet",
         none: "Ikke noe spill ennå.",

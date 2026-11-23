@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { type QueryKey, useQuery } from "@tanstack/react-query";
 
 import { api } from "@/lib/api/client";
 import { request } from "@/lib/api/mutation";
@@ -115,25 +115,37 @@ export const myReportsKey = ["reports", "mine"] as const;
 /** Story 13.11: the standard report and the one with the AI assessment section are two states. */
 export const myReportKey = (sessionId: string, ai = false) => [...myReportsKey, sessionId, ai ? "ai" : "standard"] as const;
 
+/** Where a report's download block reads and asks (Story 13.12): the Student's own report on Hjem,
+ * or one Student's report for the staff on the Studentside. One block, one pipeline. */
+export type ReportSource = {
+  /** The query key of the state with or without the AI assessment section. */
+  key: (ai: boolean) => QueryKey;
+  /** The prefix read again after a refusal (the assessment changed meanwhile). */
+  family: QueryKey;
+  read: (ai: boolean) => Promise<ReportState>;
+  request: (ai: boolean) => Promise<ReportState>;
+  /** The download: a plain link to the api, which checks the policy and answers 303 to a signed
+   * URL that lives five minutes (NFR-7). */
+  filePath: (ai: boolean) => string;
+};
+
+/** A report's state for its source; while pending it is also read every 15 s, so a missed event
+ * or a render that never ended (read as failed after two minutes) still shows. */
+export function useReport(source: ReportSource, ai = false, enabled = true) {
+  return useQuery({
+    enabled,
+    queryKey: source.key(ai),
+    queryFn: () => source.read(ai),
+    retry: false,
+    refetchInterval: (query) => (query.state.data?.status === "pending" ? 15_000 : false),
+  });
+}
+
 /** `/api/me/class-sessions/{id}/report`: 403 `forbidden` for a Class session not the Student's own.
  * `ai` (Story 13.11): the state of the report with the AI assessment section; while it cannot be
  * added the api answers the standard one's (`ai` false), with `ai_available` false. */
 export function useMyReport(sessionId: string, ai = false, enabled = true) {
-  return useQuery({
-    enabled,
-    queryKey: myReportKey(sessionId, ai),
-    queryFn: () =>
-      request(() =>
-        api.GET("/api/me/class-sessions/{session_id}/report", {
-          params: { path: { session_id: sessionId }, query: ai ? { ai: true } : {} },
-          cache: "no-store",
-        }),
-      ),
-    retry: false,
-    // The render's `user` event updates it; while pending it is also read every 15 s, so a missed
-    // event or a render that never ended (read as failed after two minutes) still shows.
-    refetchInterval: (query) => (query.state.data?.status === "pending" ? 15_000 : false),
-  });
+  return useReport(myReportSource(sessionId), ai, enabled);
 }
 
 /** «Lag Studentrapport»: records the request and answers the pending state; 409
@@ -148,8 +160,56 @@ export function requestMyReport(sessionId: string, ai = false) {
   );
 }
 
-/** The download: a plain link to the api, which checks the policy and answers 303 to a signed URL
- * that lives five minutes (NFR-7). */
 export function myReportFilePath(sessionId: string, ai = false): string {
   return `/api/me/class-sessions/${encodeURIComponent(sessionId)}/report/file${ai ? "?ai=true" : ""}`;
+}
+
+/** The Student's own Student report (Stories 13.7, 13.11). */
+export function myReportSource(sessionId: string): ReportSource {
+  return {
+    key: (ai) => myReportKey(sessionId, ai),
+    family: myReportsKey,
+    read: (ai) =>
+      request(() =>
+        api.GET("/api/me/class-sessions/{session_id}/report", {
+          params: { path: { session_id: sessionId }, query: ai ? { ai: true } : {} },
+          cache: "no-store",
+        }),
+      ),
+    request: (ai) => requestMyReport(sessionId, ai),
+    filePath: (ai) => myReportFilePath(sessionId, ai),
+  };
+}
+
+/** Story 13.12: the staff's downloads of Students' reports, under `["reports", "staff"]`, which the
+ * requester's `user:<id>` event reads again once the render has ended (`topics.ts`). */
+export const staffReportsKey = ["reports", "staff"] as const;
+export const staffReportKey = (sessionId: string, userId: string, ai = false) =>
+  [...staffReportsKey, sessionId, userId, ai ? "ai" : "standard"] as const;
+
+/** One Student's report for the staff of the Class (Story 13.12, FR-59): open at any time, shared
+ * by its Lecturers and Assistant lecturers; `ai` adds the AI section, never the Indicative letter.
+ * 403 `forbidden` for anyone else; 409 `not_counted`, `ai_assessment_unavailable`. */
+export function staffReportSource(sessionId: string, userId: string): ReportSource {
+  const path = { session_id: sessionId, user_id: userId };
+  return {
+    key: (ai) => staffReportKey(sessionId, userId, ai),
+    family: [...staffReportsKey, sessionId, userId],
+    read: (ai) =>
+      request(() =>
+        api.GET("/api/class-sessions/{session_id}/students/{user_id}/report", {
+          params: { path, query: ai ? { ai: true } : {} },
+          cache: "no-store",
+        }),
+      ),
+    request: (ai) =>
+      request(() =>
+        api.POST("/api/class-sessions/{session_id}/students/{user_id}/report", {
+          params: { path },
+          body: { ai },
+        }),
+      ),
+    filePath: (ai) =>
+      `/api/class-sessions/${encodeURIComponent(sessionId)}/students/${encodeURIComponent(userId)}/report/file${ai ? "?ai=true" : ""}`,
+  };
 }

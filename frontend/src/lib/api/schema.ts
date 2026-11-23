@@ -1501,6 +1501,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/class-sessions/{session_id}/students/{user_id}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Student Report
+         * @description One Student's report as the staff of the Class download it from the Studentside (Story
+         *     13.12, FR-59, FR-63): always open, shared by its Lecturers and Assistant lecturers, apart from
+         *     the Student's own. `ai_available` while the Student's AI assessment is ready and the reader may
+         *     read it (FR-55); with `ai` the state of the report with the AI section, never with the
+         *     Indicative letter (FR-56). 403 `forbidden` as `getStudentRecord`.
+         */
+        get: operations["getStudentReport"];
+        put?: never;
+        /**
+         * Request Student Report
+         * @description «Lag Studentrapport» on the Studentside (Story 13.12, FR-59, AD-9, AD-18): before or after
+         *     the Test deadline, the same request and `reports-single` job as the Student's own, recorded in
+         *     the audit log. 202 with the state; 409 `data_deleted` once the Student's data is deleted
+         *     (`deleted` in the state), 409 `not_counted` for a Student reports leave out, 409
+         *     `ai_assessment_unavailable` when `ai` asks for the section and it cannot be added. 403
+         *     `forbidden` as `getStudentRecord`, with nothing recorded.
+         */
+        post: operations["requestStudentReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class-sessions/{session_id}/students/{user_id}/report/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download Student Report
+         * @description The staff's latest PDF of the Student (Story 13.12, NFR-7, AD-12): 303 to a signed URL
+         *     made only now that the policy allowed it, recorded in the audit log. 409 `report_not_ready`,
+         *     `data_deleted`, `not_counted`,
+         *     `ai_assessment_unavailable`; 503 `storage_unavailable`; 403 `forbidden` as
+         *     `getStudentRecord`. Without `ai` never the PDF with the AI section.
+         */
+        get: operations["downloadStudentReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/class-sessions/{session_id}/test-game": {
         parameters: {
             query?: never;
@@ -8144,6 +8201,8 @@ export interface components {
          *     deadline; None while the Class session has none), whether it is open now, the latest
          *     request's status, and when the PDF that can be downloaded was made (None without one).
          *     `failed` covers a render that failed and one that never ended; a new press tries again.
+         *     Story 13.12: the staff's download of one Student's report answers the same shape, always
+         *     `open`, with `opens_at` None.
          */
         ReportStateOut: {
             /**
@@ -8156,6 +8215,11 @@ export interface components {
              * @default false
              */
             ai_available: boolean;
+            /**
+             * Deleted
+             * @default false
+             */
+            deleted: boolean;
             /** Generated At */
             generated_at: string | null;
             /** Open */
@@ -9644,8 +9708,8 @@ export interface components {
          * @description The Studentside's record of one Student of a Class session (Story 13.2, FR-63, UX-DR55),
          *     for the Lecturers and Assistant lecturers of its Class. `can_manage`: the reader is a Lecturer
          *     of the Class, so the page also shows «Tilrettelegging» and «Frister» (`getStudentPage`).
-         *     `completion` is None for a Student the reports leave out (`reports.scope`); `report` is the
-         *     slot for the link to the Student report, None until Story 13.12.
+         *     `completion` is None for a Student the reports leave out (`reports.scope`). The Student report
+         *     the staff download (Story 13.12) is read from its own endpoint, `getStudentReport`.
          */
         StudentRecordOut: {
             assessment: components["schemas"]["StaffAssessmentOut"] | null;
@@ -9683,8 +9747,6 @@ export interface components {
             /** Quiz */
             quiz: components["schemas"]["RecordQuizAttemptOut"][];
             replay: components["schemas"]["RecordReplayOut"] | null;
-            /** Report */
-            report?: null;
             /** Session Number */
             session_number: number;
             test: components["schemas"]["RecordTestOut"] | null;
@@ -14252,6 +14314,193 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getStudentReport: {
+        parameters: {
+            query?: {
+                /** @description Story 13.11: the report with the AI assessment section (off by default). */
+                ai?: boolean;
+            };
+            header?: never;
+            path: {
+                session_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportStateOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    requestStudentReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ReportRequestIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportStateOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    downloadStudentReport: {
+        parameters: {
+            query?: {
+                /** @description Story 13.11: the report with the AI assessment section (off by default). */
+                ai?: boolean;
+            };
+            header?: never;
+            path: {
+                session_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description To a signed URL */
+            303: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

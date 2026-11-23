@@ -3,7 +3,8 @@ record`, the Studentside's record of one Student for the staff of the Class; Sto
 …/corrections`, «Lagre retting», for its Lecturers. Story 13.7: the Student's own Student report
 (`/api/me/class-sessions/{id}/report`, its `/file`) and the print route's snapshot read
 (`/api/internal/report-snapshots/{id}`, which the proxy refuses: only the frontend server reaches
-it).
+it). Story 13.12: the staff's download of one Student's report (`…/students/{user_id}/report`, its
+`/file`).
 
 An id that is not one, a Class session that does not exist, a Class outside the caller's scope and
 a User who is no Student of the Class all answer the same 403 `forbidden` (FR-5)."""
@@ -134,6 +135,7 @@ def _state(found: report.ReportState) -> dict:
         generated_at=found.generated_at,
         ai=found.ai,
         ai_available=found.ai_available,
+        deleted=found.deleted,
     ).model_dump(mode="json")
 
 
@@ -214,6 +216,90 @@ async def download_my_report(
     standard PDF."""
     try:
         url = await report.own_file_url(user, _id(session_id), ai=ai)
+    except report.ReportRefused as refused:
+        return error_response(409, refused.code, "No report to download.")
+    except storage.StorageError:
+        return error_response(503, "storage_unavailable", "The download cannot be made now.")
+    if url is None:
+        raise authz.Forbidden
+    return RedirectResponse(url, status_code=303, headers=PERSONAL)
+
+
+STUDENT_REPORT = "/class-sessions/{session_id}/students/{user_id}/report"
+
+
+@router.get(
+    STUDENT_REPORT,
+    response_model=ReportStateOut,
+    responses=documented(401, 403),
+    operation_id="getStudentReport",
+)
+async def get_student_report(
+    session_id: str,
+    user_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require(report.DOWNLOAD))],
+    ai: Annotated[bool, AI_QUERY] = False,
+) -> Response:
+    """One Student's report as the staff of the Class download it from the Studentside (Story
+    13.12, FR-59, FR-63): always open, shared by its Lecturers and Assistant lecturers, apart from
+    the Student's own. `ai_available` while the Student's AI assessment is ready and the reader may
+    read it (FR-55); with `ai` the state of the report with the AI section, never with the
+    Indicative letter (FR-56). 403 `forbidden` as `getStudentRecord`."""
+    found = await report.staff_state(user, _id(session_id), _id(user_id), ai=ai)
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(_state(found), headers=PERSONAL)
+
+
+@router.post(
+    STUDENT_REPORT,
+    response_model=ReportStateOut,
+    status_code=202,
+    responses=documented(401, 403, 409),
+    operation_id="requestStudentReport",
+)
+async def request_student_report(
+    session_id: str,
+    user_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require(report.DOWNLOAD))],
+    body: Annotated[ReportRequestIn | None, Body()] = None,
+) -> Response:
+    """«Lag Studentrapport» on the Studentside (Story 13.12, FR-59, AD-9, AD-18): before or after
+    the Test deadline, the same request and `reports-single` job as the Student's own, recorded in
+    the audit log. 202 with the state; 409 `data_deleted` once the Student's data is deleted
+    (`deleted` in the state), 409 `not_counted` for a Student reports leave out, 409
+    `ai_assessment_unavailable` when `ai` asks for the section and it cannot be added. 403
+    `forbidden` as `getStudentRecord`, with nothing recorded."""
+    try:
+        found = await report.request_staff(
+            user, _id(session_id), _id(user_id), ai=body is not None and body.ai
+        )
+    except report.ReportRefused as refused:
+        return error_response(409, refused.code, "The report cannot be made now.")
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(_state(found), status_code=202, headers=PERSONAL)
+
+
+@router.get(
+    STUDENT_REPORT + "/file",
+    status_code=303,
+    responses={**documented(401, 403, 409, 503), 303: {"description": "To a signed URL"}},
+    operation_id="downloadStudentReport",
+)
+async def download_student_report(
+    session_id: str,
+    user_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require(report.DOWNLOAD))],
+    ai: Annotated[bool, AI_QUERY] = False,
+) -> Response:
+    """The staff's latest PDF of the Student (Story 13.12, NFR-7, AD-12): 303 to a signed URL
+    made only now that the policy allowed it, recorded in the audit log. 409 `report_not_ready`,
+    `data_deleted`, `not_counted`,
+    `ai_assessment_unavailable`; 503 `storage_unavailable`; 403 `forbidden` as
+    `getStudentRecord`. Without `ai` never the PDF with the AI section."""
+    try:
+        url = await report.staff_file_url(user, _id(session_id), _id(user_id), ai=ai)
     except report.ReportRefused as refused:
         return error_response(409, refused.code, "No report to download.")
     except storage.StorageError:

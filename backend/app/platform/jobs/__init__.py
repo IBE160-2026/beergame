@@ -11,8 +11,10 @@ handles its own failures.
 Queues: `ai-orders` (`worker-ai`, the LLM players' Orders), `llm-batch` and `mail`
 (`worker-batch`, Story 3.5), `reports-single` (`worker-batch`, Story 13.7: one Student report,
 with `REPORTS_SINGLE_RESERVED` slots no other queue takes, so a report meets its 30 seconds while
-the worker's other queues are busy), and `sweep`, which only the `--sweeper` worker runs: it holds
-the per-minute `ops.sweep` (AD-9). Later epics add theirs. Alembic owns the procrastinate schema
+the worker's other queues are busy), `reports-bulk` (`worker-batch`, Story 13.12: the long report
+jobs, the ZIP of Story 13.13, beside which a single report keeps its slots), and `sweep`, which
+only the `--sweeper` worker runs: it holds the per-minute `ops.sweep` (AD-9). Later epics add
+theirs. Alembic owns the procrastinate schema
 (revision 0008).
 """
 
@@ -34,6 +36,7 @@ __all__ = [
     "LLM_BATCH",
     "MAIL",
     "QUEUES",
+    "REPORTS_BULK",
     "REPORTS_SINGLE",
     "SWEEP",
     "TASK_MODULES",
@@ -51,9 +54,10 @@ log = structlog.get_logger(__name__)
 AI_ORDERS = "ai-orders"
 LLM_BATCH = "llm-batch"
 MAIL = "mail"
+REPORTS_BULK = "reports-bulk"
 REPORTS_SINGLE = "reports-single"
 SWEEP = "sweep"
-QUEUES = (AI_ORDERS, LLM_BATCH, MAIL, REPORTS_SINGLE, SWEEP)
+QUEUES = (AI_ORDERS, LLM_BATCH, MAIL, REPORTS_BULK, REPORTS_SINGLE, SWEEP)
 
 TASK_MODULES = (
     "app.modules.players.jobs",

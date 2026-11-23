@@ -21,6 +21,5 @@ export function staffRecord(ids: { session: string; classId: string; student: st
     replay: null,
     test: null,
     assessment,
-    report: null,
   };
 }

@@ -17,6 +17,7 @@ import {
   type StudentRecord,
   testLines,
 } from "./record";
+import { StaffReportDownload } from "./report-download";
 
 const copy = nb.reports.record;
 
@@ -48,8 +49,8 @@ function Lines({ lines }: { lines: readonly string[] }) {
  * (with Spillinnsikt), «Debrief» (the Explanation as written, the summary's state, with the staff
  * Debrief summary), «Debrief-quiz» (each attempt, never the answers), «Replay» (with its
  * Spillinnsikt), «Individuell test» (status and which parts hold content, never the answers),
- * «KI-vurdering» (the state the api gives; Story 12.5's block takes this place) and the empty slot
- * for the Student report link that Story 13.12 fills.
+ * «KI-vurdering» (the state the api gives; Story 12.5's block takes this place) and «Studentrapport»
+ * (Story 13.12: the staff's download, at any time; none for a Student the reports leave out).
  */
 export function RecordBlocks({ record }: { record: StudentRecord }) {
   const sessionId = record.class_session_id;
@@ -117,8 +118,14 @@ export function RecordBlocks({ record }: { record: StudentRecord }) {
       </Block>
       {/* Story 12.5's «KI-vurdering» with the Student's flags, from the record. */}
       {record.assessment ? <StaffAssessmentBlock assessment={record.assessment} /> : null}
-      {/* The link to the Student report goes here (Story 13.12). */}
-      <div data-report-slot="" />
+      {/* Story 13.12: the Student report, for the staff at any time. */}
+      <Block title={copy.report.title} name="report">
+        {record.completion ? (
+          <StaffReportDownload sessionId={sessionId} userId={record.user_id} />
+        ) : (
+          <p>{copy.report.notCounted}</p>
+        )}
+      </Block>
     </>
   );
 }

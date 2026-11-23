@@ -148,8 +148,8 @@ class StudentRecordOut(BaseModel):
     """The Studentside's record of one Student of a Class session (Story 13.2, FR-63, UX-DR55),
     for the Lecturers and Assistant lecturers of its Class. `can_manage`: the reader is a Lecturer
     of the Class, so the page also shows «Tilrettelegging» and «Frister» (`getStudentPage`).
-    `completion` is None for a Student the reports leave out (`reports.scope`); `report` is the
-    slot for the link to the Student report, None until Story 13.12."""
+    `completion` is None for a Student the reports leave out (`reports.scope`). The Student report
+    the staff download (Story 13.12) is read from its own endpoint, `getStudentReport`."""
 
     class_session_id: uuid.UUID
     class_id: uuid.UUID
@@ -181,14 +181,15 @@ class StudentRecordOut(BaseModel):
     """Story 12.5's «KI-vurdering» as the staff read it (states, items, feedback, the Student's
     flags); None only where `ai_assessments.read` is not granted. A self-enabled Indicative letter
     is never served to staff (FR-56, AD-12)."""
-    report: None = None
 
 
 class ReportStateOut(BaseModel):
     """The Student's own Student report (Story 13.7, FR-57): when it opens (their effective Test
     deadline; None while the Class session has none), whether it is open now, the latest
     request's status, and when the PDF that can be downloaded was made (None without one).
-    `failed` covers a render that failed and one that never ended; a new press tries again."""
+    `failed` covers a render that failed and one that never ended; a new press tries again.
+    Story 13.12: the staff's download of one Student's report answers the same shape, always
+    `open`, with `opens_at` None."""
 
     opens_at: datetime | None
     open: bool
@@ -200,6 +201,9 @@ class ReportStateOut(BaseModel):
     ai_available: bool = False
     """Story 13.11: the Student's AI assessment is ready, so the section may be added (the
     Bryter is offered)."""
+    deleted: bool = False
+    """Story 13.12: the Student's data in the Class session is deleted (its deletion date has
+    come), so no report is built; the staff's action says so."""
 
 
 class ReportRequestIn(BaseModel):

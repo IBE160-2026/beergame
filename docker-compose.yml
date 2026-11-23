@@ -108,7 +108,8 @@ services:
     # Story 13.7: one Student report at a time per request, on slots of its own
     # (REPORTS_SINGLE_RESERVED); it fetches the print route from the frontend and stores the
     # PDF in the storage mock's volume, which `backend` serves the signed downloads from.
-    command: ["python", "-m", "app.worker", "--queues", "llm-batch,mail,reports-single", "--sweeper"]
+    # Story 13.12: `reports-bulk` (the ZIP of Story 13.13) runs beside it, never on its slots.
+    command: ["python", "-m", "app.worker", "--queues", "llm-batch,mail,reports-bulk,reports-single", "--sweeper"]
     environment:
       <<: *worker-env
       WEB_INTERNAL_URL: ${WEB_INTERNAL_URL:-http://frontend:3000}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { ActionError } from "@/components/action-error";
 import { Button } from "@/components/button";
@@ -12,12 +12,11 @@ import { useAction } from "@/lib/api/mutation";
 import { osloDateText } from "@/modules/sessions/dates";
 
 import {
-  myReportFilePath,
-  myReportKey,
-  myReportsKey,
-  requestMyReport,
+  myReportSource,
+  type ReportSource,
   type ReportState,
-  useMyReport,
+  staffReportSource,
+  useReport,
 } from "./api";
 
 const copy = nb.reports.download;
@@ -29,6 +28,7 @@ const LINK =
 
 /** What the download shows for a state (pure, so it is tested without a browser). */
 export type DownloadView =
+  | { kind: "deleted" }
   | { kind: "closed"; opensAt: string | null }
   | { kind: "make" }
   | { kind: "pending" }
@@ -39,6 +39,7 @@ export function downloadView(
   state: ReportState,
   pressed: boolean,
 ): DownloadView {
+  if (state.deleted) return { kind: "deleted" };
   if (!state.open) return { kind: "closed", opensAt: state.opens_at };
   if (pressed || state.status === "pending") return { kind: "pending" };
   if (state.status === "failed") return { kind: "failed" };
@@ -62,21 +63,52 @@ export function downloadView(
  * PDF with the section. Not ready, switched off or failed: no Bryter, the standard report only.
  */
 export function ReportDownload({ sessionId }: { sessionId: string }) {
+  const source = useMemo(() => myReportSource(sessionId), [sessionId]);
+  return <ReportDownloadBlock source={source} note={copy.note} aiHelp={copy.ai.help} />;
+}
+
+/**
+ * One Student's report for the staff of the Class on the Studentside (Story 13.12, FR-59, FR-58,
+ * FR-56): the same block, at any time, through the same request and job. The Bryter adds the AI
+ * assessment section while the Student's AI assessment is ready and the reader may read it; a
+ * staff download never holds the Indicative letter.
+ */
+export function StaffReportDownload({ sessionId, userId }: { sessionId: string; userId: string }) {
+  const source = useMemo(() => staffReportSource(sessionId, userId), [sessionId, userId]);
+  // Keyed by the Student: the Bryter is off again on another Student's page.
+  return (
+    <ReportDownloadBlock
+      key={`${sessionId}:${userId}`}
+      source={source}
+      note={copy.staff.note}
+      aiHelp={copy.staff.aiHelp}
+    />
+  );
+}
+
+function ReportDownloadBlock({
+  source,
+  note,
+  aiHelp,
+}: {
+  source: ReportSource;
+  note: string;
+  aiHelp: string;
+}) {
   const queryClient = useQueryClient();
   const ids = useId();
   const [withAi, setWithAi] = useState(false);
-  const standard = useMyReport(sessionId);
+  const standard = useReport(source);
   const available = standard.data?.ai_available === true;
   const ai = withAi && available;
-  // Read only once the Student turns the Bryter on.
-  const added = useMyReport(sessionId, true, ai);
+  // Read only once the Bryter is turned on.
+  const added = useReport(source, true, ai);
   const report = ai ? added : standard;
   const making = useAction({
-    mutationFn: (asked: boolean) => requestMyReport(sessionId, asked),
+    mutationFn: (asked: boolean) => source.request(asked),
     messages: copy.errors,
     fallback: copy.failed,
-    onSuccess: (state, asked) =>
-      queryClient.setQueryData(myReportKey(sessionId, asked), state),
+    onSuccess: (state, asked) => queryClient.setQueryData(source.key(asked), state),
   });
   const base = standard.data;
   // While the AI variant's state is read, only the Bryter shows (it stays, with focus on it).
@@ -87,8 +119,8 @@ export function ReportDownload({ sessionId }: { sessionId: string }) {
     making.error instanceof ApiRequestError &&
     making.error.code === "ai_assessment_unavailable";
   useEffect(() => {
-    if (refused) void queryClient.invalidateQueries({ queryKey: myReportsKey });
-  }, [refused, queryClient]);
+    if (refused) void queryClient.invalidateQueries({ queryKey: source.family });
+  }, [refused, queryClient, source]);
   // The pending line is announced once the press was answered; «klar» once it turned ready here.
   const [announced, setAnnounced] = useState("");
   const previous = useRef<ReportState["status"] | undefined>(undefined);
@@ -112,7 +144,7 @@ export function ReportDownload({ sessionId }: { sessionId: string }) {
       <p role="status" className="sr-only">
         {announced}
       </p>
-      {available && base.open ? (
+      {available && base.open && !base.deleted ? (
         <div
           className="flex flex-col items-start gap-1"
           data-report-ai={ai ? "on" : "off"}
@@ -132,12 +164,15 @@ export function ReportDownload({ sessionId }: { sessionId: string }) {
             {ai ? copy.ai.on : copy.ai.off}
           </Switch>
           <p id={helpId} className={`${LINE} text-ink-secondary`}>
-            {copy.ai.help}
+            {aiHelp}
           </p>
         </div>
       ) : null}
       {state && view ? (
         <>
+          {view.kind === "deleted" ? (
+            <p className={LINE}>{copy.staff.deleted}</p>
+          ) : null}
           {view.kind === "closed" ? (
             view.opensAt ? (
               <p className={`${LINE} text-ink-secondary`}>
@@ -154,7 +189,7 @@ export function ReportDownload({ sessionId }: { sessionId: string }) {
           {state.open && state.generated_at ? (
             <>
               <a
-                href={myReportFilePath(sessionId, state.ai)}
+                href={source.filePath(state.ai)}
                 className={LINK}
                 download
               >
@@ -179,7 +214,7 @@ export function ReportDownload({ sessionId }: { sessionId: string }) {
                     ? copy.again
                     : copy.make}
               </Button>
-              <p className={`${LINE} text-ink-secondary`}>{copy.note}</p>
+              <p className={`${LINE} text-ink-secondary`}>{note}</p>
             </>
           ) : null}
         </>

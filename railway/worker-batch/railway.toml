@@ -11,11 +11,11 @@ dockerfilePath = "backend/Dockerfile"
 watchPatterns = ["/.dockerignore", "/backend/**", "/railway/worker-batch/**"]
 
 [deploy]
-# The queues that exist today; `reports-bulk` of SETUP-GUIDE §1 is added with Story 13.13.
+# The queues that exist today; `reports-bulk` (SETUP-GUIDE §1) from Story 13.12, its ZIP job 13.13.
 # `reports-single` (Story 13.7) needs WEB_INTERNAL_URL=http://frontend.railway.internal:3000 and
 # the storage keys; it runs on REPORTS_SINGLE_RESERVED slots of its own.
 # No pre-deploy command (only backend migrates, AD-24) and no health check path (no HTTP).
-startCommand = "python -m app.worker --queues llm-batch,mail,reports-single --sweeper"
+startCommand = "python -m app.worker --queues llm-batch,mail,reports-bulk,reports-single --sweeper"
 overlapSeconds = 30
 drainingSeconds = 120
 restartPolicyType = "ON_FAILURE"

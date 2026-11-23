@@ -181,11 +181,12 @@ HEAD_TABLES = (
     | CHECK_TABLES
 )
 # 0301-0305 follow 0209: corrections (13.3), Oppfølgingsspill (13.4), Message kind (13.6),
-# Student report (13.7), deletion date (13.9); 0306 the report variants (13.11);
+# Student report (13.7), deletion date (13.9); 0306 the report variants (13.11), 0307 the
+# staff's (13.12);
 # 0209 (12.10), 0208 (12.9), 0207 (12.8), 0206 (12.6), 0205 (12.5), 0204 (12.4), 0203 (12.3)
 # and 0202 (12.2) follow 0201 (12.7);
 # 0120-0130 follow 0064
-HEAD = "0306"
+HEAD = "0307"
 
 
 def reset_schema(url: str) -> None:
@@ -375,6 +376,12 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     # 0111 (Story 9.12): presence, the Students who go on alone and the 48-hour fallback.
     assert "last_seen_at" in columns(url, "debrief_members")
     assert {"fallback_due_at", "fallback_at"} <= columns(url, "debrief_sessions")
+
+    # 0307 (Story 13.12): the staff's report variants; a downgrade drops their rows.
+    variants = constraints(url, "report_requests")["ck_report_requests_variant"]
+    assert "'staff'" in variants and "'staff_ai'" in variants
+    command.downgrade(cfg, "0306")
+    assert "'staff'" not in constraints(url, "report_requests")["ck_report_requests_variant"]
 
     # 0306 (Story 13.11): the report variants with the AI assessment section.
     variants = constraints(url, "report_requests")["ck_report_requests_variant"]

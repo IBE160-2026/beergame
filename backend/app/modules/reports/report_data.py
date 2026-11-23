@@ -74,16 +74,21 @@ __all__ = [
     "ReportAiScoreOut",
     "ReportAssessedItemOut",
     "ReportVariant",
+    "STAFF_VARIANTS",
     "build_report_data",
 ]
 
 SCHEMA_VERSION = 1
 
 
-ReportVariant = Literal["standard", "ai", "ai_letter"]
+ReportVariant = Literal["standard", "ai", "ai_letter", "staff", "staff_ai"]
 """Story 13.11: `standard` holds no AI data; `ai` adds the AI assessment section; `ai_letter` the
 section with the Indicative letter, which the builder still puts in only where
-`assessment.letter_for` gives one."""
+`assessment.letter_for` gives one. Story 13.12: `staff` and `staff_ai` are the staff's downloads,
+the same content as `standard` and `ai`; no staff variant ever carries the letter."""
+
+STAFF_VARIANTS: frozenset[str] = frozenset({"staff", "staff_ai"})
+"""The variants the staff of the Class make (Story 13.12), apart from the Student's own."""
 
 
 @dataclass(frozen=True)
@@ -96,7 +101,7 @@ class ReportOptions:
 
     @property
     def assessment(self) -> bool:
-        return self.variant != "standard"
+        return self.variant in ("ai", "ai_letter", "staff_ai")
 
     @property
     def letter(self) -> bool:

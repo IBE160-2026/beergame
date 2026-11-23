@@ -1,3 +1,5 @@
+import fs from "node:fs";
+
 import { type Browser, expect, type Page } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
@@ -19,13 +21,16 @@ import { liveClassGame, orderByApi } from "./support/live-game";
  * Student from Spillinnsikt and reads every block; when the game is played out at the Play
  * deadline the Klassespill row changes without a reload (AD-8). Spillinnsikt names the Student as a
  * link for an Assistant lecturer too, and the Roster leads to the same page, where the Assistant
- * reads the record without «Tilrettelegging» and «Frister». A Lecturer
+ * reads the record without «Tilrettelegging» and «Frister». Story 13.12: before the Test deadline the
+ * Assistant makes and downloads the Student report from its block, and the Lecturer reads the same
+ * one. A Lecturer
  * of another Class sees the permission-denied page. Axe and reflow at 320 px, 1280 px with 200 %
  * text and 1440 px. The rules are `backend/tests/reports/test_studentside.py`. */
 const CSRF = { "X-Requested-With": "olspillet" };
 const PASSWORD = "spill-passord-1";
 const copy = nb.reports.completion;
 const record = nb.reports.record;
+const download = nb.reports.download;
 
 async function untilLive(page: Page) {
   await expect(page.locator("html")).toHaveAttribute("data-live", "live", { timeout: 10_000 });
@@ -97,7 +102,11 @@ test("staff read one Student's Fullføring and record, and it follows the game l
     const assessed = page.locator("[data-staff-assessment]");
     await expect(assessed.getByRole("heading", { level: 2 })).toHaveText(nb.assessment.staff.title);
     await expect(assessed.locator("[data-assessment-state]")).toHaveAttribute("data-assessment-state", "no_test");
-    await expect(page.locator("[data-report-slot]")).toBeEmpty();
+    // Story 13.12: the Student report, for the staff at any time, here before the Test deadline.
+    const reportBlock = page.locator('[data-record="report"]');
+    await expect(reportBlock.getByRole("heading", { level: 2 })).toHaveText(record.report.title);
+    await expect(reportBlock.getByRole("button", { name: download.make })).toBeVisible();
+    await expect(reportBlock).toContainText(download.staff.note);
     // A Lecturer of the Class also has «Tilrettelegging» and «Frister».
     await expect(page.locator("[data-adjustment]")).toBeVisible();
     await expect(page.locator("[data-deadline]")).toBeVisible();
@@ -150,7 +159,23 @@ test("staff read one Student's Fullføring and record, and it follows the game l
     await expect(helper.locator("[data-adjustment]")).toHaveCount(0);
     await expect(helper.locator("[data-deadline]")).toHaveCount(0);
     await expectAccessible(helper, false);
+
+    // Story 13.12: the Assistant makes the Student's report before the Test deadline through the
+    // same job, and downloads the PDF through the signed URL.
+    const helperReport = helper.locator('[data-record="report"]');
+    const started = Date.now();
+    await helperReport.getByRole("button", { name: download.make }).click();
+    const link = helperReport.getByRole("link", { name: download.link });
+    await expect(link).toBeVisible({ timeout: 30_000 });
+    expect(Date.now() - started).toBeLessThan(30_000);
+    const saved = helper.waitForEvent("download");
+    await link.click();
+    const pdf = fs.readFileSync(await (await saved).path());
+    expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
     await assistant.close();
+    // The Lecturer of the Class reads the same report (shared by the staff).
+    await page.reload();
+    await expect(page.locator('[data-record="report"]').getByRole("link", { name: download.link })).toBeVisible();
 
     // Each width: one column, no page scroll, axe clean.
     for (const viewport of VIEWPORTS) {

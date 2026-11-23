@@ -14,6 +14,7 @@
    `ai_unavailable` when the AI section was asked for and the assessment is no longer ready),
    deletes the snapshot whether the render succeeded or failed, and emits `user:<student>` (and
    `user:<requester>` when another asked), so the Student's page updates without reload (AD-8).
+   A staff download (Story 13.12, variants `staff`, `staff_ai`) emits the requester's only.
 
 A request no longer pending (done, or replaced as stale) is left alone, so a job delivered twice
 renders once. Failures are logged with ids and the error's type only, never a name or a text."""
@@ -34,6 +35,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.reports import pdf_marks, repo
 from app.modules.reports.report import RENDER_TASK, object_path
 from app.modules.reports.report_data import (
+    STAFF_VARIANTS,
     AssessmentUnavailable,
     NotReportable,
     ReportOptions,
@@ -98,7 +100,9 @@ async def to_pdf(url: str) -> bytes:
 
 
 async def _emit(s: AsyncSession, request: repo.ReportRequest) -> None:
-    await events.emit(s, "user", str(request.user_id))
+    # A staff download (Story 13.12) is no change on the Student's own pages.
+    if request.variant not in STAFF_VARIANTS:
+        await events.emit(s, "user", str(request.user_id))
     if request.requested_by is not None and request.requested_by != request.user_id:
         await events.emit(s, "user", str(request.requested_by))
 
@@ -123,8 +127,9 @@ async def render(request_id: uuid.UUID) -> str:
                 ReportOptions(
                     variant=request.variant,  # type: ignore[arg-type]
                     # The Indicative letter's gate (Story 13.11): only a report the Student
-                    # asked for may carry it.
-                    requested_by_student=request.requested_by == request.user_id,
+                    # asked for may carry it; never a staff download (Story 13.12).
+                    requested_by_student=request.requested_by == request.user_id
+                    and request.variant not in STAFF_VARIANTS,
                 ),
                 now=now,
             )

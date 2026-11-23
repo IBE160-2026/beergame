@@ -17,7 +17,9 @@ START = {
     "frontend": "node server.js",
     "backend": "uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-access-log",
     "worker-ai": "python -m app.worker --queues ai-orders",
-    "worker-batch": "python -m app.worker --queues llm-batch,mail,reports-single --sweeper",
+    "worker-batch": (
+        "python -m app.worker --queues llm-batch,mail,reports-bulk,reports-single --sweeper"
+    ),
 }
 HEALTH = {"proxy": "/api/health", "frontend": "/", "backend": "/api/health"}
 

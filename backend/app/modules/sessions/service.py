@@ -2505,6 +2505,14 @@ def report_opens_at(user: authz.Principal | uuid.UUID, row: Mapping[str, Any]) -
     return effective_test_deadline(user, row)
 
 
+def data_deleted(row: Mapping[str, Any], now: datetime) -> bool:
+    """Whether the Class session's Student data counts as deleted (Story 13.12, FR-57, FR-77):
+    its deletion date (Story 13.9) has come, on the Oslo calendar. The staff's report action says
+    so and builds nothing."""
+    deletion = row.get("deletion_date")
+    return deletion is not None and now.astimezone(OSLO).date() >= deletion
+
+
 @dataclass(frozen=True)
 class ReportHeading:
     """What the Student report's header says of the Class session (Story 13.7, FR-58): the Class,

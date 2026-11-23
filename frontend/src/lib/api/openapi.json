@@ -10659,7 +10659,7 @@
         "type": "object"
       },
       "ReportStateOut": {
-        "description": "The Student's own Student report (Story 13.7, FR-57): when it opens (their effective Test\ndeadline; None while the Class session has none), whether it is open now, the latest\nrequest's status, and when the PDF that can be downloaded was made (None without one).\n`failed` covers a render that failed and one that never ended; a new press tries again.",
+        "description": "The Student's own Student report (Story 13.7, FR-57): when it opens (their effective Test\ndeadline; None while the Class session has none), whether it is open now, the latest\nrequest's status, and when the PDF that can be downloaded was made (None without one).\n`failed` covers a render that failed and one that never ended; a new press tries again.\nStory 13.12: the staff's download of one Student's report answers the same shape, always\n`open`, with `opens_at` None.",
         "properties": {
           "ai": {
             "default": false,
@@ -10669,6 +10669,11 @@
           "ai_available": {
             "default": false,
             "title": "Ai Available",
+            "type": "boolean"
+          },
+          "deleted": {
+            "default": false,
+            "title": "Deleted",
             "type": "boolean"
           },
           "generated_at": {
@@ -14074,7 +14079,7 @@
         "type": "object"
       },
       "StudentRecordOut": {
-        "description": "The Studentside's record of one Student of a Class session (Story 13.2, FR-63, UX-DR55),\nfor the Lecturers and Assistant lecturers of its Class. `can_manage`: the reader is a Lecturer\nof the Class, so the page also shows «Tilrettelegging» and «Frister» (`getStudentPage`).\n`completion` is None for a Student the reports leave out (`reports.scope`); `report` is the\nslot for the link to the Student report, None until Story 13.12.",
+        "description": "The Studentside's record of one Student of a Class session (Story 13.2, FR-63, UX-DR55),\nfor the Lecturers and Assistant lecturers of its Class. `can_manage`: the reader is a Lecturer\nof the Class, so the page also shows «Tilrettelegging» and «Frister» (`getStudentPage`).\n`completion` is None for a Student the reports leave out (`reports.scope`). The Student report\nthe staff download (Story 13.12) is read from its own endpoint, `getStudentReport`.",
         "properties": {
           "assessment": {
             "anyOf": [
@@ -14177,10 +14182,6 @@
                 "type": "null"
               }
             ]
-          },
-          "report": {
-            "title": "Report",
-            "type": "null"
           },
           "session_number": {
             "title": "Session Number",
@@ -20966,6 +20967,289 @@
           }
         },
         "summary": "Get Student Record",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/students/{user_id}/report": {
+      "get": {
+        "description": "One Student's report as the staff of the Class download it from the Studentside (Story\n13.12, FR-59, FR-63): always open, shared by its Lecturers and Assistant lecturers, apart from\nthe Student's own. `ai_available` while the Student's AI assessment is ready and the reader may\nread it (FR-55); with `ai` the state of the report with the AI section, never with the\nIndicative letter (FR-56). 403 `forbidden` as `getStudentRecord`.",
+        "operationId": "getStudentReport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Story 13.11: the report with the AI assessment section (off by default).",
+            "in": "query",
+            "name": "ai",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Story 13.11: the report with the AI assessment section (off by default).",
+              "title": "Ai",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportStateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Student Report",
+        "tags": [
+          "reports"
+        ]
+      },
+      "post": {
+        "description": "«Lag Studentrapport» on the Studentside (Story 13.12, FR-59, AD-9, AD-18): before or after\nthe Test deadline, the same request and `reports-single` job as the Student's own, recorded in\nthe audit log. 202 with the state; 409 `data_deleted` once the Student's data is deleted\n(`deleted` in the state), 409 `not_counted` for a Student reports leave out, 409\n`ai_assessment_unavailable` when `ai` asks for the section and it cannot be added. 403\n`forbidden` as `getStudentRecord`, with nothing recorded.",
+        "operationId": "requestStudentReport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ReportRequestIn"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportStateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request Student Report",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/students/{user_id}/report/file": {
+      "get": {
+        "description": "The staff's latest PDF of the Student (Story 13.12, NFR-7, AD-12): 303 to a signed URL\nmade only now that the policy allowed it, recorded in the audit log. 409 `report_not_ready`,\n`data_deleted`, `not_counted`,\n`ai_assessment_unavailable`; 503 `storage_unavailable`; 403 `forbidden` as\n`getStudentRecord`. Without `ai` never the PDF with the AI section.",
+        "operationId": "downloadStudentReport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Story 13.11: the report with the AI assessment section (off by default).",
+            "in": "query",
+            "name": "ai",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Story 13.11: the report with the AI assessment section (off by default).",
+              "title": "Ai",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "303": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "To a signed URL"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Download Student Report",
         "tags": [
           "reports"
         ]

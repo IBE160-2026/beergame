@@ -47,7 +47,8 @@ The minimums are configuration, `COMPLETION_EXPLANATION_MIN_LENGTH` (50 characte
 - `assessment` is `off` or `not_ready` on this branch. At the merge with Epic 12, Story 12.5's
   «KI-vurdering» block takes this part's place on the page (`frontend/src/modules/reports/
   record-blocks.tsx`); no Indicative letter is ever in this response (FR-56, AD-12).
-- `report` is always None: the slot Story 13.12 fills with the Student report link.
+- The record has no report field: the Studentside's report block reads `getStudentReport` (Story
+  13.12).
 
 ## Corrections (Story 13.3)
 
@@ -116,6 +117,23 @@ The minimums are configuration, `COMPLETION_EXPLANATION_MIN_LENGTH` (50 characte
   its variant (stored under its own object name).
 - Personal data: `report_requests` (`user_id`, `requested_by`), `report_snapshots` (the name and
   the content, for one render only).
+
+## The staff's download of one Student's report (Story 13.12)
+
+- `GET|POST /api/class-sessions/{id}/students/{user_id}/report` (`getStudentReport`,
+  `requestStudentReport`) and `GET …/report/file` (`downloadStudentReport`), policy
+  `reports.download` (owners and Assistant lecturers of the Class), reached through
+  `sessions.student_target(…, "reports.download")`: one 403 for everyone else, nothing written.
+  Open at any time (`open` true, `opens_at` None); 409 `not_counted`, `report_not_ready`,
+  `ai_assessment_unavailable` as for the Student's own.
+- Same press (`report._press`) and job. Variants `staff` and `staff_ai`, shared by the staff of
+  the Class and apart from the Student's own requests and objects. `staff_ai` adds the AI section
+  when the reader may `ai_assessments.read` and the assessment is ready; never the Indicative
+  letter (`ReportOptions.letter` is `ai_letter` only, and the render asks the gate as not the
+  Student).
+- A staff press writes the audit row `report.requested` (target `class_session_id`, `user_id`,
+  `request_id`; change `variant`) and emits the requester's `user` topic; the render's end emits
+  the requester's only, never the Student's.
 
 ## Waiting for Epic 12 on this branch
 

@@ -62,7 +62,7 @@ async def test_the_staff_of_the_class_read_one_students_record(klass):
     assert found.headers["cache-control"] == "no-store"
     body = found.json()
     assert body["can_manage"] is True
-    assert body["session_number"] == 1 and body["report"] is None
+    assert body["session_number"] == 1 and "report" not in body  # Story 13.12: its own endpoint
     # Every Completion value comes from the one assembler (Story 13.1).
     status = await reports.completion_status(me, uuid.UUID(session_id))
     completion = body["completion"]
