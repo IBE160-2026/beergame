@@ -81,7 +81,6 @@ function Games({ data }: { data: ClassGames }) {
       </p>
     );
   }
-  const top = sharedTop(data);
   return (
     <div className="mt-4 flex max-w-4xl min-w-0 flex-col gap-8" data-all-games="open">
       <div className="flex flex-col gap-1">
@@ -91,10 +90,23 @@ function Games({ data }: { data: ClassGames }) {
         </p>
         <p className={SECONDARY}>{copy.axis}</p>
       </div>
+      <OrdersByRole data={data} />
+    </div>
+  );
+}
+
+/**
+ * One Ordrelinjer chart per Role, Fabrikk first, on one shared scale, each with «Vis som tabell»
+ * in game-number order. Reused by «Vis i plenum» (Story 14.6), whose games are all `own: false`.
+ */
+export function OrdersByRole({ data }: { data: Pick<ClassGames, "weeks" | "roles"> }) {
+  const top = sharedTop(data);
+  return (
+    <>
       {rolesFabrikkFirst(data).map((role) => (
         <RoleSection key={role.role} role={role} weeks={data.weeks} top={top} />
       ))}
-    </div>
+    </>
   );
 }
 

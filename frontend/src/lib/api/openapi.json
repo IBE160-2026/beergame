@@ -8249,6 +8249,86 @@
         "title": "PlayTurnOut",
         "type": "object"
       },
+      "PlenaryGameOut": {
+        "description": "One Class game's values for one Role, Uke 1 first.",
+        "properties": {
+          "net": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Net",
+            "type": "array"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "orders": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Orders",
+            "type": "array"
+          }
+        },
+        "required": [
+          "number",
+          "net",
+          "orders"
+        ],
+        "title": "PlenaryGameOut",
+        "type": "object"
+      },
+      "PlenaryOut": {
+        "description": "The Class session's Class games for the plenary, per Role in chain order (Detaljist\nfirst).",
+        "properties": {
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/PlenaryRoleOut"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "weeks": {
+            "title": "Weeks",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "weeks",
+          "roles"
+        ],
+        "title": "PlenaryOut",
+        "type": "object"
+      },
+      "PlenaryRoleOut": {
+        "description": "Every Class game's values for one Role, in game-number order.",
+        "properties": {
+          "games": {
+            "items": {
+              "$ref": "#/components/schemas/PlenaryGameOut"
+            },
+            "title": "Games",
+            "type": "array"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          }
+        },
+        "required": [
+          "role",
+          "games"
+        ],
+        "title": "PlenaryRoleOut",
+        "type": "object"
+      },
       "ProposalPersonOut": {
         "description": "A Student named by the scheduling aid (Story 6.19): the name now, and whether it is the\nreader. None as name for a Student no longer in the Class.",
         "properties": {
@@ -18588,6 +18668,69 @@
         "summary": "Get Wall Aggregates",
         "tags": [
           "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/plenary": {
+      "get": {
+        "description": "«Alle spill i plenum» (Story 14.6, FR-86): every Class game's Netto lager and Orders per Role\nand Week keyed by game number, for the projector; no name, id, occupant, status, wait or cost\n(AD-14). Read by the Oversikt's readers; 403 `forbidden` for anyone else and for a Class\nsession that does not exist, alike (FR-5).",
+        "operationId": "getClassPlenary",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlenaryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Class Plenary",
+        "tags": [
+          "reports"
         ]
       }
     },

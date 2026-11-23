@@ -1184,6 +1184,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/class-sessions/{session_id}/plenary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Class Plenary
+         * @description «Alle spill i plenum» (Story 14.6, FR-86): every Class game's Netto lager and Orders per Role
+         *     and Week keyed by game number, for the projector; no name, id, occupant, status, wait or cost
+         *     (AD-14). Read by the Oversikt's readers; 403 `forbidden` for anyone else and for a Class
+         *     session that does not exist, alike (FR-5).
+         */
+        get: operations["getClassPlenary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/class-sessions/{session_id}/question-set": {
         parameters: {
             query?: never;
@@ -7083,6 +7106,38 @@ export interface components {
             viewed: boolean;
         };
         /**
+         * PlenaryGameOut
+         * @description One Class game's values for one Role, Uke 1 first.
+         */
+        PlenaryGameOut: {
+            /** Net */
+            net: number[];
+            /** Number */
+            number: number;
+            /** Orders */
+            orders: (number | null)[];
+        };
+        /**
+         * PlenaryOut
+         * @description The Class session's Class games for the plenary, per Role in chain order (Detaljist
+         *     first).
+         */
+        PlenaryOut: {
+            /** Roles */
+            roles: components["schemas"]["PlenaryRoleOut"][];
+            /** Weeks */
+            weeks: number;
+        };
+        /**
+         * PlenaryRoleOut
+         * @description Every Class game's values for one Role, in game-number order.
+         */
+        PlenaryRoleOut: {
+            /** Games */
+            games: components["schemas"]["PlenaryGameOut"][];
+            role: components["schemas"]["Role"];
+        };
+        /**
          * ProposalPersonOut
          * @description A Student named by the scheduling aid (Story 6.19): the name now, and whether it is the
          *     reader. None as name for a Student no longer in the Class.
@@ -12884,6 +12939,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getClassPlenary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlenaryOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -77,6 +77,8 @@ export const startGamesPath = (id: string) => `${classOverviewPath(id)}/start`;
 /** «Sett inn KI-spillere» (Story 8.12): every Seat the Class session's games wait for, for its
  * Lecturers. */
 export const fillSeatsPath = (id: string) => `${classOverviewPath(id)}/sett-inn`;
+/** «Alle spill i plenum» (Story 14.6): the Oversikt's games for the projector. */
+export const plenaryPath = (id: string) => `${classOverviewPath(id)}/plenum`;
 
 /** The Oversikt after «Sett inn 9 KI-spillere» (Story 8.12): it reads «9 KI-spillere er satt inn.»
  * once. */

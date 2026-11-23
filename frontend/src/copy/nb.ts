@@ -4556,6 +4556,24 @@ export const nb = {
     noOrder: "–",
   },
 
+  /** «Alle spill i plenum» (Story 14.6, FR-86, UX-DR42): every Class game on the projector,
+   * opened from the Oversikt. «Vis i plenum», the line and the caption are the story's own. */
+  plenary: {
+    /** [ASSUMPTION] the page title, as EXPERIENCE.md names the surface. */
+    title: "Alle spill i plenum",
+    button: "Vis i plenum",
+    line: "Mønsteret går igjen, uten navn og uten rangering.",
+    caption: "Rødt: restordre, under null. Blått: lager, over null. Tallet i cellen er netto lager.",
+    /** [ASSUMPTION] the wall's one group: every Class game, with their count. */
+    group: (games: number) => `Alle spill ${games}`,
+    /** [ASSUMPTION] the Visningsbryter's third segment: 14.5's per-Role Orders charts. */
+    orders: "Ordre per rolle",
+    /** [ASSUMPTION] no Class game has an opened Uke yet. */
+    none: "Ingen klassespill har startet ennå.",
+    /** [ASSUMPTION] the Lenke back to the Oversikt. */
+    back: "Tilbake til Oversikten",
+  },
+
   /** EXPERIENCE.md → State Patterns (UX-DR59). */
   access: {
     denied: "Du har ikke tilgang til denne siden.",
