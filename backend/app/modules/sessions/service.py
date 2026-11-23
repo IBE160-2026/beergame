@@ -1785,6 +1785,9 @@ async def enrolled_sessions(user: authz.Principal) -> EnrolledSessionListOut:
                 ),
                 adjustment=own_adjustment(adjustments.get(row["id"])),
                 replay=replays.get(row["id"]),
+                all_games_open=is_locked(row, now=now)
+                and progress.Step.DEBRIEF in done.get(row["id"], set())
+                and play_deadline_passed(row, now),
             )
             for row in rows
             if row["class_id"] in names
@@ -1956,6 +1959,13 @@ def test_deadline_passed(
     """Whether the Student's own Test deadline (`effective_test_deadline`) has passed at `now`
     (Story 10.3): no Replay starts after it (FR-18)."""
     deadline = effective_test_deadline(user, row)
+    return deadline is not None and deadline <= now
+
+
+def play_deadline_passed(row: Mapping[str, Any], now: datetime) -> bool:
+    """Whether the Class session's Play deadline is set and has passed at `now` (Story 14.5):
+    with the Student's own Debrief done, «Alle spill side om side» opens (FR-86)."""
+    deadline = row["play_deadline"]
     return deadline is not None and deadline <= now
 
 

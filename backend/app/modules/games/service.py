@@ -25,6 +25,7 @@ from app.modules.games.class_figures import (
     FactFigures,
     OccupancyFigure,
     SeatFigure,
+    class_orders,
     fact_figures,
     occupancy_figures,
     rating_counts,
@@ -218,6 +219,8 @@ __all__ = [
     "SeatFigure",
     "fact_figures",
     "report_class_games",
+    # «Alle spill side om side» (Story 14.5).
+    "class_orders",
     "occupancy_figures",
     "rating_counts",
     "seat_counts",

@@ -1576,6 +1576,40 @@
         "title": "ClassCostOut",
         "type": "object"
       },
+      "ClassGamesOut": {
+        "description": "The Class session's Class games side by side, per Role in chain order (Detaljist first).",
+        "properties": {
+          "own_game": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Own Game"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/RoleOrdersOut"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "weeks": {
+            "title": "Weeks",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "weeks",
+          "own_game",
+          "roles"
+        ],
+        "title": "ClassGamesOut",
+        "type": "object"
+      },
       "ClassIn": {
         "description": "A new Class (Story 4.1). The service checks the fields and answers every refused one in\n`fields`: `name`, `institution_id` (`institution_missing`, `institution_unknown`) and\n`course_code`.",
         "properties": {
@@ -3891,6 +3925,11 @@
               }
             ]
           },
+          "all_games_open": {
+            "default": false,
+            "title": "All Games Open",
+            "type": "boolean"
+          },
           "class_id": {
             "format": "uuid",
             "title": "Class Id",
@@ -4619,6 +4658,40 @@
           "roles"
         ],
         "title": "GameInsightOut",
+        "type": "object"
+      },
+      "GameOrdersOut": {
+        "description": "One Class game's Orders for one Role, Uke 1 first.",
+        "properties": {
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "orders": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Orders",
+            "type": "array"
+          },
+          "own": {
+            "title": "Own",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "number",
+          "own",
+          "orders"
+        ],
+        "title": "GameOrdersOut",
         "type": "object"
       },
       "GameResult": {
@@ -10130,6 +10203,27 @@
           "role"
         ],
         "title": "RoleIn",
+        "type": "object"
+      },
+      "RoleOrdersOut": {
+        "description": "Every Class game's Orders for one Role, in game-number order.",
+        "properties": {
+          "games": {
+            "items": {
+              "$ref": "#/components/schemas/GameOrdersOut"
+            },
+            "title": "Games",
+            "type": "array"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          }
+        },
+        "required": [
+          "role",
+          "games"
+        ],
+        "title": "RoleOrdersOut",
         "type": "object"
       },
       "RosterColumn": {
@@ -23792,6 +23886,69 @@
         "summary": "List My Class Sessions",
         "tags": [
           "sessions"
+        ]
+      }
+    },
+    "/api/me/class-sessions/{session_id}/all-games": {
+      "get": {
+        "description": "«Alle spill side om side» (Story 14.5, FR-86): every Class game's Orders per Role and Week\nkeyed by game number, the Student's own game marked; no name, id, occupant or cost (AD-14).\n403 `all_games_locked` until the Student's Debrief is done and the Play deadline has passed;\n403 `forbidden` for a Class session that is not their own locked one, alike for all (FR-5).",
+        "operationId": "getMyClassGames",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassGamesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get My Class Games",
+        "tags": [
+          "reports"
         ]
       }
     },

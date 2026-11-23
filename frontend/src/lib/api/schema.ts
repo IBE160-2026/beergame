@@ -2729,6 +2729,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/class-sessions/{session_id}/all-games": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Class Games
+         * @description «Alle spill side om side» (Story 14.5, FR-86): every Class game's Orders per Role and Week
+         *     keyed by game number, the Student's own game marked; no name, id, occupant or cost (AD-14).
+         *     403 `all_games_locked` until the Student's Debrief is done and the Play deadline has passed;
+         *     403 `forbidden` for a Class session that is not their own locked one, alike for all (FR-5).
+         */
+        get: operations["getMyClassGames"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me/class-sessions/{session_id}/debrief": {
         parameters: {
             query?: never;
@@ -4202,6 +4225,18 @@ export interface components {
             upper_quartile: string;
         };
         /**
+         * ClassGamesOut
+         * @description The Class session's Class games side by side, per Role in chain order (Detaljist first).
+         */
+        ClassGamesOut: {
+            /** Own Game */
+            own_game: number | null;
+            /** Roles */
+            roles: components["schemas"]["RoleOrdersOut"][];
+            /** Weeks */
+            weeks: number;
+        };
+        /**
          * ClassIn
          * @description A new Class (Story 4.1). The service checks the fields and answers every refused one in
          *     `fields`: `name`, `institution_id` (`institution_missing`, `institution_unknown`) and
@@ -5167,6 +5202,11 @@ export interface components {
         EnrolledSessionOut: {
             adjustment?: components["schemas"]["OwnAdjustmentOut"] | null;
             /**
+             * All Games Open
+             * @default false
+             */
+            all_games_open: boolean;
+            /**
              * Class Id
              * Format: uuid
              */
@@ -5470,6 +5510,18 @@ export interface components {
             waited_for: components["schemas"]["WaitedSeatOut"][];
             /** Weeks Total */
             weeks_total: number | null;
+        };
+        /**
+         * GameOrdersOut
+         * @description One Class game's Orders for one Role, Uke 1 first.
+         */
+        GameOrdersOut: {
+            /** Number */
+            number: number;
+            /** Orders */
+            orders: (number | null)[];
+            /** Own */
+            own: boolean;
         };
         /**
          * GameResult
@@ -7891,6 +7943,15 @@ export interface components {
          */
         RoleIn: {
             role: components["schemas"]["AccountRole"];
+        };
+        /**
+         * RoleOrdersOut
+         * @description Every Class game's Orders for one Role, in game-number order.
+         */
+        RoleOrdersOut: {
+            /** Games */
+            games: components["schemas"]["GameOrdersOut"][];
+            role: components["schemas"]["Role"];
         };
         /** RosterColumn */
         RosterColumn: {
@@ -16877,6 +16938,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getMyClassGames: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassGamesOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

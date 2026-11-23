@@ -921,6 +921,9 @@ class EnrolledSessionOut(BaseModel):
     """Story 8.9: the Student's own Tilrettelegging, None without one (FR-17)."""
     replay: StudentReplayOut | None = None
     """Story 10.3: the Replay, once the Student has passed the Debrief quiz; None before."""
+    all_games_open: bool = False
+    """Story 14.5: «Alle spill side om side» is open: the Student's own Debrief is done and the
+    Play deadline has passed (FR-86). The read itself checks the same."""
 
 
 class EnrolledSessionListOut(BaseModel):

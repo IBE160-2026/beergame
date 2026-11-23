@@ -4532,6 +4532,30 @@ export const nb = {
     },
   },
 
+  /** «Alle spill side om side» (Story 14.5, FR-86, UX-DR64, `09-alle-sider.png`): every Class
+   * game's Orders per Role beside the Student's own, after their Debrief and the Play deadline.
+   * The title and the locked line are the spine's; the rest is drafted [ASSUMPTION]. */
+  allGames: {
+    title: "Alle spill side om side",
+    /** Hjem's entry under Stegene, and the line while it is locked (EXPERIENCE.md → State Patterns). */
+    entry: "Alle spill side om side",
+    locked: "Åpnes når Debriefen din er ferdig og Spillfristen er passert.",
+    intro: "Ordrene i alle klassespillene, uke for uke og på samme skala. Uten navn og uten rangering.",
+    /** The own game named in text, and how it is drawn (NFR-6: not by colour alone). */
+    own: (game: number) => `Ditt spill er Spill ${game}. Det er tegnet med tykk strek og punkter.`,
+    noOwn: "Ditt spill er ikke med blant klassespillene.",
+    none: "Klasseøkta har ingen klassespill.",
+    axis: "Enheter bestilt per uke.",
+    chartTitle: (role: string, games: number) => `Ordre per uke fra ${role} i ${games} klassespill`,
+    tableCaption: (role: string) => `Ordre per uke fra ${role}, etter spillnummer`,
+    gameColumn: "Spill",
+    week: (week: number) => `Uke ${week}`,
+    game: (number: number) => `Spill ${number}`,
+    ownGame: (number: number) => `Spill ${number} (ditt spill)`,
+    /** A Week with no Order stored. */
+    noOrder: "–",
+  },
+
   /** EXPERIENCE.md → State Patterns (UX-DR59). */
   access: {
     denied: "Du har ikke tilgang til denne siden.",

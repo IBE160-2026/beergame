@@ -67,6 +67,9 @@ export const classOverviewPath = (id: string) => `${classSessionPath(id)}/oversi
 /** The Klasserapport (Story 14.1): how the Class games went, for the Lecturers of the Class. */
 export const classReportPath = (id: string) => `${classSessionPath(id)}/klasserapport`;
 
+/** «Alle spill side om side» (Story 14.5): a Student's view of every Class game of their session. */
+export const allGamesPath = (id: string) => `/alle-spill/${encodeURIComponent(id)}`;
+
 /** «Start spill» (Story 8.10): every Class game of the session that has not started, for its
  * Lecturers. */
 export const startGamesPath = (id: string) => `${classOverviewPath(id)}/start`;

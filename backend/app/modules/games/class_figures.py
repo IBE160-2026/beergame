@@ -38,6 +38,7 @@ __all__ = [
     "FactFigures",
     "OccupancyFigure",
     "SeatFigure",
+    "class_orders",
     "report_class_games",
     "fact_figures",
     "occupancy_figures",
@@ -270,4 +271,23 @@ async def rating_counts(
     found: dict[str, dict[int, int]] = {}
     for mode, rating, count in result:
         found.setdefault(mode, {})[rating] = count
+    return found
+
+
+async def class_orders(
+    session: AsyncSession, game_ids: Collection[uuid.UUID]
+) -> dict[uuid.UUID, dict[str, dict[int, int]]]:
+    """Every stored Order of the Games (Story 14.5, FR-86) as `{game_id: {role: {week: order}}}`,
+    in one read whatever their number (NFR-3): Week, Role and amount only, never who decided it
+    or who held the Seat (AD-14). The caller has chosen the Games."""
+    if not game_ids:
+        return {}
+    result = await session.execute(
+        select(seat_weeks.c.game_id, seats.c.role, seat_weeks.c.week, seat_weeks.c.order)
+        .select_from(seat_weeks.join(seats, seats.c.id == seat_weeks.c.seat_id))
+        .where(seat_weeks.c.game_id.in_(list(game_ids)))
+    )
+    found: dict[uuid.UUID, dict[str, dict[int, int]]] = {}
+    for game_id, role, week, order in result:
+        found.setdefault(game_id, {}).setdefault(str(role), {})[week] = order
     return found

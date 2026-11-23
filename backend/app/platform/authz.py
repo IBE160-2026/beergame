@@ -158,6 +158,9 @@ POLICIES: dict[str, frozenset[str]] = {
     # The Student's own Debrief (Story 9.2): any User, held to `own_seat` through
     # `games.service.student_game`; the service refuses every other Debrief alike.
     "debriefs.own": frozenset({ANY_USER}),
+    # «Alle spill side om side» (Story 14.5, FR-86): any User, held to their own locked Class
+    # session (`sessions.enrolled_locked_row`); the read refuses every other session alike.
+    "all_games.own": frozenset({ANY_USER}),
     # A Student's Explanation (Story 9.3, FR-41, AD-12): the Class's owners and Assistant
     # lecturers (`CLASS_STAFF_ROLES`); never another Student, never an Admin without a staff role.
     "explanations.read": frozenset({LECTURER, ASSISTANT}),
