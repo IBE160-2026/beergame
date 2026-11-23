@@ -55,3 +55,25 @@ def test_the_check_sees_a_table_without_a_handling():
         assert names_a_user(extra.c.user_id)
     finally:
         shared.remove(extra)
+
+
+def test_every_table_with_personal_data_is_shown_on_mine_data_or_says_why_not():
+    """Story 15.1 (FR-75, AD-14): a table that holds personal data has a «Mine data» category or
+    a reason it is not shown, never both and never neither, so no stored category can be missing
+    from the page; a table that names a User holds personal data (checked above)."""
+    from app.modules.identity.personal_data import NOT_SHOWN, SHOWN
+    from app.platform.own_data import CATEGORIES
+
+    for name, entry in REGISTRY.items():
+        if entry.handling == "none":
+            assert entry.category is None and entry.outside is None, name
+            continue
+        assert (entry.category is None) != (entry.outside is None), name
+    assert set(SHOWN) | set(NOT_SHOWN) <= set(REGISTRY)
+    assert set(SHOWN.values()) <= set(CATEGORIES)
+    # Every category but the computed letter is backed by a table.
+    assert set(CATEGORIES) - set(SHOWN.values()) == {"letter"}
+
+
+def test_the_report_snapshot_is_listed_with_its_lifetime():
+    assert "TOKEN_LIFETIME" in REGISTRY["report_snapshots"].outside

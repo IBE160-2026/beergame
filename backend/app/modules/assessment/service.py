@@ -129,6 +129,7 @@ from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker
 
 __all__ = [
+    "own_records",
     "ASSESS_TASK",
     "DEFAULT_SWITCH",
     "PURPOSE",
@@ -1821,3 +1822,7 @@ async def erase_feedback_of_user(s: AsyncSession, user_id: uuid.UUID) -> None:
         .values(feedback=None)
     )
     await ai_calls.clear_bodies_by_ref(s, "attempt_id", attempts)
+
+
+# «Mine data» (Story 15.1, FR-75): the Student's own rows of this module, by their own id.
+from app.modules.assessment.own_data import own_records  # noqa: E402

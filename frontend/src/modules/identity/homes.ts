@@ -29,6 +29,9 @@ export const ADMIN_INSTITUTIONS_PATH = "/admin/institusjoner";
 /** «Revisjonslogg» in the Admin-område (Story 3.12). */
 export const ADMIN_AUDIT_PATH = "/admin/revisjonslogg";
 
+/** «Mine data» (Story 15.1, FR-75): every User's own data, reached from Hjem. */
+export const MY_DATA_PATH = "/mine-data";
+
 /** «Pseudonymisert eksport» in the Admin-område (Story 15.4). */
 export const ADMIN_EVALUATION_PATH = "/admin/evaluering";
 

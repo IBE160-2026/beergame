@@ -31,6 +31,7 @@ from app.platform import auth, authz, events
 from app.platform.db import get_sessionmaker
 
 __all__ = [
+    "own_records",
     "REPLAY_LINK",
     "ReplayRefused",
     "ReplayReport",
@@ -218,3 +219,7 @@ async def start(user: authz.Principal, class_session_id: uuid.UUID) -> Started |
     await _started(uuid.UUID(game_id))
     log.info("replay_started", game_id=game_id, class_session_id=str(class_session_id))
     return Started(uuid.UUID(game_id), created=True)
+
+
+# «Mine data» (Story 15.1, FR-75): the Student's own rows of this module, by their own id.
+from app.modules.replay.own_data import own_records  # noqa: E402

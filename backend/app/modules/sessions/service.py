@@ -7078,3 +7078,7 @@ async def pin_model_config(
         model_config_id=str(model_config_id),
     )
     return PinOutcome(True, row["model_config_id"])
+
+
+# «Mine data» (Story 15.1, FR-75): the Student's own rows of this module, by their own id.
+from app.modules.sessions.own_data import own_records  # noqa: E402, F401

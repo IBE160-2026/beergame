@@ -89,6 +89,7 @@ from app.platform import events, jobs
 from app.platform.db import get_sessionmaker
 
 __all__ = [
+    "own_records",
     "Believability",
     "BelievabilityRefused",
     "believability",
@@ -1613,3 +1614,7 @@ async def export_decision_log(
     rows = await repo.decision_log_rows(session, class_session_ids, in_scope, students)
     columns = repo.DECISION_LOG_COLUMNS
     return columns, [tuple(row[name] for name in columns) for row in rows]
+
+
+# «Mine data» (Story 15.1, FR-75): the Student's own rows of this module, by their own id.
+from app.modules.games.own_data import own_records  # noqa: E402

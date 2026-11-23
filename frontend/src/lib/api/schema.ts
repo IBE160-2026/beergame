@@ -3711,6 +3711,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/data": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Data
+         * @description «Mine data» (Story 15.1, FR-75): every category of data stored about the caller, their own
+         *     rows only, labelled by the page. Never cached.
+         */
+        get: operations["getMyData"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me/games/{game_id}": {
         parameters: {
             query?: never;
@@ -7821,6 +7842,58 @@ export interface components {
             total_max: number | null;
             /** Unassessed */
             unassessed: number[];
+        };
+        /** MyDataCategoryOut */
+        MyDataCategoryOut: {
+            /** Items */
+            items: components["schemas"]["MyDataItemOut"][];
+            /**
+             * Key
+             * @enum {string}
+             */
+            key: "account" | "orders" | "game" | "explanation" | "reflection" | "follow_ups" | "debrief" | "quiz" | "starting_task" | "test" | "assessment" | "letter" | "adjustments" | "messages" | "completion";
+        };
+        /**
+         * MyDataFieldOut
+         * @description One stored value: `key` and, for `kind` `code`, the value are labelled by the page from
+         *     `nb.ts`; `datetime` and `date` values are ISO 8601; `bool` is `true` or `false`.
+         */
+        MyDataFieldOut: {
+            /** Key */
+            key: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "text" | "number" | "bool" | "datetime" | "date" | "code";
+            /** Value */
+            value: string | null;
+        };
+        /**
+         * MyDataItemOut
+         * @description One stored row of the Student: what it is (`kind`), the Class and Klasseøkt it belongs to
+         *     (null for the account), when it was stored, and its fields.
+         */
+        MyDataItemOut: {
+            /** At */
+            at: string | null;
+            /** Class Name */
+            class_name: string | null;
+            /** Fields */
+            fields: components["schemas"]["MyDataFieldOut"][];
+            /** Kind */
+            kind: string;
+            /** Session Number */
+            session_number: number | null;
+        };
+        /**
+         * MyDataOut
+         * @description Everything the product stores about the caller, by «Mine data» category in page order.
+         *     `adjustments` is left out when the Student has no Tilrettelegging.
+         */
+        MyDataOut: {
+            /** Categories */
+            categories: components["schemas"]["MyDataCategoryOut"][];
         };
         /**
          * MyExplanationOut
@@ -21532,6 +21605,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getMyData: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyDataOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

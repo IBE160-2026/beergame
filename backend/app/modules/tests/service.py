@@ -59,6 +59,7 @@ from app.platform import authz
 from app.platform.db import get_sessionmaker
 
 __all__ = [
+    "own_records",
     "PARTS",
     "ItemsOpen",
     "UnknownItem",
@@ -504,3 +505,6 @@ async def _erase_test_data(s: AsyncSession, user_id: uuid.UUID) -> None:
 identity.register_erasure_step(
     "tests", {"test_answers", "ai_item_scores", CALL_TABLE}, _erase_test_data
 )
+
+# «Mine data» (Story 15.1, FR-75): the Student's own rows of this module, by their own id.
+from app.modules.tests.own_data import own_records  # noqa: E402

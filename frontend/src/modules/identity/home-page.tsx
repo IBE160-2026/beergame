@@ -20,6 +20,7 @@ import {
   ADMIN_INSTITUTIONS_PATH,
   ADMIN_OPERATIONS_PATH,
   ADMIN_USERS_PATH,
+  MY_DATA_PATH,
   canOpenClasses,
   canView,
   HOME_LINK,
@@ -54,7 +55,12 @@ export function HomePage({ page, children }: { page: Home; children?: ReactNode 
       {(user, updatedAt) => {
         const other = CROSS_LINK[page];
         return (
-          <PageShell user={user} title={TITLE[page]} updatedAt={updatedAt}>
+          <PageShell
+            user={user}
+            title={TITLE[page]}
+            updatedAt={updatedAt}
+            profileLink={page === "home" ? { href: MY_DATA_PATH, label: nb.myData.link } : undefined}
+          >
             {other && canView(other, user) ? <PageLink href={HOME_PATH[other]}>{HOME_LINK[other]}</PageLink> : null}
             <ScoringLink />
             {page === "adminArea" ? <AdminSections /> : null}

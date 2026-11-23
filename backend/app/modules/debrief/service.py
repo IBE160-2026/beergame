@@ -141,6 +141,7 @@ from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker
 
 __all__ = [
+    "own_records",
     "DebriefRequired",
     "ExplanationRequired",
     "InvalidExclusions",
@@ -1722,3 +1723,7 @@ async def export_explanations(
         .order_by(e.class_session_id, e.game_id, e.user_id)
     )
     return EXPLANATION_COLUMNS, [tuple(row) for row in rows]
+
+
+# «Mine data» (Story 15.1, FR-75): the Student's own rows of this module, by their own id.
+from app.modules.debrief.own_data import own_records  # noqa: E402

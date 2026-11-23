@@ -4,8 +4,10 @@ a User handles it, so access and deletion cannot drift apart.
 `tests/identity/test_personal_data_registry.py` reads the database metadata and fails unless every
 table is listed here; unless every table with a column that names a User has a handling other
 than `none`; and unless every `delete` and `clear` table is erased by a part registered with
-`identity.erasure`. Story 15.1 («Mine data») is to add each table's «Mine data» category in
-`category`; until then it is None.
+`identity.erasure`. Story 15.1 («Mine data», FR-75): every table that holds personal data (its
+handling is not `none`) is either shown on «Mine data» under one category (`SHOWN`, the
+categories of `platform.own_data`, read by its module's `own_records`), or says why it is not
+(`NOT_SHOWN`); the test fails for a table with neither or both.
 
 Handlings:
 
@@ -17,10 +19,11 @@ Handlings:
 - `none`: the table holds no personal data.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Literal
 
 from app.ai.calls import CALL_TABLE, TABLES_WITHOUT_PERSONAL_DATA
+from app.platform.own_data import Category
 
 Handling = Literal["anonymise", "delete", "clear", "keep", "none"]
 
@@ -29,15 +32,17 @@ Handling = Literal["anonymise", "delete", "clear", "keep", "none"]
 class Entry:
     handling: Handling
     note: str
-    category: str | None = None
-    """The «Mine data» category (Story 15.1); None until that story lists it."""
+    category: Category | None = None
+    """The «Mine data» category the table's rows are shown under (Story 15.1)."""
+    outside: str | None = None
+    """Why the table, though it names a User, is not shown on «Mine data» (Story 15.1)."""
 
 
 def _e(handling: Handling, note: str) -> Entry:
     return Entry(handling, note)
 
 
-REGISTRY: dict[str, Entry] = {
+_HANDLED: dict[str, Entry] = {
     # identity
     "users": _e(
         "anonymise",
@@ -224,4 +229,103 @@ REGISTRY: dict[str, Entry] = {
     # platform
     "audit_events": _e("keep", "Ids and codes only (AD-14)."),
     "rate_limit_counters": _e("none", "Hashed keys in a short window."),
+}
+
+
+SHOWN: dict[str, Category] = {
+    # account
+    "users": "account",
+    "user_roles": "account",
+    "test_student_consents": "account",
+    "roster_entries": "account",
+    # orders and the game
+    "seat_weeks": "orders",
+    "seat_occupancy": "game",
+    "seat_reclaims": "game",
+    "believability_ratings": "game",
+    "time_proposals": "game",
+    "time_acceptances": "game",
+    "replays": "game",
+    "replay_another_round": "game",
+    "replay_walkthroughs": "game",
+    "makeup_games": "game",
+    # debrief
+    "debrief_explanations": "explanation",
+    "debrief_reflection_answers": "reflection",
+    "debrief_follow_ups": "follow_ups",
+    "debrief_follow_up_closures": "follow_ups",
+    "debrief_summaries": "debrief",
+    "debrief_members": "debrief",
+    "debrief_step_marks": "debrief",
+    "debrief_alone": "debrief",
+    "quiz_attempts": "quiz",
+    # tests and assessment
+    "starting_task_answers": "starting_task",
+    "test_attempts": "test",
+    "test_answers": "test",
+    "test_prepared_items": "test",
+    "ai_assessments": "assessment",
+    "ai_item_scores": "assessment",
+    "ai_feedback_flags": "assessment",
+    "human_scores": "assessment",
+    # sessions
+    "student_adjustments": "adjustments",
+    "student_deadline_extensions": "adjustments",
+    "deadline_reminders": "messages",
+    # messaging
+    "messages": "messages",
+    "message_recipients": "messages",
+    "notices": "messages",
+    "mail_deliveries": "messages",
+    # progress
+    "progress_steps": "completion",
+    "completion_corrections": "completion",
+}
+"""The tables «Mine data» shows, by category (Story 15.1, FR-75)."""
+
+_STAFF = "Names a User only as the staff member who acted (an id); the Student's data is not here."
+NOT_SHOWN: dict[str, str] = {
+    "password_resets": "A hashed one-time link and its times; no content of the User.",
+    "invitations": "Invitation links to the address; the Class it led to is shown by the Roster "
+    "entry under the account.",
+    "roster_uploads": _STAFF,
+    "roster_upload_rows": "A staff member's staged upload, purged within the day; the entry it "
+    "made is shown under the account.",
+    "access_requests": "A request for lecturer access, not a Student's data.",
+    "institutions": "The Institution and who signed its agreement: the Admin's text, no Student.",
+    "classes": _STAFF,
+    "class_staff": "A staff role in a Class, not a Student's data.",
+    "class_sessions": _STAFF,
+    "allocation_drafts": "The Lecturer's draft of the Seats before the lock; the Seats the "
+    "Student held are shown under the game.",
+    "lab_hours": _STAFF,
+    "games": "The Game itself (settings, lifecycle); the Student's Seats and Orders are shown.",
+    "game_summaries": "A cache of every Seat's occupant, rebuilt from `seat_occupancy`, which "
+    "is shown.",
+    "debrief_sessions": "The Debrief of a Game; the Student's membership and steps are shown.",
+    "debrief_fact_sets": "Which computed facts set the Debrief cites: no data the Student gave.",
+    "quiz_exclusions": _STAFF,
+    "test_selections": _STAFF,
+    "test_scoring_guides": _STAFF,
+    "test_sittings": _STAFF,
+    "assessment_switches": _STAFF,
+    "control_test_scorers": "A named scorer of a Control test: a staff role.",
+    "content_records": "Pinned content of the product and the Lecturer's Scoring guide text.",
+    CALL_TABLE: "The AI calls' scrubbed bodies and costs; what an answer said is shown in its "
+    "category (follow-ups, AI assessment, narration).",
+    "evaluation_agreements": _STAFF,
+    "pseudonym_key_fingerprints": _STAFF,
+    "report_requests": "The Student report's requests by ids; the report itself is downloaded at "
+    "the top of «Mine data».",
+    "report_snapshots": "A report's content between the assembler and the print route, deleted "
+    "when its render ends; one a killed render left is purged by the sweep once its token expires "
+    "(`reports.render.TOKEN_LIFETIME`, five minutes). The report is downloaded at the top.",
+    "report_zips": _STAFF,
+    "audit_events": "Ids and codes of actions (AD-14): the audit trail, no content.",
+}
+"""The tables that hold personal data and are not shown, each with the reason (Story 15.1)."""
+
+REGISTRY: dict[str, Entry] = {
+    name: replace(entry, category=SHOWN.get(name), outside=NOT_SHOWN.get(name))
+    for name, entry in _HANDLED.items()
 }

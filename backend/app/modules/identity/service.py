@@ -2836,3 +2836,7 @@ async def consented_users(session: AsyncSession, user_ids: Collection[uuid.UUID]
     caller's `session` (Story 12.8: a Control test seats no one else)."""
     found = await repo.latest_decisions(session, list(user_ids), CONSENT_TEXT_VERSION)
     return {user for user, row in found.items() if row["decision"] == "given"}
+
+
+# «Mine data» (Story 15.1, FR-75): the Student's own rows of this module, by their own id.
+from app.modules.identity.own_data import own_records  # noqa: E402, F401

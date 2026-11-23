@@ -6,7 +6,8 @@ record`, the Studentside's record of one Student for the staff of the Class; Sto
 it). Story 13.12: the staff's download of one Student's report (`…/students/{user_id}/report`, its
 `/file`). Story 13.13: the ZIP of all Student reports of a Class session
 (`/api/class-sessions/{id}/reports/zip`, its `/file`). Story 13.14: the Completion export
-(`/api/class-sessions/{id}/completion-export`).
+(`/api/class-sessions/{id}/completion-export`). Story 15.1: «Mine data», everything stored about
+the caller (`/api/me/data`).
 
 An id that is not one, a Class session that does not exist, a Class outside the caller's scope and
 a User who is no Student of the Class all answer the same 403 `forbidden` (FR-5)."""
@@ -22,6 +23,7 @@ from app.modules.reports import (
     completion_export,
     corrections,
     makeup,
+    my_data,
     report,
     snapshot,
     studentside,
@@ -29,6 +31,7 @@ from app.modules.reports import (
 from app.modules.reports.report_data import ReportDataOut
 from app.modules.reports.schemas import (
     CorrectionIn,
+    MyDataOut,
     ReportRequestIn,
     ReportStateOut,
     StudentRecordOut,
@@ -479,3 +482,18 @@ async def read_report_snapshot(
     if data is None:
         return error_response(404, "not_found", "No such report snapshot.")
     return JSONResponse(data, headers=PERSONAL)
+
+
+@router.get(
+    "/me/data",
+    response_model=MyDataOut,
+    responses=documented(401),
+    operation_id="getMyData",
+)
+async def get_my_data(
+    user: Annotated[authz.Principal, Depends(authz.require(my_data.READ_OWN))],
+) -> JSONResponse:
+    """«Mine data» (Story 15.1, FR-75): every category of data stored about the caller, their own
+    rows only, labelled by the page. Never cached."""
+    found = await my_data.my_data(user)
+    return JSONResponse(found.model_dump(mode="json"), headers=PERSONAL)

@@ -29,6 +29,7 @@ from app.platform import events
 from app.platform.db import get_sessionmaker
 
 __all__ = [
+    "own_records",
     "CORRECTABLE_STEPS",
     "FUNNEL_STEPS",
     "CompletionCorrection",
@@ -290,3 +291,7 @@ async def corrections(
         .order_by(c.at, c.id)
     )
     return [CompletionCorrection(**row) for row in result.mappings()]
+
+
+# «Mine data» (Story 15.1, FR-75): the Student's own rows of this module, by their own id.
+from app.modules.progress.own_data import own_records  # noqa: E402

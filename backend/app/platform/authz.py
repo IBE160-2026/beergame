@@ -161,6 +161,9 @@ POLICIES: dict[str, frozenset[str]] = {
     # The Student's own Student report (Story 13.7, FR-57): any User, held to their own locked
     # Class session (`sessions.own_report_session`); every other session is refused alike.
     "reports.download_own": frozenset({ANY_USER}),
+    # «Mine data» (Story 15.1, FR-75, FR-5): any User, for their own data only; every reader
+    # takes the principal's id (`reports.my_data`), never an id from the request.
+    "my_data.read_own": frozenset({ANY_USER}),
     # The Student's own Debrief (Story 9.2): any User, held to `own_seat` through
     # `games.service.student_game`; the service refuses every other Debrief alike.
     "debriefs.own": frozenset({ANY_USER}),

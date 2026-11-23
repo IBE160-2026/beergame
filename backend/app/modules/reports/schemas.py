@@ -228,3 +228,56 @@ class ZipStateOut(BaseModel):
     completion_export: bool = False
     """Story 13.14: whether the reader may download the Completion export (the Class's
     Lecturers; never an Assistant lecturer), so the «Eksport» block offers it."""
+
+
+# «Mine data» (Story 15.1, FR-75, AD-12, AD-14).
+
+MyDataCategory = Literal[
+    "account",
+    "orders",
+    "game",
+    "explanation",
+    "reflection",
+    "follow_ups",
+    "debrief",
+    "quiz",
+    "starting_task",
+    "test",
+    "assessment",
+    "letter",
+    "adjustments",
+    "messages",
+    "completion",
+]
+
+
+class MyDataFieldOut(BaseModel):
+    """One stored value: `key` and, for `kind` `code`, the value are labelled by the page from
+    `nb.ts`; `datetime` and `date` values are ISO 8601; `bool` is `true` or `false`."""
+
+    key: str
+    kind: Literal["text", "number", "bool", "datetime", "date", "code"]
+    value: str | None
+
+
+class MyDataItemOut(BaseModel):
+    """One stored row of the Student: what it is (`kind`), the Class and Klasseøkt it belongs to
+    (null for the account), when it was stored, and its fields."""
+
+    kind: str
+    class_name: str | None
+    session_number: int | None
+    at: datetime | None
+    fields: list[MyDataFieldOut]
+
+
+class MyDataCategoryOut(BaseModel):
+    key: MyDataCategory
+    items: list[MyDataItemOut]
+
+
+class MyDataOut(BaseModel):
+    """Everything the product stores about the caller, by «Mine data» category in page order.
+    `adjustments` is left out when the Student has no Tilrettelegging."""
+
+    categories: list[MyDataCategoryOut]

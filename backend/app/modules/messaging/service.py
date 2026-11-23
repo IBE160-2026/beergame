@@ -37,6 +37,7 @@ from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker
 
 __all__ = [
+    "own_records",
     "MAX_ATTEMPTS",
     "SEND_MAIL",
     "DueItem",
@@ -496,3 +497,6 @@ identity.register_erasure_step(
     {"messages", "message_recipients", "notices", "mail_deliveries"},
     repo.erase_user,
 )
+
+# «Mine data» (Story 15.1, FR-75): the Student's own rows of this module, by their own id.
+from app.modules.messaging.own_data import own_records  # noqa: E402

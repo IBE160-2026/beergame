@@ -199,7 +199,8 @@ def test_only_ops_imports_messaging_and_nothing_imports_ops():
     `messaging.webhooks` (Story 4.6), and the Meldingsskjema's endpoints,
     `messaging.message_routes` (Story 7.9); and the Admin's operations endpoints,
     `ops.routes` (Story 15.4), `ops.ai_routes` (Story 15.5) and `ops.operations_routes` with the
-    5xx hook of `ops.service` (Story 15.8)."""
+    5xx hook of `ops.service` (Story 15.8). «Mine data» (`reports.my_data`, Story 15.1) reads
+    the Student's received Messages through `messaging.service`."""
     for path, line, name in imports(APP):
         inside = {
             folder: (APP / "modules" / folder) in path.parents
@@ -211,8 +212,10 @@ def test_only_ops_imports_messaging_and_nothing_imports_ops():
                 "app.modules.messaging.webhooks",
                 "app.modules.messaging.message_routes",
             )
+            # Story 15.1 (FR-75): «Mine data» reads the Messages written to the Student, a read.
+            reads_own = path == APP / "modules" / "reports" / "my_data.py"
             assert mounts_routes or (
-                (inside["ops"] or inside["classes"])
+                (inside["ops"] or inside["classes"] or reads_own)
                 and name.startswith("app.modules.messaging.service")
             ), f"{path.name}:{line} imports {name}"
         if name.startswith("app.modules.ops") and not inside["ops"]:

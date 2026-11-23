@@ -8574,6 +8574,159 @@
         "title": "MyAssessmentOut",
         "type": "object"
       },
+      "MyDataCategoryOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MyDataItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "key": {
+            "enum": [
+              "account",
+              "orders",
+              "game",
+              "explanation",
+              "reflection",
+              "follow_ups",
+              "debrief",
+              "quiz",
+              "starting_task",
+              "test",
+              "assessment",
+              "letter",
+              "adjustments",
+              "messages",
+              "completion"
+            ],
+            "title": "Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "items"
+        ],
+        "title": "MyDataCategoryOut",
+        "type": "object"
+      },
+      "MyDataFieldOut": {
+        "description": "One stored value: `key` and, for `kind` `code`, the value are labelled by the page from\n`nb.ts`; `datetime` and `date` values are ISO 8601; `bool` is `true` or `false`.",
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "text",
+              "number",
+              "bool",
+              "datetime",
+              "date",
+              "code"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "key",
+          "kind",
+          "value"
+        ],
+        "title": "MyDataFieldOut",
+        "type": "object"
+      },
+      "MyDataItemOut": {
+        "description": "One stored row of the Student: what it is (`kind`), the Class and Klasseøkt it belongs to\n(null for the account), when it was stored, and its fields.",
+        "properties": {
+          "at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "At"
+          },
+          "class_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Class Name"
+          },
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/MyDataFieldOut"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "session_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Number"
+          }
+        },
+        "required": [
+          "kind",
+          "class_name",
+          "session_number",
+          "at",
+          "fields"
+        ],
+        "title": "MyDataItemOut",
+        "type": "object"
+      },
+      "MyDataOut": {
+        "description": "Everything the product stores about the caller, by «Mine data» category in page order.\n`adjustments` is left out when the Student has no Tilrettelegging.",
+        "properties": {
+          "categories": {
+            "items": {
+              "$ref": "#/components/schemas/MyDataCategoryOut"
+            },
+            "title": "Categories",
+            "type": "array"
+          }
+        },
+        "required": [
+          "categories"
+        ],
+        "title": "MyDataOut",
+        "type": "object"
+      },
       "MyExplanationOut": {
         "description": "The Student's own Explanation in this Debrief, or None before it is sent.",
         "properties": {
@@ -30658,6 +30811,38 @@
         "summary": "Submit My Test",
         "tags": [
           "tests"
+        ]
+      }
+    },
+    "/api/me/data": {
+      "get": {
+        "description": "«Mine data» (Story 15.1, FR-75): every category of data stored about the caller, their own\nrows only, labelled by the page. Never cached.",
+        "operationId": "getMyData",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyDataOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "summary": "Get My Data",
+        "tags": [
+          "reports"
         ]
       }
     },
