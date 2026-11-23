@@ -7860,11 +7860,8 @@ export interface components {
             name: string;
             /** Open */
             open: boolean;
-            /**
-             * Test Deadline
-             * Format: date-time
-             */
-            test_deadline: string;
+            /** Test Deadline */
+            test_deadline: string | null;
         };
         /** SeatChoiceGameOut */
         SeatChoiceGameOut: {

@@ -7,7 +7,7 @@ import { TextField } from "@/components/text-field";
 import { nb } from "@/copy/nb";
 import type { ClassSession } from "@/modules/sessions/api";
 
-import { BOUNDED, type BoundsDraft, boundsText, type LetterChoice } from "./letter";
+import { BOUNDED, type BoundsDraft, boundsText, type LetterChoice, offendingBounds } from "./letter";
 
 const copy = nb.assessment.letterBlock;
 const LINE = "text-body-phone lg:text-body";
@@ -44,6 +44,8 @@ export function LetterBlock({
   const scopeId = `${ids}-scope`;
   const forcedId = `${ids}-forced`;
   const boundsTitleId = `${ids}-bounds`;
+  const boundsErrorId = `${ids}-bounds-error`;
+  const offending = boundsError ? offendingBounds(bounds) : new Set<string>();
   const letter = item.ai_assessment.letter;
   const shown = letter.can_change ? setting : letter.setting;
   return (
@@ -98,15 +100,17 @@ export function LetterBlock({
                 onChange={(event) => onBounds({ ...bounds, [key]: event.target.value })}
                 onBlur={onBoundsLeave}
                 inputClassName="tabular-nums"
+                // The fields the rule is broken in (all of them when none can be named alone).
+                errorFor={boundsError && (offending.size === 0 || offending.has(key)) ? boundsErrorId : undefined}
               />
             ))}
           </div>
-          <p className={`${LINE} mt-2 text-ink-secondary`}>{copy.rest}</p>
           {boundsError ? (
-            <p role="alert" className="mt-2 text-body-phone text-restordre" data-letter-bounds-error="">
+            <p id={boundsErrorId} role="alert" className="mt-2 text-body-phone text-restordre" data-letter-bounds-error="">
               {boundsError}
             </p>
           ) : null}
+          <p className={`${LINE} mt-2 text-ink-secondary`}>{copy.rest}</p>
         </fieldset>
       ) : (
         <>

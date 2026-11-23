@@ -873,8 +873,12 @@ class ControlTestFacts:
 
     id: uuid.UUID
     name: str
-    test_deadline: datetime
+    test_deadline: datetime | None  # None until the Admin sets the dates
     model_config_id: uuid.UUID | None = None
+
+    def is_open(self, now: datetime) -> bool:
+        """Whether the answers are open for scoring: the Test deadline is set and has passed."""
+        return self.test_deadline is not None and now >= self.test_deadline
 
 
 async def control_test_facts(

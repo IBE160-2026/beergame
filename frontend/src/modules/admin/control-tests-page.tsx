@@ -241,6 +241,7 @@ function CreateForm({ page }: { page: ControlTests }) {
       <div>
         <SegmentedChoice
           name="scoring_guide"
+          className="max-w-md"
           legend={copy.create.guide}
           value={guide}
           onChange={setGuide}
@@ -255,6 +256,7 @@ function CreateForm({ page }: { page: ControlTests }) {
       <div>
         <SegmentedChoice
           name="model_config"
+          className="max-w-md"
           legend={copy.create.config}
           value={modelConfig}
           onChange={setModelConfig}

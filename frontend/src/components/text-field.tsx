@@ -21,6 +21,9 @@ export type TextFieldProps = Omit<InputHTMLAttributes<HTMLInputElement>, "id"> &
   /** The reason is announced as it appears (`role="alert"`), for a rule checked on leaving the
    * field (UX-DR49). */
   errorAlert?: boolean;
+  /** The id of a reason shown once for a group of fields (not under this one): the field is
+   * invalid, with its `restordre` border, and the reason is read when it takes focus. */
+  errorFor?: string;
   ref?: Ref<HTMLInputElement>;
 };
 
@@ -33,12 +36,14 @@ export function TextField({
   className,
   inputClassName,
   errorAlert,
+  errorFor,
   ...props
 }: TextFieldProps) {
   const errorId = `${id}-error`;
   const hintId = `${id}-hint`;
   const noteIds = notes.map((_, index) => `${id}-note-${index}`);
-  const describedBy = [hint ? hintId : "", error ? errorId : "", ...noteIds].filter(Boolean).join(" ") || undefined;
+  const describedBy =
+    [hint ? hintId : "", error ? errorId : "", errorFor ?? "", ...noteIds].filter(Boolean).join(" ") || undefined;
   return (
     <div className={cn("flex flex-col gap-field-gap", className)}>
       <label id={`${id}-label`} htmlFor={id} className="text-label text-ink">
@@ -47,7 +52,7 @@ export function TextField({
       <input
         {...props}
         id={id}
-        aria-invalid={error ? true : undefined}
+        aria-invalid={error || errorFor ? true : undefined}
         aria-describedby={describedBy}
         className={cn(
           "min-h-control-height-phone w-full min-w-0 rounded-sm border border-ink-muted bg-paper px-3 py-2 text-button font-normal text-ink hover:border-ink aria-invalid:border-[1.4px] aria-invalid:border-restordre read-only:bg-future-tint read-only:text-ink-muted",

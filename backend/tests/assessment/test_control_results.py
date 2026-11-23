@@ -242,6 +242,26 @@ async def test_an_open_attempt_keeps_the_control_test_unchecked(scored, monkeypa
     assert rows("SELECT count(*) FROM scoring_guide_checks") == [(0,)]
 
 
+async def test_a_control_test_without_dates_reads_not_open(scored, monkeypatch):
+    """A new Control test has no Test deadline until the Admin sets it: its scorers page, its
+    results and the scorer's list read «not open», never an error."""
+    session_id = scored["session"]
+    execute(
+        "UPDATE class_sessions SET test_deadline = NULL, debrief_deadline = NULL WHERE id = %s",
+        session_id,
+    )
+    at(monkeypatch, AFTER)
+    found = await results(session_id)
+    assert found["test"]["test_deadline"] is None and found["test"]["open"] is False
+    assert (found["complete"], found["checked"], found["rows"]) == (False, False, [])
+    scorers = await call(ADMIN, "GET", scorers_url(session_id))
+    assert scorers.status_code == 200, scorers.text
+    mine = await call(SCORER, "GET", "/api/scoring")
+    assert mine.status_code == 200, mine.text
+    [test] = [t for t in mine.json()["tests"] if t["id"] == session_id]
+    assert (test["test_deadline"], test["open"]) == (None, False)
+
+
 async def test_an_extended_student_with_no_attempt_yet_keeps_the_control_test_unchecked(
     scored, monkeypatch
 ):

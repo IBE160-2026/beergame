@@ -10,7 +10,8 @@ const copy = nb.scoring;
 
 /** «Åpner etter testfristen 12. des. 2026 kl. 23:59.» or the Lenke text that opens the answers. */
 export function testLine(test: ScoringTest): string {
-  return test.open ? copy.tests.open(test.name) : copy.tests.closed(formatTime(test.test_deadline));
+  if (test.open) return copy.tests.open(test.name);
+  return test.test_deadline ? copy.tests.closed(formatTime(test.test_deadline)) : copy.tests.noDeadline;
 }
 
 /** «3 av 12 vurdert»: the reader's own progress through the list. */

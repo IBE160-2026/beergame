@@ -65,7 +65,7 @@ async def results(
         checked = await content.is_checked(in_force.record.id, config_id, session=s)
         named = [user_id for user_id, _ in await assessment.scorers_of(s, class_session_id)]
         people = await identity.people(s, named)
-        is_open = now >= facts.test_deadline
+        is_open = facts.is_open(now)
         listed = await blind.entries(s, class_session_id) if is_open else []
         still_open = await blind.open_attempts(s, class_session_id, now)
         given = await assessment.scores_of(s, [e.answer_id for e in listed])

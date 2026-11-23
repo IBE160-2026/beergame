@@ -45,7 +45,9 @@ export function aiCell(step: number | null | undefined, withheld: boolean): stri
 
 /** The status lines above the measures, in order: checked or preliminary, then what is missing. */
 export function statusLines(page: ControlResults): string[] {
-  if (!page.test.open) return [copy.notOpen(formatTime(page.test.test_deadline))];
+  if (!page.test.open) {
+    return [page.test.test_deadline ? copy.notOpen(formatTime(page.test.test_deadline)) : copy.noDeadline];
+  }
   // «Kontrollert» only once this Control test is complete; a pair another Control test checked
   // first still reads as preliminary here while scores are missing.
   const head = page.complete && page.checked ? copy.checked : page.checked ? copy.preliminaryCheckedElsewhere : copy.preliminary;

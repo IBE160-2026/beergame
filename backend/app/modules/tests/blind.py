@@ -142,7 +142,7 @@ def _test_out(facts: sessions.ControlTestFacts, now: datetime) -> ScoringTestOut
         id=facts.id,
         name=facts.name,
         test_deadline=facts.test_deadline,
-        open=now >= facts.test_deadline,
+        open=facts.is_open(now),
     )
 
 
@@ -361,7 +361,7 @@ async def _item(
 
 
 async def _entry(s: AsyncSession, reader: _Reader, ref: str, now: datetime) -> _Entry:
-    if now < reader.test.test_deadline:
+    if not reader.test.is_open(now):
         raise AnswerNotFound
     entry = next((e for e in await _entries(s, reader.test.id) if e.ref == ref), None)
     if entry is None:
@@ -430,7 +430,7 @@ async def submit(
         reader = await _reader(s, user, class_session_id)
         if reader is None or not reader.scorer:
             return None
-        if now < reader.test.test_deadline:
+        if not reader.test.is_open(now):
             raise AnswerNotFound
         # The scorer rows first, then the answers: a concurrent last score waits here and then
         # reads this one.
@@ -565,7 +565,7 @@ async def remove_scorer(
             )
             log.info("scorer_removed", class_session_id=str(class_session_id), user_id=str(user_id))
             # The scorers left may now have scored everything (Story 12.10).
-            if now >= facts.test_deadline:
+            if facts.is_open(now):
                 in_force = await guide.in_force(s, class_session_id)
                 closed_all = await open_attempts(s, class_session_id, now) == 0  # before the list
                 settled = await assessment.settle_after_removal(

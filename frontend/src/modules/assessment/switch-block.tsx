@@ -20,10 +20,10 @@ const copy = nb.assessment.switchBlock;
  * An Assistant lecturer reads it as text (AD-12). The state is in words beside the track, never by
  * colour alone (UX-DR12).
  *
- * Story 12.6 (FR-56): under it, «Veiledende bokstav» (`LetterBlock`), drafts saved with it.
+ * Story 12.5 (FR-55): under it, each Student's assessment state and flag count, each a Lenke to
+ * their Studentside: the list belongs to the assessment, so it stands before the letter.
  *
- * Story 12.5 (FR-55): last, each Student's assessment state and flag count, each a Lenke to
- * their Studentside.
+ * Story 12.6 (FR-56): last, «Veiledende bokstav» (`LetterBlock`), drafts saved with it.
  */
 export function AiAssessmentBlock({
   item,
@@ -75,8 +75,8 @@ export function AiAssessmentBlock({
             ? copy.open
             : copy.deadlinePassed}
       </p>
-      <LetterBlock item={item} {...letter} />
       <AssessmentList sessionId={item.id} />
+      <LetterBlock item={item} {...letter} />
     </section>
   );
 }

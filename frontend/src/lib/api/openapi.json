@@ -10107,9 +10107,16 @@
             "type": "boolean"
           },
           "test_deadline": {
-            "format": "date-time",
-            "title": "Test Deadline",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test Deadline"
           }
         },
         "required": [

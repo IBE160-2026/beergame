@@ -34,6 +34,25 @@ export function boundsProblem(draft: BoundsDraft): "out_of_range" | "out_of_orde
   return values.some((value, i) => i > 0 && value >= values[i - 1]) ? "out_of_order" : undefined;
 }
 
+/** The bounds the problem is in: each that is not a whole number from 1 to 100, and each that
+ * does not fall below the bound before it (the later one of the pair). */
+export function offendingBounds(draft: BoundsDraft): Set<(typeof BOUNDED)[number]> {
+  const found = new Set<(typeof BOUNDED)[number]>();
+  let before: number | undefined;
+  for (const letter of BOUNDED) {
+    const text = draft[letter].trim();
+    const value = Number(text);
+    if (!WHOLE.test(text) || value < 1 || value > 100) {
+      found.add(letter);
+      before = undefined;
+      continue;
+    }
+    if (before !== undefined && value >= before) found.add(letter);
+    before = value;
+  }
+  return found;
+}
+
 /** The bounds as sent; call only when `boundsProblem` is undefined. */
 export function boundsBody(draft: BoundsDraft): LetterBounds {
   return Object.fromEntries(BOUNDED.map((letter) => [letter, Number(draft[letter].trim())])) as LetterBounds;

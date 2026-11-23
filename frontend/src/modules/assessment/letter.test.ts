@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { boundsBody, boundsChanged, boundsDraftOf, boundsProblem, boundsText } from "./letter";
+import { boundsBody, boundsChanged, boundsDraftOf, boundsProblem, boundsText, offendingBounds } from "./letter";
 
 const DEFAULTS = { A: 90, B: 80, C: 60, D: 50, E: 40 };
 
@@ -19,6 +19,14 @@ describe("the Indicative letter bounds (Story 12.6)", () => {
     }
     expect(boundsProblem({ ...draft, B: "90" })).toBe("out_of_order");
     expect(boundsProblem({ ...draft, E: "55" })).toBe("out_of_order");
+  });
+
+  it("names the bounds the problem is in, so those fields carry the error", () => {
+    const draft = boundsDraftOf(DEFAULTS);
+    expect([...offendingBounds(draft)]).toEqual([]);
+    expect([...offendingBounds({ ...draft, B: "95" })]).toEqual(["B"]);
+    expect([...offendingBounds({ ...draft, E: "55" })]).toEqual(["E"]);
+    expect([...offendingBounds({ ...draft, C: "x" })]).toEqual(["C"]);
   });
 
   it("sends only a changed set", () => {

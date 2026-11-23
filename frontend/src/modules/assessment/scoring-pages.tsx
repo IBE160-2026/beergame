@@ -125,7 +125,7 @@ function ScoringListView({ sessionId, user, updatedAt }: { sessionId: string; us
           <p className={`${LINE} mt-2 max-w-2xl text-ink-secondary`}>{copy.lead}</p>
           {!list.can_score ? <p className={`${LINE} mt-3 font-semibold text-ink`}>{copy.list.readOnly}</p> : null}
           {!list.test.open ? (
-            <p className={`${LINE} mt-6 text-ink`}>{copy.list.notOpen(formatTime(list.test.test_deadline))}</p>
+            <p className={`${LINE} mt-6 text-ink`}>{list.test.test_deadline ? copy.list.notOpen(formatTime(list.test.test_deadline)) : copy.list.noDeadline}</p>
           ) : (
             <section aria-labelledby="scoring-answers" className="mt-8 max-w-2xl">
               <h2 id="scoring-answers" className="text-headline text-ink">

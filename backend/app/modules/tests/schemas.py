@@ -535,7 +535,7 @@ class ScoringTestOut(BaseModel):
 
     id: uuid.UUID
     name: str
-    test_deadline: AwareDatetime
+    test_deadline: AwareDatetime | None  # null until the Admin sets the Control test's dates
     open: bool
 
 

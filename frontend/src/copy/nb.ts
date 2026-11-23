@@ -3403,7 +3403,7 @@ export const nb = {
       feedbackPrefix: "KI-generert, kan ta feil:",
       /** Story 12.3: in place of feedback the validator rejected twice; the score stands. [ASSUMPTION] */
       feedbackDropped:
-        "Den skrevne tilbakemeldingen ble holdt tilbake fordi den ikke kunne kontrolleres mot svaret ditt. KI-vurderingen over står.",
+        "Den skrevne tilbakemeldingen ble holdt tilbake fordi den ikke kunne kontrolleres mot svaret ditt. KI-vurderingen ovenfor gjelder fortsatt.",
       /** Story 12.3 (FR-81, AD-27): the spine's line while the Scoring guide is not checked with the model by a Control
        * test. */
       unchecked: "Ikke kontrollert med en Kontrolltest.",
@@ -3447,7 +3447,7 @@ export const nb = {
       switchedOff: "KI-vurdering er slått av for denne Klasseøkten. Studentrapporten finnes som vanlig.",
       /** In place of feedback the validator rejected twice. [ASSUMPTION] */
       feedbackDropped:
-        "Den skrevne tilbakemeldingen ble holdt tilbake fordi den ikke kunne kontrolleres mot svaret. KI-vurderingen over står.",
+        "Den skrevne tilbakemeldingen ble holdt tilbake fordi den ikke kunne kontrolleres mot svaret. KI-vurderingen ovenfor gjelder fortsatt.",
       loadFailed: "KI-vurderingen kunne ikke hentes.",
     },
     /** Story 12.5: the Klasseøkt's list of the Students' AI assessments, under the switch.
@@ -3483,10 +3483,12 @@ export const nb = {
       empty: "Du er ikke sensor for noen Kontrolltest nå.",
       open: (name: string) => `Vurder svarene i ${name}`,
       closed: (date: string) => `Åpner etter testfristen ${date}.`,
+      noDeadline: "Åpner etter testfristen, som ikke er satt ennå.",
     },
     list: {
       title: "Svarene",
       notOpen: (date: string) => `Svarene kan vurderes etter testfristen ${date}.`,
+      noDeadline: "Svarene kan vurderes etter testfristen, som ikke er satt ennå.",
       empty: "Ingen svar å vurdere.",
       readOnly: "Du leser som Admin. Bare sensorene vurderer.",
       progress: (scored: string, total: string) => `${scored} av ${total} vurdert`,
@@ -3566,6 +3568,7 @@ export const nb = {
         count === 1 ? "KI-vurderingen mangler for 1 svar." : `KI-vurderingen mangler for ${text} svar.`,
       noScorers: "Ingen sensorer er utnevnt.",
       notOpen: (date: string) => `Resultatene kommer etter testfristen ${date}.`,
+      noDeadline: "Resultatene kommer etter testfristen, som ikke er satt ennå.",
       empty: "Ingen svar å sammenligne.",
       withheld:
         "Du er selv sensor i denne Kontrolltesten. KI-vurderingene og samsvaret vises når du har vurdert alle svarene.",
