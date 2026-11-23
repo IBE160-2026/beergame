@@ -4130,3 +4130,19 @@ Byggeagent: mergen først, så storyen med `bmad-build-auto` og fire gjennomgang
 
 ### Åpne punkter
 - Issue #252: beslutninger for mergen og storyen.
+## Story 13.12: Personalet laster ned én students rapport når som helst (spor 2)
+
+### Oppgave
+Bygge Story 13.12 etter compacten.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-13-12-staff-download-one-students-report-at-any-time.md`. Commit: 687d750. Migrasjon 0307.
+- Faglærere og assistenter i klassen lager og laster ned én students rapport fra Studentsiden, før og etter testfristen. Ny tilgangsregel `reports.download`, egne varianter `staff`/`staff_ai`, revisjonsrader for bestilling og nedlasting, og ny kø `reports-bulk` i worker-batch.
+- Tester: backend 4020 (én feil i `test_railway_config`, rettet), frontend-sjekkene og Playwright for de berørte skjermene (110).
+- Status: done.
+
+### Åpne punkter
+- Issue #253: beslutninger for storyen; oppfølgingsgjennomgang tas i avslutningen av Epic 13.
