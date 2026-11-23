@@ -529,6 +529,9 @@ export const nb = {
       },
       /** The current step's mark, in text. */
       current: "pågår",
+      /** Story 13.7: the «Rapport» step once the Testfrist has passed; the download is under it.
+       * [ASSUMPTION] */
+      reportOpen: "åpen",
       // [ASSUMPTION] A step that is done.
       done: "ferdig",
       /** What opens each later step. Replay's and Individuell test's are the spine's; the other
@@ -539,7 +542,8 @@ export const nb = {
         quiz: "Quiz, åpnes når du har fullført Debriefen.",
         replay: "Replay, åpnes når du har bestått Debrief-quizen.",
         test: "Individuell test, åpnes når du har fullført Replay.",
-        report: "Rapport, åpnes når den individuelle testen er vurdert.",
+        // Story 13.7 (UX-DR29): the Student report opens at the Student's own Testfrist.
+        report: "Rapport, åpnes når Testfristen er ute.",
       },
       /** Story 9.2: the Debrief step while the Faglærer holds every Debrief until all Class games
        * have finished; never how many remain. [ASSUMPTION] */
@@ -3818,6 +3822,29 @@ export const nb = {
    * the staff of the Class: «Tilrettelegging» and «Frister» for its Lecturers, and the record
    * blocks of Story 13.2 (FR-63) for its Lecturers and Assistant lecturers. */
   reports: {
+    /** The Student report's download (Story 13.7, FR-57), under the «Rapport» step on Hjem and,
+     * from Story 15.1, at the top of «Mine data». «Studentrapport» is the spine's; the rest is
+     * [ASSUMPTION] draft copy for the founder's review. */
+    download: {
+      make: "Lag Studentrapport",
+      again: "Lag Studentrapporten på nytt",
+      /** While the PDF is made (it takes up to half a minute); read out politely. */
+      pending: "Lager Studentrapporten. Det tar opptil et halvt minutt.",
+      ready: "Studentrapporten er klar.",
+      link: "Last ned Studentrapporten (PDF)",
+      /** «Laget 24. nov. kl. 10:00.» */
+      made: (when: string) => `Laget ${when}.`,
+      /** Under the action: the report says what it is. */
+      note: "Rapporten viser hva du har gjort i Klasseøkten. Den er ikke en karakter.",
+      failed: "Studentrapporten ble ikke laget. Prøv igjen.",
+      retry: "Prøv igjen",
+      /** Before the Testfrist (Story 15.1 shows it at the top of «Mine data»). */
+      opens: (when: string) => `Studentrapporten kan lastes ned fra ${when}.`,
+      errors: {
+        report_not_open: "Studentrapporten kan lastes ned når Testfristen er ute.",
+        not_counted: "Det lages ingen Studentrapport for denne Klasseøkten.",
+      } as Record<string, string>,
+    },
     studentPage: {
       /** The crumb and the link from Spillinnsikt are the Student's name. */
       linkLabel: (name: string) => `Studentside for ${name}`,

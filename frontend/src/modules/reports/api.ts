@@ -100,3 +100,46 @@ export function giveMakeup(sessionId: string, userId: string) {
     }),
   );
 }
+
+/** The Student's own Student report (Story 13.7, FR-57): when it opens, its status, and when the
+ * PDF to download was made. */
+export type ReportState = components["schemas"]["ReportStateOut"];
+
+/** Under `["reports", "mine"]`, which the Student's `user:<id>` event reads again (`topics.ts`):
+ * the finished render emits it, so the page updates without a reload (AD-8). */
+export const myReportsKey = ["reports", "mine"] as const;
+export const myReportKey = (sessionId: string) => [...myReportsKey, sessionId] as const;
+
+/** `/api/me/class-sessions/{id}/report`: 403 `forbidden` for a Class session not the Student's own. */
+export function useMyReport(sessionId: string) {
+  return useQuery({
+    queryKey: myReportKey(sessionId),
+    queryFn: () =>
+      request(() =>
+        api.GET("/api/me/class-sessions/{session_id}/report", {
+          params: { path: { session_id: sessionId } },
+          cache: "no-store",
+        }),
+      ),
+    retry: false,
+    // The render's `user` event updates it; while pending it is also read every 15 s, so a missed
+    // event or a render that never ended (read as failed after two minutes) still shows.
+    refetchInterval: (query) => (query.state.data?.status === "pending" ? 15_000 : false),
+  });
+}
+
+/** «Lag Studentrapport»: records the request and answers the pending state; 409
+ * `report_not_open` before the Testfrist, `not_counted` for a Student reports leave out. */
+export function requestMyReport(sessionId: string) {
+  return request(() =>
+    api.POST("/api/me/class-sessions/{session_id}/report", {
+      params: { path: { session_id: sessionId } },
+    }),
+  );
+}
+
+/** The download: a plain link to the api, which checks the policy and answers 303 to a signed URL
+ * that lives five minutes (NFR-7). */
+export function myReportFilePath(sessionId: string): string {
+  return `/api/me/class-sessions/${encodeURIComponent(sessionId)}/report/file`;
+}

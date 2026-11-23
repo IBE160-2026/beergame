@@ -1566,6 +1566,8 @@ async def enrolled_sessions(user: authz.Principal) -> EnrolledSessionListOut:
                         group_open=grouped.get(row["id"], False),
                         replay_closed=_replay_closed(replays.get(row["id"]), user, row, now),
                         test_closed=test_deadline_passed(user, row, now),
+                        # Story 13.7: «Rapport» opens at the Student's Test deadline.
+                        report_open=test_deadline_passed(user, row, now),
                     ),
                     completions.get(row["id"]),
                 ),
@@ -1607,6 +1609,7 @@ def stegene(
     replay_closed: bool = False,
     test_closed: bool = False,
     after_makeup: bool = False,
+    report_open: bool = False,
 ) -> list[StepOut]:
     """The state of each of Stegene's steps (Story 6.1, AD-10): a done step is `done`; with a
     game the first step not done is `current` and the later ones `locked`; with no game (before
@@ -1619,10 +1622,16 @@ def stegene(
     passed with no Replay started; it stays not done. `test_closed` (Story 11.11): a current
     Individual test step (not handed in) says the Student's Test deadline has passed; it stays
     not done, and turns done when the sweep hands a saved attempt in. `after_makeup` (Story
-    13.5): a locked Debrief step says it opens when the Oppfølgingsspill is finished."""
+    13.5): a locked Debrief step says it opens when the Oppfølgingsspill is finished.
+    `report_open` (Story 13.7, UX-DR29): «Rapport» opens at the Student's effective Test deadline,
+    whatever the earlier steps (a step not done is marked so in the report); until then it is
+    `locked` and says what opens it."""
     steps: list[StepOut] = []
     current_given = not has_game
     for name, step in STEGENE:
+        if name == "report" and step not in done:
+            steps.append(StepOut(step=name, state="current" if report_open else "locked"))
+            continue
         if step in done:
             state = "done"
         elif not current_given:
@@ -2157,6 +2166,66 @@ async def makeup_session_row(
     and reads the row only through `effective_test_deadline` and its frozen `snapshot`."""
     row = await repo.session_row(s, class_session_id, share=share)
     return None if row is None else await _student_row(s, row, user_id)
+
+
+async def own_report_session(
+    s: AsyncSession, user: authz.Principal, class_session_id: uuid.UUID
+) -> Mapping[str, Any] | None:
+    """The Class session row with the Student's own deadlines for their own Student report (Story
+    13.7), read in `s`; under `enrolled_locked_row`'s checks, None for every other case alike
+    (FR-5). The caller reads the deadline only through `report_opens_at`."""
+    if await enrolled_locked_row(s, user, class_session_id) is None:
+        return None
+    row = await repo.session_row(s, class_session_id)
+    return None if row is None else await _student_row(s, row, user.id)
+
+
+def report_opens_at(user: authz.Principal | uuid.UUID, row: Mapping[str, Any]) -> datetime | None:
+    """When the Student's report opens to them (Story 13.7, FR-57, UX-DR29): their effective
+    Test deadline; None while the Class session has none. Staff may download it at any time
+    (Story 13.12)."""
+    return effective_test_deadline(user, row)
+
+
+@dataclass(frozen=True)
+class ReportHeading:
+    """What the Student report's header says of the Class session (Story 13.7, FR-58): the Class,
+    its number, whether it is obligatory, and the dates, the Student's own Debrief and Test
+    deadlines."""
+
+    class_id: uuid.UUID
+    class_name: str
+    number: int
+    obligatory: bool
+    start_at: datetime | None
+    play_deadline: datetime | None
+    debrief_deadline: datetime | None
+    test_deadline: datetime | None
+
+
+async def report_heading(
+    s: AsyncSession, class_session_id: uuid.UUID, user_id: uuid.UUID
+) -> ReportHeading | None:
+    """The report header's Class session part for `user_id`, read in `s`; None for no such
+    session or Class. The caller (`reports.build_report_data`) runs after the policy allowed the
+    request."""
+    row = await repo.session_row(s, class_session_id)
+    if row is None:
+        return None
+    label = await classes.label_of_class(s, row["class_id"])
+    if label is None:
+        return None
+    own = await _student_row(s, row, user_id)
+    return ReportHeading(
+        class_id=row["class_id"],
+        class_name=label.name,
+        number=await repo.number_of(s, class_session_id, row["class_id"]),
+        obligatory=row["obligatory"],
+        start_at=row["start_at"],
+        play_deadline=row["play_deadline"],
+        debrief_deadline=effective_debrief_deadline(user_id, own),
+        test_deadline=effective_test_deadline(user_id, own),
+    )
 
 
 async def student_deadlines(

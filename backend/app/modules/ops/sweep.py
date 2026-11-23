@@ -19,6 +19,7 @@ from app.modules.games import commands as games_commands
 from app.modules.games import service as games
 from app.modules.identity import service as identity
 from app.modules.messaging import service as messaging
+from app.modules.reports import snapshot as report_snapshots
 from app.modules.sessions import service as sessions
 from app.modules.tests import commands as tests_commands
 from app.modules.tests import guide as _scoring_guide  # noqa: F401  (registers its Test pin)
@@ -67,6 +68,15 @@ async def _roster_purge_due(now: datetime) -> Sequence[datetime]:
 async def _purge_roster_uploads(at: object, now: datetime) -> int:
     assert isinstance(at, datetime)
     return await identity.purge_expired_roster_uploads(at)
+
+
+async def _snapshot_purge_due(now: datetime) -> Sequence[datetime]:
+    return [now]
+
+
+async def _purge_report_snapshots(at: object, now: datetime) -> int:
+    assert isinstance(at, datetime)
+    return await report_snapshots.purge_expired(at)
 
 
 FINISHED_CHECKS_PER_SWEEP = 20
@@ -255,6 +265,9 @@ DUE_ACTIONS: tuple[DueAction, ...] = (
     # expired Roster staging rows on time rather than only when the next upload looks (AD-14).
     DueAction("sessions.lock", sessions.due_locks, sessions.lock_due),
     DueAction("identity.purge_expired_roster_uploads", _roster_purge_due, _purge_roster_uploads),
+    # Story 13.7 (AD-14): a report snapshot a killed render left behind goes once expired, so no
+    # copy of a name or a text stays outside the bucket for long.
+    DueAction("reports.purge_snapshots", _snapshot_purge_due, _purge_report_snapshots),
     # Story 5.13: give an AI player the Seat of a removed Student in a Class game that has not
     # started, and seat each Student who registered after the allocation was confirmed (FR-7,
     # FR-20). After `sessions.lock`, so games opened this minute count, and the removal first, so

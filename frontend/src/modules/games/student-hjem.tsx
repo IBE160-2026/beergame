@@ -16,6 +16,7 @@ import { gamePath, rulesPath, seatChoicePath } from "@/modules/identity/homes";
 import { MyMessages } from "@/modules/messaging/my-messages";
 import { type EnrolledSession, enrolledSessionsKey, useEnrolledSessions } from "@/modules/sessions/api";
 import { ownLines } from "@/modules/reports/adjustment";
+import { ReportDownload } from "@/modules/reports/report-download";
 import { ReplayBlock } from "@/modules/replay/replay-block";
 import { wantsReplayPrimary } from "@/modules/replay/replay";
 import { homeLine } from "@/modules/sessions/seat-choice";
@@ -207,7 +208,16 @@ function SessionBlock({
       ) : null}
       {/* Story 10.3: the Replay, once the Debrief quiz is passed. */}
       {session.replay ? <ReplayBlock replay={session.replay} sessionId={session.id} primary={replayPrimary} /> : null}
-      <Stegene title={copy.steps} titleId={`steps-${session.id}`} items={stepItems(session.steps, session.id, session.replay)} />
+      <Stegene
+        title={copy.steps}
+        titleId={`steps-${session.id}`}
+        items={stepItems(session.steps, session.id, session.replay).map((item) =>
+          // Story 13.7: once «Rapport» is open (the Testfrist has passed), its download is under it.
+          item.key === "report" && item.state !== "locked"
+            ? { ...item, action: <ReportDownload sessionId={session.id} /> }
+            : item,
+        )}
+      />
       {/* Story 13.1 (FR-17): in an Obligatorisk Klasseøkt, whether the requirement is met, from
           the api's Completion status; never a share or a number of Uker. */}
       {session.requirement_met != null ? (

@@ -1,6 +1,9 @@
 """The api of `modules/reports` (Story 13.2): `GET /api/class-sessions/{id}/students/{user_id}/
 record`, the Studentside's record of one Student for the staff of the Class; Story 13.3: `POST
-…/corrections`, «Lagre retting», for its Lecturers.
+…/corrections`, «Lagre retting», for its Lecturers. Story 13.7: the Student's own Student report
+(`/api/me/class-sessions/{id}/report`, its `/file`) and the print route's snapshot read
+(`/api/internal/report-snapshots/{id}`, which the proxy refuses: only the frontend server reaches
+it).
 
 An id that is not one, a Class session that does not exist, a Class outside the caller's scope and
 a User who is no Student of the Class all answer the same 403 `forbidden` (FR-5)."""
@@ -8,12 +11,13 @@ a User who is no Student of the Class all answer the same 403 `forbidden` (FR-5)
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
-from fastapi.responses import JSONResponse, Response
+from fastapi import APIRouter, Depends, Header
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 
-from app.modules.reports import corrections, makeup, studentside
-from app.modules.reports.schemas import CorrectionIn, StudentRecordOut
-from app.platform import authz
+from app.modules.reports import corrections, makeup, report, snapshot, studentside
+from app.modules.reports.report_data import ReportDataOut
+from app.modules.reports.schemas import CorrectionIn, ReportStateOut, StudentRecordOut
+from app.platform import authz, storage
 from app.platform.errors import documented, error_response
 
 router = APIRouter(prefix="/api", tags=["reports"])
@@ -115,3 +119,105 @@ async def give_makeup(
     if found is None:
         raise authz.Forbidden
     return JSONResponse(found.model_dump(mode="json"), headers=PERSONAL)
+
+
+def _state(found: report.ReportState) -> dict:
+    return ReportStateOut(
+        opens_at=found.opens_at,
+        open=found.open,
+        status=found.status,
+        generated_at=found.generated_at,
+    ).model_dump(mode="json")
+
+
+@router.get(
+    "/me/class-sessions/{session_id}/report",
+    response_model=ReportStateOut,
+    responses=documented(401, 403),
+    operation_id="getMyReport",
+)
+async def get_my_report(
+    session_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require(report.DOWNLOAD_OWN))],
+) -> Response:
+    """The Student's own Student report in the Class session (Story 13.7, FR-57): when it opens
+    (their effective Test deadline), whether it is open, the latest request's status and when
+    the PDF to download was made. 403 `forbidden` for a Class session that is not the Student's
+    own (not enrolled, not listed on Hjem, not locked, no such session)."""
+    found = await report.own_state(user, _id(session_id))
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(_state(found), headers=PERSONAL)
+
+
+@router.post(
+    "/me/class-sessions/{session_id}/report",
+    response_model=ReportStateOut,
+    status_code=202,
+    responses=documented(401, 403, 409),
+    operation_id="requestMyReport",
+)
+async def request_my_report(
+    session_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require(report.DOWNLOAD_OWN))],
+) -> Response:
+    """«Lag Studentrapport» (Story 13.7, FR-57, AD-9, AD-18): records the request and defers its
+    render on `reports-single` with ids only; the api builds no report content. While one is
+    pending, a press answers it and starts no second render. The finished job emits the
+    Student's `user` topic. 202 with the state; 409 `report_not_open` before the Student's
+    effective Test deadline or with none, 409 `not_counted` for a Student reports leave out;
+    403 `forbidden` as `getMyReport`."""
+    try:
+        found = await report.request_own(user, _id(session_id))
+    except report.ReportRefused as refused:
+        return error_response(409, refused.code, "The report cannot be made now.")
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(_state(found), status_code=202, headers=PERSONAL)
+
+
+@router.get(
+    "/me/class-sessions/{session_id}/report/file",
+    status_code=303,
+    responses={**documented(401, 403, 409, 503), 303: {"description": "To a signed URL"}},
+    operation_id="downloadMyReport",
+)
+async def download_my_report(
+    session_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require(report.DOWNLOAD_OWN))],
+) -> Response:
+    """The Student's latest PDF (Story 13.7, NFR-7, AD-12): 303 to a signed URL that lives
+    `SIGNED_URL_TTL_SECONDS` (300), made only now that the policy allowed it. 409
+    `report_not_ready` without a ready PDF, `report_not_open` before the deadline,
+    `not_counted` for a Student reports leave out; 503 `storage_unavailable`; 403
+    `forbidden` as `getMyReport`."""
+    try:
+        url = await report.own_file_url(user, _id(session_id))
+    except report.ReportRefused as refused:
+        return error_response(409, refused.code, "No report to download.")
+    except storage.StorageError:
+        return error_response(503, "storage_unavailable", "The download cannot be made now.")
+    if url is None:
+        raise authz.Forbidden
+    return RedirectResponse(url, status_code=303, headers=PERSONAL)
+
+
+@router.get(
+    "/internal/report-snapshots/{snapshot_id}",
+    response_model=ReportDataOut,
+    responses=documented(404),
+    operation_id="readReportSnapshot",
+    dependencies=[Depends(authz.public)],  # admitted by its single-use render token only
+)
+async def read_report_snapshot(
+    snapshot_id: str,
+    x_render_token: Annotated[str, Header()] = "",
+) -> Response:
+    """The print route's read of one report snapshot (Story 13.7, AD-18), with its render token in
+    `X-Render-Token`: the data once, while the token is unused and unexpired (5 minutes). A
+    used, expired or wrong token, and an unknown snapshot, all answer 404 `not_found` with no
+    data. The proxy refuses `/api/internal/*`: only the frontend server reaches it."""
+    data = await snapshot.read(snapshot_id, x_render_token)
+    if data is None:
+        return error_response(404, "not_found", "No such report snapshot.")
+    return JSONResponse(data, headers=PERSONAL)

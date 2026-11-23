@@ -171,9 +171,20 @@ class Settings(BaseSettings):
     resend_webhook_secret: str = LOCAL_RESEND_WEBHOOK_SECRET
 
     # Storage (AD-17): required in production from Story 3.14 on, used by `platform/storage`
-    # in a later epic. Server only, never sent to the browser.
+    # (Story 13.7). Server only, never sent to the browser. With both unset outside production
+    # the files go to `local_storage_dir` (the mock).
     supabase_url: str = ""
     supabase_service_role_key: str = ""
+    local_storage_dir: str = ".local-storage"
+    # A signed download URL's lifetime (NFR-7, AD-14).
+    signed_url_ttl_seconds: int = Field(300, ge=10, le=3600)
+
+    # The Student report (Story 13.7, AD-18): where `worker-batch` reaches the print route, the
+    # `reports-single` slots no other queue takes, and how long a pending render may run before
+    # a new request replaces it (a crashed worker never blocks the Student).
+    web_internal_url: str = "http://localhost:3000"
+    reports_single_reserved: int = Field(2, ge=1, le=16)
+    report_stale_seconds: int = Field(120, ge=30)
 
     # Comma-separated networks whose `X-Forwarded-For` the api believes (Story 3.14).
     trusted_proxy_cidrs: str = LOCAL_TRUSTED_PROXY_CIDRS

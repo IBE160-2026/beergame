@@ -224,7 +224,7 @@ def test_reports_reaches_other_modules_only_through_their_service_and_nothing_im
     `games.commands`, the one write path for Games, as the Replay is. Story 13.6: `messaging`
     resolves the Message recipient `requirement_not_met` by calling `reports.service` (the story's
     own rule), from `messages.py` only and inside a function, since `messages` loads while
-    `sessions` does."""
+    `sessions` does. Story 13.7: the sweep purges expired report snapshots."""
     found = imports(APP / "modules" / "reports")
     assert found
     for path, line, name in found:
@@ -239,6 +239,11 @@ def test_reports_reaches_other_modules_only_through_their_service_and_nothing_im
         ):
             if path == APP / "modules" / "messaging" / "messages.py":
                 assert name == "app.modules.reports.service", f"{path.name}:{line} imports {name}"
+                continue
+            # Story 13.7 (AD-14): the sweep purges the expired report snapshots a killed render
+            # left behind, through `reports.snapshot.purge_expired`.
+            if path == APP / "modules" / "ops" / "sweep.py":
+                assert name == "app.modules.reports.snapshot", f"{path.name}:{line} imports {name}"
                 continue
             assert path == APP / "main.py", f"{path.name}:{line} imports {name}"
 

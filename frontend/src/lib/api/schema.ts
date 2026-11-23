@@ -2511,6 +2511,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/internal/report-snapshots/{snapshot_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Report Snapshot
+         * @description The print route's read of one report snapshot (Story 13.7, AD-18), with its render token in
+         *     `X-Render-Token`: the data once, while the token is unused and unexpired (5 minutes). A
+         *     used, expired or wrong token, and an unknown snapshot, all answer 404 `not_found` with no
+         *     data. The proxy refuses `/api/internal/*`: only the frontend server reaches it.
+         */
+        get: operations["readReportSnapshot"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/lecturer-home/class-sessions": {
         parameters: {
             query?: never;
@@ -2593,6 +2616,62 @@ export interface paths {
          *     Student's Test deadline, 403 `forbidden` for any session that is not theirs (FR-5).
          */
         post: operations["startMyReplay"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/class-sessions/{session_id}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Report
+         * @description The Student's own Student report in the Class session (Story 13.7, FR-57): when it opens
+         *     (their effective Test deadline), whether it is open, the latest request's status and when
+         *     the PDF to download was made. 403 `forbidden` for a Class session that is not the Student's
+         *     own (not enrolled, not listed on Hjem, not locked, no such session).
+         */
+        get: operations["getMyReport"];
+        put?: never;
+        /**
+         * Request My Report
+         * @description «Lag Studentrapport» (Story 13.7, FR-57, AD-9, AD-18): records the request and defers its
+         *     render on `reports-single` with ids only; the api builds no report content. While one is
+         *     pending, a press answers it and starts no second render. The finished job emits the
+         *     Student's `user` topic. 202 with the state; 409 `report_not_open` before the Student's
+         *     effective Test deadline or with none, 409 `not_counted` for a Student reports leave out;
+         *     403 `forbidden` as `getMyReport`.
+         */
+        post: operations["requestMyReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/class-sessions/{session_id}/report/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download My Report
+         * @description The Student's latest PDF (Story 13.7, NFR-7, AD-12): 303 to a signed URL that lives
+         *     `SIGNED_URL_TTL_SECONDS` (300), made only now that the policy allowed it. 409
+         *     `report_not_ready` without a ready PDF, `report_not_open` before the deadline,
+         *     `not_counted` for a Student reports leave out; 503 `storage_unavailable`; 403
+         *     `forbidden` as `getMyReport`.
+         */
+        get: operations["downloadMyReport"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4084,6 +4163,34 @@ export interface components {
             share_game?: ("class" | "makeup") | null;
             /** Steps */
             steps: components["schemas"]["CompletionStepOut"][];
+        };
+        /**
+         * CompletionSectionOut
+         * @description «Fullføring»: the Completion status per step and whether an obligatory requirement is met
+         *     (FR-17, FR-58). The shares are whole percents; `required_share` the one that applies to the
+         *     Student; `share_game` which game the shares come from when there is an Oppfølgingsspill.
+         */
+        CompletionSectionOut: {
+            /**
+             * Kind
+             * @default completion
+             * @constant
+             */
+            kind: "completion";
+            /** Obligatory */
+            obligatory: boolean;
+            /** Ordered Share */
+            ordered_share: number | null;
+            /** Playout Share */
+            playout_share: number | null;
+            /** Required Share */
+            required_share: number;
+            /** Requirement Met */
+            requirement_met: boolean | null;
+            /** Share Game */
+            share_game: ("class" | "makeup") | null;
+            /** Steps */
+            steps: components["schemas"]["ReportStepOut"][];
         };
         /**
          * CompletionStepOut
@@ -6759,6 +6866,82 @@ export interface components {
              * @enum {string}
              */
             state: "pending" | "ready";
+        };
+        /**
+         * ReportDataOut
+         * @description A Student report's content, as the print route reads it from its snapshot (AD-18).
+         */
+        ReportDataOut: {
+            /** Class Name */
+            class_name: string;
+            dates: components["schemas"]["ReportDatesOut"];
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /**
+             * Schema Version
+             * @default 1
+             * @constant
+             */
+            schema_version: 1;
+            /** Sections */
+            sections: components["schemas"]["CompletionSectionOut"][];
+            /** Session Number */
+            session_number: number;
+            /** Student Name */
+            student_name: string;
+        };
+        /**
+         * ReportDatesOut
+         * @description The Class session's dates, with the Student's own Debrief and Test deadlines.
+         */
+        ReportDatesOut: {
+            /** Debrief Deadline */
+            debrief_deadline: string | null;
+            /** Play Deadline */
+            play_deadline: string | null;
+            /** Start At */
+            start_at: string | null;
+            /** Test Deadline */
+            test_deadline: string | null;
+        };
+        /**
+         * ReportStateOut
+         * @description The Student's own Student report (Story 13.7, FR-57): when it opens (their effective Test
+         *     deadline; None while the Class session has none), whether it is open now, the latest
+         *     request's status, and when the PDF that can be downloaded was made (None without one).
+         *     `failed` covers a render that failed and one that never ended; a new press tries again.
+         */
+        ReportStateOut: {
+            /** Generated At */
+            generated_at: string | null;
+            /** Open */
+            open: boolean;
+            /** Opens At */
+            opens_at: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "none" | "pending" | "ready" | "failed";
+        };
+        /**
+         * ReportStepOut
+         * @description One step of the requirement: whether it counts as done, and whether a Lecturer's correction
+         *     decided it (never the reason).
+         */
+        ReportStepOut: {
+            /** Corrected */
+            corrected: boolean;
+            /** Done */
+            done: boolean;
+            /**
+             * Step
+             * @enum {string}
+             */
+            step: "class_game" | "debrief" | "quiz_passed" | "replay" | "test_submitted";
         };
         /**
          * ResetCheckOut
@@ -15164,6 +15347,48 @@ export interface operations {
             };
         };
     };
+    readReportSnapshot: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-render-token"?: string;
+            };
+            path: {
+                snapshot_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportDataOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     lecturerHomeClassSessions: {
         parameters: {
             query?: never;
@@ -15343,6 +15568,180 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getMyReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportStateOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    requestMyReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportStateOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    downloadMyReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description To a signed URL */
+            303: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

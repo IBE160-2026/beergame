@@ -1,5 +1,5 @@
 """The api shapes of `modules/reports` (Story 13.2: the Studentside's record; Story 13.3: a
-correction of a Completion step)."""
+correction of a Completion step; Story 13.7: the Student report's state)."""
 
 import uuid
 from datetime import datetime
@@ -186,3 +186,15 @@ class StudentRecordOut(BaseModel):
     test: RecordTestOut | None
     assessment: RecordAssessmentOut
     report: None = None
+
+
+class ReportStateOut(BaseModel):
+    """The Student's own Student report (Story 13.7, FR-57): when it opens (their effective Test
+    deadline; None while the Class session has none), whether it is open now, the latest
+    request's status, and when the PDF that can be downloaded was made (None without one).
+    `failed` covers a render that failed and one that never ended; a new press tries again."""
+
+    opens_at: datetime | None
+    open: bool
+    status: Literal["none", "pending", "ready", "failed"]
+    generated_at: datetime | None

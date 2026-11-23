@@ -1,7 +1,7 @@
 # `modules/reports`: Completion and Student reports (Epic 13)
 
-Story 13.1 adds the shared pieces, Story 13.2 the Studentside's record, Story 13.3 corrections;
-later stories add the Student report and the exports.
+Story 13.1 adds the shared pieces, Story 13.2 the Studentside's record, Story 13.3 corrections,
+Story 13.7 the Student report's pipeline; later stories add its sections and the exports.
 
 - `service.completion_status(user_id, class_session_id)` is the one Completion assembler (FR-17,
   AD-16). It gathers the inputs through `progress.service.step_events`,
@@ -89,6 +89,33 @@ The minimums are configuration, `COMPLETION_EXPLANATION_MIN_LENGTH` (50 characte
 - `service.py` registers `repo.makeup_game_of` with `sessions` (Hjem, the mail); the worker loads
   `reports.service` through `jobs.TASK_MODULES`.
 - `makeup_games` holds `user_id` and `given_by`: personal data.
+
+## The Student report (Story 13.7)
+
+- `GET|POST /api/me/class-sessions/{id}/report` (`getMyReport`, `requestMyReport`) and `GET
+  …/report/file` (`downloadMyReport`), policy `reports.download_own`: the Student's own locked
+  Class session (`sessions.own_report_session`), one 403 for everything else. It opens at the
+  Student's effective Test deadline (`sessions.report_opens_at`): before it, or with none, 409
+  `report_not_open`; 409 `not_counted` outside `scope.reporting_students`; `/file` 409
+  `report_not_ready` without a ready PDF, else 303 to a signed URL (`SIGNED_URL_TTL_SECONDS`).
+- `report.py`: a press inserts a `report_requests` row (one `pending` per Student, Class session
+  and variant, a partial unique index) and defers `reports.render_report(request_id)` on
+  `reports-single` in the same transaction; it emits `user:<student>`. A pending request older
+  than `REPORT_STALE_SECONDS` reads `failed` and gives way to the next press (failure `stale`).
+- `render.py` (the job): `report_data.build_report_data`, the only assembler, then a
+  `report_snapshots` row (the data, the SHA-256 of a single-use token, 5 minutes), WeasyPrint
+  `pdf/ua-1` of `WEB_INTERNAL_URL/print/report/<id>?token=…` (same origin only), the PDF to
+  `platform/storage` at `class-sessions/<cs>/<user_id>/student-report.pdf` in the `reports`
+  bucket, the request `ready` or `failed` (`render_failed`, `not_reportable`), the snapshot
+  deleted in every case, and `user:<student>`. Logs carry ids and the error type only.
+- `snapshot.py` and `GET /api/internal/report-snapshots/{id}` (header `X-Render-Token`): the print
+  route's one read, once; 404 for anything else. The proxy refuses `/api/internal/*`.
+- Sections: `report_data.SECTIONS` (`kind` → builder) in step with the print route's `SECTIONS` in
+  `frontend/src/app/print/report/sections.tsx`. This story has the header and `completion`;
+  Story 13.8 adds `game`, 13.10 `debrief`, `replay`, `test`, 13.11 the AI assessment option and
+  its variant (stored under its own object name).
+- Personal data: `report_requests` (`user_id`, `requested_by`), `report_snapshots` (the name and
+  the content, for one render only).
 
 ## Waiting for Epic 12 on this branch
 

@@ -67,7 +67,10 @@ export function stepItems(
       ? // Story 13.3: a Faglærer corrected the step's status; the reason is never the Student's.
         copy.corrected(counts === true)
       : state === "current"
-        ? quiz_changed && step === "quiz"
+        ? step === "report"
+          ? // Story 13.7: open from the Testfrist on; the download is under the step.
+            copy.reportOpen
+          : quiz_changed && step === "quiz"
           ? copy.quizChanged
           : group_open && step === "debrief"
             ? copy.groupOpen

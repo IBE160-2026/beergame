@@ -9,11 +9,14 @@ whole numbers only. Tasks are never retried by procrastinate: a task that must n
 handles its own failures.
 
 Queues: `ai-orders` (`worker-ai`, the LLM players' Orders), `llm-batch` and `mail`
-(`worker-batch`, Story 3.5), and `sweep`, which only the `--sweeper` worker runs: it holds the
-per-minute `ops.sweep` (AD-9). Later epics add theirs. Alembic owns the procrastinate schema
+(`worker-batch`, Story 3.5), `reports-single` (`worker-batch`, Story 13.7: one Student report,
+with `REPORTS_SINGLE_RESERVED` slots no other queue takes, so a report meets its 30 seconds while
+the worker's other queues are busy), and `sweep`, which only the `--sweeper` worker runs: it holds
+the per-minute `ops.sweep` (AD-9). Later epics add theirs. Alembic owns the procrastinate schema
 (revision 0008).
 """
 
+import asyncio
 import importlib
 from collections.abc import Iterable, Sequence
 
@@ -30,6 +33,7 @@ __all__ = [
     "LLM_BATCH",
     "MAIL",
     "QUEUES",
+    "REPORTS_SINGLE",
     "SWEEP",
     "TASK_MODULES",
     "app",
@@ -46,8 +50,9 @@ log = structlog.get_logger(__name__)
 AI_ORDERS = "ai-orders"
 LLM_BATCH = "llm-batch"
 MAIL = "mail"
+REPORTS_SINGLE = "reports-single"
 SWEEP = "sweep"
-QUEUES = (AI_ORDERS, LLM_BATCH, MAIL, SWEEP)
+QUEUES = (AI_ORDERS, LLM_BATCH, MAIL, REPORTS_SINGLE, SWEEP)
 
 TASK_MODULES = (
     "app.modules.players.jobs",
@@ -59,6 +64,7 @@ TASK_MODULES = (
     # No task: it registers the Completion assembler and the lookup of a Student's
     # Oppfølgingsspill with `sessions` (Stories 13.1, 13.4), which the `makeup_given` mail reads.
     "app.modules.reports.service",
+    "app.modules.reports.render",  # the Student report (Story 13.7)
 )
 """The modules that register tasks on `app`; a worker imports them before it runs."""
 
@@ -177,19 +183,58 @@ async def run_worker(
     if unknown:
         raise ValueError(f"unknown queue(s): {', '.join(unknown)}")
     load_tasks()
+    # Story 13.7: `reports-single` beside other queues runs in a worker of its own with
+    # `REPORTS_SINGLE_RESERVED` slots, so no other queue's job takes them (AD-9).
+    reports = REPORTS_SINGLE in queues and len(queues) > 1
+    others = [queue for queue in queues if queue != REPORTS_SINGLE] if reports else list(queues)
+    reserved = get_settings().reports_single_reserved if reports else 0
+    size = max(2, concurrency + reserved + 1)
     # The app gets a pool that lives as long as this worker. It is the app itself, not a copy
     # (`with_connector`): the periodic deferrer of `ops.sweep` defers through the task's own app,
     # which must be the open one (Story 3.5).
-    with app.replace_connector(_connector(database_url, max(2, concurrency + 1))) as worker_app:
+    with app.replace_connector(_connector(database_url, size)) as worker_app:
         async with worker_app.open_async():
-            await worker_app.run_worker_async(
-                queues=list(queues),
+            main = worker_app.run_worker_async(
+                queues=others,
                 wait=wait,
                 concurrency=concurrency,
                 listen_notify=wait,
                 install_signal_handlers=install_signal_handlers,
                 delete_jobs="successful",
             )
+            if not reports:
+                await main
+                return
+            side = asyncio.ensure_future(
+                worker_app.run_worker_async(
+                    queues=[REPORTS_SINGLE],
+                    name="reports-single",
+                    wait=wait,
+                    concurrency=reserved,
+                    listen_notify=wait,
+                    install_signal_handlers=False,
+                    delete_jobs="successful",
+                )
+            )
+            first = asyncio.ensure_future(main)
+            try:
+                if not wait:
+                    await asyncio.gather(first, side)  # run until idle: the reports too
+                    return
+                await asyncio.wait({first, side}, return_when=asyncio.FIRST_COMPLETED)
+                if side.done() and not first.done():
+                    # The reports worker stopped on its own: the process stops, so it restarts.
+                    log.error("reports_worker_stopped")
+                    side.result()
+                    raise RuntimeError("the reports-single worker stopped")
+                await first
+            finally:
+                # On a stop, a render in flight is cancelled; its request ends `failed` and the
+                # Student presses again.
+                for task in (first, side):
+                    if not task.done():
+                        task.cancel()
+                await asyncio.gather(first, side, return_exceptions=True)
 
 
 async def run_until_idle(queues: Iterable[str], *, database_url: str | None = None) -> None:

@@ -140,3 +140,46 @@ async def test_an_ai_orders_worker_runs_the_rescue_loop_until_the_worker_stops(m
     seen.clear()
     await worker.serve(["llm-batch"], concurrency=1)
     assert seen == [("worker", ["llm-batch"])]
+
+
+async def test_reports_single_beside_other_queues_runs_on_slots_of_its_own(monkeypatch):
+    """Story 13.7 (AD-9): `reports-single` gets `REPORTS_SINGLE_RESERVED` slots no other queue
+    takes; alone, or absent, there is one worker."""
+    from app.platform import jobs
+    from app.platform.config import get_settings
+
+    calls: list[dict] = []
+
+    async def run_worker_async(**kwargs):
+        calls.append(kwargs)
+
+    monkeypatch.setattr(jobs.app, "run_worker_async", run_worker_async)
+    monkeypatch.setattr(jobs.app, "open_async", _no_pool)
+    await jobs.run_worker(
+        [jobs.MAIL, jobs.REPORTS_SINGLE], wait=False, install_signal_handlers=False
+    )
+    reserved = get_settings().reports_single_reserved
+    assert sorted((c["queues"], c["concurrency"]) for c in calls) == [
+        ([jobs.MAIL], 1),
+        ([jobs.REPORTS_SINGLE], reserved),
+    ]
+    assert [
+        c["install_signal_handlers"] for c in calls if c["queues"] == [jobs.REPORTS_SINGLE]
+    ] == [False]
+    for alone in ([jobs.REPORTS_SINGLE], [jobs.MAIL]):
+        calls.clear()
+        await jobs.run_worker(alone, wait=False, install_signal_handlers=False)
+        assert [(c["queues"], c["concurrency"]) for c in calls] == [(alone, 1)]
+
+
+class _no_pool:
+    """`open_async` without a database: the workers above never touch it."""
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False

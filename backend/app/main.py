@@ -26,7 +26,7 @@ from app.modules.reports import service as reports_service  # noqa: F401  regist
 from app.modules.sessions import dev as sessions_dev
 from app.modules.sessions import routes as sessions_routes
 from app.modules.tests import routes as tests_routes
-from app.platform import audit, auth, authz, db
+from app.platform import audit, auth, authz, db, storage
 from app.platform.auth import CsrfMiddleware
 from app.platform.config import get_settings
 from app.platform.errors import error_response
@@ -121,6 +121,8 @@ def create_app() -> FastAPI:
         app.include_router(sessions_dev.router)  # the dev lock (Story 6.15), local only
         app.include_router(debrief_dev.router)  # Group debrief back-dating (9.11), local only
         app.include_router(replay_dev.router)  # the dev quiz pass (10.5), local only
+    if storage.uses_mock():
+        app.include_router(storage.router)  # the storage mock's downloads (13.7), never in prod
     authz.register_principal_loader(identity_service.load_user)
     # The audit page shows names, read at request time from the module that owns them (AD-14).
     audit.register_labels("user_id", identity_service.user_labels)

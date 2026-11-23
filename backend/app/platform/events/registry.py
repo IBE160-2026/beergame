@@ -149,6 +149,10 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # A Lecturer corrected a step of a Student's Completion status (Story 13.3, AD-16): the
         # open Studentside and the Student's Hjem read it again. It records no step event.
         "reports.correct_completion": frozenset({"session", "user"}),
+        # Story 13.7: a press of «Lag Studentrapport» and the end of its render; the Student's
+        # page shows the pending state and then the download without a reload.
+        "reports.request_report": frozenset({"user"}),
+        "reports.render_report": frozenset({"user"}),
         # A Lecturer gave a Student an Oppfølgingsspill (Story 13.4): the `makeup` Game is made and
         # seated through `games.commands` in the same transaction (`game:<id>`), the Student's
         # Hjem shows it and the open Studentside reads it again. A second press emits nothing.

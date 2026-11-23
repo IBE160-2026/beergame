@@ -2311,6 +2311,91 @@
         "title": "CompletionOut",
         "type": "object"
       },
+      "CompletionSectionOut": {
+        "description": "«Fullføring»: the Completion status per step and whether an obligatory requirement is met\n(FR-17, FR-58). The shares are whole percents; `required_share` the one that applies to the\nStudent; `share_game` which game the shares come from when there is an Oppfølgingsspill.",
+        "properties": {
+          "kind": {
+            "const": "completion",
+            "default": "completion",
+            "title": "Kind",
+            "type": "string"
+          },
+          "obligatory": {
+            "title": "Obligatory",
+            "type": "boolean"
+          },
+          "ordered_share": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ordered Share"
+          },
+          "playout_share": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Playout Share"
+          },
+          "required_share": {
+            "title": "Required Share",
+            "type": "integer"
+          },
+          "requirement_met": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requirement Met"
+          },
+          "share_game": {
+            "anyOf": [
+              {
+                "enum": [
+                  "class",
+                  "makeup"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Share Game"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/ReportStepOut"
+            },
+            "title": "Steps",
+            "type": "array"
+          }
+        },
+        "required": [
+          "obligatory",
+          "requirement_met",
+          "required_share",
+          "ordered_share",
+          "playout_share",
+          "share_game",
+          "steps"
+        ],
+        "title": "CompletionSectionOut",
+        "type": "object"
+      },
       "CompletionStepOut": {
         "description": "One step of the «Fullføring» block: whether its step event is recorded and when, whether it\ncounts as done after the share, the minimums and any correction, and whether a correction\ndecided it (Story 13.1), with that correction (Story 13.3).",
         "properties": {
@@ -8403,6 +8488,197 @@
           "state"
         ],
         "title": "ReplayWalkthroughOut",
+        "type": "object"
+      },
+      "ReportDataOut": {
+        "description": "A Student report's content, as the print route reads it from its snapshot (AD-18).",
+        "properties": {
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "dates": {
+            "$ref": "#/components/schemas/ReportDatesOut"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/CompletionSectionOut"
+            },
+            "title": "Sections",
+            "type": "array"
+          },
+          "session_number": {
+            "title": "Session Number",
+            "type": "integer"
+          },
+          "student_name": {
+            "title": "Student Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "generated_at",
+          "student_name",
+          "class_name",
+          "session_number",
+          "dates",
+          "sections"
+        ],
+        "title": "ReportDataOut",
+        "type": "object"
+      },
+      "ReportDatesOut": {
+        "description": "The Class session's dates, with the Student's own Debrief and Test deadlines.",
+        "properties": {
+          "debrief_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Debrief Deadline"
+          },
+          "play_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Play Deadline"
+          },
+          "start_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start At"
+          },
+          "test_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test Deadline"
+          }
+        },
+        "required": [
+          "start_at",
+          "play_deadline",
+          "debrief_deadline",
+          "test_deadline"
+        ],
+        "title": "ReportDatesOut",
+        "type": "object"
+      },
+      "ReportStateOut": {
+        "description": "The Student's own Student report (Story 13.7, FR-57): when it opens (their effective Test\ndeadline; None while the Class session has none), whether it is open now, the latest\nrequest's status, and when the PDF that can be downloaded was made (None without one).\n`failed` covers a render that failed and one that never ended; a new press tries again.",
+        "properties": {
+          "generated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generated At"
+          },
+          "open": {
+            "title": "Open",
+            "type": "boolean"
+          },
+          "opens_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opens At"
+          },
+          "status": {
+            "enum": [
+              "none",
+              "pending",
+              "ready",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "opens_at",
+          "open",
+          "status",
+          "generated_at"
+        ],
+        "title": "ReportStateOut",
+        "type": "object"
+      },
+      "ReportStepOut": {
+        "description": "One step of the requirement: whether it counts as done, and whether a Lecturer's correction\ndecided it (never the reason).",
+        "properties": {
+          "corrected": {
+            "title": "Corrected",
+            "type": "boolean"
+          },
+          "done": {
+            "title": "Done",
+            "type": "boolean"
+          },
+          "step": {
+            "enum": [
+              "class_game",
+              "debrief",
+              "quiz_passed",
+              "replay",
+              "test_submitted"
+            ],
+            "title": "Step",
+            "type": "string"
+          }
+        },
+        "required": [
+          "step",
+          "done",
+          "corrected"
+        ],
+        "title": "ReportStepOut",
         "type": "object"
       },
       "ResetCheckOut": {
@@ -21308,6 +21584,69 @@
         "summary": "Health"
       }
     },
+    "/api/internal/report-snapshots/{snapshot_id}": {
+      "get": {
+        "description": "The print route's read of one report snapshot (Story 13.7, AD-18), with its render token in\n`X-Render-Token`: the data once, while the token is unused and unexpired (5 minutes). A\nused, expired or wrong token, and an unknown snapshot, all answer 404 `not_found` with no\ndata. The proxy refuses `/api/internal/*`: only the frontend server reaches it.",
+        "operationId": "readReportSnapshot",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "snapshot_id",
+            "required": true,
+            "schema": {
+              "title": "Snapshot Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-render-token",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "X-Render-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportDataOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Report Snapshot",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
     "/api/lecturer-home/class-sessions": {
       "get": {
         "description": "The Lærerhjem's «Venter» and «Neste frist» over the User's Classes that are not archived\n(UX-DR56).",
@@ -21525,6 +21864,221 @@
         "summary": "Start My Replay",
         "tags": [
           "replay"
+        ]
+      }
+    },
+    "/api/me/class-sessions/{session_id}/report": {
+      "get": {
+        "description": "The Student's own Student report in the Class session (Story 13.7, FR-57): when it opens\n(their effective Test deadline), whether it is open, the latest request's status and when\nthe PDF to download was made. 403 `forbidden` for a Class session that is not the Student's\nown (not enrolled, not listed on Hjem, not locked, no such session).",
+        "operationId": "getMyReport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportStateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get My Report",
+        "tags": [
+          "reports"
+        ]
+      },
+      "post": {
+        "description": "«Lag Studentrapport» (Story 13.7, FR-57, AD-9, AD-18): records the request and defers its\nrender on `reports-single` with ids only; the api builds no report content. While one is\npending, a press answers it and starts no second render. The finished job emits the\nStudent's `user` topic. 202 with the state; 409 `report_not_open` before the Student's\neffective Test deadline or with none, 409 `not_counted` for a Student reports leave out;\n403 `forbidden` as `getMyReport`.",
+        "operationId": "requestMyReport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportStateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request My Report",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/me/class-sessions/{session_id}/report/file": {
+      "get": {
+        "description": "The Student's latest PDF (Story 13.7, NFR-7, AD-12): 303 to a signed URL that lives\n`SIGNED_URL_TTL_SECONDS` (300), made only now that the policy allowed it. 409\n`report_not_ready` without a ready PDF, `report_not_open` before the deadline,\n`not_counted` for a Student reports leave out; 503 `storage_unavailable`; 403\n`forbidden` as `getMyReport`.",
+        "operationId": "downloadMyReport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "303": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "To a signed URL"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Download My Report",
+        "tags": [
+          "reports"
         ]
       }
     },

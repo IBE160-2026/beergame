@@ -123,6 +123,8 @@ CORRECTION_TABLES = {"completion_corrections"}
 """The table of revision 0301 (Story 13.3)."""
 MAKEUP_TABLES = {"makeup_games"}
 """The table of revision 0302 (Story 13.4)."""
+REPORT_TABLES = {"report_requests", "report_snapshots"}
+"""The tables of revision 0304 (Story 13.7)."""
 RECLAIM_TABLES = {"seat_reclaims"}
 """The table of revision 0055 (Story 8.4)."""
 ADJUSTMENT_TABLES = {"student_adjustments"}
@@ -159,10 +161,12 @@ HEAD_TABLES = (
     | EXTENSION_TABLES
     | CORRECTION_TABLES
     | MAKEUP_TABLES
+    | REPORT_TABLES
     | RECLAIM_TABLES
     | ADJUSTMENT_TABLES
 )
-HEAD = "0303"  # 0301-0303: corrections (13.3), Oppfølgingsspill (13.4), Message kind (13.6)
+HEAD = "0304"  # 0301-0304: corrections (13.3), Oppfølgingsspill (13.4), Message kind (13.6),
+# Student report (13.7)
 
 
 def reset_schema(url: str) -> None:
