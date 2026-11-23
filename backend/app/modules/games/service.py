@@ -222,6 +222,7 @@ __all__ = [
     "student_game",
     "class_game_of",
     "student_seated",
+    "students_of_started_games",
     "table_status",
     "decision_log",
     "finished_game_ids",
@@ -584,6 +585,18 @@ async def student_seated(
 ) -> bool:
     """Whether the Student holds a Seat in a Game of the Class session now (Story 5.13)."""
     return await repo.student_seated(session, class_session_id, user_id)
+
+
+async def students_of_started_games(
+    session: AsyncSession, class_session_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, set[uuid.UUID]]:
+    """The Students who have held a Seat in a started Game of each Class session, by session id
+    (FR-37): they keep that Game when an AI player took their Seat over, so no seating moves them
+    into another one."""
+    found: dict[uuid.UUID, set[uuid.UUID]] = {}
+    for row in await repo.students_of_started_games(session, class_session_ids):
+        found.setdefault(row["class_session_id"], set()).add(row["user_id"])
+    return found
 
 
 @dataclass(frozen=True)

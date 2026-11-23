@@ -5815,6 +5815,8 @@ async def students_without_seat(class_session_id: uuid.UUID) -> list[uuid.UUID]:
         if row is None:
             return []
         seated = _seated(await games_service.class_games(s, class_session_id))
+        played = await games_service.students_of_started_games(s, [class_session_id])
+    seated |= played.get(class_session_id, set())
     registered = await classes.registered_students(row["class_id"])
     return sorted(student for student in registered if student not in seated)
 
@@ -5847,13 +5849,19 @@ async def late_registrants(now: datetime) -> list[tuple[uuid.UUID, uuid.UUID]]:
     before the lock always (a free Seat or a new Class game), after it only while an opened game
     that has not started has a Seat an AI player holds."""
     due: list[tuple[uuid.UUID, uuid.UUID]] = []
-    for row, games, registered in await _seating_candidates(now):
+    candidates = await _seating_candidates(now)
+    # A Student whose Seat an AI player took over still has that Game (FR-37): never seated again.
+    async with get_sessionmaker().begin() as s:
+        played = await games_service.students_of_started_games(
+            s, [r["id"] for r, _, _ in candidates]
+        )
+    for row, games, registered in candidates:
         locked = is_locked(row, now=now)
         if not locked and row["allocation_method"] == "student_choice":
             continue  # Story 5.17: they choose a Seat themselves until the lock draws one.
         if locked and not any(_open_seats(game, locked=True) for game in games):
             continue
-        seated = _seated(games)
+        seated = _seated(games) | played.get(row["id"], set())
         waiting = await _seatable(row, sorted(registered - seated))
         due.extend((row["id"], student) for student in waiting)
     return due
@@ -5937,6 +5945,9 @@ async def seat_late_registrant(
             return False  # Story 12.8: a test student without consent gets no Seat.
         if await games_service.student_seated(s, class_session_id, user_id):
             return False
+        played = await games_service.students_of_started_games(s, [class_session_id])
+        if user_id in played.get(class_session_id, set()):
+            return False  # their Seat was taken over; they keep their Game (FR-37)
         locked = is_locked(row, now=now)
         choosing = row["allocation_method"] == "student_choice"
         if choosing and not locked:

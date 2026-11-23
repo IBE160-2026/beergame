@@ -411,6 +411,33 @@ async def class_session_seats(
     return list(result.mappings())
 
 
+async def students_of_started_games(
+    session: AsyncSession, class_session_ids: Sequence[uuid.UUID]
+) -> list[RowMapping]:
+    """`(class_session_id, user_id)` of each Student who has held a Seat in a started Game of
+    these Class sessions, held now or not (FR-36, FR-37): a Student whose Seat an AI player took
+    over still has that Game and may take the Seat back. One read, for many sessions."""
+    if not class_session_ids:
+        return []
+    result = await session.execute(
+        select(games.c.class_session_id, seat_occupancy.c.user_id)
+        .distinct()
+        .select_from(
+            seat_occupancy.join(seats, seats.c.id == seat_occupancy.c.seat_id).join(
+                games, games.c.id == seats.c.game_id
+            )
+        )
+        .where(
+            games.c.class_session_id.in_(list(class_session_ids)),
+            _listed(),
+            games.c.lifecycle != "not_started",
+            seat_occupancy.c.occupant_kind == "student",
+            seat_occupancy.c.user_id.is_not(None),
+        )
+    )
+    return list(result.mappings())
+
+
 async def class_session_seat_ids(
     session: AsyncSession, class_session_id: uuid.UUID
 ) -> list[RowMapping]:

@@ -159,6 +159,26 @@ async def test_a_game_that_started_never_gives_its_ai_seat_away(klass):
     assert await service.students_without_seat(uuid.UUID(session_id)) == [late]
 
 
+async def test_a_student_whose_seat_was_taken_over_is_never_seated_again(klass):
+    # Five Students: game 1 holds four, game 2 one Student and three AI players, not started.
+    session_id, _ = await opened(klass, 5)
+    game_id = games_of(session_id)[0][0]
+    await games_commands.start(game_id)
+    game_one = {role: uuid.UUID(user) for n, role, _, _, user in holders(session_id) if n == 1}
+    absent = game_one["factory"]
+    taken = await games_commands.takeover(
+        game_id, "factory", actor="staff", actor_user_id=game_one["retailer"]
+    )
+    assert taken is not None
+    # The Student's Seat is the AI player's now, but the Student keeps game 1 (FR-37): the sweep
+    # does not move them into an AI player's Seat of game 2, and they are not without a Seat.
+    assert await service.late_registrants(START + 2 * MINUTE) == []
+    assert (await sweep.run(START + 2 * MINUTE))[SEAT] == 0
+    assert await service.seat_late_registrant(uuid.UUID(session_id), absent, now=START) is False
+    assert [n for n, _, _, _, user in holders(session_id) if user == str(absent)] == []
+    assert await service.students_without_seat(uuid.UUID(session_id)) == []
+
+
 async def test_a_game_started_after_it_was_read_refuses_under_its_row_lock(klass, monkeypatch):
     session_id, _ = await opened(klass, 3)
     game_id = games_of(session_id)[0][0]
