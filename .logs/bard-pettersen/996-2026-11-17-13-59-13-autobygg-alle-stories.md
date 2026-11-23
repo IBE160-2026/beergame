@@ -4301,3 +4301,20 @@ Avslutte Epic 15 og merge den til `main`.
 
 ### Åpne punkter
 - Issue #264: beslutninger, to åpne spørsmål til grunnleggeren og punkter som står igjen.
+
+## Story 14.7: Admin sammenligner på tvers av institusjoner (spor 3)
+
+### Oppgave
+Bygge Story 14.7, den siste i Epic 14.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet (data på tvers av institusjoner).
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-14-7-admin-compares-across-institutions.md`. Commit: 12cd442. Migrasjon 0402.
+- Bak flagget `FEATURE_CROSS_INSTITUTION_STATS`: Admin ser aggregatene gruppert per institusjon på `/admin/tverrinstitusjonell-statistikk`, med filtrene fra 14.4; institusjoner med for få data holdes tilbake.
+- Tester: backend 4291, Vitest 1385, Playwright 45.
+- Status: done. Avslutningen av Epic 14 er startet (merge av main med Epic 15, oppfølgingsgjennomgang, visuell sjekk, full stabilisering, PR).
+
+### Åpne punkter
+- Issue #265: beslutninger for storyen.
