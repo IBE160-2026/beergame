@@ -516,8 +516,11 @@ test("UJ-4 edge case: in the room on Thursday, Jonas is absent, Sara puts in an 
   const form = section.getByRole("form", { name: l.addTitle });
   const now = osloNow();
   await form.getByLabel(l.date, { exact: true }).fill(now.date);
-  await form.getByLabel(l.start, { exact: true }).fill(now.minus(5));
-  await form.getByLabel(l.end, { exact: true }).fill(now.minus(-110));
+  // Within today's date: from just before now to 110 min later, or to 23:59 near midnight.
+  const from = now.minus(5) > now.minus(0) ? "00:00" : now.minus(5);
+  const to = now.minus(-110) < now.minus(0) ? "23:59" : now.minus(-110);
+  await form.getByLabel(l.start, { exact: true }).fill(from);
+  await form.getByLabel(l.end, { exact: true }).fill(to);
   await form.getByLabel(l.place, { exact: true }).fill("Datalab A2");
   await form.getByRole("button", { name: l.saveAdd }).click();
   await expect(section.getByRole("status").filter({ hasText: l.added })).toBeVisible();
@@ -861,8 +864,11 @@ test("UJ-7: the Lecturer overview, a Message to a game, and AI players finishing
   // the deadline).
   const played = await lecturer.request.post(`/api/dev/games/${course.oddGameId}/playout`, { headers: CSRF });
   expect(played.status()).toBe(200);
-  await lecturer.goto(overview);
-  await expect(main).toContainText(/2 ferdig · 0 pågår · 0 venter/);
+  // The AI players' last Weeks are computed after the answer; the Oversikt reads it once done.
+  await expect(async () => {
+    await lecturer.goto(overview);
+    await expect(main).toContainText(/2 ferdig · 0 pågår · 0 venter/, { timeout: 5_000 });
+  }).toPass({ timeout: 3 * 60_000, intervals: [5_000] });
   await expect(wall.getByRole("rowheader", { name: /^Spill 2, ferdig/ })).toBeVisible();
   await shot(lecturer, "uj-7-all-finished");
 });

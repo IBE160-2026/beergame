@@ -6,7 +6,7 @@ course with one Class and fresh people made through the product's own flows; wha
 goes through the UI, and only the local `/api/dev/` routes stand in for time passing (the lock at
 the Start date, the Debrief's move-on wait, the Play deadline playout, the Test deadline).
 
-Run of 2026-11-23 on branch `journeys` (main at `bbb3a250` plus the fix `1004e7f5`): 14 tests, all passed, 6.6 min.
+Run of 2026-11-23 on branch `journeys` (main at `bbb3a250` plus the fix `1004e7f5`): 15 tests in two files, all passed, 7.6 min.
 
 - UJ-1 pass: the Admin invites a new address as Faglærer in «Brukere og roller»; the mailed link
   becomes an account (name, password) that lands on the empty Lærerhjem. `uj-1-*.png`
@@ -45,11 +45,17 @@ Run of 2026-11-23 on branch `journeys` (main at `bbb3a250` plus the fix `1004e7f
   downloads the ZIP of all five reports and the Completion export (.xlsx); the odd Student, who
   never took the test, gets a report too. The «ready» e-mail is a digest notice, which is never
   sent at night, so a night run does not see it. `uj-8-*.png`
-- UJ-9 pass, partly: the Klasserapport (funnel, chain cost, cost and amplification per Role,
+- UJ-9 pass: the Klasserapport (funnel, chain cost, cost and amplification per Role,
   patterns, learning results per question), «Alle spill i plenum» with no Student names, and a
-  Class session for next year's Class made with «Lag fra en tidligere Klasseøkt» and saved.
-  Tverrklasse-statistikk shows its empty state: this Lecturer has no earlier Class session with
-  results, so the comparison with last year is not exercised. `uj-9-*.png`
+  Class session for next year's Class made with «Lag fra en tidligere Klasseøkt» and saved. In the
+  whole course Tverrklasse-statistikk shows its empty state (one Class session only); the
+  comparison itself is `uj-9-cross-class.spec.ts`: one fresh Lecturer, one Class of 10 registered
+  Students, last year's (rule-based) and this year's (LLM) Class session set up through the api,
+  games started and played out (dev `playout`), Test deadlines passed and locked (dev routes); the
+  sweep writes both aggregates. The UI then compares both Class sessions, the KI-modus filter
+  («LLM-spillere 1») brings the comparison to 1 of 2 and «Alle» back to 2, and this year's
+  Klasserapport marks «Fjoråret» on the Kostnadsfordeling (last year's does not).
+  `uj-9-*.png`
 
 Bug found and fixed: after the lock, the late-registrant sweep treated a Student whose Seat an AI
 player had taken over as unseated and moved them into an AI player's Seat of a Class game that had
