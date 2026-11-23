@@ -21,7 +21,15 @@ from tests.classes.test_classes import LECTURER, OTHER, make
 from tests.classes.test_invitation_counts import execute
 from tests.classes.test_staff import ASSISTANT, call, put_staff
 from tests.messaging.helpers import rows
-from tests.sessions.test_game_end import WEEKS, _empty, clock, emitted, klass, play_weeks, short_game
+from tests.sessions.test_game_end import (
+    WEEKS,
+    _empty,
+    clock,
+    emitted,
+    klass,
+    play_weeks,
+    short_game,
+)
 from tests.sessions.test_open_games import confirmed
 from tests.sessions.test_student_choice import email
 
