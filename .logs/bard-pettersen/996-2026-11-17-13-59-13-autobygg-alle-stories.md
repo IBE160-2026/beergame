@@ -4249,3 +4249,131 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet (slettin
 
 ### Åpne punkter
 - Issue #260: beslutninger og utsatte punkter.
+
+
+## Story 14.3: Sammenligne klasseøkter i Tverrklasse-statistikk (spor 3), og merge av Epic 15 inn i Epic 14
+
+### Oppgave
+Hente inn `epic-15` (med 15.3) i `epic-14` og bygge Story 14.3.
+
+### Plan
+Byggeagent: mergen først, så storyen med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Merge: 4c06768. Sju filer med konflikter, begge sider beholdt; én Alembic-head.
+- Spec: `.docs/implementation-artifacts/spec-14-3-compare-class-sessions-in-tverrklasse-statistikk.md`. Commit: 3f5f621. Migrasjon 0401.
+- Lagrede aggregater med minst 10 studenter per mål, skrevet av sveipet og før sletting (15.3). Siden `/tverrklasse-statistikk` og merket «Fjoråret» på Kostnadsfordelingen.
+- Tester: backend 4267, Vitest 1379, Playwright 52.
+- Status: done.
+
+### Åpne punkter
+- Issue #262: beslutninger og utsatte punkter.
+
+## Story 14.4: Filtrere sammenligninger og merke klasseøkter som skiller seg ut (spor 3)
+
+### Oppgave
+Bygge Story 14.4.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-14-4-filter-comparisons-and-label-class-sessions-that-differ.md`. Commit: a5c9fc1. Ingen migrasjon.
+- Fem filtre på Tverrklasse-statistikk og merket «Ulikt oppsett: …» for klasseøkter som skiller seg ut; poengdiagrammet sier om poengene kan sammenlignes.
+- Tester: backend 4279, Vitest 1382, Playwright 37.
+- Status: done.
+
+### Åpne punkter
+- Issue #263: beslutninger og ett utsatt punkt.
+
+## Avslutning av Epic 15 (spor 1) og merge til main
+
+### Oppgave
+Avslutte Epic 15 og merge den til `main`.
+
+### Plan
+Én agent: utsatte punkter fra 15.1 og 15.3, oppfølgingsgjennomgang, visuell sjekk, full stabilisering, PR og CI.
+
+### Resultat
+- Commits: 083a1d1 («Epic 15: avslutning»), 8d68328 (CI). Migrasjon 0073. PR #261, CI grønn, merget (6460872).
+- Klasseøkter uten testfrist får slettedato; en student som beholder kontoen, navngis ikke lenger i klasseøkta etter datoen; slettingen er testet for alle deler. Full Playwright-pakke (839) og backend (4208) grønne.
+- Status: `epic-15` done. 15.12 står fortsatt som review (#247).
+
+### Åpne punkter
+- Issue #264: beslutninger, to åpne spørsmål til grunnleggeren og punkter som står igjen.
+
+## Story 14.7: Admin sammenligner på tvers av institusjoner (spor 3)
+
+### Oppgave
+Bygge Story 14.7, den siste i Epic 14.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet (data på tvers av institusjoner).
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-14-7-admin-compares-across-institutions.md`. Commit: 12cd442. Migrasjon 0402.
+- Bak flagget `FEATURE_CROSS_INSTITUTION_STATS`: Admin ser aggregatene gruppert per institusjon på `/admin/tverrinstitusjonell-statistikk`, med filtrene fra 14.4; institusjoner med for få data holdes tilbake.
+- Tester: backend 4291, Vitest 1385, Playwright 45.
+- Status: done. Avslutningen av Epic 14 er startet (merge av main med Epic 15, oppfølgingsgjennomgang, visuell sjekk, full stabilisering, PR).
+
+### Åpne punkter
+- Issue #265: beslutninger for storyen.
+
+## Avslutning av Epic 14 (spor 3) og merge til main
+
+### Oppgave
+Avslutte Epic 14 og merge den til `main`. Dette er den siste epicen.
+
+### Plan
+Én agent: merge av `main` (Epic 15), punktene i avslutningslista og utsatte punkter, oppfølgingsgjennomgang, visuell sjekk, full stabilisering, PR og CI.
+
+### Resultat
+- Commits: f08f7e9 (merge, 0401 etter 0073), 7b58941, 0fbf117 («Epic 14: avslutning»). PR #266, CI grønn, merget (bbb3a25).
+- Faktasett bygges i etterkant for ferdige spill, aggregatet skrives på nytt etter sene spill og vurderinger, like spilloppsett vises som ett filtervalg, og stolpene forsvinner ikke ved 200 % tekst. Backend 4303 og full Playwright-pakke grønne.
+- Status: `epic-14` done. Alle epics 1–15 er merget til `main`.
+
+### Åpne punkter
+- Issue #267: beslutninger og punkter som står igjen.
+- En tom, usporet fil `backend/migrations/versions/0401_class_aggregates.py` i hovedmappa, laget ved et uhell av avslutningsagenten. Agenten fikk ikke lov til å slette den; grunnleggeren bør slette den.
+
+## User journeys med Playwright (GOAL punkt 4)
+
+### Oppgave
+Gjennomføre alle user journeys UJ-1 til UJ-9 fra PRD §2.3 med Playwright mot appen bygd fra `main`, med et helt spill spilt av testbrukere og en testfaglærer.
+
+### Plan
+Én agent i en egen worktree (`journeys` fra `main`, stakk 8081/5433, fersk database). Ett serielt kurs-løp UJ-1 → UJ-9 i egne Playwright-prosjekt (`playwright.journeys.config.ts`, ikke i standard CI-kjøring), og en egen spec for sammenligningen i UJ-9.
+
+### Resultat
+- PR #268, CI grønn, merget (4681796). Commits: 1004e7f (produktfeil), 72dc6bd, fda8a36.
+- 15 av 15 tester grønne (7,6 min): UJ-1 til UJ-9 med kanttilfellene. Fire nettleserkontekster spilte et helt klassespill på 36 uker med pause, KI-spiller i et fravær og at studenten tok plassen tilbake. Debrief, quiz, Replay, test, oversikt, meldinger, KI-vurdering, rapporter, ZIP, fullføringseksport, Klasserapport, plenum, Tverrklasse-statistikk med filter og «Fjoråret», og neste års klasseøkt.
+- Produktfeil rettet: en student hvis plass var overtatt av en KI-spiller, ble regnet som uten plass og flyttet ved låsingen, og fikk 403 på sitt eget spill. Regresjonstest; backend 4308.
+- Avvik: UJ-6 uten tegneoppgave (spørsmålssettet har ingen ennå, Issue #16). UJ-8: e-posten om KI-vurdering er en samle-e-post som ikke sendes om natten; testen sjekker varselet på Hjem.
+- Skjermbilder og README: `.docs/implementation-artifacts/screenshots/journeys/`.
+
+### Åpne punkter
+- Issue #269: fire e2e-tester som feiler av og til.
+## Sluttstatus for autobygget (2026-11-24)
+
+### Oppgave
+Avslutte målet i `GOAL.md`: alle stories utenom 3.15, 15.10 og 15.14 som done, review eller blocked; alle epics merget med grønn CI; user journeys gjennomført.
+
+### Resultat
+- Epic 1–15 er merget til `main` (siste: Epic 13 #256, Epic 15 #261, Epic 14 #266, user journeys #268). CI er grønn på `main` etter mergen av Epic 14.
+- Ingen stories står som blocked.
+- Ikke bygget etter kjøreboka (krever produksjonskontoer): 3.15, 15.10, 15.14.
+- Stories i review, som venter på grunnleggeren:
+  - 2.7 Kall et ekte EU-endepunkt innenfor rate-grensen: Issue #56 (ekte modellkall, nøkkelen er sperret for agenter).
+  - 2.11 Mål modell og innsatsnivå på batcher av simulerte spill: Issue #60 (ekte modellkall).
+  - 9.14 KI-narrasjon som bare kobler beregnede fakta: Issue #173 (ekte modell).
+  - 9.15 Avgrensede oppfølgingsspørsmål om spillet: Issue #176 (ekte modell).
+  - 10.7 Gjennomgang av Replay: Issue #192 (ekte modell).
+  - 15.12 Hold studentinvitasjoner til institusjonens databehandleravtale er på plass: Issue #247 (grunnleggeren avgjør `REQUIRE_DPA_FOR_INVITATIONS`).
+- Åpne spørsmål til grunnleggeren: Issue #264 (brev og rader i «Mine data» etter sletting).
+- Tom, usporet fil `backend/migrations/versions/0401_class_aggregates.py` i hovedmappa, laget ved et uhell; agenten fikk ikke slette den. Grunnleggeren bør slette den.
+
+### Åpne punkter
+- Issue #56, #60, #173, #176, #192, #247: review-stories.
+- Issue #264: åpne spørsmål om «Mine data».
+- Issue #269: ustabile e2e-tester.
+- Issue #16: tegneoppgave mangler i spørsmålssettet.
