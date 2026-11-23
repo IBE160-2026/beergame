@@ -3877,3 +3877,22 @@ Byggeagent: først rettingene i en egen commit, så storyen med `bmad-build-auto
 
 ### Åpne punkter
 - Issue #237: beslutninger og en tapt fortellerjobb som ikke prøves på nytt.
+
+## Story 12.10: Sammenlign menneskelige poeng og KI-poeng, og merk Sensorveiledningen som kontrollert (spor 3)
+
+### Oppgave
+Bygge Story 12.10 på `epic-12` i spor 3, den siste storyen i Epic 12.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Etterpå starter avslutningen av Epic 12 i samme worktree.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-12-10-compare-human-and-ai-scores-and-mark-the-scoring-guide-as-checked.md`.
+- Commit: 8e2b357. Migrasjon 0209.
+- Ren beregning av fem mål for samsvar mellom sensor og KI, en resultatside for Admin, og Sensorveiledningen merkes som kontrollert når alle svar er vurdert.
+- Tester: backend 3873 (én feil uten sammenheng, passerer alene), frontend-sjekkene, Playwright 127 med axe.
+- Gjennomgang: 38 funn, 8 rettet; oppfølgende gjennomgang anbefalt.
+- Status: done. Alle stories i Epic 12 er bygget; avslutningen (merge med `main`, visuell kontroll, norsk sortering, testfart, PR og CI) er startet.
+
+### Åpne punkter
+- Issue #238: beslutninger (ingen terskel for samsvar) og gjenværende risiko.
