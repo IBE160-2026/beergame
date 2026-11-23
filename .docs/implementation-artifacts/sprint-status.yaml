@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-17-2026 12:28
-last_updated: 11-23-2026 13:56
+last_updated: 11-23-2026 14:27
 project: beergame
 project_key: NOKEY
 tracking_system: file-system
@@ -248,7 +248,7 @@ development_status:
   13-11-the-person-downloading-can-add-the-ai-assessment-section: done
   13-12-staff-download-one-student-s-report-at-any-time: done
   13-13-download-all-student-reports-as-one-zip: done
-  13-14-export-the-completion-status: in-progress
+  13-14-export-the-completion-status: done
   epic-13-retrospective: optional
 
   epic-14: in-progress

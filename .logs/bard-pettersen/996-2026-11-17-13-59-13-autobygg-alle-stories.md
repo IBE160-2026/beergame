@@ -4163,3 +4163,20 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
 
 ### Åpne punkter
 - Issue #254: beslutninger for storyen; oppfølgingsgjennomgang og den trege tidstesten tas i avslutningen av Epic 13.
+
+## Story 13.14: Eksport av fullføringsstatus (spor 2)
+
+### Oppgave
+Bygge Story 13.14, den siste i Epic 13.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-13-14-export-the-completion-status.md`. Commits: 608a1b8, dba2fb5. Ingen migrasjon.
+- Faglæreren laster ned fullføringslista som CSV eller Excel fra «Eksport»-blokka, uten KI-data; fila lagres aldri, og hver nedlasting revisjonslogges. Assistenter får 403.
+- Tester: backend 4043, frontend-sjekkene og Playwright (172).
+- Status: done. Avslutningen av Epic 13 er startet (oppfølgingsgjennomgang, visuell sjekk, fart, full stabilisering, PR).
+
+### Åpne punkter
+- Issue #255: beslutninger for storyen.
