@@ -135,6 +135,29 @@ The minimums are configuration, `COMPLETION_EXPLANATION_MIN_LENGTH` (50 characte
   `request_id`; change `variant`) and emits the requester's `user` topic; the render's end emits
   the requester's only, never the Student's.
 
+## The ZIP of all Student reports (Story 13.13)
+
+`bundle.py`, routes `getReportsZip`, `requestReportsZip`, `downloadReportsZip` under
+`/api/class-sessions/{id}/reports/zip`, for the Klasseøkt's «Eksport» block.
+
+- Policy `reports.download` on the Class (Lecturer, Assistant lecturer) through
+  `sessions.staff_session_row`: one 403 for everyone else, nothing written. 409 `no_students`
+  when reports count no Student, `data_deleted` once the deletion date has come,
+  `zip_not_ready` for the file without a ready ZIP.
+- Table `report_zips` (one pending per Class session, `REPORT_ZIP_STALE_SECONDS` 900 before a
+  pending one reads failed); job `reports.build_zip(zip_id)` on `reports-bulk`. It renders every
+  Student of `scope.reporting_students` with `bundle.OPTIONS` (variant `staff`: never the AI
+  section or the letter, whatever the press sent), `REPORT_ZIP_CONCURRENCY` (3) at once, through
+  the snapshot (`report_snapshots.zip_id`), print route and converter of the single report.
+- Files inside are named by the Student's name (`bundle.file_names`); the object path
+  `class-sessions/<id>/bundles/student-reports-<zip_id>.zip` and the download name
+  `studentrapporter-klasseokt-<n>.zip` hold none. Once ready the earlier ZIPs' objects go.
+- A Student no longer reportable is left out; any other failure fails the ZIP
+  (`render_failed`), never a partial one. A job for a ZIP no longer pending is skipped.
+- Audit rows `report_zip.requested` and `report_zip.downloaded`; the press and the job's end
+  emit the requester's `user` topic; a ready ZIP enqueues `reports_zip_ready` (immediate mail)
+  to the requester.
+
 ## Waiting for Epic 12 on this branch
 
 Control test Class sessions (`kind=control_test`, Story 12.7) and test students

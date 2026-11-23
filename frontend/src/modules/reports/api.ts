@@ -213,3 +213,44 @@ export function staffReportSource(sessionId: string, userId: string): ReportSour
       `/api/class-sessions/${encodeURIComponent(sessionId)}/students/${encodeURIComponent(userId)}/report/file${ai ? "?ai=true" : ""}`,
   };
 }
+
+/** The ZIP of all Student reports of a Class session (Story 13.13, FR-59). */
+export type ZipState = components["schemas"]["ZipStateOut"];
+
+/** Under `staffReportsKey`, so the requester's `user:<id>` event (the job's end and its notice)
+ * reads it again (`topics.ts`). */
+export const reportsZipKey = (sessionId: string) => [...staffReportsKey, sessionId, "zip"] as const;
+
+/** `/api/class-sessions/{id}/reports/zip`: for the Lecturers and Assistant lecturers of the Class;
+ * 403 `forbidden` for anyone else. While pending it is also read every 15 s, so a missed event or a
+ * job that never ended (read as failed after 15 minutes) still shows. */
+export function useReportsZip(sessionId: string) {
+  return useQuery({
+    queryKey: reportsZipKey(sessionId),
+    queryFn: () =>
+      request(() =>
+        api.GET("/api/class-sessions/{session_id}/reports/zip", {
+          params: { path: { session_id: sessionId } },
+          cache: "no-store",
+        }),
+      ),
+    retry: false,
+    refetchInterval: (query) => (query.state.data?.status === "pending" ? 15_000 : false),
+  });
+}
+
+/** «Last ned alle Studentrapporter (ZIP)»: records the request and answers the pending state (a
+ * second press answers the pending one); 409 `no_students`, `data_deleted`. */
+export function requestReportsZip(sessionId: string) {
+  return request(() =>
+    api.POST("/api/class-sessions/{session_id}/reports/zip", {
+      params: { path: { session_id: sessionId } },
+    }),
+  );
+}
+
+/** The download: a plain link to the api, which checks the policy and answers 303 to a signed URL
+ * that lives five minutes (NFR-7). */
+export function reportsZipFilePath(sessionId: string): string {
+  return `/api/class-sessions/${encodeURIComponent(sessionId)}/reports/zip/file`;
+}

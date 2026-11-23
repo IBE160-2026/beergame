@@ -15710,6 +15710,56 @@
         ],
         "title": "WordingOut",
         "type": "object"
+      },
+      "ZipStateOut": {
+        "description": "The ZIP of all Student reports of the Class session (Story 13.13, FR-59): the latest\nrequest's status (`failed` covers a job that failed and one that never ended; a new press\ntries again), when the ZIP that can be downloaded was made and how many Student reports it\nholds (None without one). `deleted` once the Class session's Student data is deleted. The ZIP\nnever holds the AI assessment.",
+        "properties": {
+          "deleted": {
+            "default": false,
+            "title": "Deleted",
+            "type": "boolean"
+          },
+          "generated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generated At"
+          },
+          "status": {
+            "enum": [
+              "none",
+              "pending",
+              "ready",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "students": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Students"
+          }
+        },
+        "required": [
+          "status",
+          "generated_at",
+          "students"
+        ],
+        "title": "ZipStateOut",
+        "type": "object"
       }
     }
   },
@@ -19880,6 +19930,221 @@
         "summary": "Check Replay Scenario",
         "tags": [
           "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/reports/zip": {
+      "get": {
+        "description": "The ZIP of all Student reports of the Class session (Story 13.13, FR-59), for the\nLecturers and Assistant lecturers of its Class: shared by them, the latest request's status\nand when the ZIP to download was made. 403 `forbidden` for anyone else, an Admin without a\nstaff role in the Class included, and for a Class session that does not exist (FR-5).",
+        "operationId": "getReportsZip",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZipStateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Reports Zip",
+        "tags": [
+          "reports"
+        ]
+      },
+      "post": {
+        "description": "«Last ned alle Studentrapporter (ZIP)» (Story 13.13, FR-59, AD-9, AD-18): records the\nrequest and defers its job on `reports-bulk` with ids only, recorded in the audit log; the\njob builds one report per Student reports count, never with the AI assessment, whatever the\nrequest holds. While one is pending, a press answers it. The requester is told when it is\nready. 202 with the state; 409 `data_deleted` once the Student data is deleted, 409\n`no_students` when reports count no Student; 403 `forbidden` as `getReportsZip`, with\nnothing recorded.",
+        "operationId": "requestReportsZip",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZipStateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request Reports Zip",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/reports/zip/file": {
+      "get": {
+        "description": "The Class session's latest ZIP (Story 13.13, NFR-7, AD-12): 303 to a signed URL that lives\n`SIGNED_URL_TTL_SECONDS` (300), made only now that the policy allowed it, recorded in the\naudit log. 409 `zip_not_ready`, `data_deleted`; 503 `storage_unavailable`; 403 `forbidden`\nas `getReportsZip`.",
+        "operationId": "downloadReportsZip",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "303": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "To a signed URL"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Download Reports Zip",
+        "tags": [
+          "reports"
         ]
       }
     },

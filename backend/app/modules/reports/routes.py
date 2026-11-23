@@ -4,7 +4,8 @@ record`, the Studentside's record of one Student for the staff of the Class; Sto
 (`/api/me/class-sessions/{id}/report`, its `/file`) and the print route's snapshot read
 (`/api/internal/report-snapshots/{id}`, which the proxy refuses: only the frontend server reaches
 it). Story 13.12: the staff's download of one Student's report (`…/students/{user_id}/report`, its
-`/file`).
+`/file`). Story 13.13: the ZIP of all Student reports of a Class session
+(`/api/class-sessions/{id}/reports/zip`, its `/file`).
 
 An id that is not one, a Class session that does not exist, a Class outside the caller's scope and
 a User who is no Student of the Class all answer the same 403 `forbidden` (FR-5)."""
@@ -15,13 +16,14 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends, Header, Query
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 
-from app.modules.reports import corrections, makeup, report, snapshot, studentside
+from app.modules.reports import bundle, corrections, makeup, report, snapshot, studentside
 from app.modules.reports.report_data import ReportDataOut
 from app.modules.reports.schemas import (
     CorrectionIn,
     ReportRequestIn,
     ReportStateOut,
     StudentRecordOut,
+    ZipStateOut,
 )
 from app.platform import authz, storage
 from app.platform.errors import documented, error_response
@@ -302,6 +304,90 @@ async def download_student_report(
         url = await report.staff_file_url(user, _id(session_id), _id(user_id), ai=ai)
     except report.ReportRefused as refused:
         return error_response(409, refused.code, "No report to download.")
+    except storage.StorageError:
+        return error_response(503, "storage_unavailable", "The download cannot be made now.")
+    if url is None:
+        raise authz.Forbidden
+    return RedirectResponse(url, status_code=303, headers=PERSONAL)
+
+
+REPORTS_ZIP = "/class-sessions/{session_id}/reports/zip"
+
+
+def _zip_state(found: bundle.ZipState) -> dict:
+    return ZipStateOut(
+        status=found.status,
+        generated_at=found.generated_at,
+        students=found.students,
+        deleted=found.deleted,
+    ).model_dump(mode="json")
+
+
+@router.get(
+    REPORTS_ZIP,
+    response_model=ZipStateOut,
+    responses=documented(401, 403),
+    operation_id="getReportsZip",
+)
+async def get_reports_zip(
+    session_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require(report.DOWNLOAD))],
+) -> Response:
+    """The ZIP of all Student reports of the Class session (Story 13.13, FR-59), for the
+    Lecturers and Assistant lecturers of its Class: shared by them, the latest request's status
+    and when the ZIP to download was made. 403 `forbidden` for anyone else, an Admin without a
+    staff role in the Class included, and for a Class session that does not exist (FR-5)."""
+    found = await bundle.zip_state(user, _id(session_id))
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(_zip_state(found), headers=PERSONAL)
+
+
+@router.post(
+    REPORTS_ZIP,
+    response_model=ZipStateOut,
+    status_code=202,
+    responses=documented(401, 403, 409),
+    operation_id="requestReportsZip",
+)
+async def request_reports_zip(
+    session_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require(report.DOWNLOAD))],
+) -> Response:
+    """«Last ned alle Studentrapporter (ZIP)» (Story 13.13, FR-59, AD-9, AD-18): records the
+    request and defers its job on `reports-bulk` with ids only, recorded in the audit log; the
+    job builds one report per Student reports count, never with the AI assessment, whatever the
+    request holds. While one is pending, a press answers it. The requester is told when it is
+    ready. 202 with the state; 409 `data_deleted` once the Student data is deleted, 409
+    `no_students` when reports count no Student; 403 `forbidden` as `getReportsZip`, with
+    nothing recorded."""
+    try:
+        found = await bundle.request_zip(user, _id(session_id))
+    except report.ReportRefused as refused:
+        return error_response(409, refused.code, "The ZIP cannot be made now.")
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(_zip_state(found), status_code=202, headers=PERSONAL)
+
+
+@router.get(
+    REPORTS_ZIP + "/file",
+    status_code=303,
+    responses={**documented(401, 403, 409, 503), 303: {"description": "To a signed URL"}},
+    operation_id="downloadReportsZip",
+)
+async def download_reports_zip(
+    session_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require(report.DOWNLOAD))],
+) -> Response:
+    """The Class session's latest ZIP (Story 13.13, NFR-7, AD-12): 303 to a signed URL that lives
+    `SIGNED_URL_TTL_SECONDS` (300), made only now that the policy allowed it, recorded in the
+    audit log. 409 `zip_not_ready`, `data_deleted`; 503 `storage_unavailable`; 403 `forbidden`
+    as `getReportsZip`."""
+    try:
+        url = await bundle.zip_file_url(user, _id(session_id))
+    except report.ReportRefused as refused:
+        return error_response(409, refused.code, "No ZIP to download.")
     except storage.StorageError:
         return error_response(503, "storage_unavailable", "The download cannot be made now.")
     if url is None:

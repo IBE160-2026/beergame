@@ -9,7 +9,12 @@ from sqlalchemy import delete, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.reports.models import makeup_games, report_requests, report_snapshots
+from app.modules.reports.models import (
+    makeup_games,
+    report_requests,
+    report_snapshots,
+    report_zips,
+)
 
 
 @dataclass(frozen=True)
@@ -196,16 +201,19 @@ async def finish_report_request(
 async def insert_snapshot(
     session: AsyncSession,
     *,
-    request_id: uuid.UUID,
+    request_id: uuid.UUID | None = None,
+    zip_id: uuid.UUID | None = None,
     token_hash: bytes,
     expires_at: datetime,
     data: dict,
 ) -> uuid.UUID:
+    """A snapshot of one single report's request, or of one ZIP's (Story 13.13)."""
     snapshot_id = uuid.uuid7()
     await session.execute(
         insert(report_snapshots).values(
             id=snapshot_id,
             request_id=request_id,
+            zip_id=zip_id,
             token_hash=token_hash,
             expires_at=expires_at,
             data=data,
@@ -271,4 +279,129 @@ async def release_older_objects(session: AsyncSession, request: ReportRequest) -
     )
     # RETURNING would give the new (empty) values: the paths are read first, under the lock.
     await session.execute(update(report_requests).where(*earlier).values(object_path=None))
+    return [path for path in paths if path]
+
+
+# The ZIP of all Student reports of a Class session (Story 13.13).
+
+
+@dataclass(frozen=True)
+class ReportZip:
+    """A press of «Last ned alle Studentrapporter (ZIP)»: for which Class session, by whom, and
+    how its job ended."""
+
+    id: uuid.UUID
+    class_session_id: uuid.UUID
+    requested_by: uuid.UUID | None
+    status: str
+    requested_at: datetime
+    finished_at: datetime | None
+    object_path: str | None
+    failure: str | None
+    students: int | None
+
+
+def _zip_columns():
+    return (
+        report_zips.c.id,
+        report_zips.c.class_session_id,
+        report_zips.c.requested_by,
+        report_zips.c.status,
+        report_zips.c.requested_at,
+        report_zips.c.finished_at,
+        report_zips.c.object_path,
+        report_zips.c.failure,
+        report_zips.c.students,
+    )
+
+
+async def report_zip(session: AsyncSession, zip_id: uuid.UUID) -> ReportZip | None:
+    row = (await session.execute(select(*_zip_columns()).where(report_zips.c.id == zip_id))).first()
+    return None if row is None else ReportZip(*row)
+
+
+async def latest_zips(
+    session: AsyncSession, class_session_id: uuid.UUID
+) -> tuple[ReportZip | None, ReportZip | None]:
+    """The Class session's latest ZIP request and its latest ready one; each None when none."""
+    base = (
+        select(*_zip_columns())
+        .where(report_zips.c.class_session_id == class_session_id)
+        .order_by(report_zips.c.requested_at.desc(), report_zips.c.id.desc())
+        .limit(1)
+    )
+    latest = (await session.execute(base)).first()
+    ready = (await session.execute(base.where(report_zips.c.status == "ready"))).first()
+    return (
+        None if latest is None else ReportZip(*latest),
+        None if ready is None else ReportZip(*ready),
+    )
+
+
+async def insert_zip(
+    session: AsyncSession,
+    *,
+    class_session_id: uuid.UUID,
+    requested_by: uuid.UUID,
+    requested_at: datetime,
+) -> uuid.UUID | None:
+    """A new pending ZIP request, or None, storing nothing, when one is pending already (the
+    partial unique index: a press at the same moment waits here until the other commits)."""
+    return await session.scalar(
+        insert(report_zips)
+        .values(
+            id=uuid.uuid7(),
+            class_session_id=class_session_id,
+            requested_by=requested_by,
+            status="pending",
+            requested_at=requested_at,
+        )
+        .on_conflict_do_nothing(
+            index_elements=["class_session_id"], index_where=text("status = 'pending'")
+        )
+        .returning(report_zips.c.id)
+    )
+
+
+async def finish_zip(
+    session: AsyncSession,
+    zip_id: uuid.UUID,
+    *,
+    status: str,
+    at: datetime,
+    object_path: str | None = None,
+    failure: str | None = None,
+    students: int | None = None,
+) -> bool:
+    """Mark a pending ZIP `ready` or `failed`; False when it was no longer pending."""
+    done = await session.execute(
+        update(report_zips)
+        .where(report_zips.c.id == zip_id, report_zips.c.status == "pending")
+        .values(
+            status=status,
+            finished_at=at,
+            object_path=object_path,
+            failure=failure,
+            students=students,
+        )
+    )
+    return done.rowcount == 1
+
+
+async def release_older_zips(session: AsyncSession, kept: ReportZip) -> list[str]:
+    """The object paths of the Class session's earlier ready ZIPs, now cleared from their rows:
+    the caller deletes the objects once this commits, so one ZIP stays."""
+    earlier = (
+        report_zips.c.class_session_id == kept.class_session_id,
+        report_zips.c.id != kept.id,
+        report_zips.c.object_path.is_not(None),
+    )
+    paths = list(
+        (
+            await session.execute(
+                select(report_zips.c.object_path).where(*earlier).with_for_update()
+            )
+        ).scalars()
+    )
+    await session.execute(update(report_zips).where(*earlier).values(object_path=None))
     return [path for path in paths if path]

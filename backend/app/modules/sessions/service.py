@@ -2784,6 +2784,56 @@ async def class_staff_may(user: authz.Principal, class_session_id: uuid.UUID, ac
     return await _class_for(user, row["class_id"], action) is not None
 
 
+async def staff_session_row(
+    user: authz.Principal, class_session_id: uuid.UUID, action: str
+) -> Mapping[str, Any] | None:
+    """The Class session's row when `user` may do the Class action `action` on its Class (Story
+    13.13: the ZIP of all Student reports, `reports.download`); None, one answer, for anything
+    else, a session that does not exist included (FR-5, AD-12)."""
+    if action not in authz.CLASS_STAFF_ROLES:
+        log.warning("staff_session_unknown_action", action=action)
+        return None
+    async with get_sessionmaker()() as s:
+        row = await repo.session_row(s, class_session_id)
+    if row is None or await _class_for(user, row["class_id"], action) is None:
+        return None
+    return row
+
+
+async def session_row(
+    session: AsyncSession, class_session_id: uuid.UUID
+) -> Mapping[str, Any] | None:
+    """The Class session's row in the caller's `session`, None for none: for a job that runs after
+    the policy allowed its request (Story 13.13 reads the deletion date again)."""
+    return await repo.session_row(session, class_session_id)
+
+
+REPORTS_ZIP_READY_NOTICE = "reports_zip_ready"
+"""The notice kind the staff member who asked for the ZIP of all Student reports gets once it is
+ready, `immediate` (Story 13.13, FR-59, AD-9). Its `ref` is the Class session."""
+
+
+async def reports_zip_mail_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    """The template variables of a `reports_zip_ready` notice, for `messaging` at send time: the
+    Class's name and the Class session's number. None, so the mail is left out, when the Class
+    session or its Class is gone. The mail holds no Student data and no link to the file: the
+    download asks the policy again (AD-12)."""
+    if ref is None:
+        return None
+    row = await repo.session_row(session, ref)
+    if row is None:
+        return None
+    label = await classes.label_of_class(session, row["class_id"])
+    if label is None:
+        return None
+    return {
+        "class_name": label.name,
+        "session_number": await repo.number_of(session, ref, row["class_id"]),
+    }
+
+
 @dataclass(frozen=True)
 class QuizSession:
     """A Class session as the Debrief quiz's staff block reads it (Story 9.10): the pins its lock

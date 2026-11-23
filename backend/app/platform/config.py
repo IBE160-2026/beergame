@@ -212,6 +212,11 @@ class Settings(BaseSettings):
     web_internal_url: str = "http://localhost:3000"
     reports_single_reserved: int = Field(2, ge=1, le=16)
     report_stale_seconds: int = Field(120, ge=30)
+    # The ZIP of all Student reports (Story 13.13, FR-59): how long a pending ZIP may run before
+    # a new press replaces it (above the 10-minute target), and how many reports it renders at
+    # once on its `reports-bulk` slot.
+    report_zip_stale_seconds: int = Field(900, ge=60)
+    report_zip_concurrency: int = Field(3, ge=1, le=8)
 
     # Comma-separated networks whose `X-Forwarded-For` the api believes (Story 3.14).
     trusted_proxy_cidrs: str = LOCAL_TRUSTED_PROXY_CIDRS

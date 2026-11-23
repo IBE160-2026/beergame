@@ -70,6 +70,7 @@ TASK_MODULES = (
     # Oppfølgingsspill with `sessions` (Stories 13.1, 13.4), which the `makeup_given` mail reads.
     "app.modules.reports.service",
     "app.modules.reports.render",  # the Student report (Story 13.7)
+    "app.modules.reports.bundle",  # the ZIP of all Student reports (Story 13.13)
     "app.modules.assessment.jobs",
 )
 """The modules that register tasks on `app`; a worker imports them before it runs."""

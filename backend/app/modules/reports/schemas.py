@@ -212,3 +212,16 @@ class ReportRequestIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     ai: StrictBool = False
+
+
+class ZipStateOut(BaseModel):
+    """The ZIP of all Student reports of the Class session (Story 13.13, FR-59): the latest
+    request's status (`failed` covers a job that failed and one that never ended; a new press
+    tries again), when the ZIP that can be downloaded was made and how many Student reports it
+    holds (None without one). `deleted` once the Class session's Student data is deleted. The ZIP
+    never holds the AI assessment."""
+
+    status: Literal["none", "pending", "ready", "failed"]
+    generated_at: datetime | None
+    students: int | None
+    deleted: bool = False

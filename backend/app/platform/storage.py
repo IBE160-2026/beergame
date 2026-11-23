@@ -49,6 +49,9 @@ __all__ = [
 REPORTS = "reports"
 """The one private bucket (AD-14)."""
 
+MEDIA_TYPES = {".pdf": "application/pdf", ".zip": "application/zip"}
+"""What the mock serves its objects as: the Student report (Story 13.7) and the ZIP (13.13)."""
+
 _SAFE_PATH = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
 
 
@@ -206,7 +209,7 @@ async def local_download(
         return missing
     response: FileResponse | JSONResponse = FileResponse(
         file,
-        media_type="application/pdf" if file.suffix == ".pdf" else "application/octet-stream",
+        media_type=MEDIA_TYPES.get(file.suffix, "application/octet-stream"),
         filename=name or file.name,
         headers={"Cache-Control": "no-store"},
     )

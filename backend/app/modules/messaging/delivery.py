@@ -257,6 +257,16 @@ async def _assessment_failed_context(
     return await sessions.assessment_failed_mail_context(session, user_id, ref, now)
 
 
+REPORTS_ZIP_READY_KIND = "reports_zip_ready"
+"""`sessions.service.REPORTS_ZIP_READY_NOTICE` (Story 13.13), named here for the same reason."""
+
+
+async def _reports_zip_ready_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    return await sessions.reports_zip_mail_context(session, user_id, ref, now)
+
+
 MESSAGE_KIND = "message"
 """`messages.MESSAGE_KIND` (Story 7.9), named here for the same reason."""
 
@@ -312,6 +322,11 @@ KINDS: Mapping[str, Delivery] = MappingProxyType(
         # Immediate: an AI player took a Student's Seat over (Story 8.2, FR-36, AD-9), sent at once
         # at any hour, also between 22:00 and 07:00.
         TAKEOVER_KIND: Delivery(IMMEDIATE, TAKEOVER_KIND, context=_takeover_context),
+        # Immediate: the ZIP of all Student reports the staff member asked for is ready (Story
+        # 13.13, FR-59); they wait for it.
+        REPORTS_ZIP_READY_KIND: Delivery(
+            IMMEDIATE, REPORTS_ZIP_READY_KIND, context=_reports_zip_ready_context
+        ),
         # Immediate: a Message a staff member sent (Story 7.9, AD-9).
         MESSAGE_KIND: Delivery(IMMEDIATE, MESSAGE_KIND, context=_message_context),
         identity.PASSWORD_RESET: Delivery(
@@ -337,7 +352,8 @@ quiz (Story 9.10, digest), the opened Group debrief (Story 9.11, immediate) and 
 fallback to a Personal debrief (Story 9.12, digest), a staff member's Message (Story 7.9,
 immediate), the Takeover notice (Story 8.2, immediate), the turn reminder (Story 8.13,
 digest), the Oppfølgingsspill given (Story 13.4, digest), the deletion reminder (Story
-13.9, digest) and the ready and failed AI assessment notices (Story 12.4, digest)."""
+13.9, digest), the ready and failed AI assessment notices (Story 12.4, digest) and the ready ZIP
+of all Student reports (Story 13.13, immediate)."""
 
 TEST_KINDS: Mapping[str, Delivery] = MappingProxyType(
     {

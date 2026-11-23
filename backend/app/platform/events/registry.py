@@ -159,6 +159,11 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # page shows the pending state and then the download without a reload.
         "reports.request_report": frozenset({"user"}),
         "reports.render_report": frozenset({"user"}),
+        # Story 13.13: a press of «Last ned alle Studentrapporter (ZIP)» and the end of its job;
+        # the requester's Klasseøkt shows the pending line and then the download (its notice
+        # emits `user` too).
+        "reports.request_zip": frozenset({"user"}),
+        "reports.build_zip": frozenset({"user"}),
         # A Lecturer gave a Student an Oppfølgingsspill (Story 13.4): the `makeup` Game is made and
         # seated through `games.commands` in the same transaction (`game:<id>`), the Student's
         # Hjem shows it and the open Studentside reads it again. A second press emits nothing.

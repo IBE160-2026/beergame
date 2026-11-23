@@ -125,6 +125,8 @@ MAKEUP_TABLES = {"makeup_games"}
 """The table of revision 0302 (Story 13.4)."""
 REPORT_TABLES = {"report_requests", "report_snapshots"}
 """The tables of revision 0304 (Story 13.7)."""
+REPORT_ZIP_TABLES = {"report_zips"}
+"""The table of revision 0308 (Story 13.13)."""
 AI_ASSESSMENT_TABLES = {"ai_assessments", "ai_item_scores"}
 """The tables of revision 0202 (Story 12.2)."""
 RECLAIM_TABLES = {"seat_reclaims"}
@@ -172,6 +174,7 @@ HEAD_TABLES = (
     | CORRECTION_TABLES
     | MAKEUP_TABLES
     | REPORT_TABLES
+    | REPORT_ZIP_TABLES
     | AI_ASSESSMENT_TABLES
     | RECLAIM_TABLES
     | ADJUSTMENT_TABLES
@@ -182,11 +185,11 @@ HEAD_TABLES = (
 )
 # 0301-0305 follow 0209: corrections (13.3), Oppfølgingsspill (13.4), Message kind (13.6),
 # Student report (13.7), deletion date (13.9); 0306 the report variants (13.11), 0307 the
-# staff's (13.12);
+# staff's (13.12), 0308 the ZIP of all Student reports (13.13);
 # 0209 (12.10), 0208 (12.9), 0207 (12.8), 0206 (12.6), 0205 (12.5), 0204 (12.4), 0203 (12.3)
 # and 0202 (12.2) follow 0201 (12.7);
 # 0120-0130 follow 0064
-HEAD = "0307"
+HEAD = "0308"
 
 
 def reset_schema(url: str) -> None:
@@ -376,6 +379,16 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     # 0111 (Story 9.12): presence, the Students who go on alone and the 48-hour fallback.
     assert "last_seen_at" in columns(url, "debrief_members")
     assert {"fallback_due_at", "fallback_at"} <= columns(url, "debrief_sessions")
+
+    # 0308 (Story 13.13): the ZIP of all Student reports; a snapshot has one of two owners.
+    assert {"class_session_id", "requested_by", "status", "object_path", "students"} <= columns(
+        url, "report_zips"
+    )
+    assert "zip_id" in columns(url, "report_snapshots")
+    assert "ck_report_snapshots_owner" in constraints(url, "report_snapshots")
+    command.downgrade(cfg, "0307")
+    assert REPORT_ZIP_TABLES.isdisjoint(tables(url))
+    assert "zip_id" not in columns(url, "report_snapshots")
 
     # 0307 (Story 13.12): the staff's report variants; a downgrade drops their rows.
     variants = constraints(url, "report_requests")["ck_report_requests_variant"]

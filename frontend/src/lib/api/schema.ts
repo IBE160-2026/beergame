@@ -1194,6 +1194,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/class-sessions/{session_id}/reports/zip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Reports Zip
+         * @description The ZIP of all Student reports of the Class session (Story 13.13, FR-59), for the
+         *     Lecturers and Assistant lecturers of its Class: shared by them, the latest request's status
+         *     and when the ZIP to download was made. 403 `forbidden` for anyone else, an Admin without a
+         *     staff role in the Class included, and for a Class session that does not exist (FR-5).
+         */
+        get: operations["getReportsZip"];
+        put?: never;
+        /**
+         * Request Reports Zip
+         * @description «Last ned alle Studentrapporter (ZIP)» (Story 13.13, FR-59, AD-9, AD-18): records the
+         *     request and defers its job on `reports-bulk` with ids only, recorded in the audit log; the
+         *     job builds one report per Student reports count, never with the AI assessment, whatever the
+         *     request holds. While one is pending, a press answers it. The requester is told when it is
+         *     ready. 202 with the state; 409 `data_deleted` once the Student data is deleted, 409
+         *     `no_students` when reports count no Student; 403 `forbidden` as `getReportsZip`, with
+         *     nothing recorded.
+         */
+        post: operations["requestReportsZip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class-sessions/{session_id}/reports/zip/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download Reports Zip
+         * @description The Class session's latest ZIP (Story 13.13, NFR-7, AD-12): 303 to a signed URL that lives
+         *     `SIGNED_URL_TTL_SECONDS` (300), made only now that the policy allowed it, recorded in the
+         *     audit log. 409 `zip_not_ready`, `data_deleted`; 503 `storage_unavailable`; 403 `forbidden`
+         *     as `getReportsZip`.
+         */
+        get: operations["downloadReportsZip"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/class-sessions/{session_id}/scoring-guide": {
         parameters: {
             query?: never;
@@ -10420,6 +10476,30 @@ export interface components {
             /** Text */
             text: string;
         };
+        /**
+         * ZipStateOut
+         * @description The ZIP of all Student reports of the Class session (Story 13.13, FR-59): the latest
+         *     request's status (`failed` covers a job that failed and one that never ended; a new press
+         *     tries again), when the ZIP that can be downloaded was made and how many Student reports it
+         *     holds (None without one). `deleted` once the Class session's Student data is deleted. The ZIP
+         *     never holds the AI assessment.
+         */
+        ZipStateOut: {
+            /**
+             * Deleted
+             * @default false
+             */
+            deleted: boolean;
+            /** Generated At */
+            generated_at: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "none" | "pending" | "ready" | "failed";
+            /** Students */
+            students: number | null;
+        };
     };
     responses: never;
     parameters: never;
@@ -13532,6 +13612,180 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getReportsZip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ZipStateOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    requestReportsZip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ZipStateOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    downloadReportsZip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description To a signed URL */
+            303: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

@@ -4289,6 +4289,33 @@ export const nb = {
         deleted: "Dataene til Studenten i denne Klasseøkten er slettet. Det kan ikke lages en Studentrapport.",
       },
     },
+    /** The Klasseøkt's «Eksport» block (Story 13.13, FR-59, UX-DR49, EXPERIENCE.md → Eksport): the
+     * title, the action, the note, the pending line and the failure line are the spine's; the
+     * rest is [ASSUMPTION] draft copy for the founder's review. The Completion export (13.14) and
+     * the Game data export add their own actions. */
+    export: {
+      title: "Eksport",
+      zip: {
+        action: "Last ned alle Studentrapporter (ZIP)",
+        note: "ZIP-filen har aldri med KI-vurderingen.",
+        /** While the job runs; read out politely. */
+        pending: "ZIP-filen lages. Du får beskjed når den er klar, innen 10 minutter.",
+        ready: "ZIP-filen er klar.",
+        failed: "ZIP-filen kunne ikke lages.",
+        retry: "Prøv igjen",
+        again: "Lag ZIP-filen på nytt",
+        /** The state could not be read (not a refusal). */
+        unread: "Eksporten kunne ikke vises nå. Last inn siden på nytt.",
+        /** «Laget 24. nov. kl. 10:00, med 28 Studentrapporter.» */
+        made: (when: string, students: number) =>
+          `Laget ${when}, med ${students} ${students === 1 ? "Studentrapport" : "Studentrapporter"}.`,
+        deleted: "Dataene til Studentene i denne Klasseøkten er slettet. Det kan ikke lages en ZIP-fil.",
+        errors: {
+          no_students: "Det er ingen Studenter å lage Studentrapporter for i denne Klasseøkten.",
+          data_deleted: "Dataene til Studentene i denne Klasseøkten er slettet. Det kan ikke lages en ZIP-fil.",
+        } as Record<string, string>,
+      },
+    },
     studentPage: {
       /** The crumb and the link from Spillinnsikt are the Student's name. */
       linkLabel: (name: string) => `Studentside for ${name}`,

@@ -10,6 +10,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    Integer,
     LargeBinary,
     Table,
     Text,
@@ -93,13 +94,14 @@ report_snapshots = Table(
     "report_snapshots",
     metadata,
     Column("id", Uuid, primary_key=True),
+    # The single report's request, or (Story 13.13) the ZIP's: exactly one of the two.
     Column(
         "request_id",
         Uuid,
         ForeignKey("report_requests.id", ondelete="CASCADE"),
-        nullable=False,
         index=True,
     ),
+    Column("zip_id", Uuid, ForeignKey("report_zips.id", ondelete="CASCADE"), index=True),
     # SHA-256 of the render token; the token itself is never stored.
     Column("token_hash", LargeBinary, nullable=False),
     Column("expires_at", DateTime(timezone=True), nullable=False),
@@ -107,5 +109,39 @@ report_snapshots = Table(
     # `reports.build_report_data`'s output: the Student's name and their work. Deleted when the
     # render ends, so no copy stays outside the bucket (AD-14).
     Column("data", JSONB, nullable=False),
+    CheckConstraint("(request_id IS NULL) <> (zip_id IS NULL)", name="ck_report_snapshots_owner"),
 )
 """The report content between the assembler and the print route, for one render only."""
+
+report_zips = Table(
+    "report_zips",
+    metadata,
+    Column("id", Uuid, primary_key=True),
+    Column(
+        "class_session_id",
+        Uuid,
+        ForeignKey("class_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("requested_by", Uuid, ForeignKey("users.id", ondelete="SET NULL")),
+    Column("status", Text, nullable=False),
+    Column("requested_at", DateTime(timezone=True), nullable=False),
+    Column("finished_at", DateTime(timezone=True)),
+    # The ZIP's object path in the `reports` bucket once ready; never a name.
+    Column("object_path", Text),
+    # A failure's code only (`render_failed`, `stale`), never a message.
+    Column("failure", Text),
+    # How many Student reports the ready ZIP holds.
+    Column("students", Integer),
+    CheckConstraint("status IN ('pending', 'ready', 'failed')", name="ck_report_zips_status"),
+    Index("ix_report_zips_session", "class_session_id", "requested_at"),
+    # One ZIP at a time per Class session: a second press answers it.
+    Index(
+        "uq_report_zips_pending",
+        "class_session_id",
+        unique=True,
+        postgresql_where=text("status = 'pending'"),
+    ),
+)
+"""Story 13.13: each press of «Last ned alle Studentrapporter (ZIP)»: who asked, for which Class
+session, and how its job ended."""
