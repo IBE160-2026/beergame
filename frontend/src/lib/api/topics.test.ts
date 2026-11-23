@@ -59,6 +59,7 @@ const ALL = [
   sentMessagesKey("s1"),
   sentMessagesKey("s2"),
   messageFormKey("s1", {}),
+  messageFormKey("s1", { requirement: true }),
   studentPageKey("s1", "u1"),
   studentPageKey("s2", "u1"),
   startGamesKey("s1"),
@@ -97,6 +98,9 @@ describe("topicKeys", () => {
       classSessionsKey("c1"),
       classOverviewKey("s1"),
       sentMessagesKey("s1"),
+      // The Oversikt's Lenke to those who have not met the requirement (Story 13.6), not any other
+      // recipient's form.
+      messageFormKey("s1", { requirement: true }),
       // The Studentsides of the Class session (Story 8.9).
       studentPageKey("s1", "u1"),
       // Its «Start spill» page (Story 8.10).

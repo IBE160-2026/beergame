@@ -33,7 +33,7 @@ from app.modules.tests import service as tests
 from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker
 
-__all__ = ["completion_status", "funnel"]
+__all__ = ["completion_status", "funnel", "requirement_not_met"]
 
 
 @asynccontextmanager
@@ -62,32 +62,38 @@ async def completion_status(
         terms = await sessions.completion_terms(s, class_session_id)
         if terms is None or user_id not in await scope.reporting_students(s, class_session_id):
             return None
-        events = await progress.step_events(s, user_id, class_session_id)
-        corrected = await progress.corrections(s, user_id, class_session_id)
-        adjustment = await sessions.get_adjustment(s, class_session_id, user_id)
-        log = None
-        # The Class game itself: a finished Oppfølgingsspill is the Student's game (Story 13.5),
-        # but Completion takes its log once, below.
-        game = await games.class_game_of(s, user_id, class_session_id)
-        if game is not None:
-            counted = await scope.reporting_games(s, class_session_id, [Purpose.CLASS])
-            if any(each.game_id == game.game_id for each in counted):
-                log = await _log_of(s, game.game_id, game.role)
-        # Story 13.4: the Oppfølgingsspill's Decision log beside the Class game's, finished or
-        # partly played; a Week it never played counts as not ordered.
-        makeup_log = None
-        makeup = await repo.makeup_of(s, user_id, class_session_id)
-        if makeup is not None:
-            counted = await scope.reporting_games(s, class_session_id, [Purpose.MAKEUP])
-            own = await games.own_game(s, user_id, makeup.game_id)
-            # Not before it has started: a share of 0 % in a game not yet played says nothing.
-            started = (await games.play_status(s, makeup.game_id)).status in ("running", "finished")
-            if (
-                own is not None
-                and started
-                and any(each.game_id == makeup.game_id for each in counted)
-            ):
-                makeup_log = await _log_of(s, makeup.game_id, own.role)
+        return await _status(s, user_id, class_session_id, terms)
+
+
+async def _status(
+    s: AsyncSession,
+    user_id: uuid.UUID,
+    class_session_id: uuid.UUID,
+    terms: sessions.CompletionTerms,
+) -> CompletionStatus:
+    """`completion_status` for a Student the caller found in the reporting scope."""
+    events = await progress.step_events(s, user_id, class_session_id)
+    corrected = await progress.corrections(s, user_id, class_session_id)
+    adjustment = await sessions.get_adjustment(s, class_session_id, user_id)
+    log = None
+    # The Class game itself: a finished Oppfølgingsspill is the Student's game (Story 13.5),
+    # but Completion takes its log once, below.
+    game = await games.class_game_of(s, user_id, class_session_id)
+    if game is not None:
+        counted = await scope.reporting_games(s, class_session_id, [Purpose.CLASS])
+        if any(each.game_id == game.game_id for each in counted):
+            log = await _log_of(s, game.game_id, game.role)
+    # Story 13.4: the Oppfølgingsspill's Decision log beside the Class game's, finished or
+    # partly played; a Week it never played counts as not ordered.
+    makeup_log = None
+    makeup = await repo.makeup_of(s, user_id, class_session_id)
+    if makeup is not None:
+        counted = await scope.reporting_games(s, class_session_id, [Purpose.MAKEUP])
+        own = await games.own_game(s, user_id, makeup.game_id)
+        # Not before it has started: a share of 0 % in a game not yet played says nothing.
+        started = (await games.play_status(s, makeup.game_id)).status in ("running", "finished")
+        if own is not None and started and any(each.game_id == makeup.game_id for each in counted):
+            makeup_log = await _log_of(s, makeup.game_id, own.role)
     test_status = await tests.attempt_status(user_id, class_session_id)
     config = get_settings()
     return completion(
@@ -112,6 +118,27 @@ async def completion_status(
         ),
         makeup_log,
     )
+
+
+async def requirement_not_met(
+    class_session_id: uuid.UUID, *, session: AsyncSession | None = None
+) -> list[tuple[uuid.UUID, CompletionStatus]]:
+    """The reporting Students of an Obligatory class session who have not met the requirement now,
+    each with their Completion status, by id (Story 13.6, FR-17): `completion_status` over
+    `scope.reporting_students`, so the Oversikt's count, the Meldingsskjema's table and the
+    Message's recipients judge it alike. Empty at once for a Class session that is not obligatory
+    or does not exist."""
+    async with _reading(session) as s:
+        terms = await sessions.completion_terms(s, class_session_id)
+        if terms is None or not terms.obligatory:
+            return []
+        found = []
+        # The scope is read once, not again per Student as `completion_status` reads it.
+        for user_id in await scope.reporting_students(s, class_session_id):
+            status = await _status(s, user_id, class_session_id, terms)
+            if status.requirement_met is False:
+                found.append((user_id, status))
+        return found
 
 
 async def _log_of(s: AsyncSession, game_id: uuid.UUID, role: str) -> DecisionLogSummary | None:

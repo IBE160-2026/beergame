@@ -162,7 +162,7 @@ HEAD_TABLES = (
     | RECLAIM_TABLES
     | ADJUSTMENT_TABLES
 )
-HEAD = "0302"  # 0301-0302 add Completion corrections (13.3) and Oppfølgingsspill (13.4)
+HEAD = "0303"  # 0301-0303: corrections (13.3), Oppfølgingsspill (13.4), Message kind (13.6)
 
 
 def reset_schema(url: str) -> None:
@@ -295,6 +295,8 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     sent = constraints(url, "messages")
     assert "UNIQUE (key)" in sent["messages_key_key"]
     assert "'class_session'" in sent["ck_messages_recipient_kind"]
+    # 0303 (Story 13.6): and the Students who have not met the requirement.
+    assert "'requirement_not_met'" in sent["ck_messages_recipient_kind"]
 
     # 0101 (Story 9.1): version 1 of the Detected patterns; a facts set is never changed.
     [(patterns,)] = rows(url, "SELECT body FROM content_records WHERE kind = 'detected_patterns'")

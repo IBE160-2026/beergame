@@ -3441,6 +3441,9 @@ export const nb = {
           test_submitted: "Test levert",
           assessment_ready: "KI-vurdering klar",
         },
+        /** Story 13.6 (UX-DR54): under the Trakt, only when the Klasseøkt is Obligatorisk and someone
+         * has not met the requirement; opens the Meldingsskjema with them preset. */
+        notMet: (n: number) => `Send Melding til ${n} som ikke har oppfylt kravet`,
       },
     },
   },
@@ -4095,6 +4098,22 @@ export const nb = {
         game === null ? `Melding til ${name}` : `Melding til ${name}, ${gameName(game)}`,
       classGame: (game: number | null) => `Melding til ${gameName(game)}`,
       classSession: (session: number) => `Melding til alle i Klasseøkt ${session}`,
+      /** Story 13.6 [ASSUMPTION] */
+      requirementNotMet: "Melding til dem som ikke har oppfylt kravet",
+    },
+    /** Story 13.6 [ASSUMPTION] draft copy for review: the table above the field of the Students who
+     * have not met the requirement. The list is judged again when the Message is sent. */
+    notMet: {
+      caption: "Studenter som ikke har oppfylt kravet",
+      note: "Listen sjekkes på nytt når du sender. Den som har oppfylt kravet innen da, får ikke meldingen.",
+      student: "Student",
+      ordered: "Bestilte selv",
+      required: "Kravet",
+      playout: "Spilt i utspillingen",
+      /** No share: no game, or no playout at the Play deadline. */
+      none: "–",
+      /** The ordered share from the Oppfølgingsspill: «100 % i Oppfølgingsspillet». */
+      inMakeup: (share: string) => `${share} i Oppfølgingsspillet`,
     },
     /** A Student whose name the api no longer gives. */
     unknownStudent: "studenten",
@@ -4144,6 +4163,8 @@ export const nb = {
         classGame: (game: number | null) => `Til ${gameName(game)}`,
         classSession: (session: number) => `Til alle i Klasseøkt ${session}`,
         list: (n: number) => (n === 1 ? "Til 1 student" : `Til ${n} studenter`),
+        /** Story 13.6 [ASSUMPTION]: judged when it was sent. */
+        requirementNotMet: (n: number) => `Til ${n} som ikke hadde oppfylt kravet`,
       },
       from: (sender: string) => `Fra ${sender}`,
       reach: (n: number) => (n === 1 ? "Sendt til 1 student" : `Sendt til ${n} studenter`),

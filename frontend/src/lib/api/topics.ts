@@ -4,7 +4,7 @@ import { classesKey, enrolledClassesKey } from "@/modules/classes/api";
 import { debriefsKey } from "@/modules/debrief/api";
 import { classOverviewKey, gameInsightKey, startGamesKey, waitedForSeatsKey } from "@/modules/games/api";
 import { meKey } from "@/modules/identity/api";
-import { myMessagesKey, sentMessagesKey } from "@/modules/messaging/api";
+import { messageFormKey, myMessagesKey, sentMessagesKey } from "@/modules/messaging/api";
 import {
   allocationKey,
   classSessionKey,
@@ -59,6 +59,8 @@ export function topicKeys(event: ChangeEvent): QueryKey[] {
         startGamesKey(event.id),
         waitedForSeatsKey(event.id),
         sentMessagesKey(event.id),
+        // Story 13.6: the Oversikt's «Send Melding til 12 som ikke har oppfylt kravet».
+        messageFormKey(event.id, { requirement: true }),
       ];
     // A Game: the Student's own game and what hangs under it (briefing, Starting task, the play
     // screen's envelope), Hjem, whose Setestatus shows who has ordered (Story 6.14), and the

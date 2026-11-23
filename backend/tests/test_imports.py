@@ -221,7 +221,10 @@ def test_reports_reaches_other_modules_only_through_their_service_and_nothing_im
     """Story 13.1 (AD-16, AD-25): the Completion assembler gathers its inputs through each
     module's `service.py`; `sessions` reaches it through the provider it registers, so only the
     app factory imports `reports`. Story 13.4: the Oppfølgingsspill is made through
-    `games.commands`, the one write path for Games, as the Replay is."""
+    `games.commands`, the one write path for Games, as the Replay is. Story 13.6: `messaging`
+    resolves the Message recipient `requirement_not_met` by calling `reports.service` (the story's
+    own rule), from `messages.py` only and inside a function, since `messages` loads while
+    `sessions` does."""
     found = imports(APP / "modules" / "reports")
     assert found
     for path, line, name in found:
@@ -234,6 +237,9 @@ def test_reports_reaches_other_modules_only_through_their_service_and_nothing_im
         if name.startswith("app.modules.reports") and (APP / "modules" / "reports") not in (
             path.parents
         ):
+            if path == APP / "modules" / "messaging" / "messages.py":
+                assert name == "app.modules.reports.service", f"{path.name}:{line} imports {name}"
+                continue
             assert path == APP / "main.py", f"{path.name}:{line} imports {name}"
 
 

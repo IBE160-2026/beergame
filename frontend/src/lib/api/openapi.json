@@ -5430,7 +5430,8 @@
             "enum": [
               "student",
               "class_game",
-              "class_session"
+              "class_session",
+              "requirement_not_met"
             ],
             "title": "Kind",
             "type": "string"
@@ -5438,6 +5439,14 @@
           "max_length": {
             "title": "Max Length",
             "type": "integer"
+          },
+          "not_met": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/NotMetStudentOut"
+            },
+            "title": "Not Met",
+            "type": "array"
           },
           "sent_before": {
             "title": "Sent Before",
@@ -5497,6 +5506,18 @@
             "format": "uuid",
             "title": "Key",
             "type": "string"
+          },
+          "recipient": {
+            "anyOf": [
+              {
+                "const": "requirement_not_met",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipient"
           },
           "student_id": {
             "anyOf": [
@@ -6045,6 +6066,78 @@
           "at"
         ],
         "title": "NextDeadline",
+        "type": "object"
+      },
+      "NotMetStudentOut": {
+        "description": "One Student who has not met the requirement (Story 13.6, FR-17), from\n`reports.service.completion_status`.",
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "ordered_share": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ordered Share"
+          },
+          "playout_share": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Playout Share"
+          },
+          "required_share": {
+            "title": "Required Share",
+            "type": "integer"
+          },
+          "share_game": {
+            "anyOf": [
+              {
+                "enum": [
+                  "class",
+                  "makeup"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Share Game"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "name",
+          "ordered_share",
+          "required_share",
+          "playout_share",
+          "share_game"
+        ],
+        "title": "NotMetStudentOut",
         "type": "object"
       },
       "OfferedEffortLevelOut": {
@@ -9373,7 +9466,8 @@
               "student",
               "class_game",
               "class_session",
-              "list"
+              "list",
+              "requirement_not_met"
             ],
             "title": "Kind",
             "type": "string"
@@ -15609,6 +15703,23 @@
                 }
               ],
               "title": "Student Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "recipient",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "const": "requirement_not_met",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Recipient"
             }
           }
         ],

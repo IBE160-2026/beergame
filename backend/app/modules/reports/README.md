@@ -13,6 +13,11 @@ later stories add the Student report and the exports.
   applies.
 - `service.funnel(class_session_id)` is the Oversikt's Trakt: `progress.funnel` over
   `scope.reporting_students`. It counts step events, never the requirement.
+- `service.requirement_not_met(class_session_id)` (Story 13.6) is the reporting Students of an
+  Obligatory class session whose `completion_status` has not met the requirement, with that
+  status; empty when the Class session is not obligatory. `messaging` calls it (on use, not at
+  import) for the Message recipient `requirement_not_met`, when the form is read and again when
+  the Message is sent, so the Oversikt's Lenke, the form's table and the recipients agree.
 - `scope.reporting_games(session, class_session_id, purposes=None)` and
   `scope.reporting_students(session, class_session_id)` leave out `lecturer_test` and `simulation`
   Games, Control test Class sessions and test students (AD-13, AD-27). A Replay is a reporting

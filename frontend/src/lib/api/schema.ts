@@ -5501,9 +5501,14 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "student" | "class_game" | "class_session";
+            kind: "student" | "class_game" | "class_session" | "requirement_not_met";
             /** Max Length */
             max_length: number;
+            /**
+             * Not Met
+             * @default []
+             */
+            not_met: components["schemas"]["NotMetStudentOut"][];
             /** Sent Before */
             sent_before: number;
             /** Session Number */
@@ -5522,6 +5527,8 @@ export interface components {
              * Format: uuid
              */
             key: string;
+            /** Recipient */
+            recipient?: "requirement_not_met" | null;
             /** Student Id */
             student_id?: string | null;
             /** Text */
@@ -5758,6 +5765,28 @@ export interface components {
              * @enum {string}
              */
             kind: "start" | "play" | "debrief" | "test";
+        };
+        /**
+         * NotMetStudentOut
+         * @description One Student who has not met the requirement (Story 13.6, FR-17), from
+         *     `reports.service.completion_status`.
+         */
+        NotMetStudentOut: {
+            /** Name */
+            name: string | null;
+            /** Ordered Share */
+            ordered_share: number | null;
+            /** Playout Share */
+            playout_share: number | null;
+            /** Required Share */
+            required_share: number;
+            /** Share Game */
+            share_game: ("class" | "makeup") | null;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
         };
         /**
          * OfferedEffortLevelOut
@@ -7216,7 +7245,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "student" | "class_game" | "class_session" | "list";
+            kind: "student" | "class_game" | "class_session" | "list" | "requirement_not_met";
             /** Sender Name */
             sender_name: string | null;
             /**
@@ -10880,6 +10909,7 @@ export interface operations {
             query?: {
                 game_id?: string | null;
                 student_id?: string | null;
+                recipient?: "requirement_not_met" | null;
             };
             header?: never;
             path: {
