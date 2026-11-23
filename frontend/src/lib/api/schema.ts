@@ -1057,6 +1057,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/class-sessions/{session_id}/game-data-export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download Game Data Export
+         * @description «Last ned spilldata (CSV)» (Story 14.8, cut list, FR-88, AD-13, AD-14, AD-15, AD-17): one
+         *     row per Game, Week and Seat of the Decision log, for the Class games, make-up games and
+         *     Replays `reporting_games()` counts, with the fixed columns `game_data_export.COLUMNS` (the
+         *     purpose, the game, the Week, the Role, what the Seat saw, the Order, its cost, who decided it,
+         *     the AD-15 mark and the occupant kind). Never an AI score, AI feedback, Indicative letter, name
+         *     or id. Streamed, never stored; recorded in the audit log once the rows are read. 404 as an
+         *     unknown route while `FEATURE_GAME_DATA_EXPORT` is off; 409 `data_deleted` once the Student
+         *     data is deleted; 403 `forbidden` for an Assistant lecturer, anyone else outside the Class's
+         *     Lecturers and a Class session that does not exist (FR-5, AD-12).
+         */
+        get: operations["downloadGameDataExport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/class-sessions/{session_id}/lab-hours": {
         parameters: {
             query?: never;
@@ -11043,6 +11071,11 @@ export interface components {
              * @default false
              */
             deleted: boolean;
+            /**
+             * Game Data Export
+             * @default false
+             */
+            game_data_export: boolean;
             /** Generated At */
             generated_at: string | null;
             /**
@@ -13676,6 +13709,73 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    downloadGameDataExport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The CSV file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": unknown;
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

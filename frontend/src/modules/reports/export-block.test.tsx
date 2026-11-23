@@ -16,6 +16,7 @@ const state = (over: Partial<ZipState> = {}): ZipState => ({
   students: null,
   deleted: false,
   completion_export: false,
+  game_data_export: false,
   ...over,
 });
 
@@ -104,6 +105,24 @@ describe("ExportBlock", () => {
       expect(html).not.toContain(completion.action);
       expect(html).not.toContain("completion-export");
       expect(html).not.toContain(completion.note);
+    }
+  });
+
+  it("offers the Game data export only while the api says so (its flag on, a Lecturer), with the note once", () => {
+    const completion = nb.reports.export.completion;
+    const gameData = nb.reports.export.gameData;
+    const both = render(state({ completion_export: true, game_data_export: true }));
+    expect(both).toContain(gameData.action);
+    expect(both).toContain('href="/api/class-sessions/s1/game-data-export"');
+    expect(both.split(completion.note)).toHaveLength(2);
+    const alone = render(state({ game_data_export: true }));
+    expect(alone).toContain(gameData.action);
+    expect(alone).toContain(completion.note);
+    expect(alone).not.toContain(completion.action);
+    for (const seeded of [state({ completion_export: true }), state({ game_data_export: true, deleted: true })]) {
+      const html = render(seeded);
+      expect(html).not.toContain(gameData.action);
+      expect(html).not.toContain("game-data-export");
     }
   });
 });

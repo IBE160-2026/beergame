@@ -12,6 +12,7 @@ import { osloDateText } from "@/modules/sessions/dates";
 
 import {
   completionExportPath,
+  gameDataExportPath,
   reportsZipFilePath,
   reportsZipKey,
   requestReportsZip,
@@ -50,6 +51,10 @@ export function zipView(state: ZipState, pressed: boolean): ZipView {
  * fullføringsliste (CSV eller Excel)» opens the choice of a CSV or an Excel file, each a plain
  * download link, with the note «Ingen av filene har KI-vurderinger.». An Assistant lecturer sees
  * the report downloads only.
+ *
+ * Story 14.8 (FR-88, cut list): while `FEATURE_GAME_DATA_EXPORT` is on, the Lecturers of the Class
+ * (`game_data_export`) also get «Last ned spilldata (CSV)», a plain download link. The note «Ingen av
+ * filene har KI-vurderinger.» is said once under the Lecturers' files.
  */
 export function ExportBlock({ sessionId }: { sessionId: string }) {
   const titleId = useId();
@@ -142,25 +147,39 @@ export function ExportBlock({ sessionId }: { sessionId: string }) {
         )}
         <ActionError message={making.errorMessage} />
       </div>
-      {state.completion_export && !state.deleted ? (
-        <div className="mt-8 flex max-w-2xl flex-col items-start gap-2" data-export-completion="">
-          <Button
-            variant="secondary"
-            aria-expanded={choosing}
-            aria-controls={formatsId}
-            onClick={() => setChoosing((open) => !open)}
-          >
-            {copy.completion.action}
-          </Button>
-          <div id={formatsId} hidden={!choosing} className="flex flex-wrap items-center gap-x-6 gap-y-1">
-            <span className={LINE}>{copy.completion.choose}</span>
-            <a href={completionExportPath(sessionId, "csv")} className={`${LINK} min-w-tap-target-min`} download>
-              {copy.completion.csv}
+      {(state.completion_export || state.game_data_export) && !state.deleted ? (
+        <div className="mt-8 flex max-w-2xl flex-col items-start gap-2" data-export-files="">
+          {state.completion_export ? (
+            <div className="flex flex-col items-start gap-2" data-export-completion="">
+              <Button
+                variant="secondary"
+                aria-expanded={choosing}
+                aria-controls={formatsId}
+                onClick={() => setChoosing((open) => !open)}
+              >
+                {copy.completion.action}
+              </Button>
+              <div id={formatsId} hidden={!choosing} className="flex flex-wrap items-center gap-x-6 gap-y-1">
+                <span className={LINE}>{copy.completion.choose}</span>
+                <a href={completionExportPath(sessionId, "csv")} className={`${LINK} min-w-tap-target-min`} download>
+                  {copy.completion.csv}
+                </a>
+                <a href={completionExportPath(sessionId, "xlsx")} className={`${LINK} min-w-tap-target-min`} download>
+                  {copy.completion.xlsx}
+                </a>
+              </div>
+            </div>
+          ) : null}
+          {state.game_data_export ? (
+            <a
+              href={gameDataExportPath(sessionId)}
+              className={`${LINK} min-w-tap-target-min`}
+              download
+              data-export-game-data=""
+            >
+              {copy.gameData.action}
             </a>
-            <a href={completionExportPath(sessionId, "xlsx")} className={`${LINK} min-w-tap-target-min`} download>
-              {copy.completion.xlsx}
-            </a>
-          </div>
+          ) : null}
           <p className={`${LINE} text-ink-secondary`}>{copy.completion.note}</p>
         </div>
       ) : null}

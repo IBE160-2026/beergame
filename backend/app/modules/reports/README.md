@@ -171,6 +171,22 @@ a formula-like text stays text in both. Built now and sent, never stored (AD-14)
 `completion_export.downloaded` with the format and the number of Students. `ZipStateOut.completion_export` tells the
 «Eksport» block whether to offer it.
 
+## The Game data export (Story 14.8, cut list)
+
+`GET /api/class-sessions/{id}/game-data-export` (`downloadGameDataExport`, `game_data_export.py`)
+exists only while `FEATURE_GAME_DATA_EXPORT` is on (AD-17): off, it answers what an unknown route
+answers, before any policy. For the Lecturers of the Class only (`game_data.export`; 403 for
+everyone else; 409 `data_deleted`). One row per Decision log row (Game, Week, Seat) of every Game
+`scope.reporting_games` counts: Class games, make-up games and Replays, the purpose in its own
+column; a make-up game or a Replay is numbered within its purpose. The columns are the fixed
+allow-list `COLUMNS` (no AI data, no name or id). The quantities and `cost` are what the Seat saw
+when it ordered (`state_seen`: the Week's cost on its end-of-Week balances); `mark` is the one
+AD-15 mapping (`games.seat_mark`) of the row, so a Seat taken over carries its mark on every Week
+the AI player ordered in, not only the first. Headers and values are stored codes; the dialect is the Completion export's
+(`completion_export.csv_lines`). Read in one query whatever the number of Games
+(`games.game_data_rows`), streamed, never stored; one audit row `game_data_export.downloaded` with
+the number of Games and rows. `ZipStateOut.game_data_export` tells the block whether to offer it.
+
 ## Waiting for Epic 12 on this branch
 
 Control test Class sessions (`kind=control_test`, Story 12.7) and test students

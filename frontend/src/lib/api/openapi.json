@@ -16747,6 +16747,11 @@
             "title": "Deleted",
             "type": "boolean"
           },
+          "game_data_export": {
+            "default": false,
+            "title": "Game Data Export",
+            "type": "boolean"
+          },
           "generated_at": {
             "anyOf": [
               {
@@ -20278,6 +20283,85 @@
         "summary": "Get Class Session Demand Series",
         "tags": [
           "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/game-data-export": {
+      "get": {
+        "description": "«Last ned spilldata (CSV)» (Story 14.8, cut list, FR-88, AD-13, AD-14, AD-15, AD-17): one\nrow per Game, Week and Seat of the Decision log, for the Class games, make-up games and\nReplays `reporting_games()` counts, with the fixed columns `game_data_export.COLUMNS` (the\npurpose, the game, the Week, the Role, what the Seat saw, the Order, its cost, who decided it,\nthe AD-15 mark and the occupant kind). Never an AI score, AI feedback, Indicative letter, name\nor id. Streamed, never stored; recorded in the audit log once the rows are read. 404 as an\nunknown route while `FEATURE_GAME_DATA_EXPORT` is off; 409 `data_deleted` once the Student\ndata is deleted; 403 `forbidden` for an Assistant lecturer, anyone else outside the Class's\nLecturers and a Class session that does not exist (FR-5, AD-12).",
+        "operationId": "downloadGameDataExport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/csv": {}
+            },
+            "description": "The CSV file"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Download Game Data Export",
+        "tags": [
+          "reports"
         ]
       }
     },

@@ -179,6 +179,9 @@ POLICIES: dict[str, frozenset[str]] = {
     # The Completion export of a Class session, CSV or Excel (Story 13.14, FR-60, AD-12): only
     # the Class's owners; never an Assistant lecturer, who downloads the reports only.
     "completion.export": frozenset({LECTURER}),
+    # The Game data export of a Class session, behind `FEATURE_GAME_DATA_EXPORT` (Story 14.8,
+    # FR-88, AD-12, AD-17): only the Class's owners; never an Assistant lecturer.
+    "game_data.export": frozenset({LECTURER}),
     # An Oppfølgingsspill given to one Student (Story 13.4, FR-17, AD-12): only the Class's
     # owners; never an Assistant lecturer.
     "makeup.give": frozenset({LECTURER}),
@@ -234,6 +237,7 @@ CLASS_STAFF_ROLES: dict[str, frozenset[str]] = {
     "debrief_quiz.exclude": frozenset({OWNER}),
     "completion.correct": frozenset({OWNER}),
     "completion.export": frozenset({OWNER}),
+    "game_data.export": frozenset({OWNER}),
     "makeup.give": frozenset({OWNER}),
     "ai_assessment.change": frozenset({OWNER}),
     "question_set.change": frozenset({OWNER}),

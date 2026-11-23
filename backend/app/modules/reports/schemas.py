@@ -228,3 +228,6 @@ class ZipStateOut(BaseModel):
     completion_export: bool = False
     """Story 13.14: whether the reader may download the Completion export (the Class's
     Lecturers; never an Assistant lecturer), so the «Eksport» block offers it."""
+    game_data_export: bool = False
+    """Story 14.8: whether the Game data export exists (`FEATURE_GAME_DATA_EXPORT`, AD-17) and the
+    reader may download it (the Class's Lecturers), so the «Eksport» block offers it."""

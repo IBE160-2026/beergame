@@ -31,16 +31,19 @@ from app.modules.games.schemas import (
     OccupancyReason,
     OccupantKind,
     Purpose,
+    SeatState,
 )
 
 __all__ = [
     "ClassGameRow",
     "FactFigures",
+    "GameDataRow",
     "OccupancyFigure",
     "SeatFigure",
     "class_orders",
     "report_class_games",
     "fact_figures",
+    "game_data_rows",
     "occupancy_figures",
     "rating_counts",
     "seat_counts",
@@ -290,4 +293,73 @@ async def class_orders(
     found: dict[uuid.UUID, dict[str, dict[int, int]]] = {}
     for game_id, role, week, order in result:
         found.setdefault(game_id, {}).setdefault(str(role), {})[week] = order
+    return found
+
+
+@dataclass(frozen=True)
+class GameDataRow:
+    """One Decision log row of a Game for the Game data export (Story 14.8, FR-88): what the Seat
+    saw in the Week (`state_seen`: its quantities and the Week's cost, `week_cost`), its Order,
+    who decided it and the fallback, and the occupancy in force. Role and Week only, never a Seat
+    id or a `user_id` (AD-14)."""
+
+    game_id: uuid.UUID
+    week: int
+    role: str
+    incoming_order: int
+    incoming_delivery: int
+    inventory: int
+    backlog: int
+    cost: Decimal
+    order: int
+    decided_by: str
+    fallback: str
+    occupant_kind: str
+    reason: str
+
+
+async def game_data_rows(
+    session: AsyncSession, game_ids: Collection[uuid.UUID]
+) -> list[GameDataRow]:
+    """Every Decision log row of the Games (Story 14.8), in one read whatever their number
+    (NFR-3), by Game and Week. The caller has chosen the Games."""
+    if not game_ids:
+        return []
+    result = await session.execute(
+        select(
+            seat_weeks.c.game_id,
+            seat_weeks.c.week,
+            seats.c.role,
+            seat_weeks.c.state_seen,
+            seat_weeks.c.order,
+            seat_weeks.c.decided_by,
+            seat_weeks.c.fallback,
+            seat_weeks.c.occupant_kind,
+            seat_weeks.c.reason,
+        )
+        .select_from(seat_weeks.join(seats, seats.c.id == seat_weeks.c.seat_id))
+        .where(seat_weeks.c.game_id.in_(list(game_ids)))
+        .order_by(seat_weeks.c.game_id, seat_weeks.c.week, seats.c.position)
+    )
+    found: list[GameDataRow] = []
+    for row in result:
+        # A stored state of an earlier schema version reads as the current one.
+        seen = SeatState.model_validate(row.state_seen)
+        found.append(
+            GameDataRow(
+                game_id=row.game_id,
+                week=row.week,
+                role=str(row.role),
+                incoming_order=seen.incoming_order,
+                incoming_delivery=seen.incoming_delivery,
+                inventory=seen.inventory,
+                backlog=seen.backlog,
+                cost=seen.week_cost,
+                order=row.order,
+                decided_by=row.decided_by,
+                fallback=row.fallback,
+                occupant_kind=row.occupant_kind,
+                reason=row.reason,
+            )
+        )
     return found

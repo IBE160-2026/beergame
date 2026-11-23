@@ -4326,6 +4326,11 @@ export const nb = {
         csv: "CSV-fil",
         xlsx: "Excel-fil (.xlsx)",
       },
+      /** The Game data export (Story 14.8, cut list, FR-88): the action is the spine's (UX-DR49);
+       * the note is the Completion export's, shown once for both files. */
+      gameData: {
+        action: "Last ned spilldata (CSV)",
+      },
     },
     studentPage: {
       /** The crumb and the link from Spillinnsikt are the Student's name. */

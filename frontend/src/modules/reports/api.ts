@@ -263,3 +263,10 @@ export type CompletionExportFormat = "csv" | "xlsx";
 export function completionExportPath(sessionId: string, format: CompletionExportFormat): string {
   return `/api/class-sessions/${encodeURIComponent(sessionId)}/completion-export?format=${format}`;
 }
+
+/** Story 14.8 (FR-88, cut list): the Game data export, while `FEATURE_GAME_DATA_EXPORT` is on and for
+ * the Lecturers of the Class (`game_data_export` in the ZIP state says both). A plain link to the
+ * api, which answers the CSV itself, streamed and never stored. */
+export function gameDataExportPath(sessionId: string): string {
+  return `/api/class-sessions/${encodeURIComponent(sessionId)}/game-data-export`;
+}

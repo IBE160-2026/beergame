@@ -23,10 +23,12 @@ from app.modules.games.checks import (
 from app.modules.games.class_figures import (
     ClassGameRow,
     FactFigures,
+    GameDataRow,
     OccupancyFigure,
     SeatFigure,
     class_orders,
     fact_figures,
+    game_data_rows,
     occupancy_figures,
     rating_counts,
     report_class_games,
@@ -234,6 +236,9 @@ __all__ = [
     "report_class_games",
     # «Alle spill side om side» (Story 14.5).
     "class_orders",
+    # The Game data export (Story 14.8).
+    "GameDataRow",
+    "game_data_rows",
     "occupancy_figures",
     "rating_counts",
     "seat_counts",
