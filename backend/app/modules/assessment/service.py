@@ -130,6 +130,7 @@ from app.platform.db import get_sessionmaker
 
 __all__ = [
     "own_records",
+    "latest_updates",
     "ASSESS_TASK",
     "DEFAULT_SWITCH",
     "PURPOSE",
@@ -1564,6 +1565,21 @@ async def summaries_for_session(
         )
         for row in found
     }
+
+
+async def latest_updates(
+    s: AsyncSession, class_session_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, datetime]:
+    """Story 14.3 (FR-65): when an AI assessment of each Class session last changed, in one read;
+    a Class session with none is left out. A stored aggregate older than this is written again."""
+    if not class_session_ids:
+        return {}
+    found = await s.execute(
+        select(ai_assessments.c.class_session_id, func.max(ai_assessments.c.updated_at))
+        .where(ai_assessments.c.class_session_id.in_(class_session_ids))
+        .group_by(ai_assessments.c.class_session_id)
+    )
+    return {session_id: at for session_id, at in found if at is not None}
 
 
 async def item_scores_for_session(

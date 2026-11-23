@@ -22,6 +22,7 @@ from app.modules.identity import service as identity
 from app.modules.messaging import service as messaging
 from app.modules.ops import cost_limit, retention, spend_alert
 from app.modules.ops import service as ops_service
+from app.modules.reports import aggregates as report_aggregates
 from app.modules.reports import snapshot as report_snapshots
 from app.modules.sessions import service as sessions
 from app.modules.tests import commands as tests_commands
@@ -395,6 +396,12 @@ DUE_ACTIONS: tuple[DueAction, ...] = (
         "ops.retention_archived_classes",
         retention.archived_classes,
         retention.purge_archived_class,
+    ),
+    # Story 14.3 (FR-65, AD-9): once a Class session's latest effective Test deadline has passed
+    # and no attempt is open, defer the job that stores its anonymised aggregate, again when an
+    # AI assessment changed after it (importing the module registers retention's gate too).
+    DueAction(
+        "reports.write_aggregate", report_aggregates.due_sessions, report_aggregates.defer_due
     ),
 )
 

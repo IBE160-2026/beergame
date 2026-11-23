@@ -48,6 +48,8 @@ __all__ = [
     "rating_counts",
     "seat_counts",
     "seat_figures",
+    "rating_students",
+    "student_count",
 ]
 
 
@@ -252,6 +254,45 @@ async def seat_counts(
         .group_by(seats.c.game_id)
     )
     return {game_id: count for game_id, count in result}
+
+
+async def student_count(session: AsyncSession, game_ids: Collection[uuid.UUID]) -> int:
+    """Story 14.3 (FR-65, AD-14): how many distinct Students held a Seat in the Games, by the
+    occupancy rows' ids, in one read: the group size of the game measures of a stored aggregate.
+    The count leaves the database, never an id."""
+    if not game_ids:
+        return 0
+    found = await session.scalar(
+        select(func.count(func.distinct(seat_occupancy.c.user_id)))
+        .select_from(seat_occupancy.join(seats, seats.c.id == seat_occupancy.c.seat_id))
+        .where(
+            seats.c.game_id.in_(list(game_ids)),
+            seat_occupancy.c.occupant_kind == OccupantKind.STUDENT,
+            seat_occupancy.c.user_id.is_not(None),
+        )
+    )
+    return int(found or 0)
+
+
+async def rating_students(session: AsyncSession, class_session_id: uuid.UUID) -> dict[str, int]:
+    """Story 14.3 (FR-65, AD-14): how many distinct Students gave the plausibility ratings of the
+    Class session's Class games and Replays, per AI mode: the group size of the stored rating
+    measures. Counts only."""
+    result = await session.execute(
+        select(
+            believability_ratings.c.ai_mode,
+            func.count(func.distinct(believability_ratings.c.user_id)),
+        )
+        .select_from(
+            believability_ratings.join(games, games.c.id == believability_ratings.c.game_id)
+        )
+        .where(
+            games.c.class_session_id == class_session_id,
+            believability_ratings.c.purpose.in_([Purpose.CLASS.value, Purpose.REPLAY.value]),
+        )
+        .group_by(believability_ratings.c.ai_mode)
+    )
+    return {mode: int(count) for mode, count in result}
 
 
 async def rating_counts(

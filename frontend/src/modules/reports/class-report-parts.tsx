@@ -154,6 +154,8 @@ export function Distribution({
   formatTick,
   highest,
   name,
+  previous,
+  previousLabel,
 }: {
   spread: ReportDistribution;
   title: string;
@@ -161,6 +163,9 @@ export function Distribution({
   formatTick: (value: number) => string;
   highest?: number;
   name: string;
+  /** Story 14.3: «Fjoråret», the previous Class session's stored median, and its label. */
+  previous?: number | null;
+  previousLabel?: string;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const size = useBoxSize(box, FALLBACK);
@@ -177,6 +182,8 @@ export function Distribution({
         title={title}
         formatTick={formatTick}
         highest={highest}
+        previous={previous}
+        previousLabel={previousLabel}
       />
     </div>
   );

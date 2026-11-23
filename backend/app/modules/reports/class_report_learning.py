@@ -44,7 +44,7 @@ from app.modules.tests import service as tests
 from app.platform import authz
 from app.platform.db import get_sessionmaker
 
-__all__ = ["BANDS", "bands", "class_learning", "mean_percent"]
+__all__ = ["BANDS", "bands", "class_learning", "learning_of", "mean_percent"]
 
 _TENTH = Decimal("0.1")
 ADAPTED = "adapted"
@@ -179,14 +179,9 @@ def _ai(found: tests.ClassResults, handed: list[tests.StudentResult]) -> Learnin
     )
 
 
-async def class_learning(
-    user: authz.Principal, class_session_id: uuid.UUID, now: datetime
-) -> ClassLearningOut | None:
-    """The learning part of the Klasserapport, or None when the User may not read it or the Class
-    session does not exist: one answer for both (FR-5, NFR-7)."""
-    staffed = await sessions.staffed_session(user, class_session_id, READ)
-    if staffed is None:
-        return None
+async def learning_of(class_session_id: uuid.UUID, now: datetime) -> ClassLearningOut:
+    """The learning part of the Class session (the module doc); the caller has judged access.
+    Story 14.3 stores it as an aggregate."""
     async with get_sessionmaker()() as s:
         students = await scope.reporting_students(s, class_session_id)
         found = await tests.class_results(s, class_session_id, students)
@@ -206,3 +201,14 @@ async def class_learning(
         ),
         ai=_ai(found, handed),
     )
+
+
+async def class_learning(
+    user: authz.Principal, class_session_id: uuid.UUID, now: datetime
+) -> ClassLearningOut | None:
+    """The learning part of the Klasserapport, or None when the User may not read it or the Class
+    session does not exist: one answer for both (FR-5, NFR-7)."""
+    staffed = await sessions.staffed_session(user, class_session_id, READ)
+    if staffed is None:
+        return None
+    return await learning_of(class_session_id, now)

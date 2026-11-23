@@ -36,7 +36,13 @@ from app.platform import storage
 from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker
 
-__all__ = ["completion_status", "completion_statuses", "funnel", "requirement_not_met"]
+__all__ = [
+    "completion_status",
+    "completion_statuses",
+    "funnel",
+    "requirement_not_met",
+    "write_aggregate",
+]
 
 
 @asynccontextmanager
@@ -218,3 +224,12 @@ identity.register_erasure_preparation(
 identity.register_erasure_step(
     "completion", {"completion_corrections"}, progress.delete_corrections_of
 )
+
+
+async def write_aggregate(class_session_id: uuid.UUID, *, now: datetime | None = None) -> bool:
+    """Story 14.3 (FR-65, AD-14): write the Class session's anonymised aggregate
+    (`reports.aggregates`), exposed here for Epic 15's shared deletion routine and any caller.
+    Imported at call time: `aggregates` reads the Klasserapport, which imports this module."""
+    from app.modules.reports import aggregates  # noqa: PLC0415
+
+    return await aggregates.write_aggregate(class_session_id, now=now)

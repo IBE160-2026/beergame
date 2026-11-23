@@ -46,8 +46,13 @@ export function fabrikkFirst<T extends { role: Role }>(rows: readonly T[]): T[] 
 }
 
 /** «Median 1 954. Midterste halvdel 1 500–2 600.» in whole kroner. */
-export function costSummary(spread: ReportDistribution): string {
-  return copy.summary(whole(spread.median), whole(spread.lower_quartile), whole(spread.upper_quartile));
+export function costSummary(spread: ReportDistribution, previous?: string | null): string {
+  return copy.summary(
+    whole(spread.median),
+    whole(spread.lower_quartile),
+    whole(spread.upper_quartile),
+    previous != null ? whole(previous) : null,
+  );
 }
 
 /** The highest value of several distributions: one axis for every Role (small multiples). */

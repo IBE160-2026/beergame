@@ -526,6 +526,30 @@ describe("Kostnadsfordeling (Story 7.6)", () => {
   });
 });
 
+describe("the Kostnadsfordeling's «Fjoråret» mark (Story 14.3, UX-DR51)", () => {
+  const props = {
+    width: 320,
+    fontSize: 13,
+    values: [1500, 1800, 1954, 2400, 2600],
+    median: 1954,
+    lower: 1500,
+    upper: 2600,
+    medianLabel: "Median 1 954",
+    title: "Kjedekost i hvert ferdige spill, 5 spill",
+    formatTick: (value: number) => value.toLocaleString("nb-NO"),
+  };
+
+  it("draws a dashed mark labelled inside the drawing only with a previous median", () => {
+    expect(renderToStaticMarkup(<CostDistribution {...props} />)).not.toContain('data-mark="previous"');
+    const html = renderToStaticMarkup(<CostDistribution {...props} previous={2740} previousLabel="Fjoråret 2 740" />);
+    expect(html).toContain('data-mark="previous"');
+    expect(html).toContain('stroke-dasharray="4 3"');
+    expect(html).toContain(">Fjoråret 2 740</text>");
+    const [, x] = html.match(/<text x="([\d.]+)"[^>]*data-label="previous"/) ?? [];
+    expect(Number(x) + textWidth("Fjoråret 2 740", 13)).toBeLessThanOrEqual(320.5);
+  });
+});
+
 describe("niceTicks (Story 11.14)", () => {
   it("labels steps of 1, 2 or 5 × 10ⁿ at least 1.4 lines apart", () => {
     // 0–40 on 140 px at 13 px: 10 units is 35 px (≥ 18.2 px), 5 units 17.5 px is too close.

@@ -2000,6 +2000,24 @@ async def funnel_of(session: AsyncSession, class_session_id: uuid.UUID) -> progr
     return await _funnel[0](session, class_session_id)
 
 
+PreviousCost = Callable[[AsyncSession, uuid.UUID], Awaitable[Decimal | None]]
+"""`(session, class_session_id)` → the median chain Total cost the stored aggregate of the
+previous Class session of the same Class holds, or None (Story 14.3, UX-DR51)."""
+_previous_cost: list[PreviousCost] = []
+
+
+def register_previous_cost(read: PreviousCost) -> None:
+    """`reports` registers its aggregate read at import (Story 14.3): the Oversikt's «Fjoråret»."""
+    _previous_cost[:] = [read]
+
+
+async def previous_cost_of(session: AsyncSession, class_session_id: uuid.UUID) -> Decimal | None:
+    """The «Fjoråret» mark's value (Story 14.3); None while `reports` registered no reader."""
+    if not _previous_cost:
+        return None
+    return await _previous_cost[0](session, class_session_id)
+
+
 ReportingStudents = Callable[[AsyncSession, uuid.UUID], Awaitable[list[uuid.UUID]]]
 """`(session, class_session_id)` → the Students reports count (`scope.reporting_students`)."""
 _reporting_students: list[ReportingStudents] = []
@@ -2829,6 +2847,80 @@ async def due_retention(now: datetime) -> list[uuid.UUID]:
     retention has not finished deleting, the earliest date first."""
     async with get_sessionmaker()() as s:
         return await repo.due_retention(s, now.astimezone(OSLO).date())
+
+
+async def aggregate_candidates(now: datetime) -> list[uuid.UUID]:
+    """Story 14.3 (FR-65, AD-9): the course Class sessions whose latest effective Test deadline
+    (Story 13.9's value: the Class session's, or a Student's own where later) has passed, whose
+    deletion date has not come and whose data is not deleted. `reports` narrows them further."""
+    async with get_sessionmaker()() as s:
+        return await repo.aggregate_candidates(s, now, now.astimezone(OSLO).date())
+
+
+async def previous_session_id(s: AsyncSession, class_session_id: uuid.UUID) -> uuid.UUID | None:
+    """Story 14.3: the Class session of the same Class just before this one, read in `s`."""
+    return await repo.previous_session_id(s, class_session_id)
+
+
+async def comparability_source(
+    s: AsyncSession, class_session_id: uuid.UUID
+) -> dict[str, Any] | None:
+    """Story 14.3 (FR-65): what a comparison of Class sessions must hold equal of `sessions`: the
+    Game settings without the demand seed (each Class session draws its own), the AI mode, model
+    config id, prompt versions and Effort level, from the lock's frozen snapshot (AD-4) when there
+    is one, else from the saved settings. None for no such Class session."""
+    row = await repo.comparability_row(s, class_session_id)
+    if row is None:
+        return None
+    snapshot = row["snapshot"] or {}
+    runtime = snapshot.get("session_runtime") or {}
+    settings = dict(snapshot.get("settings") or row["game_settings"] or {})
+    settings.pop("demand_seed", None)
+    if snapshot:
+        model = runtime.get("model_config_id")
+        level = runtime.get("effort_level")
+        prompts = runtime.get("prompt_versions")
+        mode = runtime.get("ai_mode") or row["ai_mode"]
+    else:
+        model = str(row["model_config_id"]) if row["model_config_id"] else None
+        level = row["effort_level"]
+        prompts = None
+        mode = row["ai_mode"]
+    return {
+        "game_settings": settings,
+        "ai_mode": mode,
+        "model_config_id": model,
+        "prompt_versions": prompts,
+        "effort_level": level,
+    }
+
+
+async def owned_report_sessions(user: authz.Principal, action: str) -> list[StaffedSession]:
+    """Story 14.3 (FR-6, AD-12, AD-13): every course Class session of every Class `user` is staff
+    of (`authz.classes_visible_to`, through `classes`) where the staff role may do the Class
+    action `action`, archived Classes included and Control test Classes never; in the order of
+    «Klassene dine» (by name), then by number."""
+    listed = await classes.list_classes(user)
+    found: list[classes.ClassOut] = []
+    for item in listed.items:
+        klass = await _class_for(user, item.id, action)
+        if klass is not None and not klass.control_test:
+            found.append(klass)
+    by_id = {klass.id: klass for klass in found}
+    async with get_sessionmaker()() as s:
+        rows = await repo.numbered_sessions_of(s, list(by_id))
+    sessions = [
+        StaffedSession(
+            id=row["id"],
+            class_id=row["class_id"],
+            class_name=by_id[row["class_id"]].name,
+            archived=by_id[row["class_id"]].archived,
+            number=row["number"],
+        )
+        for row in rows
+    ]
+    order = {klass.id: i for i, klass in enumerate(found)}
+    return sorted(sessions, key=lambda x: (order[x.class_id], x.number))
 
 
 async def retention_target(

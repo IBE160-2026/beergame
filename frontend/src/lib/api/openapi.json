@@ -1681,6 +1681,17 @@
             "title": "Median",
             "type": "string"
           },
+          "previous_median": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Median"
+          },
           "roles": {
             "items": {
               "$ref": "#/components/schemas/RoleCostOut"
@@ -2924,6 +2935,114 @@
         "title": "ColumnRowOut",
         "type": "object"
       },
+      "ComparedMeasureOut": {
+        "description": "One measure across the ready Class sessions, in their order: `key` is the stored measure\ncode the page names from `nb.ts`, `unit` how it is formatted.",
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "unit": {
+            "enum": [
+              "kroner",
+              "ratio",
+              "percent",
+              "points"
+            ],
+            "title": "Unit",
+            "type": "string"
+          },
+          "values": {
+            "items": {
+              "$ref": "#/components/schemas/ComparedValueOut"
+            },
+            "title": "Values",
+            "type": "array"
+          }
+        },
+        "required": [
+          "key",
+          "unit",
+          "values"
+        ],
+        "title": "ComparedMeasureOut",
+        "type": "object"
+      },
+      "ComparedSessionOut": {
+        "description": "A Class session the Lecturer may compare: its Class, number and whether the Class is\narchived; `written_at` is when its aggregate was written, None while it is not (not ready for\ncomparison).",
+        "properties": {
+          "archived": {
+            "title": "Archived",
+            "type": "boolean"
+          },
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "class_session_id": {
+            "format": "uuid",
+            "title": "Class Session Id",
+            "type": "string"
+          },
+          "session_number": {
+            "title": "Session Number",
+            "type": "integer"
+          },
+          "written_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Written At"
+          }
+        },
+        "required": [
+          "class_session_id",
+          "class_name",
+          "session_number",
+          "archived",
+          "written_at"
+        ],
+        "title": "ComparedSessionOut",
+        "type": "object"
+      },
+      "ComparedValueOut": {
+        "description": "One Class session's figure of a measure: `withheld` when its group held fewer than 10\nStudents (no value); neither a value nor withheld when the measure was not measured (no\nfinished game, the AI assessment off).",
+        "properties": {
+          "class_session_id": {
+            "format": "uuid",
+            "title": "Class Session Id",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "withheld": {
+            "title": "Withheld",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "class_session_id",
+          "value",
+          "withheld"
+        ],
+        "title": "ComparedValueOut",
+        "type": "object"
+      },
       "CompletionOut": {
         "description": "The Student's Completion status as `reports.service.completion_status` gives it (FR-17).\n`requirement_met` is None when the Class session is not obligatory. The shares are whole\npercents rounded down, None without a Class game snapshot; `required_share` is the one that\napplies to this Student, `adjusted` whether it is their own (Story 8.9).",
         "properties": {
@@ -3958,6 +4077,31 @@
           "total_cost"
         ],
         "title": "CostSum",
+        "type": "object"
+      },
+      "CrossClassOut": {
+        "description": "Tverrklasse-statistikk: every Class session of the Lecturer's own Classes (archived ones\nincluded, Control tests never), by Class and number, and the shown measures over those with a\nwritten aggregate. «Samme mål, samme regnestykke.»",
+        "properties": {
+          "measures": {
+            "items": {
+              "$ref": "#/components/schemas/ComparedMeasureOut"
+            },
+            "title": "Measures",
+            "type": "array"
+          },
+          "sessions": {
+            "items": {
+              "$ref": "#/components/schemas/ComparedSessionOut"
+            },
+            "title": "Sessions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "sessions",
+          "measures"
+        ],
+        "title": "CrossClassOut",
         "type": "object"
       },
       "DailySpendOut": {
@@ -12812,6 +12956,17 @@
           "holding_cost": {
             "title": "Holding Cost",
             "type": "string"
+          },
+          "previous_median": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Median"
           },
           "roles": {
             "items": {
@@ -26984,6 +27139,48 @@
         "summary": "Fill Waited For Seats",
         "tags": [
           "sessions"
+        ]
+      }
+    },
+    "/api/class-statistics": {
+      "get": {
+        "description": "Tverrklasse-statistikk (Story 14.3, FR-65): every Class session of the Classes the caller\nowns (archived included, Control tests never), and the Class report measures of those with a\nwritten aggregate side by side, read from the aggregates only (AD-14). Anyone without the\nLecturer role answers 403 `forbidden`.",
+        "operationId": "getClassStatistics",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CrossClassOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "summary": "Get Class Statistics",
+        "tags": [
+          "reports"
         ]
       }
     },

@@ -22,6 +22,7 @@ A fixed number of queries whatever the number of games (NFR-3), and no write.
 
 import uuid
 from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -53,7 +54,16 @@ from app.modules.sessions.service import FunnelStageOut
 from app.platform import authz
 from app.platform.db import get_sessionmaker
 
-__all__ = ["READ", "class_report", "distribution", "percent", "rating_median", "report_games"]
+__all__ = [
+    "READ",
+    "ReportParts",
+    "class_report",
+    "distribution",
+    "percent",
+    "rating_median",
+    "report_games",
+    "report_parts",
+]
 
 READ = "class_report.read"
 """The Klasserapport's policy (FR-64, FR-5): the Lecturers who own the Class, never an Assistant
@@ -283,12 +293,28 @@ async def _pattern_names() -> dict[str, str]:
     return {pattern.id: pattern.name for pattern in defined.patterns}
 
 
-async def class_report(user: authz.Principal, class_session_id: uuid.UUID) -> ClassReportOut | None:
-    """The Klasserapport, or None when the User may not read it or the Class session does not
-    exist: one answer for both (FR-5, NFR-7)."""
-    staffed = await sessions.staffed_session(user, class_session_id, READ)
-    if staffed is None:
-        return None
+@dataclass(frozen=True)
+class ReportParts:
+    """The Klasserapport's figures of a Class session, without who reads it (Story 14.3 stores
+    them as an aggregate): `games` counts its Class games, `finished` those finished and
+    `facts_games` those of them with every facts set; `game_ids` the finished ones, for the
+    aggregate's group size only (never stored)."""
+
+    games: int
+    finished: int
+    facts_games: int
+    funnel: list[FunnelStageOut]
+    cost: ReportCostOut | None
+    amplification: list[RoleAmplificationOut]
+    patterns: list[PatternOut]
+    ai: ReportAiOut
+    ratings: list[RatingModeOut]
+    game_ids: tuple[uuid.UUID, ...]
+
+
+async def report_parts(class_session_id: uuid.UUID) -> ReportParts:
+    """Every figure of the Klasserapport of the Class session (the module doc); the caller has
+    judged access."""
     async with get_sessionmaker()() as s:
         reporting = await scope.is_reporting_session(s, class_session_id)
         class_games = await report_games(s, class_session_id)
@@ -308,11 +334,7 @@ async def class_report(user: authz.Principal, class_session_id: uuid.UUID) -> Cl
         and facts.seats.get(game.game_id, 0) >= seat_counts[game.game_id]
     ]
     names = await _pattern_names() if covered else {}
-    return ClassReportOut(
-        class_session_id=class_session_id,
-        class_id=staffed.class_id,
-        class_name=staffed.class_name,
-        session_number=staffed.number,
+    return ReportParts(
         games=len(class_games),
         finished=len(finished),
         facts_games=len(covered),
@@ -323,4 +345,35 @@ async def class_report(user: authz.Principal, class_session_id: uuid.UUID) -> Cl
         patterns=_patterns_out(covered, facts, names),
         ai=_ai_out(finished, seat_figures, occupancy, seat_counts),
         ratings=_ratings_out(ratings),
+        game_ids=tuple(ids),
+    )
+
+
+async def class_report(user: authz.Principal, class_session_id: uuid.UUID) -> ClassReportOut | None:
+    """The Klasserapport, or None when the User may not read it or the Class session does not
+    exist: one answer for both (FR-5, NFR-7). Story 14.3: the Kostnadsfordeling carries the
+    previous Class session's stored median («Fjoråret»)."""
+    staffed = await sessions.staffed_session(user, class_session_id, READ)
+    if staffed is None:
+        return None
+    found = await report_parts(class_session_id)
+    cost = found.cost
+    if cost is not None:
+        async with get_sessionmaker()() as s:
+            previous = await sessions.previous_cost_of(s, class_session_id)
+        cost = cost.model_copy(update={"previous_median": previous})
+    return ClassReportOut(
+        class_session_id=class_session_id,
+        class_id=staffed.class_id,
+        class_name=staffed.class_name,
+        session_number=staffed.number,
+        games=found.games,
+        finished=found.finished,
+        facts_games=found.facts_games,
+        funnel=found.funnel,
+        cost=cost,
+        amplification=found.amplification,
+        patterns=found.patterns,
+        ai=found.ai,
+        ratings=found.ratings,
     )

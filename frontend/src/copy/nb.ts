@@ -4377,8 +4377,12 @@ export const nb = {
         none: "Ingen spill er ferdige ennå.",
         median: (value: string) => `Median ${value}`,
         axis: "Kroner. Boksen er midterste halvdel.",
-        /** «Median 1 954. Midterste halvdel 1 500–2 600.» (EXPERIENCE.md → Charts). */
-        summary: (median: string, low: string, high: string) => `Median ${median}. Midterste halvdel ${low}–${high}.`,
+        /** «Median 1 954. Midterste halvdel 1 500–2 600. Fjoråret 2 740.» (EXPERIENCE.md → Charts);
+         * «Fjoråret» only with the previous Class session's stored aggregate (Story 14.3). */
+        summary: (median: string, low: string, high: string, previous?: string | null) =>
+          `Median ${median}. Midterste halvdel ${low}–${high}.${previous ? ` Fjoråret ${previous}.` : ""}`,
+        /** [ASSUMPTION] Story 14.3 (UX-DR51): the dashed mark's label. */
+        previous: (value: string) => `Fjoråret ${value}`,
         /** [ASSUMPTION] the SVG title. */
         chartTitle: (games: number) => `Kjedekost i hvert ferdige spill, ${games} spill`,
         showTable: "Vis som tabell",
@@ -5479,7 +5483,13 @@ export const nb = {
     middleColumn: "Midterste halvdel",
     median: (value: string) => `Median ${value}`,
     middle: (low: string, high: string) => `${low}–${high}`,
-    summary: (median: string, low: string, high: string) => `Median ${median}. Midterste halvdel ${low}–${high}.`,
+    /** «Fjoråret 2 740.» only with the previous Class session's stored aggregate (Story 14.3). */
+    summary: (median: string, low: string, high: string, previous?: string | null) =>
+      `Median ${median}. Midterste halvdel ${low}–${high}.${previous ? ` Fjoråret ${previous}.` : ""}`,
+    /** Story 14.3 (UX-DR51): the dashed mark's label. */
+    previous: (value: string) => `Fjoråret ${value}`,
+    /** Story 14.3: the Lenke to Tverrklasse-statistikk under the report's heading. */
+    crossClassLink: "Sammenlign med tidligere Klasseøkter",
     funnel: {
       title: "Trakt",
       stageColumn: "Steg",
@@ -5645,6 +5655,51 @@ export const nb = {
     },
   },
 
+  /** Tverrklasse-statistikk (Story 14.3, FR-65, UX-DR55): the Lecturer's Class sessions compared on
+   * the stored aggregates. [ASSUMPTION] Story 14.3: every string but the title, «Samme mål, samme
+   * regnestykke.» and the empty line (EXPERIENCE.md). */
+  crossClass: {
+    title: "Tverrklasse-statistikk",
+    crumb: "Tverrklasse-statistikk",
+    intro: "Samme mål, samme regnestykke.",
+    empty: "Du har ingen tidligere Klasseøkter å sammenligne med.",
+    /** How a Class session is named in a chart and its table: «class-of-1994, Klasseøkt 2». */
+    session: (className: string, number: number) => `${className}, Klasseøkt ${number}`,
+    archived: "arkivert",
+    notReadyTitle: "Ikke klar for sammenligning ennå",
+    notReady:
+      "Tallene lagres når Testfristen er passert og ingen test er åpen. Til da er Klasseøkta ikke med.",
+    noneReady: "Færre enn to Klasseøkter er klare for sammenligning ennå.",
+    about:
+      "Tallene er lagret per Klasseøkt uten navn. Et mål over færre enn 10 studenter vises ikke.",
+    withheld: "For få studenter (under 10).",
+    notMeasured: "Ikke målt.",
+    showTable: "Vis som tabell",
+    showChart: "Vis som graf",
+    sessionColumn: "Klasseøkt",
+    valueColumn: "Verdi",
+    /** The SVG-free bars are read as «class-of-1994, Klasseøkt 2: 1 954 kr». */
+    reads: (session: string, value: string) => `${session}: ${value}`,
+    tableCaption: (measure: string) => `${measure}, per Klasseøkt`,
+    measures: {
+      "chain.median": "Median kjedekost, kr",
+      "cost.factory.median": "Median kostnad, Fabrikk, kr",
+      "cost.distributor.median": "Median kostnad, Distributør, kr",
+      "cost.wholesaler.median": "Median kostnad, Grossist, kr",
+      "cost.retailer.median": "Median kostnad, Detaljist, kr",
+      "amplification.factory.median": "Median Forsterkning, Fabrikk",
+      "amplification.distributor.median": "Median Forsterkning, Distributør",
+      "amplification.wholesaler.median": "Median Forsterkning, Grossist",
+      "amplification.retailer.median": "Median Forsterkning, Detaljist",
+      "ai.seats_percent": "Seter spilt av KI-spillere, prosent",
+      "learning.submitted_percent": "Leverte Individuell test, prosent",
+      "core.median": "Median kjerneskår, KI-generert, poeng av 100",
+    } as Record<string, string>,
+    kroner: (value: string) => `${value} kr`,
+    ratio: (value: string) => `${value}×`,
+    percent: (value: string) => `${value} %`,
+    points: (value: string) => value,
+  },
   /** «Alle spill side om side» (Story 14.5, FR-86, UX-DR64, `09-alle-sider.png`): every Class
    * game's Orders per Role beside the Student's own, after their Debrief and the Play deadline.
    * The title and the locked line are the spine's; the rest is drafted [ASSUMPTION]. */

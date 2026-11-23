@@ -1245,6 +1245,10 @@ class ClassCostOut(BaseModel):
     holding_cost: Decimal
     backorder_cost: Decimal
     roles: list[RoleCostOut]
+    previous_median: Decimal | None = None
+    """Story 14.3 (UX-DR51): «Fjoråret», the median chain Total cost stored in the aggregate of
+    the previous Class session of the same Class; None without one or when its group held fewer
+    than 10 Students."""
 
 
 FunnelStage = Literal[

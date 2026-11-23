@@ -32,9 +32,11 @@ from app.modules.games.class_figures import (
     game_data_rows,
     occupancy_figures,
     rating_counts,
+    rating_students,
     report_class_games,
     seat_counts,
     seat_figures,
+    student_count,
 )
 from app.modules.games.insight import (
     GameInsight,
@@ -253,6 +255,9 @@ __all__ = [
     "rating_counts",
     "seat_counts",
     "seat_figures",
+    # Story 14.3: the game measures' group size.
+    "student_count",
+    "rating_students",
     "FallbackCount",
     "SessionAiFigures",
     "class_session_of",

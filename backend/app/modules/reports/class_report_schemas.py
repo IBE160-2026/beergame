@@ -68,6 +68,10 @@ class ReportCostOut(BaseModel):
     backorder_cost: Decimal
     roles: list[RoleCostDistributionOut]
     games: list[GameCostOut]
+    previous_median: Decimal | None = None
+    """Story 14.3 (UX-DR51): «Fjoråret», the median chain Total cost stored in the aggregate of
+    the previous Class session of the same Class; None without one or when its group held fewer
+    than 10 Students."""
 
 
 class RoleAmplificationOut(BaseModel):

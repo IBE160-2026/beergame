@@ -13,7 +13,7 @@ import { nb } from "@/copy/nb";
 import { useAction } from "@/lib/api/mutation";
 import { formatTime } from "@/modules/admin/audit";
 import { LINK_BUTTON } from "@/modules/classes/roster-entry-forms";
-import { classReportPath, classSessionPath } from "@/modules/identity/homes";
+import { classReportPath, classSessionPath, crossClassPath } from "@/modules/identity/homes";
 
 import {
   classSessionKey,
@@ -104,6 +104,13 @@ export function ClassSessions({
             </li>
           ))}
         </ul>
+      ) : null}
+      {canReport && items && items.length > 0 ? (
+        <p className="mt-2">
+          <Link href={crossClassPath} standalone data-cross-class-link="">
+            {nb.crossClass.title}
+          </Link>
+        </p>
       ) : null}
       {canCreate ? (
         <div className="mt-4 flex flex-col items-start gap-2">

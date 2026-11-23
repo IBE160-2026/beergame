@@ -199,6 +199,18 @@ _HANDLED: dict[str, Entry] = {
         "no text. At an erasure the stored ZIPs of the Student's Class sessions are deleted and "
         "their paths cleared.",
     ),
+    # reports (Story 14.3): Cross-class statistics, kept when retention runs.
+    "class_aggregates": _e(
+        "none",
+        "A Class session's anonymised aggregate header: when it was written, group sizes and the "
+        "comparability keys (settings and ids); no User, Seat, Game, name or text. Kept at "
+        "retention, which writes it first.",
+    ),
+    "class_aggregate_measures": _e(
+        "none",
+        "Scalar figures per measure code over groups of 10 or more Students (smaller groups "
+        "withheld, no value); no User, Seat, Game, name or text. Kept at retention.",
+    ),
     # replay
     "replays": _e("keep", "The Student's Replay Game by User id."),
     "replay_another_round": _e("keep", "A yes or no by User id."),

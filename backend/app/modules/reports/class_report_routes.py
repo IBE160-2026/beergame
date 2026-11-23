@@ -10,7 +10,10 @@ Story 14.5: `GET /api/me/class-sessions/{id}/all-games`, «Alle spill side om si
 of the Class session (`class_report_all_games`).
 
 Story 14.6: `GET /api/class-sessions/{id}/plenary`, «Alle spill i plenum» for the readers of the
-Oversikt (`class_report_plenary`)."""
+Oversikt (`class_report_plenary`).
+
+Story 14.3: `GET /api/class-statistics`, Tverrklasse-statistikk over the caller's own Class
+sessions (`cross_class`), from the stored aggregates only."""
 
 import uuid
 from typing import Annotated
@@ -23,11 +26,13 @@ from app.modules.reports import (
     class_report_all_games,
     class_report_learning,
     class_report_plenary,
+    cross_class,
 )
 from app.modules.reports.class_report_all_games_schemas import ClassGamesOut
 from app.modules.reports.class_report_learning_schemas import ClassLearningOut
 from app.modules.reports.class_report_plenary_schemas import PlenaryOut
 from app.modules.reports.class_report_schemas import ClassReportOut
+from app.modules.reports.cross_class_schemas import CrossClassOut
 from app.platform import auth, authz
 from app.platform.errors import documented, error_response
 
@@ -140,3 +145,21 @@ async def get_class_plenary(
         raise authz.Forbidden
     response.headers["Cache-Control"] = "no-store"
     return found
+
+
+@router.get(
+    "/class-statistics",
+    response_model=CrossClassOut,
+    responses=documented(401, 403),
+    operation_id="getClassStatistics",
+)
+async def get_class_statistics(
+    response: Response,
+    user: Annotated[authz.Principal, Depends(authz.require(class_report.READ))],
+) -> CrossClassOut:
+    """Tverrklasse-statistikk (Story 14.3, FR-65): every Class session of the Classes the caller
+    owns (archived included, Control tests never), and the Class report measures of those with a
+    written aggregate side by side, read from the aggregates only (AD-14). Anyone without the
+    Lecturer role answers 403 `forbidden`."""
+    response.headers["Cache-Control"] = "no-store"
+    return await cross_class.class_statistics(user)

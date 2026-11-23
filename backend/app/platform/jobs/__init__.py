@@ -80,6 +80,7 @@ TASK_MODULES = (
     "app.modules.reports.bundle",  # the ZIP of all Student reports (Story 13.13)
     "app.modules.assessment.jobs",
     "app.modules.reports.class_report_jobs",  # the Klasserapport's facts sets (Story 14.1)
+    "app.modules.reports.aggregates",  # the stored aggregates of Story 14.3
 )
 """The modules that register tasks on `app`; a worker imports them before it runs."""
 

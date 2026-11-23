@@ -114,6 +114,10 @@ describe("the Klasserapport's text (Story 14.1)", () => {
 
   it("formats the api's numbers and computes none of its own (AD-10)", () => {
     expect(costSummary(report.cost!.chain)).toBe(`Median 1${GROUP}954. Midterste halvdel 1${GROUP}500–2${GROUP}600.`);
+    // Story 14.3: with the previous Class session's stored median.
+    expect(costSummary(report.cost!.chain, "2740.00")).toBe(
+      `Median 1${GROUP}954. Midterste halvdel 1${GROUP}500–2${GROUP}600. Fjoråret 2${GROUP}740.`,
+    );
     expect(sharedHighest(report.cost!.roles.map((r) => r.distribution))).toBe(520);
     expect(aiSeatsLine(report.ai)).toBe("KI-spillere spilte 14 av 240 seter (5,8 %): 9 hele spillet, 5 en del av det.");
     expect(guardLine(report.ai)).toBe("Spillvakten byttet 2 av 30 seter med LLM-spiller (6,7 %).");

@@ -2297,6 +2297,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/class-statistics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Class Statistics
+         * @description Tverrklasse-statistikk (Story 14.3, FR-65): every Class session of the Classes the caller
+         *     owns (archived included, Control tests never), and the Class report measures of those with a
+         *     written aggregate side by side, read from the aggregates only (AD-14). Anyone without the
+         *     Lecturer role answers 403 `forbidden`.
+         */
+        get: operations["getClassStatistics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/classes": {
         parameters: {
             query?: never;
@@ -5162,6 +5185,8 @@ export interface components {
             lower_quartile: string;
             /** Median */
             median: string;
+            /** Previous Median */
+            previous_median?: string | null;
             /** Roles */
             roles: components["schemas"]["RoleCostOut"][];
             /** Upper Quartile */
@@ -5613,6 +5638,60 @@ export interface components {
             value: number;
         };
         /**
+         * ComparedMeasureOut
+         * @description One measure across the ready Class sessions, in their order: `key` is the stored measure
+         *     code the page names from `nb.ts`, `unit` how it is formatted.
+         */
+        ComparedMeasureOut: {
+            /** Key */
+            key: string;
+            /**
+             * Unit
+             * @enum {string}
+             */
+            unit: "kroner" | "ratio" | "percent" | "points";
+            /** Values */
+            values: components["schemas"]["ComparedValueOut"][];
+        };
+        /**
+         * ComparedSessionOut
+         * @description A Class session the Lecturer may compare: its Class, number and whether the Class is
+         *     archived; `written_at` is when its aggregate was written, None while it is not (not ready for
+         *     comparison).
+         */
+        ComparedSessionOut: {
+            /** Archived */
+            archived: boolean;
+            /** Class Name */
+            class_name: string;
+            /**
+             * Class Session Id
+             * Format: uuid
+             */
+            class_session_id: string;
+            /** Session Number */
+            session_number: number;
+            /** Written At */
+            written_at: string | null;
+        };
+        /**
+         * ComparedValueOut
+         * @description One Class session's figure of a measure: `withheld` when its group held fewer than 10
+         *     Students (no value); neither a value nor withheld when the measure was not measured (no
+         *     finished game, the AI assessment off).
+         */
+        ComparedValueOut: {
+            /**
+             * Class Session Id
+             * Format: uuid
+             */
+            class_session_id: string;
+            /** Value */
+            value: string | null;
+            /** Withheld */
+            withheld: boolean;
+        };
+        /**
          * CompletionOut
          * @description The Student's Completion status as `reports.service.completion_status` gives it (FR-17).
          *     `requirement_met` is None when the Class session is not obligatory. The shares are whole
@@ -6061,6 +6140,18 @@ export interface components {
             holding_cost: string;
             /** Total Cost */
             total_cost: string;
+        };
+        /**
+         * CrossClassOut
+         * @description Tverrklasse-statistikk: every Class session of the Lecturer's own Classes (archived ones
+         *     included, Control tests never), by Class and number, and the shown measures over those with a
+         *     written aggregate. «Samme mål, samme regnestykke.»
+         */
+        CrossClassOut: {
+            /** Measures */
+            measures: components["schemas"]["ComparedMeasureOut"][];
+            /** Sessions */
+            sessions: components["schemas"]["ComparedSessionOut"][];
         };
         /**
          * DailySpendOut
@@ -9781,6 +9872,8 @@ export interface components {
             games: components["schemas"]["app__modules__reports__class_report_schemas__GameCostOut"][];
             /** Holding Cost */
             holding_cost: string;
+            /** Previous Median */
+            previous_median?: string | null;
             /** Roles */
             roles: components["schemas"]["RoleCostDistributionOut"][];
         };
@@ -18437,6 +18530,44 @@ export interface operations {
             };
             /** @description Unprocessable Content */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getClassStatistics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CrossClassOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

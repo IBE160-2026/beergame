@@ -8,7 +8,8 @@ import { usePageState } from "@/lib/page-state";
 import { funnelRows } from "@/modules/games/overview";
 import type { SessionUser } from "@/modules/identity/api";
 import { AccessDenied, GuardedPage } from "@/modules/identity/home-page";
-import { classOverviewPath, classPath, classReportPath, classSessionPath, HOME_PATH } from "@/modules/identity/homes";
+import { Link } from "@/components/link";
+import { classOverviewPath, classPath, classReportPath, classSessionPath, crossClassPath, HOME_PATH } from "@/modules/identity/homes";
 import { PageShell } from "@/modules/identity/page-shell";
 import { roleName } from "@/modules/sessions/sessions";
 
@@ -100,6 +101,11 @@ function Report({ data, sessionId }: { data: ClassReport; sessionId: string }) {
       <p className={`mt-2 ${TEXT} font-semibold`} data-report-status="">
         {statusLine(data)}
       </p>
+      <p className="mt-2">
+        <Link href={crossClassPath} standalone data-cross-class-link="">
+          {copy.crossClassLink}
+        </Link>
+      </p>
       <div className="mt-8 grid grid-cols-1 gap-x-16 gap-y-10 lg:grid-cols-2">
         <Funnel data={data} />
         {data.cost ? <ChainCost cost={data.cost} /> : null}
@@ -160,6 +166,8 @@ function ChainCost({ cost }: { cost: NonNullable<ClassReport["cost"]> }) {
               title={copy.chain.chartTitle(games)}
               medianLabel={copy.median(whole(cost.chain.median))}
               formatTick={(value) => whole(value)}
+              previous={cost.previous_median != null ? Number(cost.previous_median) : null}
+              previousLabel={cost.previous_median != null ? copy.previous(whole(cost.previous_median)) : ""}
             />
             <p className="mt-1 text-caption text-ink-secondary">{copy.chain.axis}</p>
           </>
@@ -178,7 +186,7 @@ function ChainCost({ cost }: { cost: NonNullable<ClassReport["cost"]> }) {
         }
       />
       <p className={`mt-2 ${TEXT} tabular-nums lining-nums`} data-chain-summary="">
-        {costSummary(cost.chain)}
+        {costSummary(cost.chain, cost.previous_median)}
       </p>
       <p className={`mt-1 ${TEXT} tabular-nums lining-nums`} data-chain-split="">
         {copy.chain.split(whole(cost.holding_cost), whole(cost.backorder_cost))}

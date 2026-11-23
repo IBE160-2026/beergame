@@ -111,7 +111,7 @@ async def test_a_restored_copy_verifies_its_finished_games_changes_nothing_and_f
     before = _checksum(url)
     status, lines = await _main(url)
     assert status == PASS
-    assert lines[0].startswith("database revision: 00")
+    assert lines[0].startswith("database revision: 0")
     assert lines[1:] == [
         f"game {older} rules_version 1: verified",
         f"game {newer} rules_version 1: verified",
