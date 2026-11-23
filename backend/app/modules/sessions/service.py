@@ -2862,6 +2862,32 @@ async def previous_session_id(s: AsyncSession, class_session_id: uuid.UUID) -> u
     return await repo.previous_session_id(s, class_session_id)
 
 
+@dataclass(frozen=True)
+class ModelName:
+    """Story 14.4: how a model config stored in a comparability key is named: its name and the
+    label (or name) of each Effort level it offers."""
+
+    name: str
+    levels: dict[str, str]
+
+
+async def model_names(ids: Collection[str]) -> dict[str, ModelName]:
+    """Story 14.4 (FR-65): the model configs behind these stored ids, by id; an id whose config is
+    gone (or is no id) is left out."""
+    found: dict[str, ModelName] = {}
+    if not ids:
+        return found
+    async with get_sessionmaker()() as s:
+        for key in sorted(set(ids)):
+            row = await config.get(key, session=s)
+            if row is not None:
+                found[key] = ModelName(
+                    row.spec.name,
+                    {level.name: level.label or level.name for level in row.spec.effort_levels},
+                )
+    return found
+
+
 async def comparability_source(
     s: AsyncSession, class_session_id: uuid.UUID
 ) -> dict[str, Any] | None:

@@ -18,7 +18,7 @@ sessions (`cross_class`), from the stored aggregates only."""
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Query, Response
 from fastapi.responses import JSONResponse
 
 from app.modules.reports import (
@@ -32,7 +32,7 @@ from app.modules.reports.class_report_all_games_schemas import ClassGamesOut
 from app.modules.reports.class_report_learning_schemas import ClassLearningOut
 from app.modules.reports.class_report_plenary_schemas import PlenaryOut
 from app.modules.reports.class_report_schemas import ClassReportOut
-from app.modules.reports.cross_class_schemas import CrossClassOut
+from app.modules.reports.cross_class_schemas import CrossClassOut, FilterDimension
 from app.platform import auth, authz
 from app.platform.errors import documented, error_response
 
@@ -150,16 +150,30 @@ async def get_class_plenary(
 @router.get(
     "/class-statistics",
     response_model=CrossClassOut,
-    responses=documented(401, 403),
+    responses=documented(401, 403, 422),
     operation_id="getClassStatistics",
 )
 async def get_class_statistics(
     response: Response,
     user: Annotated[authz.Principal, Depends(authz.require(class_report.READ))],
+    game_settings: Annotated[str | None, Query(max_length=64)] = None,
+    ai_mode: Annotated[str | None, Query(max_length=64)] = None,
+    model: Annotated[str | None, Query(max_length=64)] = None,
+    prompt_versions: Annotated[str | None, Query(max_length=64)] = None,
+    effort_level: Annotated[str | None, Query(max_length=64)] = None,
 ) -> CrossClassOut:
     """Tverrklasse-statistikk (Story 14.3, FR-65): every Class session of the Classes the caller
     owns (archived included, Control tests never), and the Class report measures of those with a
     written aggregate side by side, read from the aggregates only (AD-14). Anyone without the
-    Lecturer role answers 403 `forbidden`."""
+    Lecturer role answers 403 `forbidden`. Story 14.4: each optional parameter is a filter
+    option's `value`; only the Class sessions holding every given one are compared (a value no
+    Class session holds is ignored)."""
     response.headers["Cache-Control"] = "no-store"
-    return await cross_class.class_statistics(user)
+    chosen: dict[FilterDimension, str | None] = {
+        "game_settings": game_settings,
+        "ai_mode": ai_mode,
+        "model": model,
+        "prompt_versions": prompt_versions,
+        "effort_level": effort_level,
+    }
+    return await cross_class.class_statistics(user, chosen)

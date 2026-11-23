@@ -2309,7 +2309,9 @@ export interface paths {
          * @description Tverrklasse-statistikk (Story 14.3, FR-65): every Class session of the Classes the caller
          *     owns (archived included, Control tests never), and the Class report measures of those with a
          *     written aggregate side by side, read from the aggregates only (AD-14). Anyone without the
-         *     Lecturer role answers 403 `forbidden`.
+         *     Lecturer role answers 403 `forbidden`. Story 14.4: each optional parameter is a filter
+         *     option's `value`; only the Class sessions holding every given one are compared (a value no
+         *     Class session holds is ignored).
          */
         get: operations["getClassStatistics"];
         put?: never;
@@ -5643,6 +5645,8 @@ export interface components {
          *     code the page names from `nb.ts`, `unit` how it is formatted.
          */
         ComparedMeasureOut: {
+            /** Comparable */
+            comparable?: boolean | null;
             /** Key */
             key: string;
             /**
@@ -5669,6 +5673,16 @@ export interface components {
              * Format: uuid
              */
             class_session_id: string;
+            /**
+             * Compared
+             * @default false
+             */
+            compared: boolean;
+            /**
+             * Differs
+             * @default []
+             */
+            differs: ("game_settings" | "ai_mode" | "model" | "prompt_versions" | "effort_level" | "question_set" | "item_weights" | "scoring_guide")[];
             /** Session Number */
             session_number: number;
             /** Written At */
@@ -6148,6 +6162,11 @@ export interface components {
          *     written aggregate. «Samme mål, samme regnestykke.»
          */
         CrossClassOut: {
+            /**
+             * Filters
+             * @default []
+             */
+            filters: components["schemas"]["FilterOut"][];
             /** Measures */
             measures: components["schemas"]["ComparedMeasureOut"][];
             /** Sessions */
@@ -6800,6 +6819,43 @@ export interface components {
             inserted: number;
             /** Skipped */
             skipped: components["schemas"]["SkippedSeatOut"][];
+        };
+        /**
+         * FilterOptionOut
+         * @description One value of a filter dimension among the Class sessions with an aggregate. `value` is the
+         *     token the query sends back (a hash of the stored key). `label` is data, never copy: for Game
+         *     settings `classic` or None (then named by `ordinal`), the AI mode's code, the model config's
+         *     name, the prompt versions as «purpose version» pairs, the Effort level's label; None when the
+         *     Class session had none (no model for rule-based players). `count` is the Class sessions
+         *     holding it that match the other dimensions' filters.
+         */
+        FilterOptionOut: {
+            /** Count */
+            count: number;
+            /** Label */
+            label: string | null;
+            /** Ordinal */
+            ordinal: number;
+            /** Selected */
+            selected: boolean;
+            /** Value */
+            value: string;
+        };
+        /**
+         * FilterOut
+         * @description A filter dimension: its options, and `all_count`, the Class sessions «Alle» would compare
+         *     (those matching the other dimensions' filters).
+         */
+        FilterOut: {
+            /** All Count */
+            all_count: number;
+            /**
+             * Dimension
+             * @enum {string}
+             */
+            dimension: "game_settings" | "ai_mode" | "model" | "prompt_versions" | "effort_level";
+            /** Options */
+            options: components["schemas"]["FilterOptionOut"][];
         };
         /** FinalIn */
         FinalIn: {
@@ -18541,7 +18597,13 @@ export interface operations {
     };
     getClassStatistics: {
         parameters: {
-            query?: never;
+            query?: {
+                game_settings?: string | null;
+                ai_mode?: string | null;
+                model?: string | null;
+                prompt_versions?: string | null;
+                effort_level?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -18568,6 +18630,15 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

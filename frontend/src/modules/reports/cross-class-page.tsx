@@ -1,15 +1,35 @@
 "use client";
 
+import { useId, useState } from "react";
+
 import { nb } from "@/copy/nb";
 import { ApiRequestError } from "@/lib/api/client";
 import { usePageState } from "@/lib/page-state";
+import { cn } from "@/lib/utils";
 import type { SessionUser } from "@/modules/identity/api";
 import { AccessDenied, GuardedPage } from "@/modules/identity/home-page";
 import { crossClassPath, HOME_PATH } from "@/modules/identity/homes";
 import { PageShell } from "@/modules/identity/page-shell";
 
-import { type CompareRow, compareRows, measureName, nothingToCompare, sessionName, splitSessions } from "./cross-class";
-import { type ComparedMeasure, type ComparedSession, type CrossClass, crossClassKey, useClassStatistics } from "./cross-class-api";
+import {
+  comparableText,
+  type CompareRow,
+  compareRows,
+  measureName,
+  nothingToCompare,
+  optionName,
+  sessionName,
+  splitSessions,
+} from "./cross-class";
+import {
+  type ChosenFilters,
+  type CompareFilter,
+  type ComparedMeasure,
+  type ComparedSession,
+  type CrossClass,
+  crossClassKey,
+  useClassStatistics,
+} from "./cross-class-api";
 import { SECONDARY, Section, Table, TEXT, Toggled } from "./class-report-parts";
 
 const copy = nb.crossClass;
@@ -21,13 +41,21 @@ const copy = nb.crossClass;
  * read beside it, with «Vis som tabell» under it. A figure withheld because its group held fewer
  * than 10 Students, or not measured, is said in words and has no bar. Every number is the api's
  * (AD-10); anyone without the Lecturer role sees the permission-denied page.
+ *
+ * Story 14.4 (FR-65, NFR-6): the filters above the charts, one group per dimension of text
+ * buttons with `aria-pressed` and counts, refetch the comparison and say politely how many Class
+ * sessions it now compares. A compared Class session that differs from the others is labelled in
+ * words in its bar row, the bar's SVG `<title>` and the table; a score measure says whether the
+ * scores can be compared.
  */
 export function CrossClassPage() {
   return <GuardedPage page="lecturerHome">{(user, updatedAt) => <View user={user} updatedAt={updatedAt} />}</GuardedPage>;
 }
 
 function View({ user, updatedAt }: { user: SessionUser; updatedAt: number }) {
-  const found = useClassStatistics();
+  const [chosen, setChosen] = useState<ChosenFilters>({});
+  const [changed, setChanged] = useState(false);
+  const found = useClassStatistics(chosen);
   const { phase, retry } = usePageState(found, crossClassKey);
   if (found.error instanceof ApiRequestError && found.error.code === "forbidden") {
     return <AccessDenied user={user} updatedAt={updatedAt} />;
@@ -47,12 +75,32 @@ function View({ user, updatedAt }: { user: SessionUser; updatedAt: number }) {
       onRetry={retry}
       skeleton={{ rows: 6, columns: 2 }}
     >
-      {data ? <Comparison data={data} /> : null}
+      {data ? (
+        <Comparison
+          data={data}
+          chosen={chosen}
+          announce={changed && !found.isPlaceholderData}
+          onChoose={(next) => {
+            setChosen(next);
+            setChanged(true);
+          }}
+        />
+      ) : null}
     </PageShell>
   );
 }
 
-function Comparison({ data }: { data: CrossClass }) {
+function Comparison({
+  data,
+  chosen,
+  announce,
+  onChoose,
+}: {
+  data: CrossClass;
+  chosen: ChosenFilters;
+  announce: boolean;
+  onChoose: (chosen: ChosenFilters) => void;
+}) {
   if (nothingToCompare(data)) {
     return (
       <p className={`mt-2 ${TEXT}`} data-cross-class-empty="">
@@ -60,7 +108,7 @@ function Comparison({ data }: { data: CrossClass }) {
       </p>
     );
   }
-  const { ready, waiting } = splitSessions(data);
+  const { ready, compared, waiting } = splitSessions(data);
   return (
     <div className="mt-2 flex min-w-0 flex-col" data-cross-class="">
       <p className={`${TEXT} font-semibold`}>{copy.intro}</p>
@@ -70,11 +118,23 @@ function Comparison({ data }: { data: CrossClass }) {
           {copy.noneReady}
         </p>
       ) : (
-        <div className="mt-8 grid grid-cols-1 gap-x-16 gap-y-10 lg:grid-cols-2">
-          {data.measures.map((measure) => (
-            <Measure key={measure.key} measure={measure} sessions={ready} />
-          ))}
-        </div>
+        <>
+          <Filters filters={data.filters} chosen={chosen} onChoose={onChoose} />
+          <p aria-live="polite" className="sr-only" data-cross-class-announce="">
+            {announce ? copy.comparing(compared.length, ready.length) : ""}
+          </p>
+          {compared.length < 2 ? (
+            <p className={`mt-6 ${TEXT}`} data-cross-class-too-few="">
+              {copy.tooFewMatch}
+            </p>
+          ) : (
+            <div className="mt-8 grid grid-cols-1 gap-x-16 gap-y-10 lg:grid-cols-2">
+              {data.measures.map((measure) => (
+                <Measure key={measure.key} measure={measure} sessions={compared} />
+              ))}
+            </div>
+          )}
+        </>
       )}
       {waiting.length > 0 ? <Waiting sessions={waiting} /> : null}
     </div>
@@ -85,17 +145,22 @@ function Measure({ measure, sessions }: { measure: ComparedMeasure; sessions: re
   const name = measureName(measure.key);
   const rows = compareRows(measure, sessions);
   const slug = measure.key.replaceAll(".", "-");
+  const comparable = comparableText(measure);
   return (
-    <Section title={name} name={slug}>
+    <Section title={name} name={slug} intro={comparable ?? undefined}>
       <Toggled
         name={slug}
         chart={<CompareBars rows={rows} name={slug} />}
         table={
           <Table
             name={slug}
-            caption={copy.tableCaption(name)}
-            columns={[copy.sessionColumn, copy.valueColumn]}
-            rows={rows.map((row) => ({ key: row.key, head: row.session, cells: [row.text] }))}
+            caption={comparable ? `${copy.tableCaption(name)}. ${comparable}` : copy.tableCaption(name)}
+            columns={[copy.sessionColumn, copy.valueColumn, copy.differsColumn]}
+            rows={rows.map((row) => ({
+              key: row.key,
+              head: row.session,
+              cells: [row.text, row.differs ?? copy.sameSetup],
+            }))}
           />
         }
       />
@@ -116,12 +181,20 @@ function CompareBars({ rows, name }: { rows: readonly CompareRow[]; name: string
           <span className="sr-only">{row.reads}</span>
           <span aria-hidden="true" className="[overflow-wrap:anywhere]">
             {row.session}
+            {row.differs ? (
+              <span className="block text-caption text-ink-secondary" data-compare-differs="">
+                {row.differs}
+              </span>
+            ) : null}
           </span>
           <span aria-hidden="true" className="order-last col-span-2 flex h-3 min-w-0 lg:order-none lg:col-span-1">
-            {row.share != null ? (
-              /* Drawn as a top border, so the bar is no text background. */
-              <span className="block h-0 border-t-[0.75rem] border-order-history" style={{ width: `${(row.share * 100).toFixed(2)}%` }} />
-            ) : null}
+            {/* The bar's `<title>` holds the row's reading, its difference label included (NFR-6). */}
+            <svg className="block h-3 w-full overflow-visible" data-compare-bar="">
+              <title>{row.reads}</title>
+              {row.share != null ? (
+                <rect className="fill-order-history" x="0" y="0" height="100%" width={`${(row.share * 100).toFixed(2)}%`} />
+              ) : null}
+            </svg>
           </span>
           <span
             aria-hidden="true"
@@ -133,6 +206,93 @@ function CompareBars({ rows, name }: { rows: readonly CompareRow[]; name: string
         </li>
       ))}
     </ol>
+  );
+}
+
+/** The filters (Story 14.4): one group per dimension, «Alle» and each stored value, one pressed per
+ * group, the api's counts beside them; as the Matrisevegg's `WallFilters`. */
+function Filters({
+  filters,
+  chosen,
+  onChoose,
+}: {
+  filters: readonly CompareFilter[];
+  chosen: ChosenFilters;
+  onChoose: (chosen: ChosenFilters) => void;
+}) {
+  return (
+    <section
+      aria-label={copy.filtersLabel}
+      className="mt-6 flex flex-wrap items-center gap-x-8 gap-y-1 text-caption"
+      data-cross-class-filters=""
+    >
+      {filters.map((filter) => {
+        // The Lecturer's own choice, at once while its answer loads; a value the list no longer
+        // holds reads as «Alle», as the api ignores it.
+        const value = chosen[filter.dimension];
+        const pressed = filter.options.some((option) => option.value === value) ? value! : null;
+        return (
+          <FilterGroup
+            key={filter.dimension}
+            filter={filter}
+            pressed={pressed}
+            onChoose={(value) => {
+              const next = { ...chosen };
+              if (value == null) delete next[filter.dimension];
+              else next[filter.dimension] = value;
+              onChoose(next);
+            }}
+          />
+        );
+      })}
+    </section>
+  );
+}
+
+function FilterGroup({
+  filter,
+  pressed,
+  onChoose,
+}: {
+  filter: CompareFilter;
+  pressed: string | null;
+  onChoose: (value: string | null) => void;
+}) {
+  const id = useId();
+  const choices: { value: string | null; label: string; count: number }[] = [
+    { value: null, label: copy.all, count: filter.all_count },
+    ...filter.options.map((option) => ({
+      value: option.value,
+      label: optionName(filter.dimension, option),
+      count: option.count,
+    })),
+  ];
+  return (
+    <div role="group" aria-labelledby={id} className="flex flex-wrap items-center gap-x-3" data-filter-group={filter.dimension}>
+      <span id={id} className="text-ink-secondary">
+        {copy.dimensions[filter.dimension]}
+      </span>
+      {choices.map((choice) => {
+        const on = choice.value === pressed;
+        return (
+          <button
+            key={choice.value ?? "all"}
+            type="button"
+            aria-pressed={on}
+            onClick={() => onChoose(choice.value)}
+            className={cn(
+              "inline-flex min-h-tap-target-min min-w-tap-target-min cursor-pointer items-center justify-center gap-1 text-ink tabular-nums lining-nums [overflow-wrap:anywhere] hover:underline",
+              "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink",
+              on && "font-semibold underline underline-offset-4",
+            )}
+            data-filter={choice.value ?? "all"}
+          >
+            {choice.label}
+            <span className="font-normal text-ink-secondary">{choice.count}</span>
+          </button>
+        );
+      })}
+    </div>
   );
 }
 

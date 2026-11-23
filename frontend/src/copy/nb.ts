@@ -5699,6 +5699,44 @@ export const nb = {
     ratio: (value: string) => `${value}×`,
     percent: (value: string) => `${value} %`,
     points: (value: string) => value,
+    /** [ASSUMPTION] Story 14.4 (FR-65, NFR-6): the filters, the difference labels and the score
+     * comparability line. */
+    filtersLabel: "Filtrer sammenligningen",
+    all: "Alle",
+    dimensions: {
+      game_settings: "Spillinnstillinger",
+      ai_mode: "KI-modus",
+      model: "Modell",
+      prompt_versions: "Promptversjon",
+      effort_level: "Innsatsnivå",
+    } as Record<string, string>,
+    classic: "Klassisk",
+    /** A Game settings value that is not the Classic preset, numbered in the list's order. */
+    otherSettings: (n: number) => `Oppsett ${n}`,
+    aiModes: { llm: "LLM-spillere", rule_based: "Regelbaserte spillere" } as Record<string, string>,
+    /** No model, prompt versions or Effort level (rule-based players). */
+    none: "Ingen",
+    /** The polite line after a filter changes. */
+    comparing: (n: number, of: number) => `Sammenligner ${n} av ${of} Klasseøkter.`,
+    tooFewMatch: "Færre enn to Klasseøkter passer filtrene.",
+    /** What a compared Class session differs in: «Ulikt oppsett: KI-modus, modell». */
+    differs: (what: string) => `Ulikt oppsett: ${what}`,
+    differKeys: {
+      game_settings: "Spillinnstillinger",
+      ai_mode: "KI-modus",
+      model: "modell",
+      prompt_versions: "promptversjon",
+      effort_level: "Innsatsnivå",
+      question_set: "spørsmålssett",
+      item_weights: "vekter",
+      scoring_guide: "vurderingsveiledning",
+    } as Record<string, string>,
+    differsColumn: "Ulikt oppsett",
+    sameSetup: "–",
+    /** A bar row and its `<title>`: «class-of-1994, Klasseøkt 2: 71,5. Ulikt oppsett: vekter». */
+    readsWithDiffers: (session: string, value: string, differs: string) => `${session}: ${value}. ${differs}`,
+    scoresComparable: "Skårene kan sammenlignes: samme spørsmålssett, vekter og vurderingsveiledning.",
+    scoresNotComparable: "Skårene kan ikke sammenlignes: spørsmålssett, vekter eller vurderingsveiledning er ulike.",
   },
   /** «Alle spill side om side» (Story 14.5, FR-86, UX-DR64, `09-alle-sider.png`): every Class
    * game's Orders per Role beside the Student's own, after their Debrief and the Play deadline.

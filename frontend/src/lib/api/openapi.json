@@ -2938,6 +2938,17 @@
       "ComparedMeasureOut": {
         "description": "One measure across the ready Class sessions, in their order: `key` is the stored measure\ncode the page names from `nb.ts`, `unit` how it is formatted.",
         "properties": {
+          "comparable": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comparable"
+          },
           "key": {
             "title": "Key",
             "type": "string"
@@ -2983,6 +2994,29 @@
             "format": "uuid",
             "title": "Class Session Id",
             "type": "string"
+          },
+          "compared": {
+            "default": false,
+            "title": "Compared",
+            "type": "boolean"
+          },
+          "differs": {
+            "default": [],
+            "items": {
+              "enum": [
+                "game_settings",
+                "ai_mode",
+                "model",
+                "prompt_versions",
+                "effort_level",
+                "question_set",
+                "item_weights",
+                "scoring_guide"
+              ],
+              "type": "string"
+            },
+            "title": "Differs",
+            "type": "array"
           },
           "session_number": {
             "title": "Session Number",
@@ -4082,6 +4116,14 @@
       "CrossClassOut": {
         "description": "Tverrklasse-statistikk: every Class session of the Lecturer's own Classes (archived ones\nincluded, Control tests never), by Class and number, and the shown measures over those with a\nwritten aggregate. «Samme mål, samme regnestykke.»",
         "properties": {
+          "filters": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/FilterOut"
+            },
+            "title": "Filters",
+            "type": "array"
+          },
           "measures": {
             "items": {
               "$ref": "#/components/schemas/ComparedMeasureOut"
@@ -5674,6 +5716,81 @@
           "skipped"
         ],
         "title": "FilledSeatsOut",
+        "type": "object"
+      },
+      "FilterOptionOut": {
+        "description": "One value of a filter dimension among the Class sessions with an aggregate. `value` is the\ntoken the query sends back (a hash of the stored key). `label` is data, never copy: for Game\nsettings `classic` or None (then named by `ordinal`), the AI mode's code, the model config's\nname, the prompt versions as «purpose version» pairs, the Effort level's label; None when the\nClass session had none (no model for rule-based players). `count` is the Class sessions\nholding it that match the other dimensions' filters.",
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "ordinal": {
+            "title": "Ordinal",
+            "type": "integer"
+          },
+          "selected": {
+            "title": "Selected",
+            "type": "boolean"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "label",
+          "ordinal",
+          "count",
+          "selected"
+        ],
+        "title": "FilterOptionOut",
+        "type": "object"
+      },
+      "FilterOut": {
+        "description": "A filter dimension: its options, and `all_count`, the Class sessions «Alle» would compare\n(those matching the other dimensions' filters).",
+        "properties": {
+          "all_count": {
+            "title": "All Count",
+            "type": "integer"
+          },
+          "dimension": {
+            "enum": [
+              "game_settings",
+              "ai_mode",
+              "model",
+              "prompt_versions",
+              "effort_level"
+            ],
+            "title": "Dimension",
+            "type": "string"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/FilterOptionOut"
+            },
+            "title": "Options",
+            "type": "array"
+          }
+        },
+        "required": [
+          "dimension",
+          "all_count",
+          "options"
+        ],
+        "title": "FilterOut",
         "type": "object"
       },
       "FinalIn": {
@@ -27144,8 +27261,95 @@
     },
     "/api/class-statistics": {
       "get": {
-        "description": "Tverrklasse-statistikk (Story 14.3, FR-65): every Class session of the Classes the caller\nowns (archived included, Control tests never), and the Class report measures of those with a\nwritten aggregate side by side, read from the aggregates only (AD-14). Anyone without the\nLecturer role answers 403 `forbidden`.",
+        "description": "Tverrklasse-statistikk (Story 14.3, FR-65): every Class session of the Classes the caller\nowns (archived included, Control tests never), and the Class report measures of those with a\nwritten aggregate side by side, read from the aggregates only (AD-14). Anyone without the\nLecturer role answers 403 `forbidden`. Story 14.4: each optional parameter is a filter\noption's `value`; only the Class sessions holding every given one are compared (a value no\nClass session holds is ignored).",
         "operationId": "getClassStatistics",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "game_settings",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Game Settings"
+            }
+          },
+          {
+            "in": "query",
+            "name": "ai_mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ai Mode"
+            }
+          },
+          {
+            "in": "query",
+            "name": "model",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Model"
+            }
+          },
+          {
+            "in": "query",
+            "name": "prompt_versions",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Prompt Versions"
+            }
+          },
+          {
+            "in": "query",
+            "name": "effort_level",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Effort Level"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -27176,6 +27380,16 @@
               }
             },
             "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
           }
         },
         "summary": "Get Class Statistics",
