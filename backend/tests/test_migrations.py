@@ -129,6 +129,8 @@ FLAG_TABLES = {"ai_feedback_flags"}
 """The table of revision 0205 (Story 12.5)."""
 CONSENT_TABLES = {"test_student_consents"}
 """The table of revision 0207 (Story 12.8)."""
+SCORING_TABLES = {"control_test_scorers", "human_scores"}
+"""The tables of revision 0208 (Story 12.9)."""
 HEAD_TABLES = (
     PRE_SESSION_TABLES
     | SESSION_TABLES
@@ -164,10 +166,12 @@ HEAD_TABLES = (
     | ADJUSTMENT_TABLES
     | FLAG_TABLES
     | CONSENT_TABLES
+    | SCORING_TABLES
 )
-# 0207 (12.8), 0206 (12.6), 0205 (12.5), 0204 (12.4), 0203 (12.3) and 0202 (12.2) follow 0201 (12.7);
+# 0208 (12.9), 0207 (12.8), 0206 (12.6), 0205 (12.5), 0204 (12.4), 0203 (12.3) and 0202 (12.2)
+# follow 0201 (12.7);
 # 0120-0130 follow 0064
-HEAD = "0207"
+HEAD = "0208"
 
 
 def reset_schema(url: str) -> None:
@@ -355,6 +359,12 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     # 0111 (Story 9.12): presence, the Students who go on alone and the 48-hour fallback.
     assert "last_seen_at" in columns(url, "debrief_members")
     assert {"fallback_due_at", "fallback_at"} <= columns(url, "debrief_sessions")
+
+    # 0208 (Story 12.9): the named scorers and the human scores, which never change.
+    assert SCORING_TABLES <= tables(url)
+    assert function_names(url, "human_scores_immutable")
+    command.downgrade(cfg, "0207")
+    assert SCORING_TABLES.isdisjoint(tables(url))
 
     # 0207 (Story 12.8): the test student mark and the consent decisions.
     assert "is_test_student" in columns(url, "users")

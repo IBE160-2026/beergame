@@ -30,21 +30,36 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse, Response
 
 from app.modules.sessions import service as sessions
-from app.modules.tests import assessed, attempt, commands, guide, preview, selection, service
+from app.modules.tests import (
+    assessed,
+    attempt,
+    blind,
+    commands,
+    guide,
+    preview,
+    selection,
+    service,
+)
 from app.modules.tests.schemas import (
     AdaptedPreviewOut,
     AnswerIn,
     AssessmentListOut,
     DeadlineExtensionIn,
     FinalIn,
+    HumanScoreIn,
     LetterChoiceIn,
     MyAssessmentOut,
+    MyScoringOut,
     MyTestOut,
     QuestionSetIn,
     QuestionSetOut,
     SavedAnswerOut,
+    ScorerIn,
+    ScorersOut,
     ScoringGuideIn,
     ScoringGuideOut,
+    ScoringItemOut,
+    ScoringListOut,
     StaffAssessmentOut,
     StartingTaskOut,
     TestAnswerIn,
@@ -544,4 +559,175 @@ async def extend_test_deadline(
         return error_response(422, refused.code, "The deadline must be later.", refused.fields)
     if found is None:
         raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"), headers=_PERSONAL)
+
+
+# Blind scoring of a Control test (Story 12.9, FR-82, AD-12, AD-27).
+
+_SCORING = "/scoring/{session_id}"
+
+
+@router.get(
+    "/scoring",
+    response_model=MyScoringOut,
+    responses=documented(401),
+    operation_id="getMyScoring",
+)
+async def get_my_scoring(
+    user: Annotated[authz.Principal, Depends(authz.require("control_test_answers.read"))],
+) -> Response:
+    """The Control tests the User is a named scorer of (Story 12.9): what their home's Lenke
+    «Sensur av Kontrolltest» shows; empty for everyone else."""
+    found = await blind.my_tests(user, auth.utcnow())
+    return JSONResponse(found.model_dump(mode="json"), headers=_PERSONAL)
+
+
+@router.get(
+    _SCORING,
+    response_model=ScoringListOut,
+    responses=documented(401, 403),
+    operation_id="listScoringAnswers",
+)
+async def list_scoring_answers(
+    session_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("control_test_answers.read"))],
+) -> Response:
+    """A Control test's answers to score, «Svar 1» on, each scored or not by the reader, with no
+    name or e-mail address; empty before its Test deadline. Its named scorers and the Admin only
+    (an Admin's read is audited); 403 `forbidden` for everyone else and for no such Control
+    test."""
+    found = await blind.answers(user, _id(session_id), auth.utcnow())
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"), headers=_PERSONAL)
+
+
+@router.get(
+    f"{_SCORING}/answers/{{ref}}",
+    response_model=ScoringItemOut,
+    responses=documented(401, 403, 404),
+    operation_id="getScoringAnswer",
+)
+async def get_scoring_answer(
+    session_id: str,
+    ref: str,
+    user: Annotated[authz.Principal, Depends(authz.require("control_test_answers.read"))],
+) -> Response:
+    """One answer to score: the question, the original text, an Adapted item's facts and the
+    pinned Scoring guide entry with its scale. The AI's step is there only once the reader's own
+    score of it is submitted (AD-27); AI feedback never. 404 `not_found` for an answer the list
+    does not hold; 403 `forbidden` as the list."""
+    try:
+        found = await blind.answer(user, _id(session_id), ref, auth.utcnow())
+    except blind.AnswerNotFound:
+        return error_response(404, "not_found", "No such answer to score.")
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"), headers=_PERSONAL)
+
+
+@router.post(
+    f"{_SCORING}/answers/{{ref}}",
+    status_code=201,
+    response_model=ScoringItemOut,
+    responses=documented(401, 403, 404, 409, 422),
+    operation_id="submitHumanScore",
+)
+async def submit_human_score(
+    session_id: str,
+    ref: str,
+    body: HumanScoreIn,
+    user: Annotated[authz.Principal, Depends(authz.require("control_test_answers.score"))],
+) -> Response:
+    """«Lagre vurdering»: the scorer's step on the five-step scale, stored once; 201 with the
+    answer, now with the AI's step. 409 `human_score_exists` for a second score of the same
+    answer (nothing changes; there is no way to change a score); 404 `not_found` as the answer;
+    403 `forbidden` for everyone but the Control test's named scorers (an Admin too, unless
+    named)."""
+    try:
+        found = await blind.submit(user, _id(session_id), ref, body.score, auth.utcnow())
+    except blind.AnswerNotFound:
+        return error_response(404, "not_found", "No such answer to score.")
+    except blind.HumanScoreExists:
+        return error_response(409, "human_score_exists", "You have scored this answer already.")
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"), status_code=201, headers=_PERSONAL)
+
+
+_SCORERS = "/admin/control-tests/{session_id}/scorers"
+
+
+def _admin_id(value: str) -> uuid.UUID:
+    try:
+        return uuid.UUID(value)
+    except ValueError:
+        raise blind.ControlTestNotFound from None
+
+
+def _no_control_test() -> Response:
+    return error_response(404, "not_found", "No such Control test.")
+
+
+@router.get(
+    _SCORERS,
+    response_model=ScorersOut,
+    responses=documented(401, 403, 404),
+    operation_id="listScorers",
+)
+async def list_scorers(
+    session_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("control_tests.manage"))],
+) -> Response:
+    """The Control test's named scorers and how many answers each has scored (Admin only). 404
+    `not_found` for no such Control test."""
+    try:
+        found = await blind.scorers(_admin_id(session_id), auth.utcnow())
+    except blind.ControlTestNotFound:
+        return _no_control_test()
+    return JSONResponse(found.model_dump(mode="json"), headers=_PERSONAL)
+
+
+@router.post(
+    _SCORERS,
+    response_model=ScorersOut,
+    responses=documented(401, 403, 404, 422),
+    operation_id="nameScorer",
+)
+async def name_scorer(
+    session_id: str,
+    body: ScorerIn,
+    user: Annotated[authz.Principal, Depends(authz.require("control_tests.manage"))],
+) -> Response:
+    """Name an existing User a scorer of the Control test, by e-mail address (audited; naming one
+    already named writes nothing). 422 `invalid_request` with `fields.email`: `unknown` (no active
+    User) or `test_student`; 404 `not_found` for no such Control test."""
+    try:
+        found = await blind.name_scorer(user, _admin_id(session_id), body.email, auth.utcnow())
+    except blind.ControlTestNotFound:
+        return _no_control_test()
+    except blind.ScorerRefused as refused:
+        return error_response(422, "invalid_request", "The scorer is refused.", refused.fields)
+    return JSONResponse(found.model_dump(mode="json"), headers=_PERSONAL)
+
+
+@router.delete(
+    f"{_SCORERS}/{{user_id}}",
+    response_model=ScorersOut,
+    responses=documented(401, 403, 404),
+    operation_id="removeScorer",
+)
+async def remove_scorer(
+    session_id: str,
+    user_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("control_tests.manage"))],
+) -> Response:
+    """Take a scorer off the Control test (audited); their submitted scores stay. 404 `not_found`
+    for no such Control test or a scorer id that is no id."""
+    try:
+        found = await blind.remove_scorer(
+            user, _admin_id(session_id), _admin_id(user_id), auth.utcnow()
+        )
+    except blind.ControlTestNotFound:
+        return _no_control_test()
     return JSONResponse(found.model_dump(mode="json"), headers=_PERSONAL)

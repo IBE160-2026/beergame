@@ -16,6 +16,7 @@ import {
   ADMIN_INSTITUTIONS_PATH,
   classPath,
   classSessionPath,
+  controlTestScorersPath,
   HOME_PATH,
 } from "@/modules/identity/homes";
 import { PageShell } from "@/modules/identity/page-shell";
@@ -120,7 +121,8 @@ function ControlTestsBody() {
   );
 }
 
-/** One Control test: its name, then each fact labelled in text, and the Lenker for its owner. */
+/** One Control test: its name, then each fact labelled in text, the Lenke to its scorers and
+ * answers for every Admin (Story 12.9), and the Lenker for its owner. */
 function ControlTestRow({ item }: { item: ControlTest }) {
   const facts: [string, string][] = [
     [copy.list.institution, item.institution_name ?? copy.list.configGone],
@@ -142,6 +144,11 @@ function ControlTestRow({ item }: { item: ControlTest }) {
           </div>
         ))}
       </dl>
+      <p className="mt-2">
+        <Link href={controlTestScorersPath(item.id)} standalone>
+          {nb.scoring.scorers.openFrom(item.name)}
+        </Link>
+      </p>
       {item.can_open ? (
         <p className="mt-2 flex flex-wrap gap-x-6">
           <Link href={classPath(item.class_id)} standalone>

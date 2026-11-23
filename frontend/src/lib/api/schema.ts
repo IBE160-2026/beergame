@@ -119,6 +119,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/control-tests/{session_id}/scorers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Scorers
+         * @description The Control test's named scorers and how many answers each has scored (Admin only). 404
+         *     `not_found` for no such Control test.
+         */
+        get: operations["listScorers"];
+        put?: never;
+        /**
+         * Name Scorer
+         * @description Name an existing User a scorer of the Control test, by e-mail address (audited; naming one
+         *     already named writes nothing). 422 `invalid_request` with `fields.email`: `unknown` (no active
+         *     User) or `test_student`; 404 `not_found` for no such Control test.
+         */
+        post: operations["nameScorer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/control-tests/{session_id}/scorers/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Scorer
+         * @description Take a scorer off the Control test (audited); their submitted scores stay. 404 `not_found`
+         *     for no such Control test or a scorer id that is no id.
+         */
+        delete: operations["removeScorer"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/institutions": {
         parameters: {
             query?: never;
@@ -3311,6 +3359,81 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/scoring": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Scoring
+         * @description The Control tests the User is a named scorer of (Story 12.9): what their home's Lenke
+         *     «Sensur av Kontrolltest» shows; empty for everyone else.
+         */
+        get: operations["getMyScoring"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scoring/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Scoring Answers
+         * @description A Control test's answers to score, «Svar 1» on, each scored or not by the reader, with no
+         *     name or e-mail address; empty before its Test deadline. Its named scorers and the Admin only
+         *     (an Admin's read is audited); 403 `forbidden` for everyone else and for no such Control
+         *     test.
+         */
+        get: operations["listScoringAnswers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scoring/{session_id}/answers/{ref}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Scoring Answer
+         * @description One answer to score: the question, the original text, an Adapted item's facts and the
+         *     pinned Scoring guide entry with its scale. The AI's step is there only once the reader's own
+         *     score of it is submitted (AD-27); AI feedback never. 404 `not_found` for an answer the list
+         *     does not hold; 403 `forbidden` as the list.
+         */
+        get: operations["getScoringAnswer"];
+        put?: never;
+        /**
+         * Submit Human Score
+         * @description «Lagre vurdering»: the scorer's step on the five-step scale, stored once; 201 with the
+         *     answer, now with the AI's step. 409 `human_score_exists` for a second score of the same
+         *     answer (nothing changes; there is no way to change a score); 404 `not_found` as the answer;
+         *     403 `forbidden` for everyone but the Control test's named scorers (an Admin too, unless
+         *     named).
+         */
+        post: operations["submitHumanScore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3533,6 +3656,16 @@ export interface components {
             step: number | null;
             /** Top */
             top: number;
+        };
+        /**
+         * AiStepOut
+         * @description The AI's step for the item: only for a scorer who has submitted their own score of it.
+         */
+        AiStepOut: {
+            /** Label */
+            label: string | null;
+            /** Step */
+            step: number;
         };
         /**
          * AllocationConfirmIn
@@ -5346,6 +5479,14 @@ export interface components {
             detail?: components["schemas"]["ValidationError"][];
         };
         /**
+         * HumanScoreIn
+         * @description A step on the five-step scale, submitted once.
+         */
+        HumanScoreIn: {
+            /** Score */
+            score: number;
+        };
+        /**
          * InRoomIn
          * @description «Marker som i rommet, 10 min» (Story 8.11): the in-room limit in whole minutes. Any number
          *     is taken here; the command answers 422 `minutes_out_of_range` unless it is whole and from 2
@@ -6123,6 +6264,14 @@ export interface components {
             items: components["schemas"]["MyMessageOut"][];
         };
         /**
+         * MyScoringOut
+         * @description `GET /api/scoring`: the Control tests the User is a named scorer of (none: no Lenke).
+         */
+        MyScoringOut: {
+            /** Tests */
+            tests: components["schemas"]["ScoringTestOut"][];
+        };
+        /**
          * MySummaryOut
          * @description The Student's own Debrief summary, `summary` None until «Fullfør Debriefen».
          */
@@ -6456,6 +6605,16 @@ export interface components {
             share_percent?: number | null;
             /** Time Factor */
             time_factor?: number | null;
+        };
+        /** OwnScoreOut */
+        OwnScoreOut: {
+            /** Score */
+            score: number;
+            /**
+             * Submitted At
+             * Format: date-time
+             */
+            submitted_at: string;
         };
         /** PasswordResetIn */
         PasswordResetIn: {
@@ -7359,6 +7518,81 @@ export interface components {
             /** Step */
             step: number;
         };
+        /** ScorerIn */
+        ScorerIn: {
+            /** Email */
+            email: string;
+        };
+        /**
+         * ScorerOut
+         * @description A named scorer as the Admin sees them, with how many answers they have scored.
+         */
+        ScorerOut: {
+            /** Email */
+            email: string;
+            /** Name */
+            name: string;
+            /**
+             * Named At
+             * Format: date-time
+             */
+            named_at: string;
+            /** Scored */
+            scored: number;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+        };
+        /**
+         * ScorersOut
+         * @description `GET /api/admin/control-tests/{id}/scorers`: the Control test, its scorers and how many
+         *     answers there are to score.
+         */
+        ScorersOut: {
+            /** Answers */
+            answers: number;
+            /** Scorers */
+            scorers: components["schemas"]["ScorerOut"][];
+            test: components["schemas"]["ScoringTestOut"];
+        };
+        /** ScoringCriterionOut */
+        ScoringCriterionOut: {
+            /** Code */
+            code: string;
+            /** Text */
+            text: string;
+            /** Weight */
+            weight: number;
+        };
+        /**
+         * ScoringEntryOut
+         * @description One answer to score: «Svar N», the item's type and question, and whether the reader has
+         *     scored it.
+         */
+        ScoringEntryOut: {
+            /** Number */
+            number: number;
+            /** Question */
+            question: string;
+            /** Ref */
+            ref: string;
+            /** Scored */
+            scored: boolean;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "long" | "adapted";
+        };
+        /** ScoringFactOut */
+        ScoringFactOut: {
+            /** Name */
+            name: string;
+            /** Value */
+            value: string;
+        };
         /**
          * ScoringGuideIn
          * @description «Lagre sensorveiledning»: the guide text of each question the Lecturer changed, by question
@@ -7405,6 +7639,76 @@ export interface components {
              * Format: uuid
              */
             version_id: string;
+        };
+        /**
+         * ScoringItemOut
+         * @description One answer as its scorer reads it: the question, the original answer text, an Adapted
+         *     item's facts, and the pinned Scoring guide entry with its criteria and five-step scale. `ai`
+         *     is null until the reader's own score of this answer is submitted (AD-27); AI feedback is never
+         *     here.
+         */
+        ScoringItemOut: {
+            ai: components["schemas"]["AiStepOut"] | null;
+            /** Answer */
+            answer: string;
+            /** Can Score */
+            can_score: boolean;
+            /** Criteria */
+            criteria: components["schemas"]["ScoringCriterionOut"][];
+            /** Facts */
+            facts: components["schemas"]["ScoringFactOut"][];
+            /** Guide Text */
+            guide_text: string;
+            /** Guide Title */
+            guide_title: string;
+            /** Number */
+            number: number;
+            own_score: components["schemas"]["OwnScoreOut"] | null;
+            /** Question */
+            question: string;
+            /** Ref */
+            ref: string;
+            /** Scale */
+            scale: components["schemas"]["ScaleStepOut"][];
+            test: components["schemas"]["ScoringTestOut"];
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "long" | "adapted";
+        };
+        /**
+         * ScoringListOut
+         * @description A Control test's answers to score. `can_score` is false for the Admin who reads them
+         *     without being a named scorer; `entries` is empty until the Test deadline has passed.
+         */
+        ScoringListOut: {
+            /** Can Score */
+            can_score: boolean;
+            /** Entries */
+            entries: components["schemas"]["ScoringEntryOut"][];
+            test: components["schemas"]["ScoringTestOut"];
+        };
+        /**
+         * ScoringTestOut
+         * @description A Control test the reader is named to score: its name, its Test deadline and whether its
+         *     answers are open for scoring (the deadline has passed).
+         */
+        ScoringTestOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Open */
+            open: boolean;
+            /**
+             * Test Deadline
+             * Format: date-time
+             */
+            test_deadline: string;
         };
         /** SeatChoiceGameOut */
         SeatChoiceGameOut: {
@@ -9224,6 +9528,185 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listScorers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScorersOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    nameScorer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScorerIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScorersOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    removeScorer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScorersOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -17575,6 +18058,215 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getMyScoring: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyScoringOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listScoringAnswers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScoringListOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getScoringAnswer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScoringItemOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submitHumanScore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HumanScoreIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScoringItemOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

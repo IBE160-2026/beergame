@@ -62,3 +62,15 @@ module imports no other module (`tests/test_imports.py`).
 - `set_letter_choice(attempt_id, on)` stores the Student's «Veiledende bokstav» (emits `user`, not
   audited); `tests.assessed.set_letter_choice` judges first that the view leaves the letter to them
   (409 `letter_not_available`).
+
+## Blind human scoring of a Control test (Story 12.9, FR-82, AD-27)
+
+- Tables (migration 0208): `control_test_scorers` (the Users the Admin named per Control test,
+  `named_by`, `named_at`) and `human_scores(answer_id, scorer_id, score, submitted_at)`, one row
+  per answer and scorer, written once; a trigger refuses every update. Both are personal data and
+  are deleted with the User.
+- `name_scorer`, `remove_scorer` (scores stay), `scorers_of`,
+  `insert_human_score` (False for a second score: the caller answers 409 `human_score_exists`),
+  `human_scores_by`, `score_counts`. All run in the caller's transaction; `tests.blind` judges
+  access through `platform/authz` (`control_test_answers.read`/`.score`,
+  `authz.control_tests_scored_by`) and writes the audit rows.

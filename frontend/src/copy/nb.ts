@@ -2212,6 +2212,10 @@ export const nb = {
         // [ASSUMPTION] Story 12.7.
         "institution.operator_marked": "Merket som operatørens egen Institusjon",
         "control_test.created": "Kontrolltest satt opp",
+        // [ASSUMPTION] Story 12.9.
+        "control_test.scorer_named": "Sensor utnevnt for Kontrolltest",
+        "control_test.scorer_removed": "Sensor fjernet fra Kontrolltest",
+        "control_test.answers_read": "Svar i Kontrolltest lest av Admin",
       } as Record<string, string>,
       /** What an action concerns, by its target key. */
       targets: {
@@ -3436,6 +3440,85 @@ export const nb = {
         count === 0 ? "Ingen markert som feil" : `${words} markert som feil`,
       empty: "Ingen studenter i Klassen ennå.",
       loadFailed: "Listen kunne ikke hentes.",
+    },
+  },
+
+  /** Blind scoring of a Control test (Story 12.9, FR-82, AD-27, UX-DR57). «Kontrolltest» and
+   * «Sensorveiledning» are the spine's; everything else is [ASSUMPTION] draft copy for the
+   * founder's review. A scorer never reads a test student's name: an answer is «Svar 3». */
+  scoring: {
+    /** The Lenke on the scorer's own home, and the page it opens. [ASSUMPTION] */
+    homeLink: "Sensur av Kontrolltest",
+    title: "Sensur av Kontrolltest",
+    lead: "Du vurderer svarene uten å se navn og uten å se KI-vurderingen. Den vises for et svar først når din egen vurdering er lagret.",
+    tests: {
+      empty: "Du er ikke sensor for noen Kontrolltest nå.",
+      open: (name: string) => `Vurder svarene i ${name}`,
+      closed: (date: string) => `Åpner etter testfristen ${date}.`,
+    },
+    list: {
+      title: "Svarene",
+      notOpen: (date: string) => `Svarene kan vurderes etter testfristen ${date}.`,
+      empty: "Ingen svar å vurdere.",
+      readOnly: "Du leser som Admin. Bare sensorene vurderer.",
+      progress: (scored: string, total: string) => `${scored} av ${total} vurdert`,
+      answer: (number: string) => `Svar ${number}`,
+      scored: "Vurdert",
+      notScored: "Ikke vurdert",
+      types: { long: "Langsvar", adapted: "Tilpasset oppgave" } as Record<string, string>,
+    },
+    item: {
+      title: (number: string) => `Svar ${number}`,
+      question: "Oppgaven",
+      answer: "Svaret",
+      facts: "Fakta fra studentens spill",
+      guide: "Sensorveiledning",
+      criteria: "Kriterier",
+      weight: (points: string) => `vekt ${points}`,
+      scale: "Skala",
+      choose: "Din vurdering",
+      step: (step: string, label: string) => `${step}: ${label}`,
+      consequence: "Vurderingen kan ikke endres etter at den er lagret.",
+      submit: "Lagre vurdering",
+      chooseFirst: "Velg et trinn på skalaen først.",
+      own: (step: string, label: string) => `Din vurdering: ${step} av 4, ${label}.`,
+      ownAt: (date: string) => `Lagret ${date}.`,
+      ai: (step: string, label: string) => `KI-vurderingen: ${step} av 4, ${label}.`,
+      aiMissing: "KI-vurderingen av dette svaret er ikke klar ennå.",
+      pick: "Velg trinn",
+      aiHidden: "KI-vurderingen vises når din vurdering er lagret.",
+      readOnly: "Du leser som Admin og vurderer ikke.",
+      back: "Til svarene",
+      notFound: "Svaret finnes ikke i listen.",
+      errors: {
+        human_score_exists: "Du har allerede vurdert dette svaret. Vurderingen kan ikke endres.",
+        not_found: "Svaret finnes ikke i listen.",
+      } as Record<string, string>,
+    },
+    /** Admin-område → «Kontrolltest» → «Sensorer». [ASSUMPTION] */
+    scorers: {
+      title: "Sensorer",
+      lead: "Sensorene leser svarene uten navn og vurderer dem med Sensorveiledningen. De trenger ingen Admin-rolle.",
+      openFrom: (name: string) => `Sensorer og svar i ${name}`,
+      answers: (count: string) => `${count} svar å vurdere`,
+      listTitle: "Utnevnte sensorer",
+      empty: "Ingen sensorer ennå.",
+      scored: (scored: string, total: string) => `${scored} av ${total} vurdert`,
+      remove: (name: string) => `Fjern ${name}`,
+      removeButton: "Fjern",
+      removeFailed: "Sensoren ble ikke fjernet. Prøv igjen.",
+      addTitle: "Utnevn sensor",
+      email: "E-post",
+      add: "Utnevn som sensor",
+      added: (email: string) => `${email} er sensor.`,
+      readAnswers: "Les svarene",
+      errors: {
+        unknown: "Ingen aktiv bruker har denne adressen.",
+        test_student: "En teststudent kan ikke være sensor.",
+        empty: "Skriv e-postadressen.",
+      } as Record<string, string>,
+      failed: "Sensoren ble ikke utnevnt. Prøv igjen.",
+      notFound: "Kontrolltesten finnes ikke.",
     },
   },
 

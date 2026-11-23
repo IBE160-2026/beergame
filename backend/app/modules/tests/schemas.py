@@ -514,3 +514,121 @@ class AssessmentListOut(BaseModel):
     """The Students of the Class session with their AI assessment, by name (Story 12.5)."""
 
     students: list[AssessmentRowOut]
+
+
+# Blind scoring of a Control test (Story 12.9, FR-82, AD-27). No name, e-mail, user id or attempt
+# id of a test student is in any of these: an answer is known by its id and a neutral number.
+
+
+class ScoringTestOut(BaseModel):
+    """A Control test the reader is named to score: its name, its Test deadline and whether its
+    answers are open for scoring (the deadline has passed)."""
+
+    id: uuid.UUID
+    name: str
+    test_deadline: AwareDatetime
+    open: bool
+
+
+class MyScoringOut(BaseModel):
+    """`GET /api/scoring`: the Control tests the User is a named scorer of (none: no Lenke)."""
+
+    tests: list[ScoringTestOut]
+
+
+class ScoringEntryOut(BaseModel):
+    """One answer to score: «Svar N», the item's type and question, and whether the reader has
+    scored it."""
+
+    ref: str
+    number: int
+    type: Literal["long", "adapted"]
+    question: str
+    scored: bool
+
+
+class ScoringListOut(BaseModel):
+    """A Control test's answers to score. `can_score` is false for the Admin who reads them
+    without being a named scorer; `entries` is empty until the Test deadline has passed."""
+
+    test: ScoringTestOut
+    can_score: bool
+    entries: list[ScoringEntryOut]
+
+
+class ScoringCriterionOut(BaseModel):
+    code: str
+    weight: int
+    text: str
+
+
+class ScoringFactOut(BaseModel):
+    name: str
+    value: str
+
+
+class OwnScoreOut(BaseModel):
+    score: int
+    submitted_at: AwareDatetime
+
+
+class AiStepOut(BaseModel):
+    """The AI's step for the item: only for a scorer who has submitted their own score of it."""
+
+    step: int
+    label: str | None
+
+
+class ScoringItemOut(BaseModel):
+    """One answer as its scorer reads it: the question, the original answer text, an Adapted
+    item's facts, and the pinned Scoring guide entry with its criteria and five-step scale. `ai`
+    is null until the reader's own score of this answer is submitted (AD-27); AI feedback is never
+    here."""
+
+    test: ScoringTestOut
+    ref: str
+    number: int
+    type: Literal["long", "adapted"]
+    question: str
+    answer: str
+    facts: list[ScoringFactOut]
+    guide_title: str
+    guide_text: str
+    criteria: list[ScoringCriterionOut]
+    scale: list[ScaleStepOut]
+    can_score: bool
+    own_score: OwnScoreOut | None
+    ai: AiStepOut | None
+
+
+class HumanScoreIn(BaseModel):
+    """A step on the five-step scale, submitted once."""
+
+    model_config = _IN
+
+    score: int = Field(ge=0, le=4)
+
+
+class ScorerOut(BaseModel):
+    """A named scorer as the Admin sees them, with how many answers they have scored."""
+
+    user_id: uuid.UUID
+    name: str
+    email: str
+    named_at: AwareDatetime
+    scored: int
+
+
+class ScorersOut(BaseModel):
+    """`GET /api/admin/control-tests/{id}/scorers`: the Control test, its scorers and how many
+    answers there are to score."""
+
+    test: ScoringTestOut
+    answers: int
+    scorers: list[ScorerOut]
+
+
+class ScorerIn(BaseModel):
+    model_config = _IN
+
+    email: str = Field(max_length=320)

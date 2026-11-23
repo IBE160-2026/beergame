@@ -21,7 +21,10 @@ assessment the attempt's `effective_deadline` (`due_at`), from which the sweep c
 target, and when it was logged as overdue (`overdue_at`) (migration 0204).
 
 Story 12.5 (FR-55): `ai_feedback_flags`, one row per piece of written feedback the Student marked
-as wrong, on its stored item score (migration 0205)."""
+as wrong, on its stored item score (migration 0205).
+
+Story 12.9 (FR-82, AD-27): `control_test_scorers`, the Users named to score a Control test, and
+`human_scores`, their scores, each written once (migration 0208)."""
 
 from sqlalchemy import (
     Boolean,
@@ -160,6 +163,37 @@ ai_item_scores = Table(
         "feedback IS NULL OR feedback_note IS NULL", name="ck_ai_item_scores_feedback_one"
     ),
 )
+
+control_test_scorers = Table(
+    "control_test_scorers",
+    metadata,
+    Column(
+        "class_session_id",
+        Uuid,
+        ForeignKey("class_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("user_id", Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+    Column("named_by", Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
+    Column("named_at", DateTime(timezone=True), nullable=False),
+    PrimaryKeyConstraint("class_session_id", "user_id", name="pk_control_test_scorers"),
+    Index("ix_control_test_scorers_user", "user_id"),
+)
+"""Story 12.9 (FR-82, AD-27): the Users the Admin named to score a Control test's answers."""
+
+human_scores = Table(
+    "human_scores",
+    metadata,
+    Column("answer_id", Uuid, ForeignKey("test_answers.id", ondelete="CASCADE"), nullable=False),
+    Column("scorer_id", Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+    Column("score", SmallInteger, nullable=False),
+    Column("submitted_at", DateTime(timezone=True), nullable=False),
+    PrimaryKeyConstraint("answer_id", "scorer_id", name="pk_human_scores"),
+    CheckConstraint("score BETWEEN 0 AND 4", name="ck_human_scores_score"),
+    Index("ix_human_scores_scorer", "scorer_id"),
+)
+"""Story 12.9 (FR-82, AD-27): one score per answer and scorer, written once (a trigger refuses
+every update, migration 0208)."""
 
 ai_feedback_flags = Table(
     "ai_feedback_flags",

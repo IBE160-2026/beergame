@@ -865,6 +865,33 @@ def control_test_session_ids() -> Select[tuple[uuid.UUID]]:
     return repo.control_test_ids()
 
 
+@dataclass(frozen=True)
+class ControlTestFacts:
+    """A Control test as its scorers see it (Story 12.9): the Class's name and the Class
+    session's Test deadline, after which its answers are scored."""
+
+    id: uuid.UUID
+    name: str
+    test_deadline: datetime
+
+
+async def control_test_facts(
+    s: AsyncSession, class_session_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, ControlTestFacts]:
+    """These Class sessions by id when they are Control tests (Story 12.9, FR-82): with no User's
+    scope; the caller judges access (`authz.control_tests_scored_by`, `control_tests.manage`).
+    Any other id is left out."""
+    found: dict[uuid.UUID, ControlTestFacts] = {}
+    rows = [await repo.session_row(s, each) for each in dict.fromkeys(class_session_ids)]
+    kept = [row for row in rows if row is not None and row["kind"] == CONTROL_TEST]
+    names = await classes.class_facts(s, [row["class_id"] for row in kept])
+    for row in kept:
+        fact = names.get(row["class_id"])
+        if fact is not None:
+            found[row["id"]] = ControlTestFacts(row["id"], fact.name, row["test_deadline"])
+    return found
+
+
 ControlTestGuidePinner = Callable[[AsyncSession, uuid.UUID, uuid.UUID, datetime], Awaitable[Any]]
 """`(session, class_session_id, scoring_guide_id, now)`: pins the Scoring guide version under test
 for a new Control test, in its creation's transaction (Story 12.7). `tests` registers it; it

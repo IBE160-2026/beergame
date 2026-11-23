@@ -458,6 +458,32 @@
         "title": "AiScoreOut",
         "type": "object"
       },
+      "AiStepOut": {
+        "description": "The AI's step for the item: only for a scorer who has submitted their own score of it.",
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "step": {
+            "title": "Step",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "step",
+          "label"
+        ],
+        "title": "AiStepOut",
+        "type": "object"
+      },
       "AllocationConfirmIn": {
         "additionalProperties": false,
         "description": "«Bekreft fordeling» (Story 5.9): the draft the Lecturer is looking at.",
@@ -4670,6 +4696,23 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "HumanScoreIn": {
+        "additionalProperties": false,
+        "description": "A step on the five-step scale, submitted once.",
+        "properties": {
+          "score": {
+            "maximum": 4.0,
+            "minimum": 0.0,
+            "title": "Score",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "score"
+        ],
+        "title": "HumanScoreIn",
+        "type": "object"
+      },
       "InRoomIn": {
         "additionalProperties": false,
         "description": "«Marker som i rommet, 10 min» (Story 8.11): the in-room limit in whole minutes. Any number\nis taken here; the command answers 422 `minutes_out_of_range` unless it is whole and from 2\nto 120.",
@@ -6435,6 +6478,23 @@
         "title": "MyMessagesOut",
         "type": "object"
       },
+      "MyScoringOut": {
+        "description": "`GET /api/scoring`: the Control tests the User is a named scorer of (none: no Lenke).",
+        "properties": {
+          "tests": {
+            "items": {
+              "$ref": "#/components/schemas/ScoringTestOut"
+            },
+            "title": "Tests",
+            "type": "array"
+          }
+        },
+        "required": [
+          "tests"
+        ],
+        "title": "MyScoringOut",
+        "type": "object"
+      },
       "MySummaryOut": {
         "description": "The Student's own Debrief summary, `summary` None until «Fullfør Debriefen».",
         "properties": {
@@ -7267,6 +7327,25 @@
           }
         },
         "title": "OwnAdjustmentOut",
+        "type": "object"
+      },
+      "OwnScoreOut": {
+        "properties": {
+          "score": {
+            "title": "Score",
+            "type": "integer"
+          },
+          "submitted_at": {
+            "format": "date-time",
+            "title": "Submitted At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "score",
+          "submitted_at"
+        ],
+        "title": "OwnScoreOut",
         "type": "object"
       },
       "PasswordResetIn": {
@@ -9277,6 +9356,162 @@
         "title": "ScaleStepOut",
         "type": "object"
       },
+      "ScorerIn": {
+        "additionalProperties": false,
+        "properties": {
+          "email": {
+            "maxLength": 320,
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "ScorerIn",
+        "type": "object"
+      },
+      "ScorerOut": {
+        "description": "A named scorer as the Admin sees them, with how many answers they have scored.",
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "named_at": {
+            "format": "date-time",
+            "title": "Named At",
+            "type": "string"
+          },
+          "scored": {
+            "title": "Scored",
+            "type": "integer"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "name",
+          "email",
+          "named_at",
+          "scored"
+        ],
+        "title": "ScorerOut",
+        "type": "object"
+      },
+      "ScorersOut": {
+        "description": "`GET /api/admin/control-tests/{id}/scorers`: the Control test, its scorers and how many\nanswers there are to score.",
+        "properties": {
+          "answers": {
+            "title": "Answers",
+            "type": "integer"
+          },
+          "scorers": {
+            "items": {
+              "$ref": "#/components/schemas/ScorerOut"
+            },
+            "title": "Scorers",
+            "type": "array"
+          },
+          "test": {
+            "$ref": "#/components/schemas/ScoringTestOut"
+          }
+        },
+        "required": [
+          "test",
+          "answers",
+          "scorers"
+        ],
+        "title": "ScorersOut",
+        "type": "object"
+      },
+      "ScoringCriterionOut": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "weight": {
+            "title": "Weight",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "code",
+          "weight",
+          "text"
+        ],
+        "title": "ScoringCriterionOut",
+        "type": "object"
+      },
+      "ScoringEntryOut": {
+        "description": "One answer to score: «Svar N», the item's type and question, and whether the reader has\nscored it.",
+        "properties": {
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "ref": {
+            "title": "Ref",
+            "type": "string"
+          },
+          "scored": {
+            "title": "Scored",
+            "type": "boolean"
+          },
+          "type": {
+            "enum": [
+              "long",
+              "adapted"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ref",
+          "number",
+          "type",
+          "question",
+          "scored"
+        ],
+        "title": "ScoringEntryOut",
+        "type": "object"
+      },
+      "ScoringFactOut": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "value"
+        ],
+        "title": "ScoringFactOut",
+        "type": "object"
+      },
       "ScoringGuideIn": {
         "additionalProperties": false,
         "description": "«Lagre sensorveiledning»: the guide text of each question the Lecturer changed, by question\nid. The criteria, the scale and the titles never change.",
@@ -9371,6 +9606,166 @@
           "questions"
         ],
         "title": "ScoringGuideOut",
+        "type": "object"
+      },
+      "ScoringItemOut": {
+        "description": "One answer as its scorer reads it: the question, the original answer text, an Adapted\nitem's facts, and the pinned Scoring guide entry with its criteria and five-step scale. `ai`\nis null until the reader's own score of this answer is submitted (AD-27); AI feedback is never\nhere.",
+        "properties": {
+          "ai": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AiStepOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "answer": {
+            "title": "Answer",
+            "type": "string"
+          },
+          "can_score": {
+            "title": "Can Score",
+            "type": "boolean"
+          },
+          "criteria": {
+            "items": {
+              "$ref": "#/components/schemas/ScoringCriterionOut"
+            },
+            "title": "Criteria",
+            "type": "array"
+          },
+          "facts": {
+            "items": {
+              "$ref": "#/components/schemas/ScoringFactOut"
+            },
+            "title": "Facts",
+            "type": "array"
+          },
+          "guide_text": {
+            "title": "Guide Text",
+            "type": "string"
+          },
+          "guide_title": {
+            "title": "Guide Title",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "own_score": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OwnScoreOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "ref": {
+            "title": "Ref",
+            "type": "string"
+          },
+          "scale": {
+            "items": {
+              "$ref": "#/components/schemas/ScaleStepOut"
+            },
+            "title": "Scale",
+            "type": "array"
+          },
+          "test": {
+            "$ref": "#/components/schemas/ScoringTestOut"
+          },
+          "type": {
+            "enum": [
+              "long",
+              "adapted"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "test",
+          "ref",
+          "number",
+          "type",
+          "question",
+          "answer",
+          "facts",
+          "guide_title",
+          "guide_text",
+          "criteria",
+          "scale",
+          "can_score",
+          "own_score",
+          "ai"
+        ],
+        "title": "ScoringItemOut",
+        "type": "object"
+      },
+      "ScoringListOut": {
+        "description": "A Control test's answers to score. `can_score` is false for the Admin who reads them\nwithout being a named scorer; `entries` is empty until the Test deadline has passed.",
+        "properties": {
+          "can_score": {
+            "title": "Can Score",
+            "type": "boolean"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/ScoringEntryOut"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "test": {
+            "$ref": "#/components/schemas/ScoringTestOut"
+          }
+        },
+        "required": [
+          "test",
+          "can_score",
+          "entries"
+        ],
+        "title": "ScoringListOut",
+        "type": "object"
+      },
+      "ScoringTestOut": {
+        "description": "A Control test the reader is named to score: its name, its Test deadline and whether its\nanswers are open for scoring (the deadline has passed).",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "open": {
+            "title": "Open",
+            "type": "boolean"
+          },
+          "test_deadline": {
+            "format": "date-time",
+            "title": "Test Deadline",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "test_deadline",
+          "open"
+        ],
+        "title": "ScoringTestOut",
         "type": "object"
       },
       "SeatChoiceGameOut": {
@@ -13289,6 +13684,242 @@
         "summary": "Create Control Test",
         "tags": [
           "admin"
+        ]
+      }
+    },
+    "/api/admin/control-tests/{session_id}/scorers": {
+      "get": {
+        "description": "The Control test's named scorers and how many answers each has scored (Admin only). 404\n`not_found` for no such Control test.",
+        "operationId": "listScorers",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScorersOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Scorers",
+        "tags": [
+          "tests"
+        ]
+      },
+      "post": {
+        "description": "Name an existing User a scorer of the Control test, by e-mail address (audited; naming one\nalready named writes nothing). 422 `invalid_request` with `fields.email`: `unknown` (no active\nUser) or `test_student`; 404 `not_found` for no such Control test.",
+        "operationId": "nameScorer",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScorerIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScorersOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Name Scorer",
+        "tags": [
+          "tests"
+        ]
+      }
+    },
+    "/api/admin/control-tests/{session_id}/scorers/{user_id}": {
+      "delete": {
+        "description": "Take a scorer off the Control test (audited); their submitted scores stay. 404 `not_found`\nfor no such Control test or a scorer id that is no id.",
+        "operationId": "removeScorer",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScorersOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Scorer",
+        "tags": [
+          "tests"
         ]
       }
     },
@@ -24236,6 +24867,283 @@
         "summary": "Decide Test Student Consent",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/api/scoring": {
+      "get": {
+        "description": "The Control tests the User is a named scorer of (Story 12.9): what their home's Lenke\n«Sensur av Kontrolltest» shows; empty for everyone else.",
+        "operationId": "getMyScoring",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyScoringOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "summary": "Get My Scoring",
+        "tags": [
+          "tests"
+        ]
+      }
+    },
+    "/api/scoring/{session_id}": {
+      "get": {
+        "description": "A Control test's answers to score, «Svar 1» on, each scored or not by the reader, with no\nname or e-mail address; empty before its Test deadline. Its named scorers and the Admin only\n(an Admin's read is audited); 403 `forbidden` for everyone else and for no such Control\ntest.",
+        "operationId": "listScoringAnswers",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScoringListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Scoring Answers",
+        "tags": [
+          "tests"
+        ]
+      }
+    },
+    "/api/scoring/{session_id}/answers/{ref}": {
+      "get": {
+        "description": "One answer to score: the question, the original text, an Adapted item's facts and the\npinned Scoring guide entry with its scale. The AI's step is there only once the reader's own\nscore of it is submitted (AD-27); AI feedback never. 404 `not_found` for an answer the list\ndoes not hold; 403 `forbidden` as the list.",
+        "operationId": "getScoringAnswer",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "ref",
+            "required": true,
+            "schema": {
+              "title": "Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScoringItemOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Scoring Answer",
+        "tags": [
+          "tests"
+        ]
+      },
+      "post": {
+        "description": "«Lagre vurdering»: the scorer's step on the five-step scale, stored once; 201 with the\nanswer, now with the AI's step. 409 `human_score_exists` for a second score of the same\nanswer (nothing changes; there is no way to change a score); 404 `not_found` as the answer;\n403 `forbidden` for everyone but the Control test's named scorers (an Admin too, unless\nnamed).",
+        "operationId": "submitHumanScore",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "ref",
+            "required": true,
+            "schema": {
+              "title": "Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HumanScoreIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScoringItemOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Submit Human Score",
+        "tags": [
+          "tests"
         ]
       }
     }

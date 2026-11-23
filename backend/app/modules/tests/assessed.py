@@ -72,6 +72,7 @@ from app.platform.db import get_sessionmaker
 
 __all__ = [
     "AI_TYPES",
+    "adapted_facts",
     "LetterNotAvailable",
     "NotFlaggable",
     "attempts_opened",
@@ -89,26 +90,43 @@ AI_TYPES = frozenset({"long", ADAPTED})
 """The item types the AI assesses against the Scoring guide; every other type is computed."""
 
 
-async def _fact_lines(frozen: Mapping[str, Any]) -> tuple[str, FactSet | None]:
-    """The fact an Adapted item cites, as `id: name=value, …` from its stored facts set and its
-    template (`""` when either cannot be read: the question text carries the same numbers), and
+async def _picked(
+    frozen: Mapping[str, Any],
+) -> tuple[tuple[str, Mapping[str, Any]] | None, FactSet | None]:
+    """The fact an Adapted item cites, `(fact id, name → value)` from its stored facts set and its
+    template (None when either cannot be read: the question text carries the same numbers), and
     the stored facts set itself, read by the item's `fact_set_id` and never rebuilt (Story 12.3:
     what its feedback may cite)."""
     stored = await games.fact_set_by_id(str(frozen.get("fact_set_id")))
     if stored is None:
         log.warning("assessment_facts_unavailable", item_id=frozen["id"])
-        return "", None
+        return None, None
     _, templates = await content.adapted_templates(frozen.get("template_version"))
     template = next((t for t in templates.templates if t.id == frozen["id"]), None)
     if template is None:
-        return "", stored.facts
+        return None, stored.facts
     names = await adapted.pattern_names(stored) if template.fact == "pattern" else {}
-    picked = adapted_rules.picked(template, stored.facts, names)
+    return adapted_rules.picked(template, stored.facts, names), stored.facts
+
+
+async def _fact_lines(frozen: Mapping[str, Any]) -> tuple[str, FactSet | None]:
+    """The fact an Adapted item cites, as `id: name=value, …` (`""` when it cannot be read), and
+    the stored facts set itself."""
+    picked, facts = await _picked(frozen)
     if picked is None:
-        return "", stored.facts
+        return "", facts
     fact_id, values = picked
     line = f"{fact_id}: " + ", ".join(f"{name}={value}" for name, value in values.items())
-    return line, stored.facts
+    return line, facts
+
+
+async def adapted_facts(frozen: Mapping[str, Any]) -> list[tuple[str, str]]:
+    """Story 12.9: the facts an Adapted item cites as `(name, value)` pairs, for its human
+    scorers; empty when they cannot be read."""
+    picked, _ = await _picked(frozen)
+    if picked is None:
+        return []
+    return [(str(name), str(value)) for name, value in picked[1].items()]
 
 
 async def _narration_templates(pins: Any) -> NarrationTemplates | None:

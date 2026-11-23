@@ -7,6 +7,7 @@ import { Link } from "@/components/link";
 import { nb } from "@/copy/nb";
 import { usePageState } from "@/lib/page-state";
 import { loginPath } from "@/lib/return-path";
+import { ScoringLink } from "@/modules/assessment/scoring-link";
 
 import { meKey, type SessionUser, useMe } from "./api";
 import {
@@ -39,7 +40,8 @@ const CROSS_LINK: Partial<Record<Home, Home>> = { lecturerHome: "adminArea", adm
  * line (Story 3.4). The Lærerhjem's content comes from `classes` as `children` (Story 4.1), and so
  * does Hjem's: the Student's Classes (Story 4.5) until Epic 6 fills it. The Admin-område lists its
  * pages, «Brukere og
- * roller» first (Story 3.7).
+ * roller» first (Story 3.7). Every home carries «Sensur av Kontrolltest» while its User is a named
+ * scorer of a Control test (Story 12.9).
  */
 export function HomePage({ page, children }: { page: Home; children?: ReactNode }) {
   return (
@@ -49,6 +51,7 @@ export function HomePage({ page, children }: { page: Home; children?: ReactNode 
         return (
           <PageShell user={user} title={TITLE[page]} updatedAt={updatedAt}>
             {other && canView(other, user) ? <PageLink href={HOME_PATH[other]}>{HOME_LINK[other]}</PageLink> : null}
+            <ScoringLink />
             {page === "adminArea" ? <AdminSections /> : null}
             {children}
           </PageShell>

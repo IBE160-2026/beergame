@@ -32,6 +32,16 @@ export const ADMIN_AUDIT_PATH = "/admin/revisjonslogg";
 /** «Kontrolltest» in the Admin-område (Story 12.7). */
 export const ADMIN_CONTROL_TESTS_PATH = "/admin/kontrolltest";
 
+/** «Sensorer» of one Control test in the Admin-område (Story 12.9). */
+export const controlTestScorersPath = (id: string) => `${ADMIN_CONTROL_TESTS_PATH}/${encodeURIComponent(id)}`;
+
+/** «Sensur av Kontrolltest» (Story 12.9): the Control tests a named scorer scores, reached from
+ * their own home; one Control test's answers, and one answer. */
+export const SCORING_PATH = "/sensur";
+export const scoringListPath = (id: string) => `${SCORING_PATH}/${encodeURIComponent(id)}`;
+export const scoringAnswerPath = (id: string, answerId: string) =>
+  `${scoringListPath(id)}/${encodeURIComponent(answerId)}`;
+
 /** «Lag Klasse» (Story 4.1). */
 export const NEW_CLASS_PATH = "/klasser/ny";
 

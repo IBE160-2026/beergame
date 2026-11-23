@@ -71,6 +71,12 @@ one item's written feedback (`ai_feedback_flags`), emitting `user` and `session`
 carries the flagged items, and `summaries_for_session` gives each Student's assessment state,
 runs and flag count for the staff list of the Klasseøkt and for Epic 13.
 
+Story 12.9 (FR-82, AD-27): blind human scoring of a Control test. `name_scorer` / `remove_scorer`
+keep the Users the Admin named for one Control test (`control_test_scorers`); `insert_human_score`
+writes one score per answer and scorer once (a second is refused, and a trigger refuses any
+update); `human_scores_by` and `score_counts` read them back. The caller (`tests.scoring`) has
+judged access through `platform/authz` and writes the audit rows.
+
 No answer text, guide text or score is logged: ids, counts and codes only.
 
 This module imports no feature module but `progress.service` (AD-16: any module records a step
@@ -102,6 +108,8 @@ from app.modules.assessment.models import (
     ai_feedback_flags,
     ai_item_scores,
     assessment_switches,
+    control_test_scorers,
+    human_scores,
 )
 from app.modules.progress import service as progress
 from app.platform import audit, auth, events, jobs, notify
@@ -156,6 +164,13 @@ __all__ = [
     "stop_for_session",
     "summaries_for_session",
     "switch_of",
+    "HumanScore",
+    "human_scores_by",
+    "insert_human_score",
+    "name_scorer",
+    "remove_scorer",
+    "score_counts",
+    "scorers_of",
 ]
 
 log = structlog.get_logger(__name__)
@@ -1521,3 +1536,102 @@ async def summaries_for_session(
         )
         for row in found
     }
+
+
+# Blind human scoring of a Control test (Story 12.9, FR-82, AD-27). Every function runs in the
+# caller's transaction; the caller judges access and audits.
+
+
+async def name_scorer(
+    s: AsyncSession,
+    class_session_id: uuid.UUID,
+    user_id: uuid.UUID,
+    *,
+    named_by: uuid.UUID,
+    now: datetime,
+) -> bool:
+    """Name `user_id` a scorer of the Control test; False when they are named already (nothing
+    written)."""
+    found = await s.execute(
+        insert(control_test_scorers)
+        .values(class_session_id=class_session_id, user_id=user_id, named_by=named_by, named_at=now)
+        .on_conflict_do_nothing(constraint="pk_control_test_scorers")
+        .returning(control_test_scorers.c.user_id)
+    )
+    return found.first() is not None
+
+
+async def remove_scorer(s: AsyncSession, class_session_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+    """Take `user_id` off the Control test's scorers; their submitted scores stay. False when
+    they were not named."""
+    found = await s.execute(
+        delete(control_test_scorers)
+        .where(
+            control_test_scorers.c.class_session_id == class_session_id,
+            control_test_scorers.c.user_id == user_id,
+        )
+        .returning(control_test_scorers.c.user_id)
+    )
+    return found.first() is not None
+
+
+async def scorers_of(
+    s: AsyncSession, class_session_id: uuid.UUID
+) -> list[tuple[uuid.UUID, datetime]]:
+    """The named scorers of the Control test with when they were named, in that order."""
+    found = await s.execute(
+        select(control_test_scorers.c.user_id, control_test_scorers.c.named_at)
+        .where(control_test_scorers.c.class_session_id == class_session_id)
+        .order_by(control_test_scorers.c.named_at, control_test_scorers.c.user_id)
+    )
+    return [(row.user_id, row.named_at) for row in found]
+
+
+async def insert_human_score(
+    s: AsyncSession, answer_id: uuid.UUID, scorer_id: uuid.UUID, score: int, *, now: datetime
+) -> bool:
+    """Store the scorer's score of one answer, once; False (nothing written) when they scored it
+    already. There is no way to change it afterwards."""
+    if not 0 <= score <= SCALE_TOP:
+        raise ValueError("a human score is a step on the five-step scale")
+    found = await s.execute(
+        insert(human_scores)
+        .values(answer_id=answer_id, scorer_id=scorer_id, score=score, submitted_at=now)
+        .on_conflict_do_nothing(constraint="pk_human_scores")
+        .returning(human_scores.c.answer_id)
+    )
+    return found.first() is not None
+
+
+@dataclass(frozen=True)
+class HumanScore:
+    score: int
+    submitted_at: datetime
+
+
+async def human_scores_by(
+    s: AsyncSession, scorer_id: uuid.UUID, answer_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, HumanScore]:
+    """The scorer's own scores of these answers, by answer id."""
+    if not answer_ids:
+        return {}
+    found = await s.execute(
+        select(human_scores.c.answer_id, human_scores.c.score, human_scores.c.submitted_at).where(
+            human_scores.c.scorer_id == scorer_id, human_scores.c.answer_id.in_(answer_ids)
+        )
+    )
+    return {row.answer_id: HumanScore(row.score, row.submitted_at) for row in found}
+
+
+async def score_counts(
+    s: AsyncSession, scorer_ids: list[uuid.UUID], answer_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, int]:
+    """How many of these answers each scorer has scored."""
+    if not scorer_ids or not answer_ids:
+        return {}
+    found = await s.execute(
+        select(human_scores.c.scorer_id, func.count())
+        .where(human_scores.c.scorer_id.in_(scorer_ids), human_scores.c.answer_id.in_(answer_ids))
+        .group_by(human_scores.c.scorer_id)
+    )
+    return {scorer: int(count) for scorer, count in found.all()}

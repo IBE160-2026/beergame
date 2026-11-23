@@ -88,6 +88,11 @@ POLICIES: dict[str, frozenset[str]] = {
     "audit.read": frozenset({ADMIN}),
     # Admin-område → «Kontrolltest» (Story 12.7, FR-82, AD-27): only the Admin sets one up.
     "control_tests.manage": frozenset({ADMIN}),
+    # A Control test's answers (Story 12.9, FR-82, AD-27): only the Admin and the Users the Admin
+    # named its scorers read them (`control_tests_scored_by`, or `control_tests.manage`), and only
+    # the named scorers score them. No Admin role is needed to be a scorer.
+    "control_test_answers.read": frozenset({ANY_USER}),
+    "control_test_answers.score": frozenset({ANY_USER}),
     # The Lærerhjem and the Classes on it (Story 4.1). The Class actions are also held to the
     # User's staff role in the Class (`CLASS_STAFF_ROLES`). An Assistant lecturer reads the
     # Classes they are staff of and nothing else (Story 4.9). The Admin holds the Class actions of
@@ -353,6 +358,25 @@ def control_test_classes() -> Select:
     of kind `control_test`. A subquery for `classes.id IN (...)`: what tells `classes` that a
     Class is a Control test (`ClassResource.control_test`), and what its staff lists leave out."""
     return select(_kinded_sessions.c.class_id).where(_kinded_sessions.c.kind == CONTROL_TEST_KIND)
+
+
+_scorers = table("control_test_scorers", column("class_session_id"), column("user_id"))
+"""`assessment.control_test_scorers` by name only, for the scorer scope."""
+
+
+def control_tests_scored_by(user: Principal | uuid.UUID) -> Select:
+    """The ids of the Control test Class sessions `user` is a named scorer of (Story 12.9, FR-82,
+    AD-27): with `control_tests.manage` (the Admin), the scope of `control_test_answers.read`, and
+    alone the scope of `control_test_answers.score`. A subquery for `class_sessions.id IN (...)`;
+    any other Control test reads as one that does not exist."""
+    user_id = user if isinstance(user, uuid.UUID) else user.id
+    return select(_scorers.c.class_session_id).where(_scorers.c.user_id == user_id)
+
+
+def reads_control_test_answers(user: Principal, scorer: bool) -> bool:
+    """Whether `user` may read a Control test's answers (Story 12.9): a named scorer of it
+    (`scorer`, from `control_tests_scored_by`), or the Admin (`control_tests.manage`)."""
+    return scorer or can(user, "control_tests.manage")
 
 
 _debrief_sessions = table("debrief_sessions", column("id"), column("game_id"))
