@@ -4096,3 +4096,20 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
 
 ### Åpne punkter
 - Issue #250: beslutninger og oppfølgingsspill som ikke er tatt med ennå.
+## Story 14.6: Læreren viser alle klassespillene i plenum (spor 3)
+
+### Oppgave
+Bygge Story 14.6 på `epic-14` i spor 3.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-14-6-lecturer-shows-all-class-games-in-a-plenary.md`. Commit: e1769db.
+- «Vis i plenum» åpner en visning for projektor med Matriseveggen, en tabell og ordre per rolle for alle klassespillene, uten navn.
+- Tester: backend 3921, Vitest 1244, frontend-sjekkene, Playwright 52 med axe.
+- Gjennomgang: 16 funn, 6 rettet.
+- Status: done. Spor 3 stopper her til grunnleggeren har kjørt `/compact`.
+
+### Åpne punkter
+- Issue #251: beslutninger.
