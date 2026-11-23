@@ -51,7 +51,16 @@ None: axe found no violation and no page scrolled sideways, on any surface at an
 
 Not run: no Student report PDF exists on this build (Epic 13 adds it). Run the command again with `--verapdf <report>` once CI checks a sample report (SETUP-GUIDE §7).
 
-## Not built yet
+## Built since, not in this scan
+
+Epics 11 to 13 and Story 15.1 were merged after this report (epic-15, 2026-11-23): the Individual
+test, the AI assessment, the Studentside with «Fullføring» and Oppfølgingsspill, the
+Meldingsskjema, the Student report and «Mine data» are in the build. Each runs axe in its own
+Playwright spec at phone and desktop widths, but none is in this scan's `SURFACES` yet; the
+statement says so under «Ikke kontrollert ennå». Add them to `frontend/e2e/conformance.spec.ts`
+and make this report again (an open point of the Epic 15 close-out).
+
+## Not built yet (when this report was made)
 
 These surfaces are not in this build and were not checked. The report must be made again when they are.
 

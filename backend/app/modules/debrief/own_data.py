@@ -163,6 +163,24 @@ async def own_records(user_id: uuid.UUID) -> dict[str, list[OwnRecord]]:
                 at=row["submitted_at"],
             )
             for row in quizzes
+        ]
+        # Story 15.1 close-out (FR-75): each stored answer of each attempt, the Student's own
+        # choice and whether it was right, not only how many there were.
+        + [
+            record(
+                "answer",
+                [
+                    ("number", "number", row["number"]),
+                    ("question_id", "code", answer.get("question_id")),
+                    ("choice", "code", answer.get("choice_id")),
+                    ("correct", "bool", answer.get("correct")),
+                ],
+                class_session_id=row["class_session_id"],
+                at=row["submitted_at"],
+            )
+            for row in quizzes
+            for answer in (row["answers"] or [])
+            if isinstance(answer, dict)
         ],
     }
 

@@ -74,11 +74,15 @@ async def _keeps_account(user_id: uuid.UUID, class_session_id: uuid.UUID) -> boo
         entries = await identity.roster_classes_of_user(s, user_id)
         class_ids = sorted({class_id for class_id, _ in entries}, key=str)
         targets = await sessions.retention_targets_of_classes(s, class_ids)
-        if any(t.id != class_session_id and t.data_deleted_at is None for t in targets):
+        others = [t for t in targets if t.id != class_session_id and t.data_deleted_at is None]
+        if any(t.deletion_date is not None for t in others):
             return True
-        with_sessions = {t.class_id for t in targets}
+        # A Class session with no date at all (Epic 15 close-out) holds nothing played yet: like a
+        # Class with no Class session, it keeps the account only while its Class is current.
+        with_sessions = {t.class_id for t in targets if t.deletion_date is not None}
         current = [class_id for class_id, removed in entries if not removed]
-        waiting = [class_id for class_id in current if class_id not in with_sessions]
+        dateless = {t.class_id for t in others}
+        waiting = [c for c in current if c not in with_sessions] + sorted(dateless, key=str)
         if waiting:
             facts = await classes.class_facts(s, waiting)
             if any(not fact.archived for fact in facts.values()):
@@ -164,8 +168,15 @@ async def _purge_class_if_done(s, class_id: uuid.UUID) -> tuple[int, int]:
     """Once every Class session of the Class is marked deleted, its Roster addresses of people who
     never registered and its Student Invitations not accepted go (FR-77, FR-6)."""
     targets = await sessions.retention_targets_of_classes(s, [class_id])
-    if not targets or any(t.data_deleted_at is None for t in targets):
+    left = [t for t in targets if t.data_deleted_at is None]
+    if not targets or any(t.deletion_date is not None for t in left):
         return (0, 0)
+    if left:
+        # Only Class sessions with no date at all are left (Epic 15 close-out): they wait no
+        # longer than their Class's archive.
+        facts = (await classes.class_facts(s, [class_id])).get(class_id)
+        if facts is None or not facts.archived:
+            return (0, 0)
     return await classes.purge_unregistered_roster(s, class_id)
 
 

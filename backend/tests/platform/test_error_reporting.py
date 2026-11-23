@@ -95,7 +95,8 @@ def test_a_report_holds_the_class_the_chain_the_frames_and_the_allowlisted_ids_o
     assert [f.function for f in frames] == ["_caught", "_raise_with_personal_data"]
     assert frames[0].filename == "tests/platform/test_error_reporting.py"
     assert frames[0].module == "tests.platform.test_error_reporting" and not frames[0].in_app
-    assert report.app_env == "test" and len(report.event_id) == 32
+    # The environment the suite runs in: `test` locally, `ci` on GitHub Actions.
+    assert report.app_env in ("test", "ci") and len(report.event_id) == 32
     assert_no_personal_data(envelope(report))
 
 

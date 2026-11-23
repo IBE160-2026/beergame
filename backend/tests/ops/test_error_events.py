@@ -96,6 +96,7 @@ async def _violating_game(session_id: uuid.UUID, purpose: str, played_out: bool 
     return game_id
 
 
+@pytest.mark.long
 async def test_a_violation_counts_once_under_its_class_session_for_each_kind_of_game():
     session_id = uuid.uuid7()
     made = [
@@ -177,6 +178,7 @@ def _boom_app(hook) -> FastAPI:
     return app
 
 
+@pytest.mark.long
 async def test_a_5xx_answer_counts_under_the_session_its_path_names():
     session_id, other = uuid.uuid7(), uuid.uuid7()
     game_id = await classic_game(TEST_DATABASE_URL)
@@ -302,6 +304,7 @@ async def _llm_game(session_id: str, purpose: str) -> str:
     return game_id
 
 
+@pytest.mark.long
 async def test_the_view_shows_errors_fallback_times_guard_share_and_cost(klass, admin):
     session_id = await new_session(klass)
     other = await new_session(klass)

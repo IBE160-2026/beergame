@@ -1,8 +1,9 @@
 """When a Class session's Student data is deleted (Story 13.9, FR-77, AD-9, AD-14): the one rule.
 
 The deletion date is the latest effective Test deadline of the Class session (its Test deadline,
-or the latest per-Student extension of Story 11.13), read as a day on the Europe/Oslo calendar,
-plus the retention period in whole calendar months; a day past the new month's end becomes its
+or the latest per-Student extension of Story 11.13), or without a Test deadline the latest of its
+other dates (`deletion_base`), read as a day on the Europe/Oslo calendar, plus the retention
+period in whole calendar months; a day past the new month's end becomes its
 last. `sessions.service` stores it on the Class session; Epic 15 (`ops.retention`) deletes on it
 and reads the same rule. Pure (no clock, no database); in `platform` so that `sessions` and
 `ops` share it.
@@ -32,6 +33,19 @@ def latest_test_deadline(
     if test_deadline is None:
         return None
     return max([test_deadline, *extensions])
+
+
+def deletion_base(
+    latest_test: datetime | None, other_dates: Sequence[datetime | None] = ()
+) -> datetime | None:
+    """The moment the retention period counts from: the latest effective Test deadline, or, for a
+    Class session that has none, the latest of its other dates (Debrieffrist, Spillfrist,
+    Startdato) that is set (Epic 15 close-out: a Class session without a Test deadline is deleted
+    too). None while the Class session has no date at all: nothing of it can have been played."""
+    if latest_test is not None:
+        return latest_test
+    found = [d for d in other_dates if d is not None]
+    return max(found) if found else None
 
 
 def deletion_date(latest: datetime | None, months: int) -> date | None:

@@ -104,6 +104,7 @@ async def _main(*argv: str) -> tuple[int, list[str]]:
     return status, lines
 
 
+@pytest.mark.long
 async def test_a_restored_copy_verifies_its_finished_games_changes_nothing_and_fails_on_a_tamper(
     restored, monkeypatch
 ):

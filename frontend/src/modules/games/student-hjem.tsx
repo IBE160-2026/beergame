@@ -449,12 +449,14 @@ function BeforeStart({ session }: { session: EnrolledSession }) {
 }
 
 /** Story 13.9 (FR-77, FR-57, UX-DR29): under «Rapport», the day the Klasseøkt's data is deleted and
- * that the Student should download the report before it; nothing while there is no Testfrist. */
+ * that the Student should download the report before it; nothing while there is no date. Once the
+ * day has come on the Oslo calendar (Story 15.3), that the data is deleted, not a day gone by. */
 export function DeletionLine({ day }: { day: string | null | undefined }) {
   if (!day) return null;
+  const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Oslo" }).format(new Date());
   return (
     <p className="mt-2 text-body-phone text-ink-secondary lg:text-body" data-deletion-date={day}>
-      {copy.deletion(calendarDateText(day))}
+      {day <= today ? copy.deleted : copy.deletion(calendarDateText(day))}
     </p>
   );
 }

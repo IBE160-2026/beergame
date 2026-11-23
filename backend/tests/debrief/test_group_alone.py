@@ -232,19 +232,32 @@ async def test_a_group_that_never_met_falls_back_after_48_hours(klass, emitted):
     assert (await call(a, "GET", f"{path}/reflection")).status_code == 200
 
 
-async def test_a_held_debrief_counts_its_48_hours_from_the_first_open(klass):
+async def test_a_held_debrief_counts_its_48_hours_from_the_first_open(klass, monkeypatch):
     # Held until every Class game has finished (Story 9.2): a late release must not fall back at
     # once, so the due time is the first open plus 48 hours, not the Game's finish.
     session_id, game_id = await played(klass, 3, ordering=3, debrief_release="hold")
+    # The Game finished an hour before the first open (moved back here: the finished Week's
+    # `created_at` is its transaction's start, which under load can fall after the start of the
+    # open's transaction, so the order of the two real times says nothing).
+    from datetime import timedelta
+
+    from app.modules.debrief import commands
+
+    real = commands.games.finished_at
+
+    async def an_hour_earlier(session, game):
+        found = await real(session, game)
+        return None if found is None else found - timedelta(hours=1)
+
+    monkeypatch.setattr(commands.games, "finished_at", an_hour_earlier)
     assert (await open_(email(0), session_id)).json()["group"]["joined"] is True
-    [(from_open, after_finish)] = rows(
+    # The due time is the open's database time plus 48 hours, not the finish's.
+    [(from_open,)] = rows(
         "SELECT s.fallback_due_at - s.opened_at - interval '48 hours' BETWEEN interval '0'"
-        " AND interval '1 minute', s.fallback_due_at > ("
-        " SELECT w.created_at FROM game_weeks w WHERE w.game_id = s.game_id AND w.finished)"
-        " + interval '48 hours' FROM debrief_sessions s WHERE s.game_id = %s",
+        " AND interval '1 minute' FROM debrief_sessions s WHERE s.game_id = %s",
         game_id,
     )
-    assert from_open and after_finish
+    assert from_open
 
 
 async def test_a_student_who_missed_the_group_opens_a_personal_debrief_at_once(klass, emitted):

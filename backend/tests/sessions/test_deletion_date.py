@@ -78,10 +78,20 @@ async def test_saving_the_test_deadline_stores_the_date_hjem_states(klass):
     assert (await home(STUDENT))["deletion_date"] == "2027-06-18"
 
 
-async def test_a_session_without_a_test_deadline_has_no_date(klass):
+async def test_a_session_without_a_test_deadline_counts_from_its_latest_other_date(klass):
+    """Epic 15 close-out: without a Test deadline the Debrieffrist (the latest date set) plus the
+    period gives the date, so the session's data is deleted too; with no date at all, none."""
     await student_of(klass)
     session_id = await new_session(klass)
     assert (await save(session_id, {**PLAN, "test_deadline": None})).status_code == 200
+    # Debrieffrist 2026-12-11 09:00 UTC, 10:00 in Oslo, plus six months.
+    assert stored(session_id) == date(2027, 6, 11)
+    assert (await home(STUDENT))["deletion_date"] == "2027-06-11"
+    no_test = {**PLAN, "debrief_deadline": None, "test_deadline": None}
+    assert (await save(session_id, no_test)).status_code == 200
+    assert stored(session_id) == date(2027, 6, 8)  # the Spillfrist, 2026-12-08
+    blank = {name: None for name in PLAN}
+    assert (await save(session_id, blank)).status_code == 200
     assert stored(session_id) is None
     assert (await home(STUDENT))["deletion_date"] is None
 
@@ -96,9 +106,9 @@ async def test_moving_the_test_deadline_moves_the_date_both_ways(klass, monkeypa
     earlier = datetime(2026, 12, 20, 23, 30, tzinfo=UTC)
     assert (await save(session_id, {**PLAN, "test_deadline": earlier})).status_code == 200
     assert stored(session_id) == date(2027, 6, 21)
-    # Cleared, then set again.
+    # Cleared (the Debrieffrist counts), then set again.
     assert (await save(session_id, {**PLAN, "test_deadline": None})).status_code == 200
-    assert stored(session_id) is None
+    assert stored(session_id) == date(2027, 6, 11)
     assert (await save(session_id, PLAN)).status_code == 200
     assert stored(session_id) == DELETION
 

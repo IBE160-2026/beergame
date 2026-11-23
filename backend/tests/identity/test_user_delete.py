@@ -206,6 +206,7 @@ def plant_personal_data(
         )
 
 
+@pytest.mark.long
 async def test_a_student_in_a_running_game_is_erased_and_the_game_goes_on(klass, admin):
     session_id, game_id, by_role = await running(klass, students=2)
     (gone_role, gone), (stay_role, stay) = sorted(by_role.items())

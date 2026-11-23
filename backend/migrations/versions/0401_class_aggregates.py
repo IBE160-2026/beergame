@@ -7,7 +7,7 @@ fewer than 10 Students (`withheld`, no value). No `user_id`, `seat_id`, Game id,
 text: the rows survive the deletion of the Student data (Story 15.3).
 
 Revision ID: 0401
-Revises: 0072
+Revises: 0073
 Create Date: 2026-11-23
 """
 
@@ -18,7 +18,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision: str = "0401"
-down_revision: str | None = "0072"
+down_revision: str | None = "0073"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

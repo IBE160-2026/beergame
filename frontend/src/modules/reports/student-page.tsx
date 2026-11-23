@@ -79,7 +79,7 @@ function StudentPageBody({
     // Story 15.3 (FR-77): the Class session's Student data is deleted; the page says so.
     return (
       <PageShell user={user} title={nb.reports.studentPage.deletedTitle} updatedAt={updatedAt}>
-        <div className="flex flex-col items-start gap-3">
+        <div className="mt-4 flex flex-col items-start gap-3">
           <p className="max-w-prose text-body-phone text-ink lg:text-body">{nb.reports.studentPage.deleted}</p>
           <Link href={classSessionPath(sessionId)} standalone>
             {nb.reports.studentPage.toSession}

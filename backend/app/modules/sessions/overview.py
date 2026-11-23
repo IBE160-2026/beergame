@@ -80,6 +80,16 @@ async def _student_names(s, row, user_ids: list[uuid.UUID]) -> dict[uuid.UUID, s
     return await classes.student_names(row["class_id"], user_ids, session=s)
 
 
+async def _actor_names(s, row, user_ids: list[uuid.UUID]) -> dict[uuid.UUID, str]:
+    """`classes.actor_names` (who started, paused or filled a Seat), with the Students left out
+    once the Class session's Student data counts as deleted (Story 15.3): staff stay named."""
+    found = await classes.actor_names(s, row["class_id"], user_ids)
+    if not found or not data_deleted(row, auth.utcnow()):
+        return found
+    students = await classes.student_names(row["class_id"], list(found), session=s)
+    return {user_id: name for user_id, name in found.items() if user_id not in students}
+
+
 BATCH_START_CONCURRENCY = 4
 """How many Games «Start 12 spill» starts at once (Story 8.10): below the pool size (10)."""
 
@@ -135,7 +145,7 @@ async def class_overview(user: authz.Principal, session_id: uuid.UUID) -> ClassO
             key=str,
         )
         names = await _student_names(s, row, students) if students else {}
-        by = await classes.actor_names(s, row["class_id"], _actors(games))
+        by = await _actor_names(s, row, _actors(games))
         now = await games_service.database_now(s)
         # The Start-date lock on the api clock, as the Klasseøkt reads it (`get_session`).
         before_start = not is_locked(row)
@@ -473,9 +483,9 @@ async def game_insight(user: authz.Principal, game_id: uuid.UUID) -> GameInsight
             key=str,
         )
         names = await _student_names(s, row, students) if students else {}
-        by = await classes.actor_names(
+        by = await _actor_names(
             s,
-            row["class_id"],
+            row,
             sorted(
                 {seat.actor_user_id for seat in insight.seats if seat.actor_user_id}
                 | ({insight.paused_by} if insight.paused_by is not None else set())

@@ -479,16 +479,34 @@ async def test_from_the_date_on_the_staff_views_show_no_names_before_the_run(kla
         await sessions.lock_due(item, START + MINUTE)
     [(game_id,)] = rows("SELECT id FROM games WHERE class_session_id = %s", session_id)
     names = [name for (name,) in rows("SELECT name FROM users WHERE id = ANY(%s)", seated)]
-    due_at(session_id)
+    [(email,)] = rows("SELECT email FROM users WHERE id = %s", seated[0])
+    # A Student paused the game: the staff views name who paused (an actor name).
+    execute("UPDATE games SET paused_at = now(), paused_by = %s WHERE id = %s", seated[1], game_id)
     paths = (
         f"/api/class-sessions/{session_id}/overview",
         f"/api/games/{game_id}/insight",
+        f"/api/class-sessions/{session_id}/allocation",
     )
     async with client() as c:
         await as_user(c, LECTURER)
+        before = [await c.get(path) for path in paths]
+        await as_user(c, email)
+        own_before = await c.get(f"/api/me/games/{game_id}")
+    assert any(name in before[2].text for name in names)  # the allocation names them before
+    assert any(name in own_before.text for name in names[1:])  # a fellow player, by name
+    due_at(session_id)
+    async with client() as c:
+        await as_user(c, LECTURER)
         after = [await c.get(path) for path in paths]
-    assert all(r.status_code == 200 for r in after)
-    assert not any(name in r.text for r in after for name in names)
+        # The Students' own game view, every name reader of the Class session (the Debrief's
+        # joined Students, Story 9.11) and the Klasseøkt's Students: none named.
+        await as_user(c, email)
+        own = await c.get(f"/api/me/games/{game_id}")
+    assert all(r.status_code == 200 for r in [*after, own])
+    assert not any(name in r.text for r in [*after, own] for name in names)
+    sid = uuid.UUID(session_id)
+    assert await sessions.student_names(sid, list(seated)) == {}
+    assert await sessions.session_students(sid) == {}
     # Nothing was deleted: the names are still stored.
     assert all(account(user)[4] is False for user in seated)
 
@@ -524,3 +542,33 @@ async def test_a_student_keeps_the_account_for_each_reason(klass, no_aggregates,
         "completion_corrections": 0,
         "student_adjustments": 0,
     }
+
+
+async def test_a_date_saved_after_the_deletion_date_keeps_it(klass):
+    """Epic 15 close-out: once the date has come, a date saved later does not move it (the names
+    stay hidden and a retention run is not stopped half-way); before, it moves as ever."""
+    await student_of(klass)
+    session_id = await new_session(klass)
+    assert (await save(session_id, PLAN)).status_code == 200
+    assert stored(session_id) == DELETION
+    due_at(session_id)
+    later = {**PLAN, "test_deadline": TEST + 30 * DAY}
+    assert (await save(session_id, later)).status_code == 200
+    assert stored(session_id) == PAST
+    # Marked deleted by retention: the mark alone counts, whatever the date says.
+    row = {"deletion_date": None, "data_deleted_at": NOW}
+    assert sessions.data_deleted(row, NOW) is True
+
+
+async def test_a_class_session_with_no_date_keeps_the_account_only_while_its_class_is_current(
+    klass, no_aggregates
+):
+    student = await student_of(klass, "uten.dato@x.no")
+    session_id = await new_session(klass)
+    later = await other_class()
+    enrol(later, student, "uten.dato@x.no")
+    await new_session(later)  # no date at all
+    due_at(session_id)
+    assert await retention._keeps_account(student, uuid.UUID(session_id)) is True
+    execute("UPDATE classes SET archived_at = %s WHERE id = %s", NOW - DAY, later)
+    assert await retention._keeps_account(student, uuid.UUID(session_id)) is False

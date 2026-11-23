@@ -173,17 +173,17 @@ for (const vp of VIEWPORTS.filter((v) => !v.text200)) {
       for (const [process, total] of [
         ["backend", "11"],
         ["worker-ai", "7"],
-        ["worker-batch", "7"],
+        ["worker-batch", "10"], // and Epic 13's report slots (docs/ops/connection-budget.md)
       ]) {
         const row = section.locator(`tr[data-process="${process}"]`);
         await expect(row.locator("td").nth(0)).toHaveText(total);
         await expect(row.locator("td").nth(1)).toHaveText(total);
       }
-      await expect(section.locator("tfoot")).toContainText("25");
-      await expect(section.getByText(budget.running.within("25", "25"))).toBeVisible();
+      await expect(section.locator("tfoot")).toContainText("28");
+      await expect(section.getByText(budget.running.within("28", "28"))).toBeVisible();
       // The stack sets no `DB_POOLER_SIZE`: not checked, never passed.
-      await expect(section.getByText(budget.pooler.notChecked("51"))).toBeVisible();
-      await expect(section.getByText(budget.need("25", "50", "51"))).toBeVisible();
+      await expect(section.getByText(budget.pooler.notChecked("57"))).toBeVisible();
+      await expect(section.getByText(budget.need("28", "56", "57"))).toBeVisible();
       await expectAccessible(page, vp.phone);
     });
 
