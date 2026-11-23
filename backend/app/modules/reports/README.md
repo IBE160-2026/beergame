@@ -74,9 +74,13 @@ The minimums are configuration, `COMPLETION_EXPLANATION_MIN_LENGTH` (50 characte
   notice `makeup_given`, and `user:<student>`, `session:<id>` (registry `reports.give_makeup`).
 - Not started: the Student starts it from Hjem (`EnrolledSessionOut.makeup`) after the pre-play
   gate. `games.policy` `makeup` closes it at the Test deadline through the sweep's
-  `games.close_at_test_deadline`; it records no `class_game` step until Story 13.5.
+  `games.close_at_test_deadline`.
 - Completion: `completion_status` passes the make-up's Decision log beside the Class game's
-  (`reporting_games(…, [Purpose.MAKEUP])`); `share_game` names the game the figures come from.
+  (`games.class_game_of`, then `reporting_games(…, [Purpose.MAKEUP])`); `share_game` names the
+  game the figures come from.
+- Story 13.5: finished by its last Week, the make-up is the Student's game
+  (`games.service.student_game`): its finish records `class_game`, and the Debrief, the Replay,
+  the Adapted items and the record's game read it. The record marks it `game.makeup`.
 - `service.py` registers `repo.makeup_game_of` with `sessions` (Hjem, the mail); the worker loads
   `reports.service` through `jobs.TASK_MODULES`.
 - `makeup_games` holds `user_id` and `given_by`: personal data.

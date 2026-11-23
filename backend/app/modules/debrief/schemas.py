@@ -20,6 +20,8 @@ class DebriefOut(BaseModel):
     class_session_id: uuid.UUID
     game_id: uuid.UUID
     game_number: int | None
+    makeup: bool = False
+    """Story 13.5: the game is the Student's Oppfølgingsspill, named so instead of a number."""
     role: Role
     """The Student's own Role in the game."""
     step: int
@@ -417,6 +419,8 @@ class StaffSummaryOut(BaseModel):
     name: str | None
     game_id: uuid.UUID | None
     game_number: int | None
+    makeup: bool = False
+    """Story 13.5: the Debrief runs on the Student's Oppfølgingsspill, named so, not numbered."""
     role: Role | None
     explanation: ExplanationOut | None
     summary: SummaryOut | None

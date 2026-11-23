@@ -2737,6 +2737,11 @@
             "title": "Id",
             "type": "string"
           },
+          "makeup": {
+            "default": false,
+            "title": "Makeup",
+            "type": "boolean"
+          },
           "role": {
             "$ref": "#/components/schemas/Role"
           },
@@ -7251,7 +7256,7 @@
         "type": "object"
       },
       "RecordGameOut": {
-        "description": "The Student's Class game (`games.service.student_game`): its id for the link to\nSpillinnsikt, number, the Student's Role and where it stands (`ended`: closed without its last\nWeek, Story 10.6), with when it finished.",
+        "description": "The Student's Class game (`games.service.student_game`): its id for the link to\nSpillinnsikt, number, the Student's Role and where it stands (`ended`: closed without its last\nWeek, Story 10.6), with when it finished. `makeup`: it is the Student's finished\nOppfølgingsspill, which became their game (Story 13.5); it has no Spillinnsikt.",
         "properties": {
           "finished_at": {
             "anyOf": [
@@ -7269,6 +7274,11 @@
             "format": "uuid",
             "title": "Game Id",
             "type": "string"
+          },
+          "makeup": {
+            "default": false,
+            "title": "Makeup",
+            "type": "boolean"
           },
           "number": {
             "anyOf": [
@@ -10252,6 +10262,11 @@
             ],
             "title": "Game Number"
           },
+          "makeup": {
+            "default": false,
+            "title": "Makeup",
+            "type": "boolean"
+          },
           "name": {
             "anyOf": [
               {
@@ -10499,6 +10514,11 @@
       "StepOut": {
         "description": "A step of Stegene (Story 6.1, UX-DR29, AD-10, AD-16), its state computed here: the web app\nholds no rule for which step is open.",
         "properties": {
+          "after_makeup": {
+            "default": false,
+            "title": "After Makeup",
+            "type": "boolean"
+          },
           "closed": {
             "default": false,
             "title": "Closed",

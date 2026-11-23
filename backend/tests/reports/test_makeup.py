@@ -186,8 +186,9 @@ async def test_a_lecturer_gives_a_makeup_that_the_student_plays_and_completion_r
     assert (await games_service.get_game(makeup_id)).lifecycle == "finished"
     assert (await call(email(0), "GET", f"/api/me/games/{makeup_id}/result")).status_code == 200
 
-    # Completion: the step is done from the make-up's share; the line names that game. No step
-    # event is recorded by the make-up (Story 13.5 turns it on).
+    # Completion: the step is done from the make-up's share; the line names that game. The
+    # make-up's finish records `class_game` (Story 13.5), which the Class game recorded already:
+    # the step events stay as they were.
     status = await reports.completion_status(me, sid)
     assert (status.step("class_game").done, status.share_game, status.ordered_share) == (
         True,

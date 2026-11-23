@@ -51,14 +51,15 @@ export function holderText(seat: TableSeat): string {
  * above, so the step itself is no second Lenke. The current Individual test step leads to the test
  * (Story 11.3), and says when the Testfrist has passed without a hand-in (Story 11.11). A step a
  * Faglærer corrected says «gjort, rettet av faglærer» or «ikke gjort, …» whatever its state (Story
- * 13.3); its link stays. */
+ * 13.3); its link stays. A locked Debrief step of a Student with no Class game says it opens when
+ * their Oppfølgingsspill is finished (Story 13.5). */
 export function stepItems(
   steps: EnrolledSession["steps"],
   sessionId?: string,
   replay?: EnrolledSession["replay"],
 ): StegeneItem[] {
   const running = replay?.game?.status === "running" && replay.game.week != null ? replay.game : null;
-  return (steps ?? []).map(({ step, state, held, quiz_changed, group_open, closed, counts, corrected }) => ({
+  return (steps ?? []).map(({ step, state, held, quiz_changed, group_open, closed, counts, corrected, after_makeup }) => ({
     key: step,
     name: copy.stepNames[step],
     state,
@@ -86,7 +87,10 @@ export function stepItems(
             (counts === false ? copy.notCounted[step] : undefined) ?? copy.done
           : held && step === "debrief"
             ? copy.held.debrief
-            : copy.locked[step],
+            : after_makeup && step === "debrief"
+              ? // Story 13.5: no Class game; the Oppfølgingsspill opens the Debrief.
+                copy.debriefAfterMakeup
+              : copy.locked[step],
     href: state === "current" && sessionId ? stepHref(step, sessionId) : undefined,
   }));
 }

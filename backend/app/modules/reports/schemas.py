@@ -84,7 +84,8 @@ GameState = Literal["not_ready", "ready", "running", "finished", "ended"]
 class RecordGameOut(BaseModel):
     """The Student's Class game (`games.service.student_game`): its id for the link to
     Spillinnsikt, number, the Student's Role and where it stands (`ended`: closed without its last
-    Week, Story 10.6), with when it finished."""
+    Week, Story 10.6), with when it finished. `makeup`: it is the Student's finished
+    Oppfølgingsspill, which became their game (Story 13.5); it has no Spillinnsikt."""
 
     game_id: uuid.UUID
     number: int | None
@@ -92,6 +93,7 @@ class RecordGameOut(BaseModel):
     state: GameState
     played_out: bool
     finished_at: datetime | None
+    makeup: bool = False
 
 
 class RecordDebriefOut(BaseModel):

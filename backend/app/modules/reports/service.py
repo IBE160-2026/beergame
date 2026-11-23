@@ -66,7 +66,9 @@ async def completion_status(
         corrected = await progress.corrections(s, user_id, class_session_id)
         adjustment = await sessions.get_adjustment(s, class_session_id, user_id)
         log = None
-        game = await games.student_game(s, user_id, class_session_id)
+        # The Class game itself: a finished Oppfølgingsspill is the Student's game (Story 13.5),
+        # but Completion takes its log once, below.
+        game = await games.class_game_of(s, user_id, class_session_id)
         if game is not None:
             counted = await scope.reporting_games(s, class_session_id, [Purpose.CLASS])
             if any(each.game_id == game.game_id for each in counted):

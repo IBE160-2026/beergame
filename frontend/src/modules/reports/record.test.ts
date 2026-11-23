@@ -144,7 +144,7 @@ describe("a day in May ends its sentence like any other", () => {
     );
     expect(copy.corrected(true, "Bård", "12. mai")).toBe("Gjort, rettet av Bård 12. mai.");
     expect(copy.corrected(true, "Bård", "12. des.")).toBe("Gjort, rettet av Bård 12. des.");
-    expect(gameLines({ game_id: "g", number: 3, role: "wholesaler", state: "finished", played_out: false, finished_at: MAY }, (r) => r)[1]).toBe(
+    expect(gameLines({ game_id: "g", number: 3, role: "wholesaler", state: "finished", played_out: false, finished_at: MAY, makeup: false }, (r) => r)[1]).toBe(
       "Ferdig on. 12. mai.",
     );
     expect(debriefLines({ explanation: null, explanation_saved_at: null, finished_at: MAY, late: false, moments: 3 })[0]).toBe(
@@ -194,7 +194,7 @@ describe("the record parts (FR-63)", () => {
 
   it("names the game, its state and its end", () => {
     expect(gameLines(null, role)).toEqual([record.game.none]);
-    const game = { game_id: "g", number: 3, role: "wholesaler", state: "running" as const, played_out: false, finished_at: null };
+    const game = { game_id: "g", number: 3, role: "wholesaler", state: "running" as const, played_out: false, finished_at: null, makeup: false };
     expect(gameLines(game, role)).toEqual(["Spill 3 · Grossist", record.game.state.running]);
     expect(gameLines({ ...game, state: "finished", played_out: true, finished_at: AT }, role)).toEqual([
       "Spill 3 · Grossist",
@@ -202,6 +202,11 @@ describe("the record parts (FR-63)", () => {
       record.game.playedOut,
     ]);
     expect(gameLines({ ...game, state: "ended", finished_at: AT }, role)[1]).toBe(record.game.state.ended);
+    // Story 13.5: a finished Oppfølgingsspill that became the Student's game.
+    expect(gameLines({ ...game, number: null, makeup: true, state: "finished", finished_at: AT }, role)).toEqual([
+      "Oppfølgingsspill · Grossist",
+      "Ferdig lø. 12. des.",
+    ]);
   });
 
   it("gives the Debrief's state, the quiz attempts and the Replay", () => {

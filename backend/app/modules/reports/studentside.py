@@ -137,6 +137,7 @@ async def student_record(
                 state=_game_state(status),
                 played_out=status.played_out,
                 finished_at=await games.finished_at(s, game.game_id),
+                makeup=game.makeup,
             )
             timing = await games.seat_timing(s, game.game_id, game.role)
             if timing is not None:

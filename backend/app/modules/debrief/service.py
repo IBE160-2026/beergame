@@ -280,6 +280,7 @@ async def _out(row: commands.DebriefRow, game: games.StudentGame, user_id: uuid.
         class_session_id=row.class_session_id,
         game_id=row.game_id,
         game_number=game.number,
+        makeup=game.makeup,
         role=game.role,
         step=row.step,
         group=await _group(row, user_id) if row.shared else None,
@@ -386,7 +387,12 @@ async def open_mine(user: authz.Principal, class_session_id: uuid.UUID) -> Debri
         return None
     _open_or_raise(found)
     shared, tell = False, []
-    if found.group_mode and not await _exists(found.game.game_id):
+    # Story 13.5: an Oppfølgingsspill's Debrief is always a Personal debrief (`games.policy`).
+    if (
+        found.group_mode
+        and not found.game.debrief_personal
+        and not await _exists(found.game.game_id)
+    ):
         # Only for the open that creates it: whether it is shared is fixed then.
         async with get_sessionmaker()() as s:
             students = await games.game_students(s, found.game.game_id)
@@ -1259,7 +1265,7 @@ async def staff_summary(
     if not await sessions.class_staff_may(user, class_session_id, "debrief_summaries.read"):
         return None
     async with get_sessionmaker()() as s:
-        game = await games.student_game(s, student_id, class_session_id)
+        game = await rules.debrief_game(s, student_id, class_session_id)
     explanation = await _stored(student_id, class_session_id)
     stored = await _summary_row(student_id, class_session_id)
     summary = (
@@ -1274,6 +1280,7 @@ async def staff_summary(
         name=await sessions.student_name(class_session_id, student_id),
         game_id=game.game_id if game else None,
         game_number=game.number if game else None,
+        makeup=game.makeup if game else False,
         role=Role(game.role) if game else None,
         explanation=explanation,
         summary=summary,

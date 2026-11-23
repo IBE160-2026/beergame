@@ -101,6 +101,7 @@ async def test_a_finished_game_opens_one_debrief_at_step_one(klass, emitted):
         "class_session_id",
         "game_id",
         "game_number",
+        "makeup",
         "role",
         "step",
         "group",
@@ -172,6 +173,7 @@ async def test_held_debriefs_wait_for_every_class_game_and_are_released_once(kla
             "group_open": False,
             "closed": False,
             "counts": None,
+            "after_makeup": False,
             "corrected": False,
         }
     ]

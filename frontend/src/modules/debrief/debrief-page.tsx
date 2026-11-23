@@ -85,7 +85,7 @@ function DebriefView({
   return (
     <PageShell
       user={user}
-      title={debrief ? copy.title(debrief.game_number) : copy.locked}
+      title={debrief ? (debrief.makeup ? copy.makeupTitle : copy.title(debrief.game_number)) : copy.locked}
       updatedAt={updatedAt}
       phase={debrief ? "ready" : phase === "ready" ? "loading" : phase}
       onRetry={retry}
@@ -141,7 +141,10 @@ function Steps({ debrief, userId }: { debrief: Debrief; userId: string }) {
   };
   return (
     <>
-      <p className={`${LINE} mt-1 text-ink-secondary`}>{copy.roleGame(roleName(debrief.role), debrief.game_number)}</p>
+      <p className={`${LINE} mt-1 text-ink-secondary`}>
+        {/* Story 13.5: the Oppfølgingsspill is named, not numbered. */}
+        {debrief.makeup ? copy.roleMakeup(roleName(debrief.role)) : copy.roleGame(roleName(debrief.role), debrief.game_number)}
+      </p>
       <PageLink href={HOME_PATH.home}>{HOME_LINK.home}</PageLink>
       {/* Story 9.13: a joined Student may put the group's charts on a shared screen. */}
       {group?.joined && !group.alone ? <PageLink href={sharedPath(debrief.id)}>{copy.group.sharedScreen}</PageLink> : null}

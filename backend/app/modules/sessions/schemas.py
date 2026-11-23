@@ -798,6 +798,9 @@ class StepOut(BaseModel):
     """Story 13.1 (FR-17): in an Obligatory class session where the Student has a game, whether
     this step counts as done for the requirement (after the share of Weeks, the minimums and any
     correction); None otherwise and for «Rapport». A `done` step can still not count."""
+    after_makeup: bool = False
+    """Story 13.5: the locked Debrief step of a Student with no Class game whose Oppfølgingsspill
+    is not finished yet; Stegene says the Debrief opens when it is."""
     corrected: bool = False
     """Story 13.3 (FR-17): a Lecturer's correction decided `counts`; Stegene marks the step
     «rettet av faglærer». The reason is never served to the Student."""

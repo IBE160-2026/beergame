@@ -1,7 +1,13 @@
 import pytest
 
 from app.modules.games import service
-from app.modules.games.policy import POLICIES, PurposeNotSupportedError, policy, purposes_with
+from app.modules.games.policy import (
+    POLICIES,
+    PurposeNotSupportedError,
+    policy,
+    purposes_with,
+    purposes_with_own_round,
+)
 from app.modules.games.schemas import Purpose
 
 
@@ -148,7 +154,8 @@ def test_students_rate_the_ai_players_of_class_games_with_one_and_of_every_repla
 def test_the_makeup_row_is_a_class_game_of_its_own_against_ai_players():
     """AD-13 (Story 13.4): the `makeup` row. Snapshot at creation (else `start` answers
     `game_not_ready`), no Takeover, Pause or playout, not on the overview wall, Guided Weeks from
-    the settings, the pre-play gate on and no `class_game` step until Story 13.5."""
+    the settings, the pre-play gate on. Story 13.5: its finish records the `class_game` step and its
+    Debrief is always a Personal debrief, the only row with that column on."""
     rules = policy("makeup")
     assert (rules.snapshot, rules.student_occupants, rules.class_session_game) == (
         "at_creation",
@@ -161,7 +168,6 @@ def test_the_makeup_row_is_a_class_game_of_its_own_against_ai_players():
             rules.pause,
             rules.play_deadline_playout,
             rules.lecturer_overview,
-            rules.records_class_game_step,
             rules.game_number,
             rules.scripted_occupants,
             rules.played_by_staff,
@@ -170,6 +176,9 @@ def test_the_makeup_row_is_a_class_game_of_its_own_against_ai_players():
         )
     )
     assert rules.pre_play_gate and rules.closes_at_test_deadline
+    assert rules.records_class_game_step
+    assert purposes_with("debrief_always_personal") == ["makeup"]
+    assert purposes_with_own_round("makeup") == ["makeup"]
     assert rules.guided_weeks == "settings"
     assert {purpose.value: row.own_round for purpose, row in POLICIES.items()} == {
         "simulation": "none",

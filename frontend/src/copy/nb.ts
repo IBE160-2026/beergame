@@ -546,6 +546,9 @@ export const nb = {
       held: {
         debrief: "Debrief, åpnes når alle Klassespillene er ferdige.",
       },
+      /** Story 13.5: the Debrief step of a Student with no Class game while their
+       * Oppfølgingsspill is not finished. [ASSUMPTION] */
+      debriefAfterMakeup: "Debrief, åpnes når Oppfølgingsspillet er ferdig.",
       /** Story 9.10: the current Quiz step after the Faglærer took out every question the
        * Student's last attempt got wrong. [ASSUMPTION] */
       quizChanged: "pågår, quizen er endret",
@@ -2373,6 +2376,9 @@ export const nb = {
     title: (number: number | null) => `Debrief, ${gameName(number)}`,
     /** «Grossist, Spill 17» under the title. */
     roleGame: (role: string, number: number | null) => `${role}, ${gameName(number)}`,
+    /** Story 13.5: «Debrief, Oppfølgingsspill» and «Grossist, Oppfølgingsspill». [ASSUMPTION] */
+    makeupTitle: "Debrief, Oppfølgingsspill",
+    roleMakeup: (role: string) => `${role}, Oppfølgingsspill`,
     /** «Steg 1 av 5». */
     stepOf: (step: number, steps: number) => `Steg ${step} av ${steps}`,
     /** Step 1's heading (EXPERIENCE.md → Debrief sequence); steps 2 to 5 come with their
@@ -3930,6 +3936,8 @@ export const nb = {
         /** «Spill 3 · Grossist» */
         line: (game: string, role: string) => `${game} · ${role}`,
         name: (number: number | null) => gameName(number),
+        /** Story 13.5: the finished Oppfølgingsspill that became the Student's game. [ASSUMPTION] */
+        makeup: "Oppfølgingsspill",
         state: {
           not_ready: "Ikke klart ennå.",
           ready: "Ikke startet.",

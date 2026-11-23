@@ -200,6 +200,29 @@ async def student_seats(
     return list(result.mappings())
 
 
+async def finished_own_rounds(
+    session: AsyncSession,
+    class_session_id: uuid.UUID,
+    user_id: uuid.UUID,
+    purposes: Collection[str],
+) -> list[RowMapping]:
+    """The Games of `purposes` in the Class session that the Student has held a Seat in (joined
+    through `authz.own_seat`) and that finished by their last Week (`lifecycle = finished`, no
+    `end_reason`), newest first: game id, purpose (Story 13.5)."""
+    result = await session.execute(
+        select(games.c.id.label("game_id"), games.c.purpose)
+        .where(
+            games.c.class_session_id == class_session_id,
+            games.c.purpose.in_(list(purposes)),
+            games.c.lifecycle == "finished",
+            games.c.end_reason.is_(None),
+            games.c.id.in_(authz.own_seat(user_id)),
+        )
+        .order_by(games.c.id.desc())
+    )
+    return list(result.mappings())
+
+
 async def own_game(
     session: AsyncSession, user_id: uuid.UUID, game_id: uuid.UUID
 ) -> RowMapping | None:

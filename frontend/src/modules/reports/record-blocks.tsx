@@ -58,7 +58,8 @@ export function RecordBlocks({ record }: { record: StudentRecord }) {
     <>
       <Block title={copy.game.title} name="game">
         <Lines lines={gameLines(record.game, (role) => roleName(role as Parameters<typeof roleName>[0]))} />
-        {record.game ? (
+        {/* Story 13.5: an Oppfølgingsspill has no Spillinnsikt for staff (Story 13.4). */}
+        {record.game && !record.game.makeup ? (
           <Link href={gameInsightPath(sessionId, record.game.game_id)} standalone data-record-insight="">
             {copy.game.insight}
           </Link>

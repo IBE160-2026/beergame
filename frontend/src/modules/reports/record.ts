@@ -108,10 +108,12 @@ export function participationLines(participation: Participation | null | undefin
   return [copy.timeSpent(duration(participation.seconds)), constant];
 }
 
-/** The game part's lines: «Spill 3 · Grossist», where it stands, and when it finished. */
+/** The game part's lines: «Spill 3 · Grossist» («Oppfølgingsspill · Grossist» once a finished
+ * Oppfølgingsspill is the Student's game, Story 13.5), where it stands, and when it finished. */
 export function gameLines(game: StudentRecord["game"], role: (role: string) => string): string[] {
   if (!game) return [record.game.none];
-  const lines = [record.game.line(record.game.name(game.number ?? null), role(game.role))];
+  const name = game.makeup ? record.game.makeup : record.game.name(game.number ?? null);
+  const lines = [record.game.line(name, role(game.role))];
   lines.push(
     game.state === "finished" && game.finished_at
       ? record.game.finishedOn(day(game.finished_at))

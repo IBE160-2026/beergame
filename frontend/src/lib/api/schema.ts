@@ -4288,6 +4288,11 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /**
+             * Makeup
+             * @default false
+             */
+            makeup: boolean;
             role: components["schemas"]["Role"];
             /** Step */
             step: number;
@@ -6251,7 +6256,8 @@ export interface components {
          * RecordGameOut
          * @description The Student's Class game (`games.service.student_game`): its id for the link to
          *     Spillinnsikt, number, the Student's Role and where it stands (`ended`: closed without its last
-         *     Week, Story 10.6), with when it finished.
+         *     Week, Story 10.6), with when it finished. `makeup`: it is the Student's finished
+         *     Oppfølgingsspill, which became their game (Story 13.5); it has no Spillinnsikt.
          */
         RecordGameOut: {
             /** Finished At */
@@ -6261,6 +6267,11 @@ export interface components {
              * Format: uuid
              */
             game_id: string;
+            /**
+             * Makeup
+             * @default false
+             */
+            makeup: boolean;
             /** Number */
             number: number | null;
             /** Played Out */
@@ -7600,6 +7611,11 @@ export interface components {
             game_id: string | null;
             /** Game Number */
             game_number: number | null;
+            /**
+             * Makeup
+             * @default false
+             */
+            makeup: boolean;
             /** Name */
             name: string | null;
             quiz: components["schemas"]["StaffQuizAttemptsOut"];
@@ -7701,6 +7717,11 @@ export interface components {
          *     holds no rule for which step is open.
          */
         StepOut: {
+            /**
+             * After Makeup
+             * @default false
+             */
+            after_makeup: boolean;
             /**
              * Closed
              * @default false

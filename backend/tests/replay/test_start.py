@@ -97,6 +97,7 @@ async def test_a_student_who_passed_the_quiz_starts_one_replay_in_their_own_role
         "group_open": False,
         "closed": False,
         "counts": None,
+        "after_makeup": False,
         "corrected": False,
     }
 

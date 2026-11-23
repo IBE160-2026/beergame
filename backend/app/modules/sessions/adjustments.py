@@ -150,7 +150,9 @@ async def save_adjustment(
         )
         await events.emit(s, "user", str(user_id))
         await events.emit(s, "session", str(session_id))
-        game = await games_service.student_game(s, user_id, session_id)
+        # The Class game's turn times (the Oppfølgingsspill has none to recompute: no Takeover,
+        # Pause or playout), also once a finished make-up is the Student's game (Story 13.5).
+        game = await games_service.class_game_of(s, user_id, session_id)
     if game is not None:
         try:
             await games_commands.recompute_turn_times(str(game.game_id))

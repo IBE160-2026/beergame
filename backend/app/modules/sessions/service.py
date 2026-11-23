@@ -1512,11 +1512,13 @@ async def enrolled_sessions(user: authz.Principal) -> EnrolledSessionListOut:
             if cards.get(row["id"]) is not None
             and progress.Step.QUIZ_PASSED in done.get(row["id"], set())
         }
-        # Story 13.4: the Oppfølgingsspill a Lecturer gave the Student, as a game card.
+        # Story 13.4: the Oppfølgingsspill a Lecturer gave the Student, as a game card; once it
+        # finished and became their game (Story 13.5) it is `game` instead, not shown twice.
         makeups = {
             row["id"]: card
             for row in locked
             if (card := await _makeup_card(s, user.id, row, done.get(row["id"], set()))) is not None
+            and (cards.get(row["id"]) is None or cards[row["id"]].id != card.id)
         }
     # Story 13.1 (FR-17): in an Obligatory class session where the Student has a game, which steps
     # count and whether the requirement is met, from the one assembler.
@@ -1553,8 +1555,12 @@ async def enrolled_sessions(user: authz.Principal) -> EnrolledSessionListOut:
                 game=cards.get(row["id"]),
                 steps=_with_counts(
                     stegene(
-                        cards.get(row["id"]) is not None,
+                        cards.get(row["id"]) is not None
+                        or _after_makeup(None, makeups.get(row["id"])),
                         done.get(row["id"], set()),
+                        # Story 13.5: a Student with no Class game plays the Oppfølgingsspill
+                        # that opens their Debrief.
+                        after_makeup=_after_makeup(cards.get(row["id"]), makeups.get(row["id"])),
                         held=_held(cards.get(row["id"])),
                         quiz_changed=changed.get(row["id"], False),
                         group_open=grouped.get(row["id"], False),
@@ -1572,6 +1578,12 @@ async def enrolled_sessions(user: authz.Principal) -> EnrolledSessionListOut:
             if row["class_id"] in names
         ]
     )
+
+
+def _after_makeup(game: StudentGameOut | None, makeup: StudentGameOut | None) -> bool:
+    """Story 13.5: the Student has no Class game, and their Debrief opens when the
+    Oppfølgingsspill they were given finishes (not one closed at the Test deadline)."""
+    return game is None and makeup is not None and makeup.status != "finished"
 
 
 STEGENE: tuple[tuple[str, progress.Step], ...] = (
@@ -1594,6 +1606,7 @@ def stegene(
     group_open: bool = False,
     replay_closed: bool = False,
     test_closed: bool = False,
+    after_makeup: bool = False,
 ) -> list[StepOut]:
     """The state of each of Stegene's steps (Story 6.1, AD-10): a done step is `done`; with a
     game the first step not done is `current` and the later ones `locked`; with no game (before
@@ -1605,7 +1618,8 @@ def stegene(
     under way. `replay_closed` (Story 10.3): a current Replay step says the Test deadline has
     passed with no Replay started; it stays not done. `test_closed` (Story 11.11): a current
     Individual test step (not handed in) says the Student's Test deadline has passed; it stays
-    not done, and turns done when the sweep hands a saved attempt in."""
+    not done, and turns done when the sweep hands a saved attempt in. `after_makeup` (Story
+    13.5): a locked Debrief step says it opens when the Oppfølgingsspill is finished."""
     steps: list[StepOut] = []
     current_given = not has_game
     for name, step in STEGENE:
@@ -1627,6 +1641,9 @@ def stegene(
                 continue
         else:
             state = "locked"
+            if name == "debrief" and after_makeup:
+                steps.append(StepOut(step=name, state=state, after_makeup=True))
+                continue
         steps.append(StepOut(step=name, state=state))
     return steps
 
@@ -2474,8 +2491,9 @@ def _names_in(
 async def _student_card(
     s: AsyncSession, user_id: uuid.UUID, row: Mapping[str, Any], done: set[progress.Step]
 ) -> StudentGameOut | None:
-    """The Student's Class game in a locked Class session, through `games.service.student_game`
-    and `table_status` (Story 6.1, AD-3); None when they never held a Seat in it."""
+    """The Student's game in a locked Class session, through `games.service.student_game` and
+    `table_status` (Story 6.1, AD-3): their Class game, or their finished Oppfølgingsspill (Story
+    13.5); None with neither."""
     found = await games_service.student_game(s, user_id, row["id"])
     if found is None:
         return None
@@ -2553,13 +2571,25 @@ async def _game_out(
         in_room=_in_room_out(table),
         played_out=play.played_out,
         # Story 9.2: a Lecturer's test Game has no Debrief (Story 6.20), nor has a Replay (10.4);
-        # the Oppfølgingsspill's Debrief is Story 13.5's.
+        # an Oppfølgingsspill has the Student's once it is their game (Story 13.5).
         debrief=(
-            None
-            if found.test_game or found.replay or found.makeup
-            else await _debrief_of(s, user_id, row)
+            await _debrief_of(s, user_id, row) if await _has_debrief(s, user_id, found) else None
         ),
     )
+
+
+async def _has_debrief(
+    s: AsyncSession, user_id: uuid.UUID, found: games_service.StudentGame
+) -> bool:
+    """Whether a game card states the Student's Debrief: their Class game, or their
+    Oppfølgingsspill once it has become their game (`student_game`, Story 13.5); never a test
+    Game or a Replay."""
+    if found.test_game or found.replay:
+        return False
+    if not found.makeup:
+        return True
+    theirs = await games_service.student_game(s, user_id, found.class_session_id)
+    return theirs is not None and theirs.game_id == found.game_id
 
 
 async def _time_proposal_out(
