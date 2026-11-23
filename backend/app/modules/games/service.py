@@ -27,9 +27,11 @@ from app.modules.games.class_figures import (
     GameDataRow,
     OccupancyFigure,
     SeatFigure,
+    class_games_without_fact_sets,
     class_orders,
     fact_figures,
     game_data_rows,
+    latest_report_changes,
     occupancy_figures,
     rating_counts,
     rating_students,
@@ -258,6 +260,9 @@ __all__ = [
     # Story 14.3: the game measures' group size.
     "student_count",
     "rating_students",
+    # The close-out of Epic 14: late changes reach the aggregate; missing facts sets are built.
+    "latest_report_changes",
+    "class_games_without_fact_sets",
     "FallbackCount",
     "SessionAiFigures",
     "class_session_of",

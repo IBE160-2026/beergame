@@ -23,6 +23,7 @@ from app.modules.messaging import service as messaging
 from app.modules.ops import cost_limit, retention, spend_alert
 from app.modules.ops import service as ops_service
 from app.modules.reports import aggregates as report_aggregates
+from app.modules.reports import class_report_jobs
 from app.modules.reports import snapshot as report_snapshots
 from app.modules.sessions import service as sessions
 from app.modules.tests import commands as tests_commands
@@ -357,6 +358,10 @@ DUE_ACTIONS: tuple[DueAction, ...] = (
     # Story 9.14 (AD-9): defer the narration job of a Seat again when it was lost (no narration
     # stored ten minutes after its Class game finished).
     DueAction("debrief.narration", debrief.due_narrations, debrief.narrate_due),
+    # Close-out of Epic 14 (FR-64, AD-9): defer the Klasserapport's facts job again for a finished
+    # Class game whose Seats lack facts sets ten minutes on (a game finished before the job existed,
+    # or a job lost or failed), until it has failed MAX_FAILURES times.
+    DueAction("reports.class_facts", class_report_jobs.due_games, class_report_jobs.defer_due),
     # Story 15.7 (FR-69): once today's AI spend (Europe/Oslo) passes `AI_DAILY_ALERT_USD`, tell
     # every active Admin once that day, an immediate notice. Before the deadline reminders, which
     # stay last.

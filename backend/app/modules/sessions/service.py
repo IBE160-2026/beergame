@@ -2915,6 +2915,25 @@ async def model_names(ids: Collection[str]) -> dict[str, ModelName]:
     return found
 
 
+def _comparable_settings(raw: dict[str, Any]) -> dict[str, Any]:
+    """The Game settings as a comparison holds them (Story 14.4): through `GameSettings`, so a
+    lock's snapshot and a saved row of the same settings read the same (defaults filled, rates
+    as one normalised number), without the demand seed. Settings the model no longer reads are
+    kept as stored."""
+    try:
+        settings = GameSettings.model_validate(raw)
+    except ValidationError:
+        found = dict(raw)
+        found.pop("demand_seed", None)
+        return found
+    found = settings.model_dump(mode="json", exclude={"demand_seed"})
+    # A rate reads the same however it was written (0.5, "0.50"): its normalised Decimal.
+    for name, value in settings.model_dump(exclude={"demand_seed"}).items():
+        if isinstance(value, Decimal):
+            found[name] = format(value.normalize(), "f")
+    return found
+
+
 async def comparability_source(
     s: AsyncSession, class_session_id: uuid.UUID
 ) -> dict[str, Any] | None:
@@ -2927,8 +2946,7 @@ async def comparability_source(
         return None
     snapshot = row["snapshot"] or {}
     runtime = snapshot.get("session_runtime") or {}
-    settings = dict(snapshot.get("settings") or row["game_settings"] or {})
-    settings.pop("demand_seed", None)
+    settings = _comparable_settings(snapshot.get("settings") or row["game_settings"] or {})
     if snapshot:
         model = runtime.get("model_config_id")
         level = runtime.get("effort_level")

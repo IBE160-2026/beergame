@@ -11,14 +11,17 @@ Weeks and counts only: never a name, never a `user_id` (AD-14). Exported through
 import uuid
 from collections.abc import Collection
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select, text, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.games.models import (
     believability_ratings,
+    fact_sets,
     game_summaries,
+    game_weeks,
     games,
     seat_occupancy,
     seat_weeks,
@@ -50,6 +53,8 @@ __all__ = [
     "seat_figures",
     "rating_students",
     "student_count",
+    "class_games_without_fact_sets",
+    "latest_report_changes",
 ]
 
 
@@ -404,3 +409,59 @@ async def game_data_rows(
             )
         )
     return found
+
+
+async def latest_report_changes(
+    session: AsyncSession, class_session_ids: Collection[uuid.UUID]
+) -> dict[uuid.UUID, datetime]:
+    """Story 14.3 (FR-65): when what a stored aggregate reads of `games` last changed, per Class
+    session, in one read (database time): a Game of it finished, a facts set of one of its Games
+    was stored, or a plausibility rating was given. A Class session with none is left out; an
+    aggregate older than this is written again, so a late game or rating reaches it."""
+    if not class_session_ids:
+        return {}
+    wanted = list(class_session_ids)
+    changes = union_all(
+        select(games.c.class_session_id.label("cs"), game_weeks.c.created_at.label("at"))
+        .join(game_weeks, (game_weeks.c.game_id == games.c.id) & game_weeks.c.finished)
+        .where(games.c.class_session_id.in_(wanted)),
+        select(games.c.class_session_id, fact_sets.c.created_at)
+        .join(fact_sets, fact_sets.c.game_id == games.c.id)
+        .where(games.c.class_session_id.in_(wanted)),
+        select(games.c.class_session_id, believability_ratings.c.created_at)
+        .join(believability_ratings, believability_ratings.c.game_id == games.c.id)
+        .where(games.c.class_session_id.in_(wanted)),
+    ).subquery()
+    found = await session.execute(
+        select(changes.c.cs, func.max(changes.c.at)).group_by(changes.c.cs)
+    )
+    return {cs: at for cs, at in found if at is not None}
+
+
+async def class_games_without_fact_sets(
+    session: AsyncSession, finished_before: datetime, limit: int
+) -> list[tuple[uuid.UUID, uuid.UUID]]:
+    """Story 14.1 (FR-64): `(game_id, class_session_id)` of each finished Class game whose Seats
+    do not all have a facts set yet, finished (database time) at or before `finished_before`,
+    oldest first, at most `limit`: a game finished before the facts job existed, or whose job
+    failed. The caller leaves out Control test Class sessions and live or failed-out jobs."""
+    stored = (
+        select(func.count())
+        .select_from(fact_sets)
+        .where(fact_sets.c.game_id == games.c.id)
+        .scalar_subquery()
+    )
+    held = select(func.count()).select_from(seats).where(seats.c.game_id == games.c.id)
+    found = await session.execute(
+        select(games.c.id, games.c.class_session_id)
+        .join(game_weeks, (game_weeks.c.game_id == games.c.id) & game_weeks.c.finished)
+        .where(
+            games.c.class_session_id.is_not(None),
+            games.c.purpose == Purpose.CLASS.value,
+            game_weeks.c.created_at <= finished_before,
+            stored < held.scalar_subquery(),
+        )
+        .order_by(game_weeks.c.created_at, games.c.id)
+        .limit(limit)
+    )
+    return [(game_id, class_session_id) for game_id, class_session_id in found]

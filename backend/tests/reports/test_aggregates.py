@@ -488,3 +488,33 @@ async def test_the_oversikt_draws_fjoraret_from_the_previous_sessions_aggregate(
         earlier,
     )
     assert (await call(LECTURER, "GET", overview)).json()["cost"]["previous_median"] is None
+
+
+async def test_a_late_rating_makes_it_due_again_by_database_time(klass):
+    """Close-out of Epic 14: the aggregate is stamped in database time, and a plausibility rating
+    (or a finished game or a stored facts set) after it makes it due again."""
+    session_id, game_id, seated = await short_game(klass)
+    await play_weeks(game_id, WEEKS)
+    key = uuid.UUID(session_id)
+    await aggregates.write_aggregate(key)
+    assert key not in await aggregates.due_sessions(AFTER)
+    execute(
+        "INSERT INTO believability_ratings (game_id, user_id, purpose, ai_mode, rating) "
+        "VALUES (%s, %s, 'class', 'rule_based', 4)",
+        game_id,
+        seated[0],
+    )
+    assert key in await aggregates.due_sessions(AFTER)
+    await aggregates.write_aggregate(key)
+    assert key not in await aggregates.due_sessions(AFTER)
+
+
+async def test_a_job_that_failed_three_times_is_not_deferred_again(klass):
+    session_id = await played(klass)
+    key = uuid.UUID(session_id)
+    lock = aggregates.aggregate_key(session_id)
+    for _ in range(aggregates.MAX_FAILURES):
+        assert key in await aggregates.due_sessions(AFTER)
+        assert await aggregates.defer_due(key, AFTER) is True
+        execute("UPDATE procrastinate_jobs SET status = 'failed' WHERE queueing_lock = %s", lock)
+    assert key not in await aggregates.due_sessions(AFTER)

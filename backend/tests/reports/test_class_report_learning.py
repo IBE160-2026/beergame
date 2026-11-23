@@ -22,8 +22,10 @@ from tests.classes.test_classes import LECTURER, OTHER, make
 from tests.classes.test_invitation_counts import execute
 from tests.classes.test_staff import ASSISTANT, call, put_staff
 from tests.debrief.test_explanation import user_id
-from tests.sessions.test_dates import TEST, at
+from tests.individual_test.test_adapted import lock_only
+from tests.sessions.test_dates import START, TEST, at
 from tests.sessions.test_game_end import _empty, clock, emitted, klass
+from tests.sessions.test_lock import MINUTE
 from tests.sessions.test_open_games import confirmed
 from tests.sessions.test_student_choice import email
 
@@ -299,6 +301,30 @@ async def test_a_question_taken_out_is_listed_as_such_and_left_out(klass):
     assert question(body, SENDE)["weight"] == weights[SENDE]
 
 
+async def test_a_locked_session_reads_the_selection_its_lock_pinned(klass):
+    """Story 14.2's deferred item: once the Start date locked the Class session, the report reads
+    the selection the lock pinned (`sessions.locked_pins`), not the saved row."""
+    session_id, _ = await confirmed(klass, 1)
+    version, found = await question_set()
+    weights = {i.id: i.weight for i in found.items}
+    weights[SENDE] += weights.pop("flervalg-arsaker")
+    weights["flervalg-arsaker"] = 0
+    execute(
+        "INSERT INTO test_selections (class_session_id, question_set_version, excluded, weights, "
+        "adapted_weight, updated_at) VALUES (%s, %s, %s, %s, 30, now())",
+        session_id,
+        version,
+        ["flervalg-arsaker"],
+        json.dumps(weights),
+    )
+    await lock_only(START + MINUTE)
+    # The saved row changes after the lock; the pinned selection stands.
+    execute("DELETE FROM test_selections WHERE class_session_id = %s", session_id)
+    body = (await learning(LECTURER, session_id)).json()
+    assert question(body, "flervalg-arsaker")["excluded"] is True
+    assert question(body, SENDE)["weight"] == weights[SENDE]
+
+
 async def test_a_student_with_an_extension_is_still_to_submit_after_the_class_deadline(
     klass, monkeypatch
 ):
@@ -315,6 +341,19 @@ async def test_a_student_with_an_extension_is_still_to_submit_after_the_class_de
     body = (await learning(LECTURER, session_id)).json()
     # Student 0 has their own later deadline; Student 1's has passed; Student 2 handed in.
     assert (body["submitted"], body["still_to_submit"]) == (1, 1)
+
+
+async def test_with_no_test_deadline_everyone_who_has_not_handed_in_is_still_to_submit(
+    klass, monkeypatch
+):
+    """Story 14.2's deferred item: a Class session with no Test deadline counts every Student who
+    has not handed in as still to submit, however late it is."""
+    session_id, _ = await confirmed(klass, 3)
+    execute("UPDATE class_sessions SET test_deadline = NULL WHERE id = %s", session_id)
+    await attempt(session_id, 2, {}, status="auto_submitted")
+    at(monkeypatch, TEST + timedelta(days=30))
+    body = (await learning(LECTURER, session_id)).json()
+    assert (body["submitted"], body["still_to_submit"]) == (1, 2)
 
 
 async def test_the_ai_part_says_switched_off_and_the_computed_parts_stay(klass):

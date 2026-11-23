@@ -6,6 +6,7 @@ One short Class game (`tests.sessions.test_game_end.short_game`) serves the play
 
 import json
 import uuid
+from datetime import timedelta
 from decimal import Decimal
 
 from sqlalchemy import event
@@ -311,3 +312,30 @@ async def test_the_report_reads_a_fixed_number_of_queries_whatever_the_number_of
     spread = quartiles([Decimal("120.5")] * 51)
     assert spread is not None
     assert Decimal(many.json()["cost"]["chain"]["median"]) == spread[1]
+
+
+async def test_the_sweep_builds_missing_facts_sets_until_the_job_has_failed_three_times(klass):
+    """Close-out of Epic 14: a finished Class game whose facts job was lost (or ran before this
+    job existed) gets it again from the sweep ten minutes on; a live job is not doubled, and a job
+    that failed `MAX_FAILURES` times is not deferred again."""
+    session_id, game_id, _ = await short_game(klass)
+    await play_weeks(game_id, WEEKS)
+    key = class_report_jobs.facts_key(game_id)
+    execute("DELETE FROM procrastinate_jobs WHERE queueing_lock = %s", key)
+    [(now,)] = rows("SELECT now()")  # database time: the finish is stamped by it (Issue #63)
+    item = (game_id, session_id)
+    assert item not in await class_report_jobs.due_games(now)
+    later = now + class_report_jobs.SWEEP_AFTER + timedelta(minutes=1)
+    assert item in await class_report_jobs.due_games(later)
+    assert await class_report_jobs.defer_due(item, later) is True
+    assert item not in await class_report_jobs.due_games(later)
+    for _ in range(class_report_jobs.MAX_FAILURES - 1):
+        execute("UPDATE procrastinate_jobs SET status = 'failed' WHERE queueing_lock = %s", key)
+        assert item in await class_report_jobs.due_games(later)
+        assert await class_report_jobs.defer_due(item, later) is True
+    execute("UPDATE procrastinate_jobs SET status = 'failed' WHERE queueing_lock = %s", key)
+    assert item not in await class_report_jobs.due_games(later)
+    # Once its sets are stored, nothing is missing.
+    execute("DELETE FROM procrastinate_jobs WHERE queueing_lock = %s", key)
+    await class_report_jobs.store(game_id, session_id)
+    assert item not in await class_report_jobs.due_games(later)

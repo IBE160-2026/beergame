@@ -193,8 +193,10 @@ async def test_an_aggregate_stores_every_comparability_key(klass):
     row = await aggregates._keys(uuid.UUID(session_id))
     assert row["ai_mode"] == "rule_based" and row["model_config_id"] is None
     assert row["item_weights"] and set(row["scoring_guide"]) == {"id", "version"}
+    unlocked = row["game_settings"]
     snapshot = {
-        "settings": row["game_settings"] | {"demand_seed": 7},
+        # The same settings, written otherwise (a rate as a number): they compare equal (14.4).
+        "settings": unlocked | {"demand_seed": 7, "holding_cost": 0.5},
         "session_runtime": {
             "ai_mode": "llm",
             "model_config_id": "11111111-1111-1111-1111-111111111111",
@@ -215,6 +217,7 @@ async def test_an_aggregate_stores_every_comparability_key(klass):
     )
     assert row["model_config_id"] == "11111111-1111-1111-1111-111111111111"
     assert "demand_seed" not in row["game_settings"]
+    assert row["game_settings"] == unlocked
 
 
 async def test_model_names_name_a_stored_config_and_leave_out_what_is_gone():

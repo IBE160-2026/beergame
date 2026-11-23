@@ -13,8 +13,10 @@ When it runs:
 - the sweep's due action `reports.write_aggregate` finds each course Class session whose latest
   effective Test deadline (Story 13.9's value) has passed, with no attempt still open, whose
   deletion date has not come, and whose aggregate is missing or older than its latest AI
-  assessment; it defers `reports.write_aggregate` on `reports-bulk`, one job per Class session by
-  its queueing lock, ids only. The job replaces that Class session's rows;
+  assessment, finished game, stored facts set or plausibility rating
+  (`games.latest_report_changes`), unless its job failed `MAX_FAILURES` times; it defers
+  `reports.write_aggregate` on `reports-bulk`, one job per Class session by its queueing lock,
+  ids only. The job replaces that Class session's rows;
 - retention (Story 15.3) runs `ensure_aggregate` first through `identity`'s gate: it writes one
   only when none exists, so a retention run interrupted half-way never rewrites the aggregate
   over half-erased data.
@@ -31,7 +33,7 @@ from datetime import datetime
 from decimal import Decimal
 
 import structlog
-from sqlalchemy import delete, insert, select
+from sqlalchemy import delete, func, insert, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -51,6 +53,7 @@ from app.platform.db import get_sessionmaker
 
 __all__ = [
     "CHAIN_MEDIAN",
+    "MAX_FAILURES",
     "MIN_GROUP",
     "WRITE_TASK",
     "Measure",
@@ -65,6 +68,9 @@ __all__ = [
 
 log = structlog.get_logger(__name__)
 
+MAX_FAILURES = 3
+"""A Class session whose aggregate job failed this many times is not deferred again (each failure
+is logged), so a job that always fails is not deferred every minute."""
 MIN_GROUP = 10
 """The anonymisation threshold (FR-65, AD-14): a measure over fewer Students is withheld."""
 
@@ -201,6 +207,10 @@ async def write_aggregate(
     writing transaction, so a job queued earlier never writes over half-erased data."""
     now = now or auth.utcnow()
     async with get_sessionmaker()() as s:
+        # Database time, read before the figures: the finder compares it with when a game, a facts
+        # set, a rating or an assessment last changed (also database time, Issue #63), so a change
+        # after this read makes the aggregate due again.
+        started = await s.scalar(select(func.now()))
         target = await sessions.retention_target(s, class_session_id)
         reporting = target is not None and await scope.is_reporting_session(s, class_session_id)
     if target is None or not reporting or target.data_deleted_at is not None:
@@ -224,7 +234,7 @@ async def write_aggregate(
         if facts is None:  # pragma: no cover - a Class session always has its Class
             return False
         header = {
-            "written_at": now,
+            "written_at": started,
             # Story 14.7: the Institution the figures speak for, as it is when they are written.
             "institution_id": facts.institution_id,
             "students": registered,
@@ -296,14 +306,21 @@ async def due_sessions(now: datetime) -> Sequence[uuid.UUID]:
             )
         }
         latest = await assessment.latest_updates(s, candidates)
+        played = await games.latest_report_changes(s, candidates)
         open_ = await tests.sessions_with_open_attempts(s, candidates)
-        live = await jobs.live_locks(s, [aggregate_key(c) for c in candidates])
+        keys = [aggregate_key(c) for c in candidates]
+        live = await jobs.live_locks(s, keys)
+        failed = await jobs.failed_counts(s, keys)
     due = []
     for class_session_id in candidates:
-        if class_session_id in open_ or aggregate_key(class_session_id) in live:
+        key = aggregate_key(class_session_id)
+        if class_session_id in open_ or key in live or failed.get(key, 0) >= MAX_FAILURES:
             continue
         at = written.get(class_session_id)
-        changed = latest.get(class_session_id)
+        changed = max(
+            (t for t in (latest.get(class_session_id), played.get(class_session_id)) if t),
+            default=None,
+        )
         if at is None or (changed is not None and changed > at):
             due.append(class_session_id)
     return due

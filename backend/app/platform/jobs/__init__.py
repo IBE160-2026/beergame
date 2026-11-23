@@ -47,6 +47,7 @@ __all__ = [
     "conninfo",
     "defer",
     "defer_many",
+    "failed_counts",
     "failure_middleware",
     "JobFailureHook",
     "live_locks",
@@ -183,6 +184,23 @@ async def live_locks(session: AsyncSession, locks: Iterable[str]) -> set[str]:
         {"locks": wanted},
     )
     return {str(lock) for lock in result.scalars()}
+
+
+async def failed_counts(session: AsyncSession, locks: Iterable[str]) -> dict[str, int]:
+    """Of `locks`, how many jobs under each queueing lock ended `failed`: a sweep that defers a
+    lost job again stops after a few failures, so a job that always fails is not deferred every
+    minute (close-out of Epic 14). A lock with none is left out."""
+    wanted = sorted(set(locks))
+    if not wanted:
+        return {}
+    result = await session.execute(
+        text(
+            "SELECT queueing_lock, count(*) FROM procrastinate_jobs "
+            "WHERE queueing_lock = ANY(:locks) AND status = 'failed' GROUP BY queueing_lock"
+        ),
+        {"locks": wanted},
+    )
+    return {str(lock): int(count) for lock, count in result}
 
 
 def worker_sides(queues: Sequence[str]) -> dict[str, int]:
