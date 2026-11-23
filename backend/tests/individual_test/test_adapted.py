@@ -232,6 +232,14 @@ def stand_in(
     return sets
 
 
+async def lock_only(now) -> None:
+    """The sweep's lock action alone (it locks the Class session and pins its selection): the
+    whole sweep runs some twenty finders more, a quarter of a second per test."""
+    [lock] = [action for action in sweep.DUE_ACTIONS if action.name == "sessions.lock"]
+    for item in await lock.find(now):
+        await lock.act(item, now)
+
+
 async def locked_with(
     klass: str, adapted_weight: int, n: int = 1, ai_mode: str = "rule_based"
 ) -> tuple[str, list]:
@@ -250,7 +258,7 @@ async def locked_with(
         json={"weights": weights, "excluded": [], "adapted_weight": adapted_weight},
     )
     assert saved.status_code == 200, saved.text
-    await sweep.run(START + MINUTE)
+    await lock_only(START + MINUTE)
     for each in seated:
         await replayed(each, session_id)
     return session_id, seated
