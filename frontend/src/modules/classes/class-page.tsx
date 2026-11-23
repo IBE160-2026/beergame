@@ -118,8 +118,14 @@ function ClassView({ classId, user, updatedAt }: { classId: string; user: Sessio
           </p>
         ) : null}
         {/* The Class sessions (Story 5.1): every staff member reads them; the Faglærere create
-            them while the Class is active. */}
-        {item ? <ClassSessions classId={item.id} canCreate={writable && !controlTest} /> : null}
+            them while the Class is active; its owners open each one's Klasserapport (Story 14.1). */}
+        {item ? (
+          <ClassSessions
+            classId={item.id}
+            canCreate={writable && !controlTest}
+            canReport={Boolean(item.can_manage) && !controlTest}
+          />
+        ) : null}
         {/* The Roster upload is the Faglærere's (the api's `classes.manage` policy), while the
             Class is active. */}
         {item && writable ? (

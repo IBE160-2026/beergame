@@ -21,6 +21,26 @@ from app.modules.games.checks import (
     rules_versions_without_package,
     verify_finished,
 )
+from app.modules.games.class_figures import (
+    ClassGameRow,
+    FactFigures,
+    GameDataRow,
+    OccupancyFigure,
+    SeatFigure,
+    class_games_without_fact_sets,
+    class_orders,
+    fact_figures,
+    game_data_rows,
+    latest_report_changes,
+    occupancy_figures,
+    rating_counts,
+    rating_students,
+    report_class_games,
+    seat_counts,
+    seat_figures,
+    sessions_without_fact_sets,
+    student_count,
+)
 from app.modules.games.insight import (
     GameInsight,
     InsightLink,
@@ -222,6 +242,29 @@ __all__ = [
     "announce",
     "open_takeover_due",
     "verify_finished",
+    # The Klasserapport's reads (Story 14.1, `class_figures`).
+    "ClassGameRow",
+    "FactFigures",
+    "OccupancyFigure",
+    "SeatFigure",
+    "fact_figures",
+    "report_class_games",
+    # «Alle spill side om side» (Story 14.5).
+    "class_orders",
+    # The Game data export (Story 14.8).
+    "GameDataRow",
+    "game_data_rows",
+    "occupancy_figures",
+    "rating_counts",
+    "seat_counts",
+    "seat_figures",
+    # Story 14.3: the game measures' group size.
+    "student_count",
+    "rating_students",
+    # The close-out of Epic 14: late changes reach the aggregate; missing facts sets are built.
+    "latest_report_changes",
+    "class_games_without_fact_sets",
+    "sessions_without_fact_sets",
     "FallbackCount",
     "SessionAiFigures",
     "class_session_of",
@@ -605,9 +648,10 @@ async def class_game_of(
     """The Student's Class game: the one of the Class session in which they hold a Seat now, else
     the one in which they held a Seat last (joined through `authz.own_seat`); None when they never
     held one. A Seat another Student held after them is never theirs to read: it shows that
-    Student's play (FR-5). Only Completion's Class game share (Story 13.4), `own_game`,
-    `game_students` and the turn-time recompute of a Tilrettelegging read it directly; every
-    other reader goes through `student_game`. Read in the caller's transaction."""
+    Student's play (FR-5). Only Completion's Class game share (Story 13.4), the own mark of «Alle
+    spill side om side» (Story 14.5), `own_game`, `game_students` and the turn-time recompute of
+    a Tilrettelegging read it directly; every other reader goes through `student_game`. Read in
+    the caller's transaction."""
     rows = [
         row
         for row in await repo.student_seats(session, class_session_id, user_id)

@@ -937,6 +937,9 @@ class EnrolledSessionOut(BaseModel):
     """Story 8.9: the Student's own Tilrettelegging, None without one (FR-17)."""
     replay: StudentReplayOut | None = None
     """Story 10.3: the Replay, once the Student has passed the Debrief quiz; None before."""
+    all_games_open: bool = False
+    """Story 14.5: «Alle spill side om side» is open: the Student's own Debrief is done and the
+    Play deadline has passed (FR-86). The read itself checks the same."""
     makeup: StudentGameOut | None = None
     """Story 13.4: the Oppfølgingsspill a Lecturer gave the Student, as a game card; None
     without one."""
@@ -1242,6 +1245,10 @@ class ClassCostOut(BaseModel):
     holding_cost: Decimal
     backorder_cost: Decimal
     roles: list[RoleCostOut]
+    previous_median: Decimal | None = None
+    """Story 14.3 (UX-DR51): «Fjoråret», the median chain Total cost stored in the aggregate of
+    the previous Class session of the same Class; None without one or when its group held fewer
+    than 10 Students."""
 
 
 FunnelStage = Literal[
@@ -1303,6 +1310,9 @@ class ClassOverviewOut(BaseModel):
     class_id: uuid.UUID
     class_name: str
     session_number: int
+    class_report: bool = False
+    """Story 14.1 (FR-64, AD-12): the reader may open the Klasserapport (`class_report.read`, the
+    Class's owners), so the header links to it; False for an Assistant lecturer."""
 
 
 class WeekSeatOut(BaseModel):

@@ -21,9 +21,10 @@ from __future__ import annotations
 import csv
 import io
 import uuid
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Literal
 
 from app.analysis.completion import COMPLETION_STEPS, CompletionStatus
@@ -43,6 +44,7 @@ __all__ = [
     "EXPORT",
     "XLSX_TYPE",
     "Export",
+    "csv_lines",
     "export",
     "file_name",
     "row_values",
@@ -89,7 +91,7 @@ DONE_UNDATED = "gjort"
 YES, NO = "Ja", "Nei"
 NOT_OBLIGATORY = "Ikke obligatorisk"
 
-Value = str | int | float | date | None
+Value = str | int | float | Decimal | date | None
 
 
 @dataclass(frozen=True)
@@ -212,14 +214,21 @@ def _csv_cell(value: Value) -> str:
         return str(value)
     if isinstance(value, float):
         return f"{value:.1f}".replace(".", ",")
+    if isinstance(value, Decimal):
+        return format(value, "f").replace(".", ",")
     return _text(value)
 
 
 def to_csv(rows: Sequence[Sequence[Value]]) -> Iterator[bytes]:
-    """The CSV for Norwegian Excel, one line at a time: a byte order mark, then the header and
-    the rows, `;` between fields, CRLF line ends."""
+    """The Completion export's CSV (`csv_lines` with `COLUMNS`)."""
+    return csv_lines(COLUMNS, rows)
+
+
+def csv_lines(columns: Sequence[str], rows: Iterable[Sequence[Value]]) -> Iterator[bytes]:
+    """A CSV for Norwegian Excel, one line at a time: a byte order mark, then the header and the
+    rows, `;` between fields, CRLF line ends. Story 14.8's Game data export writes with it too."""
     yield "﻿".encode()
-    for values in (COLUMNS, *rows):
+    for values in (columns, *rows):
         line = io.StringIO()
         csv.writer(line, delimiter=";", lineterminator="\r\n").writerow(
             [_csv_cell(value) for value in values]

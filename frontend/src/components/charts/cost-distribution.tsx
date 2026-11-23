@@ -17,6 +17,13 @@ export type CostDistributionProps = {
   title: string;
   /** Axis label text from the number formatter («1 000»). */
   formatTick: (value: number) => string;
+  /** A value the axis must reach as well (Story 14.1): small multiples pass their highest value,
+   * so every one shares one axis. */
+  highest?: number;
+  /** Story 14.3 (UX-DR51): «Fjoråret», the previous Class session's stored median chain cost, a
+   * dashed mark with its label (`previousLabel`, «Fjoråret 2 740») under the axis. */
+  previous?: number | null;
+  previousLabel?: string;
 };
 
 const STEPS = [1, 2, 2.5, 5];
@@ -53,8 +60,9 @@ function clampedStart(x: number, w: number, width: number): number {
 /**
  * Kostnadsfordeling (`cost-distribution`, Story 7.6, DESIGN.md → Charts, `08-laerer-oversikt.png`):
  * «Klassens kostnad» as one `order-history` tick per finished game on a kroner axis from 0, a
- * `hairline` box for the middle half and an `ink` median line labelled «Median 1 954». The
- * «Fjoråret» mark comes with Epic 14. Hand-made SVG (README). `aria-hidden`: the text summary
+ * `hairline` box for the middle half and an `ink` median line labelled «Median 1 954»; with a
+ * stored aggregate of the previous Class session (Story 14.3), a dashed `ink-secondary` mark
+ * labelled «Fjoråret 2 740» under the axis. Hand-made SVG (README). `aria-hidden`: the text summary
  * under it and its «Vis som tabell» carry the numbers; the `<title>` stays for print.
  */
 export function CostDistribution({
@@ -67,19 +75,24 @@ export function CostDistribution({
   medianLabel,
   title,
   formatTick,
+  highest = 0,
+  previous = null,
+  previousLabel = "",
 }: CostDistributionProps) {
   const pad = Math.ceil(fontSize * 0.5);
   const left = pad;
   const right = Math.max(left + 1, width - pad);
   const labelWidth = (value: number) => textWidth(formatTick(value), fontSize);
-  const ticks = distributionAxis(Math.max(upper, ...values), right - left, labelWidth);
+  const marked = previous != null && Number.isFinite(previous);
+  const ticks = distributionAxis(Math.max(upper, highest, marked ? previous : 0, ...values), right - left, labelWidth);
   const top = ticks[ticks.length - 1]!;
   const x = (value: number) => left + (Math.max(0, Math.min(top, value)) / top) * (right - left);
   const labelLine = Math.ceil(fontSize * 1.3);
   const stripTop = labelLine + Math.ceil(fontSize * 0.4);
   const strip = Math.ceil(fontSize * 2);
   const axisY = stripTop + strip + Math.ceil(fontSize * 0.4);
-  const height = axisY + Math.ceil(fontSize * 1.5);
+  const previousY = axisY + Math.ceil(fontSize * 2.6);
+  const height = marked ? previousY + Math.ceil(fontSize * 0.5) : axisY + Math.ceil(fontSize * 1.5);
   const medianX = x(median);
   const medianWidth = textWidth(medianLabel, fontSize, 600);
   return (
@@ -134,6 +147,28 @@ export function CostDistribution({
       >
         {medianLabel}
       </text>
+      {marked ? (
+        <g data-mark="previous">
+          <line
+            x1={x(previous)}
+            x2={x(previous)}
+            y1={stripTop - 2}
+            y2={previousY - Math.ceil(fontSize * 1.1)}
+            stroke={colour("ink-secondary")}
+            strokeWidth={1.5}
+            strokeDasharray="4 3"
+          />
+          <text
+            x={clampedStart(x(previous), textWidth(previousLabel, fontSize), width)}
+            y={previousY}
+            fill={colour("ink-secondary")}
+            className="tabular-nums"
+            data-label="previous"
+          >
+            {previousLabel}
+          </text>
+        </g>
+      ) : null}
       <line x1={left} x2={right} y1={axisY} y2={axisY} stroke={colour("axis")} />
       {ticks.map((tick, i) => {
         const text = formatTick(tick);

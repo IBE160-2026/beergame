@@ -18,6 +18,7 @@ import { TestStudentConsent } from "@/modules/identity/test-student-consent";
 import { MyMessages } from "@/modules/messaging/my-messages";
 import { type EnrolledSession, enrolledSessionsKey, useEnrolledSessions } from "@/modules/sessions/api";
 import { ownLines } from "@/modules/reports/adjustment";
+import { AllGamesEntry } from "@/modules/reports/all-games-entry";
 import { ReportDownload } from "@/modules/reports/report-download";
 import { ReplayBlock } from "@/modules/replay/replay-block";
 import { wantsReplayPrimary } from "@/modules/replay/replay";
@@ -243,6 +244,8 @@ function SessionBlock({
           {session.requirement_met ? copy.requirement.met : copy.requirement.notMet}
         </p>
       ) : null}
+      {/* Story 14.5: «Alle spill side om side», locked until the api opens it. */}
+      {game ? <AllGamesEntry sessionId={session.id} open={session.all_games_open ?? false} /> : null}
       {/* Story 12.2: the «KI-vurdering» once the test is handed in; the page says whether it is ready.
           Story 12.4: once it is ready Hjem says so, live through `user:<id>`. */}
       {testHandedIn(session.steps) ? (

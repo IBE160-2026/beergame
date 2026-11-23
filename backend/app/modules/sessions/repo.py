@@ -962,3 +962,83 @@ async def delete_extensions_of(
     if scope is not None:
         mine = mine & (student_deadline_extensions.c.class_session_id == scope)
     await session.execute(delete(student_deadline_extensions).where(mine))
+
+
+async def aggregate_candidates(
+    session: AsyncSession, now: datetime, today: date
+) -> list[uuid.UUID]:
+    """Story 14.3 (FR-65, AD-9): the course Class sessions whose latest effective Test deadline
+    (the Class session's, or a Student's own where later: Story 13.9's value) has passed at `now`,
+    whose data retention has not deleted and whose deletion date has not come; by id."""
+    latest_own = (
+        select(func.max(student_deadline_extensions.c.test_deadline))
+        .where(student_deadline_extensions.c.class_session_id == class_sessions.c.id)
+        .scalar_subquery()
+    )
+    latest = func.greatest(class_sessions.c.test_deadline, latest_own)
+    result = await session.execute(
+        select(class_sessions.c.id)
+        .where(
+            class_sessions.c.kind == "course",
+            class_sessions.c.test_deadline.is_not(None),
+            latest <= now,
+            class_sessions.c.data_deleted_at.is_(None),
+            (class_sessions.c.deletion_date.is_(None)) | (class_sessions.c.deletion_date > today),
+        )
+        .order_by(class_sessions.c.id)
+    )
+    return list(result.scalars())
+
+
+async def previous_session_id(
+    session: AsyncSession, class_session_id: uuid.UUID
+) -> uuid.UUID | None:
+    """Story 14.3: the Class session of the same Class just before this one (UUIDv7 ids sort by
+    creation, as the numbers do); None for the first or an unknown one."""
+    class_id = (
+        select(class_sessions.c.class_id)
+        .where(class_sessions.c.id == class_session_id)
+        .scalar_subquery()
+    )
+    return await session.scalar(
+        select(class_sessions.c.id)
+        .where(
+            class_sessions.c.class_id == class_id,
+            class_sessions.c.id < class_session_id,
+            class_sessions.c.kind == "course",
+        )
+        .order_by(class_sessions.c.id.desc())
+        .limit(1)
+    )
+
+
+async def comparability_row(
+    session: AsyncSession, class_session_id: uuid.UUID
+) -> RowMapping | None:
+    """Story 14.3: what a comparison of Class sessions must hold equal, as the row stores it: the
+    lock's snapshot and the saved settings it was made from."""
+    result = await session.execute(
+        select(
+            class_sessions.c.game_settings,
+            class_sessions.c.ai_mode,
+            class_sessions.c.model_config_id,
+            class_sessions.c.effort_level,
+            class_sessions.c.snapshot,
+        ).where(class_sessions.c.id == class_session_id)
+    )
+    return result.mappings().first()
+
+
+async def numbered_sessions_of(
+    session: AsyncSession, class_ids: Collection[uuid.UUID]
+) -> list[RowMapping]:
+    """Story 14.3: the course Class sessions of these Classes with their numbers, by Class and
+    number (a Control test's never)."""
+    if not class_ids:
+        return []
+    result = await session.execute(
+        select(_numbered.c.id, _numbered.c.class_id, _numbered.c.number)
+        .where(_numbered.c.class_id.in_(list(class_ids)), _numbered.c.kind == "course")
+        .order_by(_numbered.c.class_id, _numbered.c.number)
+    )
+    return list(result.mappings())

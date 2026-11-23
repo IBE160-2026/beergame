@@ -13,7 +13,7 @@ import { nb } from "@/copy/nb";
 import { useAction } from "@/lib/api/mutation";
 import { formatTime } from "@/modules/admin/audit";
 import { LINK_BUTTON } from "@/modules/classes/roster-entry-forms";
-import { classSessionPath } from "@/modules/identity/homes";
+import { classReportPath, classSessionPath, crossClassPath } from "@/modules/identity/homes";
 
 import {
   classSessionKey,
@@ -32,9 +32,19 @@ const copy = nb.sessions.list;
  * its Klasseøkt with whether it has been saved. «Lag Klasseøkt» creates one filled in with the
  * Classic defaults and opens it; it is shown only to the Class's Faglærere while the Class is
  * active (an Assistant lecturer never sees it, FR-5). With `FEATURE_RERUN` on, the Lenke «Lag fra
- * en tidligere Klasseøkt» opens a panel in place to copy an earlier one (Story 5.18).
+ * en tidligere Klasseøkt» opens a panel in place to copy an earlier one (Story 5.18). The Class's
+ * owners (`canReport`) also get each session's «Klasserapport» (Story 14.1); never an Assistant
+ * lecturer, whom the api refuses it.
  */
-export function ClassSessions({ classId, canCreate }: { classId: string; canCreate: boolean }) {
+export function ClassSessions({
+  classId,
+  canCreate,
+  canReport = false,
+}: {
+  classId: string;
+  canCreate: boolean;
+  canReport?: boolean;
+}) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const sessions = useClassSessions(classId);
@@ -78,10 +88,29 @@ export function ClassSessions({ classId, canCreate }: { classId: string; canCrea
               <Link href={classSessionPath(item.id)} standalone>
                 {copy.item(item.number, formatTime(item.created_at))}
               </Link>
-              <span className="text-body-phone text-ink-secondary">{item.saved_at ? copy.saved : copy.unsaved}</span>
+              <span className="flex flex-wrap items-baseline gap-x-4">
+                <span className="text-body-phone text-ink-secondary">{item.saved_at ? copy.saved : copy.unsaved}</span>
+                {canReport ? (
+                  <Link
+                    href={classReportPath(item.id)}
+                    standalone
+                    aria-label={nb.classReport.linkLabel(item.number)}
+                    data-class-report-link=""
+                  >
+                    {nb.classReport.link}
+                  </Link>
+                ) : null}
+              </span>
             </li>
           ))}
         </ul>
+      ) : null}
+      {canReport && items && items.length > 0 ? (
+        <p className="mt-2">
+          <Link href={crossClassPath} standalone data-cross-class-link="">
+            {nb.crossClass.title}
+          </Link>
+        </p>
       ) : null}
       {canCreate ? (
         <div className="mt-4 flex flex-col items-start gap-2">

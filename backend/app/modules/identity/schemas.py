@@ -174,6 +174,9 @@ class UserOut(BaseModel):
     roles: list[SessionRole]
     is_test_student: bool = False
     """A test student of a Control test (Story 12.8): Hjem asks for their consent."""
+    cross_institution_stats: bool = False
+    """Story 14.7 (cut list, AD-17): an Admin while `FEATURE_CROSS_INSTITUTION_STATS` is on; the
+    Admin-område then links «Tverrinstitusjonell statistikk». False for every other User."""
 
 
 ConsentDecision = Literal["given", "declined"]

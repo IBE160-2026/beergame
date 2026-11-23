@@ -553,7 +553,12 @@ export type ClassCost = NonNullable<ClassOverview["cost"]>;
 /** «Median 1 954. Midterste halvdel 1 500–2 600.»: the api's median and quartiles in whole
  * kroner (EXPERIENCE.md → Charts). */
 export function costSummary(cost: ClassCost): string {
-  return rail.cost.summary(whole(cost.median), whole(cost.lower_quartile), whole(cost.upper_quartile));
+  return rail.cost.summary(
+    whole(cost.median),
+    whole(cost.lower_quartile),
+    whole(cost.upper_quartile),
+    cost.previous_median != null ? whole(cost.previous_median) : null,
+  );
 }
 
 /** The Kostnadsfordeling's table: every finished game with its chain cost, lowest first. */

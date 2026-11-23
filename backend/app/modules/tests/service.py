@@ -34,9 +34,12 @@ from app.modules.content.schemas import StartingTask, StartingTaskItem
 from app.modules.identity import service as identity
 from app.modules.progress import service as progress
 from app.modules.sessions import service as sessions
-from app.modules.tests import assessed, sitting
+from app.modules.tests import assessed, commands, guide, sitting
 from app.modules.tests.adapted import ADAPTED
 from app.modules.tests.attempt import ReportItem, ReportTest, report_test
+from app.modules.tests.class_results import ClassResults as ClassResults  # Story 14.2
+from app.modules.tests.class_results import StudentResult as StudentResult  # Story 14.2
+from app.modules.tests.class_results import class_results as class_results  # Story 14.2
 from app.modules.tests.models import (
     PLAYED_BEFORE,
     Choice,
@@ -60,6 +63,8 @@ from app.platform.db import get_sessionmaker
 
 __all__ = [
     "own_records",
+    "comparability_keys",
+    "sessions_with_open_attempts",
     "PARTS",
     "ItemsOpen",
     "UnknownItem",
@@ -491,6 +496,42 @@ _ERASE_ANSWER_TEXT = text(
       )
     """
 )
+
+
+async def sessions_with_open_attempts(
+    s: AsyncSession, class_session_ids: list[uuid.UUID]
+) -> set[uuid.UUID]:
+    """Story 14.3 (FR-65, AD-9): those of the Class sessions with an Individual test attempt still
+    open (not closed by a hand-in or the sweep), in one read: no aggregate is written while one
+    can still bring answers."""
+    if not class_session_ids:
+        return set()
+    found = await s.execute(
+        select(test_attempts.c.class_session_id)
+        .where(
+            test_attempts.c.class_session_id.in_(class_session_ids),
+            test_attempts.c.closed_at.is_(None),
+        )
+        .distinct()
+    )
+    return set(found.scalars())
+
+
+async def comparability_keys(s: AsyncSession, class_session_id: uuid.UUID) -> dict[str, Any]:
+    """Story 14.3 (FR-65): what a comparison of test scores must hold equal, read in `s`: the
+    question set version and Item weights of the selection in force (the lock's pin when there is
+    one) and the Scoring guide version in force. Raises `content.ContentNotFound` without content.
+    """
+    pins = await sessions.locked_pins(s, class_session_id)
+    selection, _ = await commands.selection_of(s, class_session_id, pins)
+    weights = selection.as_json()
+    version = weights.pop("version")
+    record = (await guide.in_force(s, class_session_id)).record
+    return {
+        "question_set_version": version,
+        "item_weights": weights,
+        "scoring_guide": {"id": str(record.id), "version": record.version},
+    }
 
 
 async def _erase_test_data(

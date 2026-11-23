@@ -64,6 +64,8 @@ log = structlog.get_logger(__name__)
 
 COMPLETION_EXPORT = "completion.export"
 """Story 13.14's Class action (`completion_export.EXPORT`), asked here for the block's state."""
+GAME_DATA_EXPORT = "game_data.export"
+"""Story 14.8's Class action (`game_data_export.EXPORT`), asked only while its flag is on."""
 
 BUILD_TASK = "reports.build_zip"
 REQUESTED = "reports.request_zip"
@@ -90,6 +92,9 @@ class ZipState:
     deleted: bool = False
     completion_export: bool = False
     """Story 13.14: whether the reader may download the Completion export too."""
+    game_data_export: bool = False
+    """Story 14.8: whether the Game data export exists (`FEATURE_GAME_DATA_EXPORT`) and the reader
+    may download it."""
 
 
 def zip_object_path(class_session_id: uuid.UUID, zip_id: uuid.UUID) -> str:
@@ -147,6 +152,14 @@ async def _reached(user: authz.Principal, class_session_id: uuid.UUID):
     return await sessions.staff_session_row(user, class_session_id, DOWNLOAD)
 
 
+async def _game_data(user: authz.Principal, class_session_id: uuid.UUID) -> bool:
+    """Whether the block offers the Game data export: the flag on (AD-17) and the reader one of
+    the Class's Lecturers."""
+    if not get_settings().feature_game_data_export:
+        return False
+    return await sessions.class_staff_may(user, class_session_id, GAME_DATA_EXPORT)
+
+
 async def zip_state(user: authz.Principal, class_session_id: uuid.UUID) -> ZipState | None:
     """The Class session's ZIP for its staff; None (403) for every other case."""
     row = await _reached(user, class_session_id)
@@ -163,6 +176,7 @@ async def zip_state(user: authz.Principal, class_session_id: uuid.UUID) -> ZipSt
         generated_at=None if ready is None else ready.finished_at,
         students=None if ready is None else ready.students,
         completion_export=exporting,
+        game_data_export=await _game_data(user, class_session_id),
     )
 
 
@@ -209,6 +223,7 @@ async def request_zip(user: authz.Principal, class_session_id: uuid.UUID) -> Zip
         generated_at=None if ready is None else ready.finished_at,
         students=None if ready is None else ready.students,
         completion_export=await sessions.class_staff_may(user, class_session_id, COMPLETION_EXPORT),
+        game_data_export=await _game_data(user, class_session_id),
     )
 
 

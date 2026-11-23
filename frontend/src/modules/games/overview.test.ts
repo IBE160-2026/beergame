@@ -433,6 +433,10 @@ describe("the right rail (Story 7.6, AD-10)", () => {
 
   it("prints the api's median and middle half in whole kroner", () => {
     expect(costSummary(cost)).toBe(`Median 1${GROUP}954. Midterste halvdel 1${GROUP}500–2${GROUP}601.`);
+    // Story 14.3 (UX-DR51): «Fjoråret» with the previous Class session's stored median.
+    expect(costSummary({ ...cost, previous_median: "2740.00" })).toBe(
+      `Median 1${GROUP}954. Midterste halvdel 1${GROUP}500–2${GROUP}601. Fjoråret 2${GROUP}740.`,
+    );
   });
 
   it("scales the Role bars to the costliest Role and prints each total", () => {

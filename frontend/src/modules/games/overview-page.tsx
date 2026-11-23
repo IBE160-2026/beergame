@@ -1,10 +1,11 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
+import NextLink from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 
-import { Button } from "@/components/button";
+import { Button, buttonClassName } from "@/components/button";
 import { Link } from "@/components/link";
 import type { LiveLines } from "@/components/connection-notice";
 import { Switch } from "@/components/switch";
@@ -19,12 +20,14 @@ import { AccessDenied, GuardedPage } from "@/modules/identity/home-page";
 import {
   classOverviewPath,
   classPath,
+  classReportPath,
   classSessionPath,
   gameInsightPath,
   HOME_PATH,
   messagePath,
   sentMessagesPath,
   fillSeatsPath,
+  plenaryPath,
   startGamesPath,
 } from "@/modules/identity/homes";
 import { PageShell } from "@/modules/identity/page-shell";
@@ -210,6 +213,19 @@ function OverviewHeader({ data, sessionId }: { data: ClassOverview; sessionId: s
       <Link href={sentMessagesPath(sessionId)} data-sent-messages-link="" standalone>
         {nb.messages.sentList.link}
       </Link>
+      {/* How the Class games went, for the Lecturers of the Class (Story 14.1). */}
+      {data.class_report ? (
+        <Link href={classReportPath(sessionId)} data-class-report-link="" standalone>
+          {nb.classReport.link}
+        </Link>
+      ) : null}
+      {/* Every Class game for the projector, without names or ranking (Story 14.6); once the
+          Start date has passed (before any game opens a Uke the page says so). */}
+      {data.before_start ? null : (
+        <NextLink href={plenaryPath(sessionId)} className={buttonClassName("secondary")} data-plenary-link="">
+          {nb.plenary.button}
+        </NextLink>
+      )}
       {/* Every Class game not started, for a Lecturer (Story 8.10); not shown with a count of 0. */}
       {startLink ? (
         <Link href={startGamesPath(sessionId)} data-start-games-link="" standalone>

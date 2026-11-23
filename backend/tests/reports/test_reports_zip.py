@@ -164,6 +164,7 @@ async def test_staff_make_one_zip_of_every_students_report_and_it_never_holds_ai
         "students": None,
         "deleted": False,
         "completion_export": True,
+        "game_data_export": True,  # Story 14.8, its flag on
     }
     assert code(await file(session_id)) == (409, "zip_not_ready")
 
@@ -173,11 +174,13 @@ async def test_staff_make_one_zip_of_every_students_report_and_it_never_holds_ai
     assert pressed.status_code == 202 and pressed.json()["status"] == "pending"
     # Story 13.14: the press answers the block's state with the Completion export flag too.
     assert pressed.json()["completion_export"] is True
+    assert pressed.json()["game_data_export"] is True
     assert set(emitted) == {("user", str(lecturer))}
     assert {topic for topic, _ in emitted} == COMMAND_TOPICS["reports.request_zip"]
     # A second press, by anyone of the staff, answers the pending one.
     assisted = (await press(session_id, ASSISTANT)).json()
     assert (assisted["status"], assisted["completion_export"]) == ("pending", False)
+    assert assisted["game_data_export"] is False
     assert queued() == 1
     [(actor, target)] = audits("report_zip.requested")
     [(_, _, _, _, by)] = zips(session_id)

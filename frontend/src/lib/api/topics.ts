@@ -6,6 +6,7 @@ import { classOverviewKey, gameInsightKey, startGamesKey, waitedForSeatsKey } fr
 import { meKey } from "@/modules/identity/api";
 import { messageFormKey, myMessagesKey, sentMessagesKey } from "@/modules/messaging/api";
 import { myDataKey, myReportsKey, staffReportsKey } from "@/modules/reports/api";
+import { classReportKey } from "@/modules/reports/class-report-api";
 import {
   allocationKey,
   classSessionKey,
@@ -67,6 +68,8 @@ export function topicKeys(event: ChangeEvent): QueryKey[] {
         startGamesKey(event.id),
         waitedForSeatsKey(event.id),
         sentMessagesKey(event.id),
+        // Story 14.1: the Klasserapport, as a Game finishes or a step is recorded.
+        classReportKey(event.id),
         // Story 13.6: the Oversikt's «Send Melding til 12 som ikke har oppfylt kravet».
         messageFormKey(event.id, { requirement: true }),
       ];

@@ -1,10 +1,11 @@
-"""The tables owned by `modules/reports` (Stories 13.4 and 13.7, FR-17, FR-20, FR-57).
+"""The tables owned by `modules/reports` (Stories 13.4, 13.7 and 14.3, FR-17, FR-20, FR-57, FR-65).
 
 `makeup_games` names each Student's one Oppfølgingsspill in a Class session: the `makeup` Game a
 Lecturer gave them, who gave it and when. The Game itself, its Seats and its Weeks are `games`
 tables, written only by `games.commands`."""
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     Column,
     DateTime,
@@ -12,6 +13,8 @@ from sqlalchemy import (
     Index,
     Integer,
     LargeBinary,
+    Numeric,
+    PrimaryKeyConstraint,
     Table,
     Text,
     UniqueConstraint,
@@ -145,3 +148,64 @@ report_zips = Table(
 )
 """Story 13.13: each press of «Last ned alle Studentrapporter (ZIP)»: who asked, for which Class
 session, and how its job ended."""
+
+
+# The aggregates of Cross-class statistics (Story 14.3, FR-65, AD-14).
+
+class_aggregates = Table(
+    "class_aggregates",
+    metadata,
+    Column(
+        "class_session_id",
+        Uuid,
+        ForeignKey("class_sessions.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    # When `reports.write_aggregate` last wrote the rows (the host clock, as the assessments').
+    Column("written_at", DateTime(timezone=True), nullable=False),
+    # Group sizes: the reporting Students, those who held a Seat in a finished Class game, and
+    # the finished Class games. Counts only.
+    Column("students", Integer, nullable=False),
+    Column("game_students", Integer, nullable=False),
+    Column("games_finished", Integer, nullable=False),
+    # What a comparison must hold equal (Game settings, AI mode, model config, prompt versions,
+    # Effort level, question set, Item weights, Scoring guide): settings and ids, no text.
+    Column("keys", JSONB, nullable=False),
+    # Story 14.7 (revision 0402): the Institution of the Class session's Class when the aggregate
+    # was written, so the Admin's cross-Institution view groups the aggregates without reading the
+    # live Class tables. An Institution id, no personal data.
+    Column(
+        "institution_id",
+        Uuid,
+        ForeignKey("institutions.id", ondelete="RESTRICT", name="fk_class_aggregates_institution"),
+        nullable=False,
+        index=True,
+    ),
+    CheckConstraint(
+        "students >= 0 AND game_students >= 0 AND games_finished >= 0",
+        name="ck_class_aggregates_counts",
+    ),
+)
+"""One anonymised aggregate per Class session: the header of its measure rows. No `user_id`,
+`seat_id`, Game id, name or free text; it survives the deletion of the Student data."""
+
+class_aggregate_measures = Table(
+    "class_aggregate_measures",
+    metadata,
+    Column(
+        "class_session_id",
+        Uuid,
+        ForeignKey("class_aggregates.class_session_id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    # A measure code (`chain.median`, `cost.factory.median`, `question.<item id>.percent`, ...).
+    Column("measure", Text, nullable=False),
+    # How many Students the measure is over; under 10 it is withheld.
+    Column("group_size", Integer, nullable=False),
+    Column("value", Numeric, nullable=True),
+    Column("withheld", Boolean, nullable=False),
+    PrimaryKeyConstraint("class_session_id", "measure", name="pk_class_aggregate_measures"),
+    CheckConstraint("group_size >= 0", name="ck_class_aggregate_measures_group"),
+    CheckConstraint("NOT withheld OR value IS NULL", name="ck_class_aggregate_measures_withheld"),
+)
+"""One figure of a Class session's aggregate, or the mark that its group was too small."""

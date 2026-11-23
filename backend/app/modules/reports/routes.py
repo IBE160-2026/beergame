@@ -6,7 +6,9 @@ record`, the Studentside's record of one Student for the staff of the Class; Sto
 it). Story 13.12: the staff's download of one Student's report (`…/students/{user_id}/report`, its
 `/file`). Story 13.13: the ZIP of all Student reports of a Class session
 (`/api/class-sessions/{id}/reports/zip`, its `/file`). Story 13.14: the Completion export
-(`/api/class-sessions/{id}/completion-export`). Story 15.1: «Mine data», everything stored about
+(`/api/class-sessions/{id}/completion-export`). Story 14.8: the Game data export
+(`/api/class-sessions/{id}/game-data-export`), only while `FEATURE_GAME_DATA_EXPORT` is on.
+Story 15.1: «Mine data», everything stored about
 the caller (`/api/me/data`).
 
 An id that is not one, a Class session that does not exist, a Class outside the caller's scope and
@@ -15,13 +17,14 @@ a User who is no Student of the Class all answer the same 403 `forbidden` (FR-5)
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, Header, Query
-from fastapi.responses import JSONResponse, RedirectResponse, Response
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query
+from fastapi.responses import JSONResponse, RedirectResponse, Response, StreamingResponse
 
 from app.modules.reports import (
     bundle,
     completion_export,
     corrections,
+    game_data_export,
     makeup,
     my_data,
     report,
@@ -339,6 +342,7 @@ def _zip_state(found: bundle.ZipState) -> dict:
         students=found.students,
         deleted=found.deleted,
         completion_export=found.completion_export,
+        game_data_export=found.game_data_export,
     ).model_dump(mode="json")
 
 
@@ -467,6 +471,55 @@ async def download_completion_export(
         ),
     }
     return Response(body, media_type=media_type, headers=headers)
+
+
+def _game_data_export_exists() -> None:
+    """While `FEATURE_GAME_DATA_EXPORT` is off the route does not exist (AD-17): it answers what
+    an unknown route answers, before any policy or read."""
+    if not game_data_export.enabled():
+        raise HTTPException(status_code=404)
+
+
+@router.get(
+    "/class-sessions/{session_id}/game-data-export",
+    dependencies=[Depends(_game_data_export_exists)],
+    responses={
+        **documented(401, 403, 404, 409),
+        200: {"description": "The CSV file", "content": {"text/csv": {}}},
+    },
+    response_class=Response,
+    operation_id="downloadGameDataExport",
+)
+async def download_game_data_export(
+    session_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require(game_data_export.EXPORT))],
+) -> Response:
+    """«Last ned spilldata (CSV)» (Story 14.8, cut list, FR-88, AD-13, AD-14, AD-15, AD-17): one
+    row per Game, Week and Seat of the Decision log, for the Class games, make-up games and
+    Replays `reporting_games()` counts, with the fixed columns `game_data_export.COLUMNS` (the
+    purpose, the game, the Week, the Role, what the Seat saw, the Order, its cost, who decided it,
+    the AD-15 mark and the occupant kind). Never an AI score, AI feedback, Indicative letter, name
+    or id. Streamed, never stored; recorded in the audit log once the rows are read. 404 as an
+    unknown route while `FEATURE_GAME_DATA_EXPORT` is off; 409 `data_deleted` once the Student
+    data is deleted; 403 `forbidden` for an Assistant lecturer, anyone else outside the Class's
+    Lecturers and a Class session that does not exist (FR-5, AD-12)."""
+    class_session_id = _id(session_id)
+    try:
+        found = await game_data_export.export(user, class_session_id)
+    except report.ReportRefused as refused:
+        return error_response(409, refused.code, "No Game data export can be made now.")
+    if found is None:
+        raise authz.Forbidden
+    await game_data_export.record_download(user, class_session_id, found)
+    headers = {
+        **PERSONAL,
+        "Content-Disposition": (
+            f'attachment; filename="{game_data_export.file_name(found.number)}"'
+        ),
+    }
+    return StreamingResponse(
+        game_data_export.to_csv(found.rows), media_type=game_data_export.CSV_TYPE, headers=headers
+    )
 
 
 @router.get(

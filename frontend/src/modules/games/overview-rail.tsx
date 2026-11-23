@@ -162,6 +162,8 @@ function CostPicture({ cost, data }: { cost: ClassCost; data: ClassOverview }) {
               medianLabel={copy.cost.median(whole(cost.median))}
               title={copy.cost.chartTitle(cost.games)}
               formatTick={(value) => whole(value)}
+              previous={cost.previous_median != null ? Number(cost.previous_median) : null}
+              previousLabel={cost.previous_median != null ? copy.cost.previous(whole(cost.previous_median)) : ""}
             />
             <p className="mt-1 text-caption text-ink-secondary">{copy.cost.axis}</p>
           </>

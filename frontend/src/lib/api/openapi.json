@@ -174,6 +174,30 @@
         "title": "AdaptedOut",
         "type": "object"
       },
+      "AdaptedPartOut": {
+        "description": "The Adapted part, which differs between Students: its total weight in the selection, how many\nhanded-in tests had Adapted items and how many had the replacement items instead.",
+        "properties": {
+          "adapted": {
+            "title": "Adapted",
+            "type": "integer"
+          },
+          "replaced": {
+            "title": "Replaced",
+            "type": "integer"
+          },
+          "weight": {
+            "title": "Weight",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "weight",
+          "adapted",
+          "replaced"
+        ],
+        "title": "AdaptedPartOut",
+        "type": "object"
+      },
       "AdaptedPreviewItemOut": {
         "description": "One Adapted item template filled for the sample Student (Story 11.9): its id, the Game it\nreads (`game`, the Class game, or `replay`), its fact kind, its weight (its share of the\nAdapted total) and the code-rendered text; `text` is None when the sample has no such fact.",
         "properties": {
@@ -1657,6 +1681,17 @@
             "title": "Median",
             "type": "string"
           },
+          "previous_median": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Median"
+          },
           "roles": {
             "items": {
               "$ref": "#/components/schemas/RoleCostOut"
@@ -1679,6 +1714,40 @@
           "roles"
         ],
         "title": "ClassCostOut",
+        "type": "object"
+      },
+      "ClassGamesOut": {
+        "description": "The Class session's Class games side by side, per Role in chain order (Detaljist first).",
+        "properties": {
+          "own_game": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Own Game"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/RoleOrdersOut"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "weeks": {
+            "title": "Weeks",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "weeks",
+          "own_game",
+          "roles"
+        ],
+        "title": "ClassGamesOut",
         "type": "object"
       },
       "ClassIn": {
@@ -1716,6 +1785,56 @@
           }
         },
         "title": "ClassIn",
+        "type": "object"
+      },
+      "ClassLearningOut": {
+        "description": "The Klasserapport's learning part (Story 14.2) over the Class session's reporting Students\n(`students`): how many handed in the Individual test and how many may still hand it in (an open\ntest, or none yet before their own Test deadline, an extension included).",
+        "properties": {
+          "adapted": {
+            "$ref": "#/components/schemas/AdaptedPartOut"
+          },
+          "ai": {
+            "$ref": "#/components/schemas/LearningAiOut"
+          },
+          "class_session_id": {
+            "format": "uuid",
+            "title": "Class Session Id",
+            "type": "string"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/QuestionResultOut"
+            },
+            "title": "Questions",
+            "type": "array"
+          },
+          "starting_task": {
+            "$ref": "#/components/schemas/LearningStartingTaskOut"
+          },
+          "still_to_submit": {
+            "title": "Still To Submit",
+            "type": "integer"
+          },
+          "students": {
+            "title": "Students",
+            "type": "integer"
+          },
+          "submitted": {
+            "title": "Submitted",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "class_session_id",
+          "students",
+          "submitted",
+          "still_to_submit",
+          "starting_task",
+          "questions",
+          "adapted",
+          "ai"
+        ],
+        "title": "ClassLearningOut",
         "type": "object"
       },
       "ClassListItem": {
@@ -1891,6 +2010,11 @@
             "title": "Class Name",
             "type": "string"
           },
+          "class_report": {
+            "default": false,
+            "title": "Class Report",
+            "type": "boolean"
+          },
           "cost": {
             "anyOf": [
               {
@@ -2002,6 +2126,99 @@
           "session_number"
         ],
         "title": "ClassOverviewOut",
+        "type": "object"
+      },
+      "ClassReportOut": {
+        "description": "The Klasserapport of a Class session (Story 14.1). `games` counts its Class games,\n`finished` those finished, which every game figure is over, and `facts_games` those of them\nwhose every Seat has its stored facts set, which Forsterkning and Mønstre are over. `cost` is\nNone while no game has finished.",
+        "properties": {
+          "ai": {
+            "$ref": "#/components/schemas/ReportAiOut"
+          },
+          "amplification": {
+            "items": {
+              "$ref": "#/components/schemas/RoleAmplificationOut"
+            },
+            "title": "Amplification",
+            "type": "array"
+          },
+          "class_id": {
+            "format": "uuid",
+            "title": "Class Id",
+            "type": "string"
+          },
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "class_session_id": {
+            "format": "uuid",
+            "title": "Class Session Id",
+            "type": "string"
+          },
+          "cost": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportCostOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "facts_games": {
+            "title": "Facts Games",
+            "type": "integer"
+          },
+          "finished": {
+            "title": "Finished",
+            "type": "integer"
+          },
+          "funnel": {
+            "items": {
+              "$ref": "#/components/schemas/FunnelStageOut"
+            },
+            "title": "Funnel",
+            "type": "array"
+          },
+          "games": {
+            "title": "Games",
+            "type": "integer"
+          },
+          "patterns": {
+            "items": {
+              "$ref": "#/components/schemas/PatternOut"
+            },
+            "title": "Patterns",
+            "type": "array"
+          },
+          "ratings": {
+            "items": {
+              "$ref": "#/components/schemas/RatingModeOut"
+            },
+            "title": "Ratings",
+            "type": "array"
+          },
+          "session_number": {
+            "title": "Session Number",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "class_session_id",
+          "class_id",
+          "class_name",
+          "session_number",
+          "games",
+          "finished",
+          "facts_games",
+          "funnel",
+          "cost",
+          "amplification",
+          "patterns",
+          "ai",
+          "ratings"
+        ],
+        "title": "ClassReportOut",
         "type": "object"
       },
       "ClassSessionListItem": {
@@ -2716,6 +2933,196 @@
           "value"
         ],
         "title": "ColumnRowOut",
+        "type": "object"
+      },
+      "ComparedInstitutionOut": {
+        "description": "An Institution with at least one compared Class session: its name, how many of its Class\nsessions are compared, and what its compared Class sessions differ in from the most common\nsetup. `withheld` when its one compared Class session has a shown measure over fewer than 10\nStudents: then it shows no figure and no difference.",
+        "properties": {
+          "differs": {
+            "items": {
+              "enum": [
+                "game_settings",
+                "ai_mode",
+                "model",
+                "prompt_versions",
+                "effort_level",
+                "question_set",
+                "item_weights",
+                "scoring_guide"
+              ],
+              "type": "string"
+            },
+            "title": "Differs",
+            "type": "array"
+          },
+          "institution_id": {
+            "format": "uuid",
+            "title": "Institution Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "sessions": {
+            "title": "Sessions",
+            "type": "integer"
+          },
+          "withheld": {
+            "title": "Withheld",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "institution_id",
+          "name",
+          "sessions",
+          "withheld",
+          "differs"
+        ],
+        "title": "ComparedInstitutionOut",
+        "type": "object"
+      },
+      "ComparedMeasureOut": {
+        "description": "One measure across the ready Class sessions, in their order: `key` is the stored measure\ncode the page names from `nb.ts`, `unit` how it is formatted.",
+        "properties": {
+          "comparable": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comparable"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "unit": {
+            "enum": [
+              "kroner",
+              "ratio",
+              "percent",
+              "points"
+            ],
+            "title": "Unit",
+            "type": "string"
+          },
+          "values": {
+            "items": {
+              "$ref": "#/components/schemas/ComparedValueOut"
+            },
+            "title": "Values",
+            "type": "array"
+          }
+        },
+        "required": [
+          "key",
+          "unit",
+          "values"
+        ],
+        "title": "ComparedMeasureOut",
+        "type": "object"
+      },
+      "ComparedSessionOut": {
+        "description": "A Class session the Lecturer may compare: its Class, number and whether the Class is\narchived; `written_at` is when its aggregate was written, None while it is not (not ready for\ncomparison).",
+        "properties": {
+          "archived": {
+            "title": "Archived",
+            "type": "boolean"
+          },
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "class_session_id": {
+            "format": "uuid",
+            "title": "Class Session Id",
+            "type": "string"
+          },
+          "compared": {
+            "default": false,
+            "title": "Compared",
+            "type": "boolean"
+          },
+          "differs": {
+            "default": [],
+            "items": {
+              "enum": [
+                "game_settings",
+                "ai_mode",
+                "model",
+                "prompt_versions",
+                "effort_level",
+                "question_set",
+                "item_weights",
+                "scoring_guide"
+              ],
+              "type": "string"
+            },
+            "title": "Differs",
+            "type": "array"
+          },
+          "session_number": {
+            "title": "Session Number",
+            "type": "integer"
+          },
+          "written_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Written At"
+          }
+        },
+        "required": [
+          "class_session_id",
+          "class_name",
+          "session_number",
+          "archived",
+          "written_at"
+        ],
+        "title": "ComparedSessionOut",
+        "type": "object"
+      },
+      "ComparedValueOut": {
+        "description": "One Class session's figure of a measure: `withheld` when its group held fewer than 10\nStudents (no value); neither a value nor withheld when the measure was not measured (no\nfinished game, the AI assessment off).",
+        "properties": {
+          "class_session_id": {
+            "format": "uuid",
+            "title": "Class Session Id",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "withheld": {
+            "title": "Withheld",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "class_session_id",
+          "value",
+          "withheld"
+        ],
+        "title": "ComparedValueOut",
         "type": "object"
       },
       "CompletionOut": {
@@ -3754,6 +4161,39 @@
         "title": "CostSum",
         "type": "object"
       },
+      "CrossClassOut": {
+        "description": "Tverrklasse-statistikk: every Class session of the Lecturer's own Classes (archived ones\nincluded, Control tests never), by Class and number, and the shown measures over those with a\nwritten aggregate. «Samme mål, samme regnestykke.»",
+        "properties": {
+          "filters": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/FilterOut"
+            },
+            "title": "Filters",
+            "type": "array"
+          },
+          "measures": {
+            "items": {
+              "$ref": "#/components/schemas/ComparedMeasureOut"
+            },
+            "title": "Measures",
+            "type": "array"
+          },
+          "sessions": {
+            "items": {
+              "$ref": "#/components/schemas/ComparedSessionOut"
+            },
+            "title": "Sessions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "sessions",
+          "measures"
+        ],
+        "title": "CrossClassOut",
+        "type": "object"
+      },
       "DailySpendOut": {
         "description": "The AI spend of one Europe/Oslo day and its alert (Story 15.7, FR-69): decimal strings as\nsummed by `ai.calls.day_spend`, unrounded.",
         "properties": {
@@ -4374,6 +4814,38 @@
         "title": "DemandWeekOut",
         "type": "object"
       },
+      "DistributionOut": {
+        "description": "The values of a distribution (one per finished Class game, by game number, for the\nKostnadsfordeling's ticks) with their median and quartiles (the inclusive method of\n`analysis.wall.quartiles`).",
+        "properties": {
+          "lower_quartile": {
+            "title": "Lower Quartile",
+            "type": "string"
+          },
+          "median": {
+            "title": "Median",
+            "type": "string"
+          },
+          "upper_quartile": {
+            "title": "Upper Quartile",
+            "type": "string"
+          },
+          "values": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Values",
+            "type": "array"
+          }
+        },
+        "required": [
+          "values",
+          "median",
+          "lower_quartile",
+          "upper_quartile"
+        ],
+        "title": "DistributionOut",
+        "type": "object"
+      },
       "EffortLevelEntryOut": {
         "properties": {
           "label": {
@@ -4524,6 +4996,11 @@
                 "type": "null"
               }
             ]
+          },
+          "all_games_open": {
+            "default": false,
+            "title": "All Games Open",
+            "type": "boolean"
           },
           "class_id": {
             "format": "uuid",
@@ -5289,6 +5766,81 @@
         "title": "FilledSeatsOut",
         "type": "object"
       },
+      "FilterOptionOut": {
+        "description": "One value of a filter dimension among the Class sessions with an aggregate. `value` is the\ntoken the query sends back (a hash of the stored key). `label` is data, never copy: for Game\nsettings `classic` or None (then named by `ordinal`), the AI mode's code, the model config's\nname, the prompt versions as «purpose version» pairs, the Effort level's label; None when the\nClass session had none (no model for rule-based players). `count` is the Class sessions\nholding it that match the other dimensions' filters.",
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "ordinal": {
+            "title": "Ordinal",
+            "type": "integer"
+          },
+          "selected": {
+            "title": "Selected",
+            "type": "boolean"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "label",
+          "ordinal",
+          "count",
+          "selected"
+        ],
+        "title": "FilterOptionOut",
+        "type": "object"
+      },
+      "FilterOut": {
+        "description": "A filter dimension: its options, and `all_count`, the Class sessions «Alle» would compare\n(those matching the other dimensions' filters).",
+        "properties": {
+          "all_count": {
+            "title": "All Count",
+            "type": "integer"
+          },
+          "dimension": {
+            "enum": [
+              "game_settings",
+              "ai_mode",
+              "model",
+              "prompt_versions",
+              "effort_level"
+            ],
+            "title": "Dimension",
+            "type": "string"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/FilterOptionOut"
+            },
+            "title": "Options",
+            "type": "array"
+          }
+        },
+        "required": [
+          "dimension",
+          "all_count",
+          "options"
+        ],
+        "title": "FilterOut",
+        "type": "object"
+      },
       "FinalIn": {
         "additionalProperties": false,
         "properties": {
@@ -5606,27 +6158,27 @@
         "title": "FunnelStageOut",
         "type": "object"
       },
-      "GameCostOut": {
+      "GameAiOut": {
+        "description": "One finished Class game's AI play (FR-68): its Orders outside Guided Weeks, those an LLM\nplayer decided and their share in percent (None with no Order), and those the fallback\nreplaced (AD-15).",
         "properties": {
-          "above": {
-            "title": "Above",
-            "type": "boolean"
-          },
-          "calls": {
-            "title": "Calls",
+          "fallback": {
+            "title": "Fallback",
             "type": "integer"
           },
-          "game_id": {
+          "llm": {
+            "title": "Llm",
+            "type": "integer"
+          },
+          "llm_percent": {
             "anyOf": [
               {
-                "format": "uuid",
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Game Id"
+            "title": "Llm Percent"
           },
           "number": {
             "anyOf": [
@@ -5639,19 +6191,19 @@
             ],
             "title": "Number"
           },
-          "usd": {
-            "title": "Usd",
-            "type": "string"
+          "ordered": {
+            "title": "Ordered",
+            "type": "integer"
           }
         },
         "required": [
-          "game_id",
           "number",
-          "usd",
-          "calls",
-          "above"
+          "ordered",
+          "llm",
+          "llm_percent",
+          "fallback"
         ],
-        "title": "GameCostOut",
+        "title": "GameAiOut",
         "type": "object"
       },
       "GameInsightOut": {
@@ -5866,6 +6418,40 @@
           "roles"
         ],
         "title": "GameInsightOut",
+        "type": "object"
+      },
+      "GameOrdersOut": {
+        "description": "One Class game's Orders for one Role, Uke 1 first.",
+        "properties": {
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "orders": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Orders",
+            "type": "array"
+          },
+          "own": {
+            "title": "Own",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "number",
+          "own",
+          "orders"
+        ],
+        "title": "GameOrdersOut",
         "type": "object"
       },
       "GameResult": {
@@ -6986,6 +7572,50 @@
         "title": "InstitutionListOut",
         "type": "object"
       },
+      "InstitutionMeasureOut": {
+        "description": "One measure across the listed Institutions, in their order (Story 14.3's codes and units);\n`comparable` on a score measure as in Story 14.4.",
+        "properties": {
+          "comparable": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comparable"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "unit": {
+            "enum": [
+              "kroner",
+              "ratio",
+              "percent",
+              "points"
+            ],
+            "title": "Unit",
+            "type": "string"
+          },
+          "values": {
+            "items": {
+              "$ref": "#/components/schemas/InstitutionValueOut"
+            },
+            "title": "Values",
+            "type": "array"
+          }
+        },
+        "required": [
+          "key",
+          "unit",
+          "values"
+        ],
+        "title": "InstitutionMeasureOut",
+        "type": "object"
+      },
       "InstitutionOut": {
         "description": "One Institution (Story 3.11): what the Admin's list shows and what other modules read.",
         "properties": {
@@ -7046,6 +7676,86 @@
           "created_at"
         ],
         "title": "InstitutionOut",
+        "type": "object"
+      },
+      "InstitutionStatisticsOut": {
+        "description": "The Institutions in Norwegian name order, the shown measures over them, and the filters\n(one per dimension once two Class sessions have an aggregate). `ready` counts the Class\nsessions with an aggregate, `compared` those matching the filters.",
+        "properties": {
+          "compared": {
+            "title": "Compared",
+            "type": "integer"
+          },
+          "filters": {
+            "items": {
+              "$ref": "#/components/schemas/FilterOut"
+            },
+            "title": "Filters",
+            "type": "array"
+          },
+          "institutions": {
+            "items": {
+              "$ref": "#/components/schemas/ComparedInstitutionOut"
+            },
+            "title": "Institutions",
+            "type": "array"
+          },
+          "measures": {
+            "items": {
+              "$ref": "#/components/schemas/InstitutionMeasureOut"
+            },
+            "title": "Measures",
+            "type": "array"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "institutions",
+          "measures",
+          "filters",
+          "ready",
+          "compared"
+        ],
+        "title": "InstitutionStatisticsOut",
+        "type": "object"
+      },
+      "InstitutionValueOut": {
+        "description": "One Institution's figure of a measure: the median of its compared Class sessions' stored,\nunwithheld values (`sessions` of them). `withheld` with no value when only withheld figures\nwere stored (or the Institution is withheld); neither when the measure was not measured.",
+        "properties": {
+          "institution_id": {
+            "format": "uuid",
+            "title": "Institution Id",
+            "type": "string"
+          },
+          "sessions": {
+            "title": "Sessions",
+            "type": "integer"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "withheld": {
+            "title": "Withheld",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "institution_id",
+          "value",
+          "withheld",
+          "sessions"
+        ],
+        "title": "InstitutionValueOut",
         "type": "object"
       },
       "IntRange": {
@@ -7552,6 +8262,145 @@
           "order"
         ],
         "title": "LargestOrderOut",
+        "type": "object"
+      },
+      "LearningAiOut": {
+        "description": "The AI assessment totals (FR-55: AI-generated and not a grade): `switched_off` when the\n«KI-vurdering» is off for the Class session, `not_ready` while no assessment of a handed-in test\nis ready, else `ready` with how many are (`ready` of `submitted`). The totals and the Core-only\nsubscores in points of 100, as distributions and bands; null without a ready assessment.",
+        "properties": {
+          "bands": {
+            "items": {
+              "$ref": "#/components/schemas/ScoreBandOut"
+            },
+            "title": "Bands",
+            "type": "array"
+          },
+          "core": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DistributionOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "integer"
+          },
+          "state": {
+            "enum": [
+              "switched_off",
+              "not_ready",
+              "ready"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "submitted": {
+            "title": "Submitted",
+            "type": "integer"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DistributionOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "state",
+          "ready",
+          "submitted",
+          "total",
+          "core",
+          "bands"
+        ],
+        "title": "LearningAiOut",
+        "type": "object"
+      },
+      "LearningStartingItemOut": {
+        "description": "One Starting task item beside the matching Individual test item, over the Students who\nfinished the Starting task and handed in a test holding that item (`students`): how many\nanswered it right in the Starting task, and how many got the test item fully right with their\nmean credit in percent (an unanswered test item counts 0).",
+        "properties": {
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "start_correct": {
+            "title": "Start Correct",
+            "type": "integer"
+          },
+          "start_percent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Percent"
+          },
+          "students": {
+            "title": "Students",
+            "type": "integer"
+          },
+          "test_percent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test Percent"
+          },
+          "test_right": {
+            "title": "Test Right",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "number",
+          "title",
+          "students",
+          "start_correct",
+          "start_percent",
+          "test_right",
+          "test_percent"
+        ],
+        "title": "LearningStartingItemOut",
+        "type": "object"
+      },
+      "LearningStartingTaskOut": {
+        "description": "The Starting task beside the test: `students` is how many finished the Starting task and\nhanded in the test.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/LearningStartingItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "students": {
+            "title": "Students",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "students",
+          "items"
+        ],
+        "title": "LearningStartingTaskOut",
         "type": "object"
       },
       "LecturerOverviewOut": {
@@ -10025,6 +10874,35 @@
         "title": "PasswordResetIn",
         "type": "object"
       },
+      "PatternOut": {
+        "description": "A Detected pattern across the covered Class games: the occurrences in Weeks a Student\ndecided, and in how many games at least one.",
+        "properties": {
+          "games": {
+            "title": "Games",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "occurrences": {
+            "title": "Occurrences",
+            "type": "integer"
+          },
+          "pattern": {
+            "title": "Pattern",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pattern",
+          "name",
+          "occurrences",
+          "games"
+        ],
+        "title": "PatternOut",
+        "type": "object"
+      },
       "PauseOut": {
         "description": "The game's pause line (Story 8.6, FR-89, UX-DR62): `paused` while a Pause is in force,\nnamed by who set it («Pause, satt av Sara.»); `ended` from the Order that ended it until the\nnext Uke opens, named by who ordered («Pausen er over. Sara har bestilt.»). Never a Week\ncount (FR-14).",
         "properties": {
@@ -10166,6 +11044,86 @@
           "viewed"
         ],
         "title": "PlayTurnOut",
+        "type": "object"
+      },
+      "PlenaryGameOut": {
+        "description": "One Class game's values for one Role, Uke 1 first.",
+        "properties": {
+          "net": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Net",
+            "type": "array"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "orders": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Orders",
+            "type": "array"
+          }
+        },
+        "required": [
+          "number",
+          "net",
+          "orders"
+        ],
+        "title": "PlenaryGameOut",
+        "type": "object"
+      },
+      "PlenaryOut": {
+        "description": "The Class session's Class games for the plenary, per Role in chain order (Detaljist\nfirst).",
+        "properties": {
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/PlenaryRoleOut"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "weeks": {
+            "title": "Weeks",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "weeks",
+          "roles"
+        ],
+        "title": "PlenaryOut",
+        "type": "object"
+      },
+      "PlenaryRoleOut": {
+        "description": "Every Class game's values for one Role, in game-number order.",
+        "properties": {
+          "games": {
+            "items": {
+              "$ref": "#/components/schemas/PlenaryGameOut"
+            },
+            "title": "Games",
+            "type": "array"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          }
+        },
+        "required": [
+          "role",
+          "games"
+        ],
+        "title": "PlenaryRoleOut",
         "type": "object"
       },
       "PoolerCheckOut": {
@@ -10383,6 +11341,118 @@
           "starting_task"
         ],
         "title": "QuestionItemOut",
+        "type": "object"
+      },
+      "QuestionResultOut": {
+        "description": "One Core question of the selection in force, in the set's order. A question taken out\n(`excluded`) has no number, no weight and no figures, and counts in no total. Over the handed-in\ntests holding it (`students`): a computed question has right, partly, wrong and not answered\nwith the mean credit in percent; a long-answer question (`scoring = ai`) only how many answered\nit, its scores being the AI assessment's.",
+        "properties": {
+          "answered": {
+            "title": "Answered",
+            "type": "integer"
+          },
+          "excluded": {
+            "title": "Excluded",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "not_answered": {
+            "title": "Not Answered",
+            "type": "integer"
+          },
+          "number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number"
+          },
+          "partly": {
+            "title": "Partly",
+            "type": "integer"
+          },
+          "percent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Percent"
+          },
+          "right": {
+            "title": "Right",
+            "type": "integer"
+          },
+          "scoring": {
+            "enum": [
+              "computed",
+              "ai",
+              "excluded"
+            ],
+            "title": "Scoring",
+            "type": "string"
+          },
+          "students": {
+            "title": "Students",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "choice",
+              "table",
+              "number",
+              "long",
+              "drawn"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "weight": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weight"
+          },
+          "wrong": {
+            "title": "Wrong",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "number",
+          "id",
+          "title",
+          "type",
+          "weight",
+          "excluded",
+          "scoring",
+          "students",
+          "answered",
+          "right",
+          "partly",
+          "wrong",
+          "not_answered",
+          "percent"
+        ],
+        "title": "QuestionResultOut",
         "type": "object"
       },
       "QuestionSetIn": {
@@ -10735,6 +11805,60 @@
           "explanation"
         ],
         "title": "QuizResultOut",
+        "type": "object"
+      },
+      "RatingCountOut": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "rating": {
+            "title": "Rating",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "rating",
+          "count"
+        ],
+        "title": "RatingCountOut",
+        "type": "object"
+      },
+      "RatingModeOut": {
+        "description": "The plausibility ratings of one AI mode (FR-70): the count of each value 1–5, their\nnumber and median. Never a single rating or who gave it.",
+        "properties": {
+          "ai_mode": {
+            "enum": [
+              "llm",
+              "rule_based"
+            ],
+            "title": "Ai Mode",
+            "type": "string"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "median": {
+            "title": "Median",
+            "type": "string"
+          },
+          "values": {
+            "items": {
+              "$ref": "#/components/schemas/RatingCountOut"
+            },
+            "title": "Values",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ai_mode",
+          "count",
+          "median",
+          "values"
+        ],
+        "title": "RatingModeOut",
         "type": "object"
       },
       "RecordDebriefOut": {
@@ -11892,6 +13016,80 @@
         "title": "ReplayWalkthroughOut",
         "type": "object"
       },
+      "ReportAiOut": {
+        "description": "The share of Seats played by AI players (FR-64), the Share of LLM Orders per game and the\nswitches (FR-68), and the share of LLM-held Seats the Play guard switched (FR-79).",
+        "properties": {
+          "ai_percent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ai Percent"
+          },
+          "ai_seats": {
+            "title": "Ai Seats",
+            "type": "integer"
+          },
+          "games": {
+            "items": {
+              "$ref": "#/components/schemas/GameAiOut"
+            },
+            "title": "Games",
+            "type": "array"
+          },
+          "guard_percent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guard Percent"
+          },
+          "guard_switched": {
+            "title": "Guard Switched",
+            "type": "integer"
+          },
+          "llm_seats": {
+            "title": "Llm Seats",
+            "type": "integer"
+          },
+          "seats": {
+            "title": "Seats",
+            "type": "integer"
+          },
+          "switches": {
+            "items": {
+              "$ref": "#/components/schemas/SwitchOut"
+            },
+            "title": "Switches",
+            "type": "array"
+          },
+          "whole_game": {
+            "title": "Whole Game",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "seats",
+          "ai_seats",
+          "whole_game",
+          "ai_percent",
+          "games",
+          "switches",
+          "llm_seats",
+          "guard_switched",
+          "guard_percent"
+        ],
+        "title": "ReportAiOut",
+        "type": "object"
+      },
       "ReportAiScoreOut": {
         "description": "The AI's score of a long-answer or Adapted item (Story 12.2): its step on the Scoring\nguide's scale with the label, its written feedback (`ai_generated`, quotes as «…») or that the\nfeedback was left out (`feedback_dropped`).",
         "properties": {
@@ -12025,6 +13223,56 @@
           "ai"
         ],
         "title": "ReportAssessedItemOut",
+        "type": "object"
+      },
+      "ReportCostOut": {
+        "description": "Kjedekost and Kostnad per Rolle (FR-64, UX-DR72): the chain cost's distribution with the\nchain's mean Lager and Restordre per game, and each Role in chain order (Detaljist first).",
+        "properties": {
+          "backorder_cost": {
+            "title": "Backorder Cost",
+            "type": "string"
+          },
+          "chain": {
+            "$ref": "#/components/schemas/DistributionOut"
+          },
+          "games": {
+            "items": {
+              "$ref": "#/components/schemas/app__modules__reports__class_report_schemas__GameCostOut"
+            },
+            "title": "Games",
+            "type": "array"
+          },
+          "holding_cost": {
+            "title": "Holding Cost",
+            "type": "string"
+          },
+          "previous_median": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Median"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/RoleCostDistributionOut"
+            },
+            "title": "Roles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "chain",
+          "holding_cost",
+          "backorder_cost",
+          "roles",
+          "games"
+        ],
+        "title": "ReportCostOut",
         "type": "object"
       },
       "ReportDataOut": {
@@ -13154,6 +14402,35 @@
         "title": "Role",
         "type": "string"
       },
+      "RoleAmplificationOut": {
+        "description": "One Role's Order amplification (`orders_std / demand_std`, the facts sets' chain part)\nover the covered games where demand varied; None without one.",
+        "properties": {
+          "distribution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DistributionOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "games": {
+            "title": "Games",
+            "type": "integer"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          }
+        },
+        "required": [
+          "role",
+          "games",
+          "distribution"
+        ],
+        "title": "RoleAmplificationOut",
+        "type": "object"
+      },
       "RoleCapacityOut": {
         "description": "A capped Role (Story 6.22, FR-12): the most it ships per Week, a rule of the game.",
         "properties": {
@@ -13201,6 +14478,38 @@
         "title": "RoleCost",
         "type": "object"
       },
+      "RoleCostDistributionOut": {
+        "description": "One Role's Total cost over the finished Class games: its distribution and its mean Lager\nand Restordre per game (`total_cost` is their sum), in kroner rounded to the øre.",
+        "properties": {
+          "backorder_cost": {
+            "title": "Backorder Cost",
+            "type": "string"
+          },
+          "distribution": {
+            "$ref": "#/components/schemas/DistributionOut"
+          },
+          "holding_cost": {
+            "title": "Holding Cost",
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "total_cost": {
+            "title": "Total Cost",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "distribution",
+          "holding_cost",
+          "backorder_cost",
+          "total_cost"
+        ],
+        "title": "RoleCostDistributionOut",
+        "type": "object"
+      },
       "RoleCostOut": {
         "description": "One Role's mean cost per finished Class game, split into lager and restordre (Story 7.6,\nUX-DR72), in kroner rounded to the øre, as decimal strings; `total_cost` is their sum.",
         "properties": {
@@ -13240,6 +14549,27 @@
           "role"
         ],
         "title": "RoleIn",
+        "type": "object"
+      },
+      "RoleOrdersOut": {
+        "description": "Every Class game's Orders for one Role, in game-number order.",
+        "properties": {
+          "games": {
+            "items": {
+              "$ref": "#/components/schemas/GameOrdersOut"
+            },
+            "title": "Games",
+            "type": "array"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          }
+        },
+        "required": [
+          "role",
+          "games"
+        ],
+        "title": "RoleOrdersOut",
         "type": "object"
       },
       "RosterColumn": {
@@ -13603,6 +14933,35 @@
           "label"
         ],
         "title": "ScaleStepOut",
+        "type": "object"
+      },
+      "ScoreBandOut": {
+        "description": "How many ready AI assessments have their total, and their Core-only subscore, in `low` to\n`high` points of 100 (each band holds its lower bound; the last also holds 100).",
+        "properties": {
+          "core": {
+            "title": "Core",
+            "type": "integer"
+          },
+          "high": {
+            "title": "High",
+            "type": "integer"
+          },
+          "low": {
+            "title": "Low",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "low",
+          "high",
+          "total",
+          "core"
+        ],
+        "title": "ScoreBandOut",
         "type": "object"
       },
       "ScorerIn": {
@@ -14589,7 +15948,7 @@
           },
           "per_game": {
             "items": {
-              "$ref": "#/components/schemas/GameCostOut"
+              "$ref": "#/components/schemas/app__modules__ops__ai_schemas__GameCostOut"
             },
             "title": "Per Game",
             "type": "array"
@@ -16675,6 +18034,40 @@
         "title": "SupplyLineSlot",
         "type": "object"
       },
+      "SwitchOut": {
+        "description": "A switch by the cost limit or the Play guard: the game, the Seat's Role, the Week it took\neffect and its mark from the one AD-15 mapping.",
+        "properties": {
+          "mark": {
+            "$ref": "#/components/schemas/SeatMark"
+          },
+          "number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "number",
+          "role",
+          "week",
+          "mark"
+        ],
+        "title": "SwitchOut",
+        "type": "object"
+      },
       "TableColumnOut": {
         "description": "A given column of a value table: its heading and one number per row.",
         "properties": {
@@ -17262,6 +18655,11 @@
       },
       "UserOut": {
         "properties": {
+          "cross_institution_stats": {
+            "default": false,
+            "title": "Cross Institution Stats",
+            "type": "boolean"
+          },
           "email": {
             "title": "Email",
             "type": "string"
@@ -17991,6 +19389,11 @@
             "title": "Deleted",
             "type": "boolean"
           },
+          "game_data_export": {
+            "default": false,
+            "title": "Game Data Export",
+            "type": "boolean"
+          },
           "generated_at": {
             "anyOf": [
               {
@@ -18031,6 +19434,80 @@
           "students"
         ],
         "title": "ZipStateOut",
+        "type": "object"
+      },
+      "app__modules__ops__ai_schemas__GameCostOut": {
+        "properties": {
+          "above": {
+            "title": "Above",
+            "type": "boolean"
+          },
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "game_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Id"
+          },
+          "number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number"
+          },
+          "usd": {
+            "title": "Usd",
+            "type": "string"
+          }
+        },
+        "required": [
+          "game_id",
+          "number",
+          "usd",
+          "calls",
+          "above"
+        ],
+        "title": "GameCostOut",
+        "type": "object"
+      },
+      "app__modules__reports__class_report_schemas__GameCostOut": {
+        "description": "A finished Class game's chain Total cost, for «Vis som tabell».",
+        "properties": {
+          "chain_cost": {
+            "title": "Chain Cost",
+            "type": "string"
+          },
+          "number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number"
+          }
+        },
+        "required": [
+          "number",
+          "chain_cost"
+        ],
+        "title": "GameCostOut",
         "type": "object"
       }
     }
@@ -22680,6 +24157,132 @@
         ]
       }
     },
+    "/api/class-sessions/{session_id}/class-report": {
+      "get": {
+        "description": "The Klasserapport (Story 14.1): the Trakt, Kjedekost and Kostnad per Rolle, Forsterkning per\nRolle, «Mønstre», the AI play and the plausibility ratings per AI mode over the Class session's\nfinished Class games, every figure computed here (AD-10).",
+        "operationId": "getClassReport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassReportOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Class Report",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/class-report/learning": {
+      "get": {
+        "description": "The Klasserapport's learning part (Story 14.2): the Starting task beside the matching test\nitems, results per question and the AI assessment totals with the Core-only subscore, over the\nClass session's reporting Students; every figure computed here (AD-10), never a letter\n(FR-56). Access and answers as `getClassReport`.",
+        "operationId": "getClassLearningReport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassLearningOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Class Learning Report",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
     "/api/class-sessions/{session_id}/completion-export": {
       "get": {
         "description": "«Last ned fullføringsliste (CSV eller Excel)» (Story 13.14, FR-60, FR-17, AD-14, AD-16):\none row per Student reports count, with the fixed columns `completion_export.COLUMNS` (name,\nemail, the date each step was done, the shares, the Oppfølgingsspill, the correction mark and\nwhether the requirement is met), every value from the one Completion assembler. Never an AI\nscore, AI feedback or Indicative letter. Built now and sent, never stored; recorded in the\naudit log once the file is built. 409 `data_deleted` once the Student data is deleted; 403\n`forbidden` for an Assistant lecturer, anyone else outside the Class's Lecturers and a Class\nsession that does not exist (FR-5, AD-12).",
@@ -22972,6 +24575,85 @@
         "summary": "Get Class Session Demand Series",
         "tags": [
           "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/game-data-export": {
+      "get": {
+        "description": "«Last ned spilldata (CSV)» (Story 14.8, cut list, FR-88, AD-13, AD-14, AD-15, AD-17): one\nrow per Game, Week and Seat of the Decision log, for the Class games, make-up games and\nReplays `reporting_games()` counts, with the fixed columns `game_data_export.COLUMNS` (the\npurpose, the game, the Week, the Role, what the Seat saw, the Order, its cost, who decided it,\nthe AD-15 mark and the occupant kind). Never an AI score, AI feedback, Indicative letter, name\nor id. Streamed, never stored; recorded in the audit log once the rows are read. 404 as an\nunknown route while `FEATURE_GAME_DATA_EXPORT` is off; 409 `data_deleted` once the Student\ndata is deleted; 403 `forbidden` for an Assistant lecturer, anyone else outside the Class's\nLecturers and a Class session that does not exist (FR-5, AD-12).",
+        "operationId": "downloadGameDataExport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/csv": {}
+            },
+            "description": "The CSV file"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Download Game Data Export",
+        "tags": [
+          "reports"
         ]
       }
     },
@@ -23637,6 +25319,69 @@
         "summary": "Get Wall Aggregates",
         "tags": [
           "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/plenary": {
+      "get": {
+        "description": "«Alle spill i plenum» (Story 14.6, FR-86): every Class game's Netto lager and Orders per Role\nand Week keyed by game number, for the projector; no name, id, occupant, status, wait or cost\n(AD-14). Read by the Oversikt's readers; 403 `forbidden` for anyone else and for a Class\nsession that does not exist, alike (FR-5).",
+        "operationId": "getClassPlenary",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlenaryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Class Plenary",
+        "tags": [
+          "reports"
         ]
       }
     },
@@ -25688,6 +27433,145 @@
         "summary": "Fill Waited For Seats",
         "tags": [
           "sessions"
+        ]
+      }
+    },
+    "/api/class-statistics": {
+      "get": {
+        "description": "Tverrklasse-statistikk (Story 14.3, FR-65): every Class session of the Classes the caller\nowns (archived included, Control tests never), and the Class report measures of those with a\nwritten aggregate side by side, read from the aggregates only (AD-14). Anyone without the\nLecturer role answers 403 `forbidden`. Story 14.4: each optional parameter is a filter\noption's `value`; only the Class sessions holding every given one are compared (a value no\nClass session holds is ignored).",
+        "operationId": "getClassStatistics",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "game_settings",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Game Settings"
+            }
+          },
+          {
+            "in": "query",
+            "name": "ai_mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ai Mode"
+            }
+          },
+          {
+            "in": "query",
+            "name": "model",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Model"
+            }
+          },
+          {
+            "in": "query",
+            "name": "prompt_versions",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Prompt Versions"
+            }
+          },
+          {
+            "in": "query",
+            "name": "effort_level",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Effort Level"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CrossClassOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Get Class Statistics",
+        "tags": [
+          "reports"
         ]
       }
     },
@@ -29648,6 +31532,155 @@
         "summary": "Health"
       }
     },
+    "/api/institution-statistics": {
+      "get": {
+        "description": "«Tverrinstitusjonell statistikk» (Story 14.7, cut list, FR-65, FR-5, AD-12, AD-14): the\nstored aggregates of every Institution's Class sessions, grouped by Institution, read from the\naggregates only; no Class, Lecturer or Student is named. The Admin only: anyone else answers\n403 `forbidden`. The filters are Story 14.4's. An Institution whose one compared Class session\nhas a withheld measure is withheld as a whole.",
+        "operationId": "getInstitutionStatistics",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "game_settings",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Game Settings"
+            }
+          },
+          {
+            "in": "query",
+            "name": "ai_mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ai Mode"
+            }
+          },
+          {
+            "in": "query",
+            "name": "model",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Model"
+            }
+          },
+          {
+            "in": "query",
+            "name": "prompt_versions",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Prompt Versions"
+            }
+          },
+          {
+            "in": "query",
+            "name": "effort_level",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Effort Level"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstitutionStatisticsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Get Institution Statistics",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
     "/api/internal/report-snapshots/{snapshot_id}": {
       "get": {
         "description": "The print route's read of one report snapshot (Story 13.7, AD-18), with its render token in\n`X-Render-Token`: the data once, while the token is unused and unexpired (5 minutes). A\nused, expired or wrong token, and an unknown snapshot, all answer 404 `not_found` with no\ndata. The proxy refuses `/api/internal/*`: only the frontend server reaches it.",
@@ -29782,6 +31815,69 @@
         "summary": "List My Class Sessions",
         "tags": [
           "sessions"
+        ]
+      }
+    },
+    "/api/me/class-sessions/{session_id}/all-games": {
+      "get": {
+        "description": "«Alle spill side om side» (Story 14.5, FR-86): every Class game's Orders per Role and Week\nkeyed by game number, the Student's own game marked; no name, id, occupant or cost (AD-14).\n403 `all_games_locked` until the Student's Debrief is done and the Play deadline has passed;\n403 `forbidden` for a Class session that is not their own locked one, alike for all (FR-5).",
+        "operationId": "getMyClassGames",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassGamesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get My Class Games",
+        "tags": [
+          "reports"
         ]
       }
     },

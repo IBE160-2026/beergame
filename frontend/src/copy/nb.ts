@@ -2278,6 +2278,8 @@ export const nb = {
 
       // EXPERIENCE.md → Terms («Kontrolltest»); Story 12.7.
       controlTests: "Kontrolltest",
+      // [ASSUMPTION] Story 14.7 (cut list).
+      crossInstitution: "Tverrinstitusjonell statistikk",
     },
     /** «Revisjonslogg» (Story 3.12, FR-3): every Admin action with who did it and when. The page
      * renders any action from these entries; a later epic adds its own action names here and the
@@ -4380,8 +4382,12 @@ export const nb = {
         none: "Ingen spill er ferdige ennå.",
         median: (value: string) => `Median ${value}`,
         axis: "Kroner. Boksen er midterste halvdel.",
-        /** «Median 1 954. Midterste halvdel 1 500–2 600.» (EXPERIENCE.md → Charts). */
-        summary: (median: string, low: string, high: string) => `Median ${median}. Midterste halvdel ${low}–${high}.`,
+        /** «Median 1 954. Midterste halvdel 1 500–2 600. Fjoråret 2 740.» (EXPERIENCE.md → Charts);
+         * «Fjoråret» only with the previous Class session's stored aggregate (Story 14.3). */
+        summary: (median: string, low: string, high: string, previous?: string | null) =>
+          `Median ${median}. Midterste halvdel ${low}–${high}.${previous ? ` Fjoråret ${previous}.` : ""}`,
+        /** [ASSUMPTION] Story 14.3 (UX-DR51): the dashed mark's label. */
+        previous: (value: string) => `Fjoråret ${value}`,
         /** [ASSUMPTION] the SVG title. */
         chartTitle: (games: number) => `Kjedekost i hvert ferdige spill, ${games} spill`,
         showTable: "Vis som tabell",
@@ -4865,6 +4871,11 @@ export const nb = {
         choose: "Velg format:",
         csv: "CSV-fil",
         xlsx: "Excel-fil (.xlsx)",
+      },
+      /** The Game data export (Story 14.8, cut list, FR-88): the action is the spine's (UX-DR49);
+       * the note is the Completion export's, shown once for both files. */
+      gameData: {
+        action: "Last ned spilldata (CSV)",
       },
     },
     studentPage: {
@@ -5449,6 +5460,352 @@ export const nb = {
       writeAgain: "Skriv ny melding",
       writeAgainLabel: (recipient: string) => `Skriv ny melding ${recipient.charAt(0).toLowerCase()}${recipient.slice(1)}`,
     },
+  },
+
+  /** The Klasserapport (Story 14.1, FR-64, FR-68, FR-70, FR-79, UX-DR55, EXPERIENCE.md → Klasserapport).
+   * The title, the empty and partial lines, «Mønstre» and «Vis som tabell» are the spine's; the rest
+   * is [ASSUMPTION] draft copy for the founder's review. Every number is the api's (AD-10). */
+  classReport: {
+    title: "Klasserapport",
+    crumb: "Klasserapport",
+    /** The Lenke on the Oversikt and on the Klasse's list of Klasseøkter. */
+    link: "Klasserapport",
+    /** [ASSUMPTION] the Lenke's name on the Klasse's list: «Klasserapport, Klasseøkt 2». */
+    linkLabel: (number: number) => `Klasserapport, Klasseøkt ${number}`,
+    session: (number: number, className: string) => `Klasseøkt ${number}, ${className}`,
+    /** FR-64: none finished, some finished; [ASSUMPTION] all finished. */
+    none: "Ingen spill er ferdige ennå.",
+    partial: (finished: number, games: number) =>
+      `Oppdateres etter hvert som studentene blir ferdige. ${finished} av ${games} spill er med.`,
+    all: (games: number) => `Alle ${games} spill er med.`,
+    /** [ASSUMPTION] the session has no Class game at all. */
+    noGames: "Klasseøkta har ingen klassespill.",
+    showTable: "Vis som tabell",
+    showChart: "Vis som graf",
+    gameColumn: "Spill",
+    roleColumn: "Rolle",
+    medianColumn: "Median",
+    middleColumn: "Midterste halvdel",
+    median: (value: string) => `Median ${value}`,
+    middle: (low: string, high: string) => `${low}–${high}`,
+    /** «Fjoråret 2 740.» only with the previous Class session's stored aggregate (Story 14.3). */
+    summary: (median: string, low: string, high: string, previous?: string | null) =>
+      `Median ${median}. Midterste halvdel ${low}–${high}.${previous ? ` Fjoråret ${previous}.` : ""}`,
+    /** Story 14.3 (UX-DR51): the dashed mark's label. */
+    previous: (value: string) => `Fjoråret ${value}`,
+    /** Story 14.3: the Lenke to Tverrklasse-statistikk under the report's heading. */
+    crossClassLink: "Sammenlign med tidligere Klasseøkter",
+    funnel: {
+      title: "Trakt",
+      stageColumn: "Steg",
+      countColumn: "Studenter",
+      tableCaption: "Trakt: studenter som har nådd hvert steg",
+    },
+    chain: {
+      title: "Kjedekost",
+      intro: (games: number) => `Kjedens totalkostnad i ${games} ${games === 1 ? "ferdig spill" : "ferdige spill"}. Hvert merke er ett spill.`,
+      axis: "Kroner. Boksen er midterste halvdel.",
+      chartTitle: (games: number) => `Kjedekost i hvert ferdige spill, ${games} spill`,
+      /** «Snitt per spill: lager 949 kr, restordre 1 063 kr.» */
+      split: (holding: string, backorder: string) => `Snitt per spill: lager ${holding} kr, restordre ${backorder} kr.`,
+      tableCaption: "Kjedekost per ferdige spill, etter spillnummer",
+      costColumn: "Kjedekost, kr",
+    },
+    roles: {
+      title: "Kostnad per Rolle",
+      intro: "Rollens totalkostnad i hvert ferdige spill, på samme akse.",
+      chartTitle: (role: string) => `Totalkostnad for ${role} i hvert ferdige spill`,
+      /** Under each Role: «Median 412. Snitt: lager 210 kr, restordre 202 kr.» */
+      line: (median: string, holding: string, backorder: string) =>
+        `Median ${median}. Snitt: lager ${holding} kr, restordre ${backorder} kr.`,
+      tableCaption: "Totalkostnad per Rolle, kroner",
+      holdingColumn: "Lager, snitt",
+      backorderColumn: "Restordre, snitt",
+    },
+    amplification: {
+      title: "Forsterkning per Rolle",
+      intro: "Hvor mye ordrene svinger sammenlignet med kundenes etterspørsel. 1 betyr like mye.",
+      chartTitle: (role: string) => `Forsterkning for ${role} i hvert analyserte spill`,
+      value: (value: string) => `${value}×`,
+      none: "Ingen spill er analysert ennå.",
+      noValue: "Kundenes etterspørsel varierte ikke.",
+      tableCaption: "Forsterkning per Rolle",
+      gamesColumn: "Spill",
+    },
+    /** When the analysis of some finished games is not stored yet. */
+    covered: (covered: number, finished: number) =>
+      `Fra ${covered} av ${finished} ferdige spill. Resten kommer når analysen er klar.`,
+    patterns: {
+      title: "Mønstre",
+      intro: "Mønstre i ordrene studentene la inn, oftest først.",
+      none: "Ingen mønstre i studentenes ordrer.",
+      /** «Stor ordre mens mye allerede er på vei: 212» */
+      row: (name: string, count: string) => `${name}: ${count}`,
+      reads: (name: string, count: string, games: string) => `${name}: ${count} ganger i ${games} spill`,
+      tableCaption: "Mønstre i studentenes ordrer",
+      patternColumn: "Mønster",
+      occurrencesColumn: "Ganger",
+      gamesColumn: "Spill med mønsteret",
+    },
+    ai: {
+      title: "KI-spillere",
+      /** «KI-spillere spilte 14 av 240 seter (5,8 %): 9 hele spillet, 5 en del av det.» */
+      seats: (ai: number, seats: number, percent: string, whole: number) =>
+        ai === 0
+          ? `Ingen av ${seats} seter ble spilt av KI-spillere.`
+          : `KI-spillere spilte ${ai} av ${seats} seter (${percent} %): ${whole} hele spillet, ${ai - whole} en del av det.`,
+      /** FR-79: «Spillvakten byttet 2 av 30 seter med LLM-spiller (6,7 %).» */
+      guard: (switched: number, seats: number, percent: string) =>
+        `Spillvakten byttet ${switched} av ${seats} ${seats === 1 ? "sete" : "seter"} med LLM-spiller (${percent} %).`,
+      noLlm: "Ingen seter hadde LLM-spiller.",
+      switchesTitle: "Bytter til regelbasert KI-spiller",
+      noSwitches: "Ingen bytter.",
+      /** «Spill 4, Grossist, fra Uke 12: Byttet til regelbasert KI (spillvakt)» */
+      switchLine: (game: string, role: string, week: number, mark: string) => `${game}, ${role}, fra Uke ${week}: ${mark}`,
+      llmTitle: "Andel LLM-ordre per spill",
+      llmIntro: "Ordre utenom veiledede uker. Reserveordre er lagt inn av regelbasert KI fordi LLM-spilleren ikke svarte.",
+      tableCaption: "Andel LLM-ordre per spill, etter spillnummer",
+      orderedColumn: "Ordre",
+      llmColumn: "LLM-ordre",
+      shareColumn: "Andel",
+      fallbackColumn: "Reserveordre",
+      percent: (value: string) => `${value} %`,
+      noOrders: "–",
+    },
+    ratings: {
+      title: "Troverdighet",
+      intro: "Hvor troverdige studentene syntes KI-spillernes ordrer var, fra 1 til 5. Bare antall og median, ingen enkeltsvar.",
+      none: "Ingen svar ennå.",
+      modes: { llm: "LLM-spillere", rule_based: "Regelbaserte KI-spillere" } as Record<string, string>,
+      /** «LLM-spillere: 23 svar, median 4.» */
+      line: (mode: string, count: string, median: string) => `${mode}: ${count} svar, median ${median}.`,
+      reads: (rating: number, count: number) => `${rating}: ${count} svar`,
+      tableCaption: (mode: string) => `Svar per verdi, ${mode}`,
+      ratingColumn: "Verdi",
+      countColumn: "Svar",
+    },
+    /** Story 14.2 (FR-64, FR-55, FR-56, FR-61): the learning part. «Teller ikke. Ingen karakter.» is
+     * the spine's (C-2); the rest is [ASSUMPTION] draft copy for the founder's review. Faste
+     * oppgaver are the Core items (EXPERIENCE.md → Terms). */
+    learning: {
+      title: "Læringsresultater",
+      intro: "Fra Startoppgaven og den individuelle testen, for studentene i klassen.",
+      /** «14 av 20 studenter har levert testen. 3 kan fortsatt levere.» */
+      status: (submitted: number, students: number, still: number) =>
+        `${submitted} av ${students} ${students === 1 ? "student" : "studenter"} har levert testen.` +
+        (still > 0 ? ` ${still} kan fortsatt levere.` : ""),
+      noStudents: "Klasseøkta har ingen studenter å vise resultater for.",
+      failed: "Læringsresultatene kunne ikke lastes.",
+      percent: (value: string) => `${value} %`,
+      questionLabel: (number: number, title: string) => `${number}. ${title}`,
+      starting: {
+        title: "Startoppgaven og testen",
+        /** «… Studenter som har gjort begge: 12.» */
+        intro: (students: number) => `Samme oppgave i Startoppgaven og i testen. Studenter som har gjort begge: ${students}.`,
+        none: "Ingen har gjort både Startoppgaven og testen ennå.",
+        startLabel: "Startoppgaven, riktig",
+        testLabel: "Testen, snitt",
+        /** For screen readers: «Startoppgaven, riktig: 8 av 12 (66,7 %)». */
+        startReads: (count: number, students: number, percent: string) => `Startoppgaven, riktig: ${count} av ${students} (${percent} %)`,
+        testReads: (right: number, students: number, percent: string) => `Testen: ${right} av ${students} helt riktig, snitt ${percent} %`,
+        tableCaption: "Startoppgaven ved siden av samme oppgave i testen",
+        questionColumn: "Spørsmål",
+        studentsColumn: "Studenter",
+        startColumn: "Startoppgaven, riktig",
+        rightColumn: "Testen, helt riktig",
+        meanColumn: "Testen, snitt",
+      },
+      questions: {
+        title: "Resultater per spørsmål",
+        intro: "Snittet av poengene på hvert spørsmål, blant studentene som har levert. Langsvar vurderes i KI-vurderingen.",
+        excluded: "Tatt ut",
+        excludedNote: "Spørsmål som er tatt ut, teller ikke i noen sum:",
+        aiScored: "Vurderes av KI",
+        /** For screen readers: «3. Flervalg om årsaker: snitt 62,5 %, 16 av 20 svarte». */
+        reads: (label: string, percent: string, answered: number, students: number) =>
+          `${label}: snitt ${percent} %, ${answered} av ${students} svarte`,
+        longReads: (label: string, answered: number, students: number) => `${label}: ${answered} av ${students} svarte`,
+        noAnswers: "Ingen har levert ennå.",
+        tableCaption: "Resultater per spørsmål, i testens rekkefølge",
+        questionColumn: "Spørsmål",
+        handedInColumn: "Levert",
+        rightColumn: "Riktig",
+        partlyColumn: "Delvis",
+        wrongColumn: "Feil",
+        notAnsweredColumn: "Ikke svart",
+        meanColumn: "Snitt",
+        /** «Tilpassede oppgaver (vekt 30) er ulike for hver student … 18 fikk tilpassede oppgaver, 2 fikk erstatningsoppgaver.» */
+        adapted: (weight: number, adapted: number, replaced: number) =>
+          `Tilpassede oppgaver (vekt ${weight}) er ulike for hver student og vises ikke per spørsmål. ${adapted} fikk tilpassede oppgaver, ${replaced} fikk erstatningsoppgaver.`,
+      },
+      ai: {
+        title: "KI-vurdering",
+        /** FR-55, C-2: on the distribution, always. */
+        label: "KI-generert. Teller ikke. Ingen karakter.",
+        switchedOff: "KI-vurderingen er slått av for denne Klasseøkta. Resten av rapporten regnes ut som vanlig.",
+        notReady: "KI-vurderingene er ikke klare ennå. Resten av rapporten regnes ut som vanlig.",
+        /** «12 av 18 innleverte tester er vurdert.» */
+        ready: (ready: number, submitted: number) => `${ready} av ${submitted} innleverte tester er vurdert.`,
+        note: "Poeng på faste oppgaver regner bare de faste oppgavene, med samme vekter skalert til 100. Tilpassede oppgaver er ulike for hver student.",
+        totalTitle: "Totalpoeng",
+        coreTitle: "Poeng på faste oppgaver",
+        chartTitle: (which: string, count: number) => `${which} i ${count} KI-vurderinger, av 100`,
+        axis: "Poeng av 100. Hvert merke er én vurdering. Boksen er midterste halvdel.",
+        tableCaption: "KI-vurderinger per poengintervall",
+        bandColumn: "Poeng",
+        totalColumn: "Totalpoeng",
+        coreColumn: "Faste oppgaver",
+        band: (low: number, high: number) => `${low}–${high}`,
+      },
+    },
+  },
+
+  /** Tverrklasse-statistikk (Story 14.3, FR-65, UX-DR55): the Lecturer's Class sessions compared on
+   * the stored aggregates. [ASSUMPTION] Story 14.3: every string but the title, «Samme mål, samme
+   * regnestykke.» and the empty line (EXPERIENCE.md). */
+  crossClass: {
+    title: "Tverrklasse-statistikk",
+    crumb: "Tverrklasse-statistikk",
+    intro: "Samme mål, samme regnestykke.",
+    empty: "Du har ingen tidligere Klasseøkter å sammenligne med.",
+    /** How a Class session is named in a chart and its table: «class-of-1994, Klasseøkt 2». */
+    session: (className: string, number: number) => `${className}, Klasseøkt ${number}`,
+    archived: "arkivert",
+    notReadyTitle: "Ikke klar for sammenligning ennå",
+    notReady:
+      "Tallene lagres når Testfristen er passert og ingen test er åpen. Til da er Klasseøkta ikke med.",
+    noneReady: "Færre enn to Klasseøkter er klare for sammenligning ennå.",
+    about:
+      "Tallene er lagret per Klasseøkt uten navn. Et mål over færre enn 10 studenter vises ikke.",
+    withheld: "For få studenter (under 10).",
+    notMeasured: "Ikke målt.",
+    showTable: "Vis som tabell",
+    showChart: "Vis som graf",
+    sessionColumn: "Klasseøkt",
+    valueColumn: "Verdi",
+    /** The SVG-free bars are read as «class-of-1994, Klasseøkt 2: 1 954 kr». */
+    reads: (session: string, value: string) => `${session}: ${value}`,
+    tableCaption: (measure: string) => `${measure}, per Klasseøkt`,
+    measures: {
+      "chain.median": "Median kjedekost, kr",
+      "cost.factory.median": "Median kostnad, Fabrikk, kr",
+      "cost.distributor.median": "Median kostnad, Distributør, kr",
+      "cost.wholesaler.median": "Median kostnad, Grossist, kr",
+      "cost.retailer.median": "Median kostnad, Detaljist, kr",
+      "amplification.factory.median": "Median Forsterkning, Fabrikk",
+      "amplification.distributor.median": "Median Forsterkning, Distributør",
+      "amplification.wholesaler.median": "Median Forsterkning, Grossist",
+      "amplification.retailer.median": "Median Forsterkning, Detaljist",
+      "ai.seats_percent": "Seter spilt av KI-spillere, prosent",
+      "learning.submitted_percent": "Leverte Individuell test, prosent",
+      "core.median": "Median kjerneskår, KI-generert, poeng av 100",
+    } as Record<string, string>,
+    kroner: (value: string) => `${value} kr`,
+    ratio: (value: string) => `${value}×`,
+    percent: (value: string) => `${value} %`,
+    points: (value: string) => value,
+    /** [ASSUMPTION] Story 14.4 (FR-65, NFR-6): the filters, the difference labels and the score
+     * comparability line. */
+    filtersLabel: "Filtrer sammenligningen",
+    all: "Alle",
+    dimensions: {
+      game_settings: "Spillinnstillinger",
+      ai_mode: "KI-modus",
+      model: "Modell",
+      prompt_versions: "Promptversjon",
+      effort_level: "Innsatsnivå",
+    } as Record<string, string>,
+    classic: "Klassisk",
+    /** A Game settings value that is not the Classic preset, numbered in the list's order. */
+    otherSettings: (n: number) => `Oppsett ${n}`,
+    aiModes: { llm: "LLM-spillere", rule_based: "Regelbaserte spillere" } as Record<string, string>,
+    /** No model, prompt versions or Effort level (rule-based players). */
+    none: "Ingen",
+    /** The polite line after a filter changes. */
+    comparing: (n: number, of: number) => `Sammenligner ${n} av ${of} Klasseøkter.`,
+    tooFewMatch: "Færre enn to Klasseøkter passer filtrene.",
+    /** What a compared Class session differs in: «Ulikt oppsett: KI-modus, modell». */
+    differs: (what: string) => `Ulikt oppsett: ${what}`,
+    differKeys: {
+      game_settings: "Spillinnstillinger",
+      ai_mode: "KI-modus",
+      model: "modell",
+      prompt_versions: "promptversjon",
+      effort_level: "Innsatsnivå",
+      question_set: "spørsmålssett",
+      item_weights: "vekter",
+      scoring_guide: "vurderingsveiledning",
+    } as Record<string, string>,
+    differsColumn: "Ulikt oppsett",
+    sameSetup: "–",
+    /** A bar row and its `<title>`: «class-of-1994, Klasseøkt 2: 71,5. Ulikt oppsett: vekter». */
+    readsWithDiffers: (session: string, value: string, differs: string) => `${session}: ${value}. ${differs}`,
+    scoresComparable: "Skårene kan sammenlignes: samme spørsmålssett, vekter og vurderingsveiledning.",
+    scoresNotComparable: "Skårene kan ikke sammenlignes: spørsmålssett, vekter eller vurderingsveiledning er ulike.",
+  },
+  /** «Tverrinstitusjonell statistikk» (Story 14.7, cut list, FR-65, FR-5): the stored aggregates
+   * grouped by Institution, for the Admin. Measure names, filters and difference words are
+   * `crossClass`'s. [ASSUMPTION] Story 14.7: every string but «Samme mål, samme regnestykke.». */
+  crossInstitution: {
+    title: "Tverrinstitusjonell statistikk",
+    intro: "Samme mål, samme regnestykke.",
+    about:
+      "Hver institusjon viser medianen av sine Klasseøkters lagrede tall. Ingen Klasse, faglærer eller student vises, og et mål over færre enn 10 studenter er ikke med.",
+    empty: "Ingen institusjoner har lagrede tall ennå.",
+    institutionColumn: "Institusjon",
+    sessionsColumn: "Klasseøkter",
+    /** A withheld Institution's figure, and the line that says why once, above the charts: one
+     * compared Class session with a measure over fewer than 10 Students. */
+    withheld: "Holdt tilbake.",
+    withheldNote: (name: string) => `${name}. Holdt tilbake: én Klasseøkt med et mål under 10 studenter.`,
+    tableCaption: (measure: string) => `${measure}, per institusjon`,
+    /** A bar row and its `<title>`: «NTNU: 1 954 kr (2 Klasseøkter)». */
+    value: (value: string, sessions: number) =>
+      `${value} (${sessions} ${sessions === 1 ? "Klasseøkt" : "Klasseøkter"})`,
+    /** The polite line after a filter changes. */
+    comparing: (n: number, of: number) => `Sammenligner ${n} av ${of} Klasseøkter.`,
+    tooFewMatch: "Ingen Klasseøkter passer filtrene.",
+  },
+  /** «Alle spill side om side» (Story 14.5, FR-86, UX-DR64, `09-alle-sider.png`): every Class
+   * game's Orders per Role beside the Student's own, after their Debrief and the Play deadline.
+   * The title and the locked line are the spine's; the rest is drafted [ASSUMPTION]. */
+  allGames: {
+    title: "Alle spill side om side",
+    /** Hjem's entry under Stegene, and the line while it is locked (EXPERIENCE.md → State Patterns). */
+    entry: "Alle spill side om side",
+    locked: "Åpnes når Debriefen din er ferdig og Spillfristen er passert.",
+    intro: "Ordrene i alle klassespillene, uke for uke og på samme skala. Uten navn og uten rangering.",
+    /** The own game named in text, and how it is drawn (NFR-6: not by colour alone). */
+    own: (game: number) => `Ditt spill er Spill ${game}. Det er tegnet med tykk strek og punkter.`,
+    noOwn: "Ditt spill er ikke med blant klassespillene.",
+    none: "Klasseøkta har ingen klassespill.",
+    axis: "Enheter bestilt per uke.",
+    chartTitle: (role: string, games: number) => `Ordre per uke fra ${role} i ${games} klassespill`,
+    tableCaption: (role: string) => `Ordre per uke fra ${role}, etter spillnummer`,
+    gameColumn: "Spill",
+    week: (week: number) => `Uke ${week}`,
+    game: (number: number) => `Spill ${number}`,
+    ownGame: (number: number) => `Spill ${number} (ditt spill)`,
+    /** A Week with no Order stored. */
+    noOrder: "–",
+  },
+
+  /** «Alle spill i plenum» (Story 14.6, FR-86, UX-DR42): every Class game on the projector,
+   * opened from the Oversikt. «Vis i plenum», the line and the caption are the story's own. */
+  plenary: {
+    /** [ASSUMPTION] the page title, as EXPERIENCE.md names the surface. */
+    title: "Alle spill i plenum",
+    button: "Vis i plenum",
+    line: "Mønsteret går igjen, uten navn og uten rangering.",
+    caption: "Rødt: restordre, under null. Blått: lager, over null. Tallet i cellen er netto lager.",
+    /** [ASSUMPTION] the wall's one group: every Class game, with their count. */
+    group: (games: number) => `Alle spill ${games}`,
+    /** [ASSUMPTION] the Visningsbryter's third segment: 14.5's per-Role Orders charts. */
+    orders: "Ordre per rolle",
+    /** [ASSUMPTION] no Class game has an opened Uke yet. */
+    none: "Ingen klassespill har startet ennå.",
+    /** [ASSUMPTION] the Lenke back to the Oversikt. */
+    back: "Tilbake til Oversikten",
   },
 
   /** EXPERIENCE.md → State Patterns (UX-DR59). */

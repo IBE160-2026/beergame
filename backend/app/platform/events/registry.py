@@ -278,6 +278,9 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # have played another round. No event: the page that sent it has it, and no other reader
         # may see it. (The believability answer is no `games.commands` command and emits none.)
         "replay.answer_another_round": frozenset(),
+        # A finished Class game's facts sets stored for the Klasserapport (Story 14.1, AD-9): its
+        # Class session hears of it, so an open report refetches Forsterkning and «Mønstre».
+        "reports.store_class_facts": frozenset({"session"}),
     }
 )
 """`<module>.<command>` -> topics. Commands on a Game the Lecturer overview lists will add

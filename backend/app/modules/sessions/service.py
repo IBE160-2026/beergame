@@ -207,6 +207,9 @@ from app.modules.sessions.schemas import (
     WaitingClass,
     WaitingReason,
 )
+
+# Story 14.1: the Klasserapport's Trakt rows, for `reports`, which reads `sessions` through here.
+from app.modules.sessions.schemas import FunnelStageOut as FunnelStageOut
 from app.platform import audit, auth, authz, events, notify, retention
 from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker, reading
@@ -1846,6 +1849,9 @@ async def enrolled_sessions(user: authz.Principal) -> EnrolledSessionListOut:
                 requirement_met=_requirement_met(completions.get(row["id"])),
                 adjustment=own_adjustment(adjustments.get(row["id"])),
                 replay=replays.get(row["id"]),
+                all_games_open=is_locked(row, now=now)
+                and progress.Step.DEBRIEF in done.get(row["id"], set())
+                and play_deadline_passed(row, now),
                 makeup=makeups.get(row["id"]),
                 deletion_date=row["deletion_date"],
             )
@@ -1998,6 +2004,24 @@ async def funnel_of(session: AsyncSession, class_session_id: uuid.UUID) -> progr
     return await _funnel[0](session, class_session_id)
 
 
+PreviousCost = Callable[[AsyncSession, uuid.UUID], Awaitable[Decimal | None]]
+"""`(session, class_session_id)` → the median chain Total cost the stored aggregate of the
+previous Class session of the same Class holds, or None (Story 14.3, UX-DR51)."""
+_previous_cost: list[PreviousCost] = []
+
+
+def register_previous_cost(read: PreviousCost) -> None:
+    """`reports` registers its aggregate read at import (Story 14.3): the Oversikt's «Fjoråret»."""
+    _previous_cost[:] = [read]
+
+
+async def previous_cost_of(session: AsyncSession, class_session_id: uuid.UUID) -> Decimal | None:
+    """The «Fjoråret» mark's value (Story 14.3); None while `reports` registered no reader."""
+    if not _previous_cost:
+        return None
+    return await _previous_cost[0](session, class_session_id)
+
+
 ReportingStudents = Callable[[AsyncSession, uuid.UUID], Awaitable[list[uuid.UUID]]]
 """`(session, class_session_id)` → the Students reports count (`scope.reporting_students`)."""
 _reporting_students: list[ReportingStudents] = []
@@ -2126,6 +2150,13 @@ def test_deadline_passed(
     """Whether the Student's own Test deadline (`effective_test_deadline`) has passed at `now`
     (Story 10.3): no Replay starts after it (FR-18)."""
     deadline = effective_test_deadline(user, row)
+    return deadline is not None and deadline <= now
+
+
+def play_deadline_passed(row: Mapping[str, Any], now: datetime) -> bool:
+    """Whether the Class session's Play deadline is set and has passed at `now` (Story 14.5):
+    with the Student's own Debrief done, «Alle spill side om side» opens (FR-86)."""
+    deadline = row["play_deadline"]
     return deadline is not None and deadline <= now
 
 
@@ -2845,6 +2876,124 @@ async def due_retention(now: datetime) -> list[uuid.UUID]:
         return await repo.due_retention(s, now.astimezone(OSLO).date())
 
 
+async def aggregate_candidates(now: datetime) -> list[uuid.UUID]:
+    """Story 14.3 (FR-65, AD-9): the course Class sessions whose latest effective Test deadline
+    (Story 13.9's value: the Class session's, or a Student's own where later) has passed, whose
+    deletion date has not come and whose data is not deleted. `reports` narrows them further."""
+    async with get_sessionmaker()() as s:
+        return await repo.aggregate_candidates(s, now, now.astimezone(OSLO).date())
+
+
+async def previous_session_id(s: AsyncSession, class_session_id: uuid.UUID) -> uuid.UUID | None:
+    """Story 14.3: the Class session of the same Class just before this one, read in `s`."""
+    return await repo.previous_session_id(s, class_session_id)
+
+
+@dataclass(frozen=True)
+class ModelName:
+    """Story 14.4: how a model config stored in a comparability key is named: its name and the
+    label (or name) of each Effort level it offers."""
+
+    name: str
+    levels: dict[str, str]
+
+
+async def model_names(ids: Collection[str]) -> dict[str, ModelName]:
+    """Story 14.4 (FR-65): the model configs behind these stored ids, by id; an id whose config is
+    gone (or is no id) is left out."""
+    found: dict[str, ModelName] = {}
+    if not ids:
+        return found
+    async with get_sessionmaker()() as s:
+        for key in sorted(set(ids)):
+            row = await config.get(key, session=s)
+            if row is not None:
+                found[key] = ModelName(
+                    row.spec.name,
+                    {level.name: level.label or level.name for level in row.spec.effort_levels},
+                )
+    return found
+
+
+def _comparable_settings(raw: dict[str, Any]) -> dict[str, Any]:
+    """The Game settings as a comparison holds them (Story 14.4): through `GameSettings`, so a
+    lock's snapshot and a saved row of the same settings read the same (defaults filled, rates
+    as one normalised number), without the demand seed. Settings the model no longer reads are
+    kept as stored."""
+    try:
+        settings = GameSettings.model_validate(raw)
+    except ValidationError:
+        found = dict(raw)
+        found.pop("demand_seed", None)
+        return found
+    found = settings.model_dump(mode="json", exclude={"demand_seed"})
+    # A rate reads the same however it was written (0.5, "0.50"): its normalised Decimal.
+    for name, value in settings.model_dump(exclude={"demand_seed"}).items():
+        if isinstance(value, Decimal):
+            found[name] = format(value.normalize(), "f")
+    return found
+
+
+async def comparability_source(
+    s: AsyncSession, class_session_id: uuid.UUID
+) -> dict[str, Any] | None:
+    """Story 14.3 (FR-65): what a comparison of Class sessions must hold equal of `sessions`: the
+    Game settings without the demand seed (each Class session draws its own), the AI mode, model
+    config id, prompt versions and Effort level, from the lock's frozen snapshot (AD-4) when there
+    is one, else from the saved settings. None for no such Class session."""
+    row = await repo.comparability_row(s, class_session_id)
+    if row is None:
+        return None
+    snapshot = row["snapshot"] or {}
+    runtime = snapshot.get("session_runtime") or {}
+    settings = _comparable_settings(snapshot.get("settings") or row["game_settings"] or {})
+    if snapshot:
+        model = runtime.get("model_config_id")
+        level = runtime.get("effort_level")
+        prompts = runtime.get("prompt_versions")
+        mode = runtime.get("ai_mode") or row["ai_mode"]
+    else:
+        model = str(row["model_config_id"]) if row["model_config_id"] else None
+        level = row["effort_level"]
+        prompts = None
+        mode = row["ai_mode"]
+    return {
+        "game_settings": settings,
+        "ai_mode": mode,
+        "model_config_id": model,
+        "prompt_versions": prompts,
+        "effort_level": level,
+    }
+
+
+async def owned_report_sessions(user: authz.Principal, action: str) -> list[StaffedSession]:
+    """Story 14.3 (FR-6, AD-12, AD-13): every course Class session of every Class `user` is staff
+    of (`authz.classes_visible_to`, through `classes`) where the staff role may do the Class
+    action `action`, archived Classes included and Control test Classes never; in the order of
+    «Klassene dine» (by name), then by number."""
+    listed = await classes.list_classes(user)
+    found: list[classes.ClassOut] = []
+    for item in listed.items:
+        klass = await _class_for(user, item.id, action)
+        if klass is not None and not klass.control_test:
+            found.append(klass)
+    by_id = {klass.id: klass for klass in found}
+    async with get_sessionmaker()() as s:
+        rows = await repo.numbered_sessions_of(s, list(by_id))
+    sessions = [
+        StaffedSession(
+            id=row["id"],
+            class_id=row["class_id"],
+            class_name=by_id[row["class_id"]].name,
+            archived=by_id[row["class_id"]].archived,
+            number=row["number"],
+        )
+        for row in rows
+    ]
+    order = {klass.id: i for i, klass in enumerate(found)}
+    return sorted(sessions, key=lambda x: (order[x.class_id], x.number))
+
+
 async def retention_target(
     s: AsyncSession, class_session_id: uuid.UUID, *, lock: bool = False
 ) -> RetentionTarget | None:
@@ -2887,6 +3036,22 @@ async def own_test_deadlines(
     11.13): what `tests.move_deadline` keeps when the Class session's Test deadline moves."""
     rows = await repo.extensions_of_session(s, class_session_id)
     return {user_id: row["test_deadline"] for user_id, row in rows.items()}
+
+
+async def effective_test_deadlines(
+    s: AsyncSession, class_session_id: uuid.UUID, user_ids: Collection[uuid.UUID]
+) -> dict[uuid.UUID, datetime | None]:
+    """Each of these Students' `effective_test_deadline` in the Class session, read in `s` in two
+    reads whatever their number (Story 14.2: who is still to submit, an extension included); empty
+    for a session that does not exist."""
+    row = await repo.session_row(s, class_session_id)
+    if row is None:
+        return {}
+    extensions = await repo.extensions_of_session(s, class_session_id)
+    return {
+        user_id: effective_test_deadline(user_id, _with_own_deadlines(row, extensions.get(user_id)))
+        for user_id in user_ids
+    }
 
 
 async def class_staff_may(user: authz.Principal, class_session_id: uuid.UUID, action: str) -> bool:

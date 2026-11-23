@@ -78,6 +78,21 @@ export function WallFilters({
   );
 }
 
+/** The Rolle group alone, for «Vis i plenum» (Story 14.6): the same text buttons, no Celler or
+ * Status. */
+export function RoleFilter({ role, onChange }: { role: WallFilter["role"]; onChange: (role: WallFilter["role"]) => void }) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-8 gap-y-1 text-caption" data-wall-filters="">
+      <Group
+        label={copy.role}
+        choices={ROLES.map((value) => ({ value, label: roleName(value) }))}
+        value={role}
+        onChange={onChange}
+      />
+    </div>
+  );
+}
+
 function Group<T extends string>({
   label,
   choices,

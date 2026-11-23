@@ -167,6 +167,9 @@ POLICIES: dict[str, frozenset[str]] = {
     # The Student's own Debrief (Story 9.2): any User, held to `own_seat` through
     # `games.service.student_game`; the service refuses every other Debrief alike.
     "debriefs.own": frozenset({ANY_USER}),
+    # «Alle spill side om side» (Story 14.5, FR-86): any User, held to their own locked Class
+    # session (`sessions.enrolled_locked_row`); the read refuses every other session alike.
+    "all_games.own": frozenset({ANY_USER}),
     # A Student's Explanation (Story 9.3, FR-41, AD-12): the Class's owners and Assistant
     # lecturers (`CLASS_STAFF_ROLES`); never another Student, never an Admin without a staff role.
     "explanations.read": frozenset({LECTURER, ASSISTANT}),
@@ -182,6 +185,9 @@ POLICIES: dict[str, frozenset[str]] = {
     # The Completion export of a Class session, CSV or Excel (Story 13.14, FR-60, AD-12): only
     # the Class's owners; never an Assistant lecturer, who downloads the reports only.
     "completion.export": frozenset({LECTURER}),
+    # The Game data export of a Class session, behind `FEATURE_GAME_DATA_EXPORT` (Story 14.8,
+    # FR-88, AD-12, AD-17): only the Class's owners; never an Assistant lecturer.
+    "game_data.export": frozenset({LECTURER}),
     # An Oppfølgingsspill given to one Student (Story 13.4, FR-17, AD-12): only the Class's
     # owners; never an Assistant lecturer.
     "makeup.give": frozenset({LECTURER}),
@@ -223,6 +229,13 @@ POLICIES: dict[str, frozenset[str]] = {
     # A Student's AI assessment and the Klasseøkt's list of them (Story 12.5, FR-55, AD-12): the
     # Class's owners and Assistant lecturers; never the Admin without a staff role in the Class.
     "ai_assessments.read": frozenset({LECTURER, ASSISTANT}),
+    # The Klasserapport of a Class session (Story 14.1, FR-64, FR-5, AD-12): only the Class's
+    # owners; never an Assistant lecturer, never an Admin without a staff role in the Class.
+    "class_report.read": frozenset({LECTURER}),
+    # «Tverrinstitusjonell statistikk» (Story 14.7, cut list, FR-65, AD-12, AD-14): the stored,
+    # anonymised aggregates grouped by Institution, no Class, Lecturer or Student named. The Admin
+    # only in v1; never a Lecturer or an Assistant lecturer.
+    "institution_statistics.read": frozenset({ADMIN}),
     # One Student's Student report, made and downloaded by the staff of the Class at any time
     # (Story 13.12, FR-59, AD-12): its owners and Assistant lecturers; never the Admin without a
     # staff role in the Class.
@@ -249,6 +262,7 @@ CLASS_STAFF_ROLES: dict[str, frozenset[str]] = {
     "debrief_quiz.exclude": frozenset({OWNER}),
     "completion.correct": frozenset({OWNER}),
     "completion.export": frozenset({OWNER}),
+    "game_data.export": frozenset({OWNER}),
     "makeup.give": frozenset({OWNER}),
     "ai_assessment.change": frozenset({OWNER}),
     "question_set.change": frozenset({OWNER}),
@@ -264,6 +278,7 @@ CLASS_STAFF_ROLES: dict[str, frozenset[str]] = {
     "messages.read_sent": frozenset({OWNER, ASSISTANT_STAFF}),
     "student_pages.read": frozenset({OWNER, ASSISTANT_STAFF}),
     "ai_assessments.read": frozenset({OWNER, ASSISTANT_STAFF}),
+    "class_report.read": frozenset({OWNER}),
     "reports.download": frozenset({OWNER, ASSISTANT_STAFF}),
 }
 """Class action → the staff roles in the Class that may do it. Later stories add theirs."""

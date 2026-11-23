@@ -113,8 +113,9 @@ async def retain(class_session_id: object, now: datetime) -> RetentionRun:
         )
         return RetentionRun("aggregate_failed")
     if written == 0:
-        # Story 14.3 registers `reports.service.write_aggregate`; until then no aggregate exists to
-        # write, and retention keeps the Institution's date rather than the data (FR-77).
+        # Story 14.3 registers `reports.aggregates.ensure_aggregate`, imported by the sweep, so
+        # this happens only in a process that never imported it: retention still deletes on the
+        # Institution's date (FR-77) and logs that no aggregate was written.
         log.warning("retention_without_aggregate_writer", class_session_id=str(class_session_id))
     async with get_sessionmaker()() as s:
         students = await identity.roster_user_ids(s, target.class_id)

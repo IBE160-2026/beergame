@@ -25,6 +25,10 @@ from app.modules.ops import routes as ops_routes
 from app.modules.ops import service as ops_service
 from app.modules.replay import dev as replay_dev
 from app.modules.replay import routes as replay_routes
+from app.modules.reports import (
+    class_report_jobs,  # noqa: F401  its finish hook (Story 14.1)
+    class_report_routes,
+)
 from app.modules.reports import routes as reports_routes
 from app.modules.reports import service as reports_service  # noqa: F401  registers Completion (Story 13.1)
 from app.modules.sessions import dev as sessions_dev
@@ -137,6 +141,7 @@ def create_app() -> FastAPI:
     app.include_router(debrief_routes.router)  # the Debrief (Story 9.2)
     app.include_router(message_routes.router)  # Messages from staff (Story 7.9)
     app.include_router(replay_routes.router)  # the Student's Replay (Story 10.3)
+    app.include_router(class_report_routes.router)  # the Klasserapport (Story 14.1)
     app.include_router(ops_routes.router)  # «Pseudonymisert eksport» (Story 15.4)
     app.include_router(ops_ai_routes.router)  # «KI-kostnad» (Story 15.5)
     app.include_router(ops_operations_routes.router)  # «Drift» per Class session (Story 15.8)

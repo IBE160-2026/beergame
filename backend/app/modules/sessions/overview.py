@@ -62,6 +62,7 @@ from app.modules.sessions.service import (
     data_deleted,
     funnel_of,
     is_locked,
+    previous_cost_of,
     time_factors,
 )
 from app.platform import auth, authz
@@ -157,6 +158,8 @@ async def class_overview(user: authz.Principal, session_id: uuid.UUID) -> ClassO
         # Story 13.1: the Trakt over the reporting Students (`reports.scope`), through
         # `reports.service.funnel`; `progress` counts their steps and looks up no one.
         trakt = await funnel_of(s, session_id)
+        # Story 14.3 (UX-DR51): the previous Class session's stored median, «Fjoråret».
+        previous = await previous_cost_of(s, session_id) if finished and not before_start else None
         # «Start spill som ikke har startet (12)» (Story 8.10): for a Lecturer, after the lock.
         startable = (
             len(await games_service.startable_class_games(s, session_id))
@@ -190,7 +193,7 @@ async def class_overview(user: authz.Principal, session_id: uuid.UUID) -> ClassO
         start_at=row["start_at"],
         next_change_at=row["start_at"] if before_start else _next_due(games, now),
         ai=_ai_out(games),
-        cost=None if before_start else _cost_out(finished, parts),
+        cost=None if before_start else _cost_out(finished, parts, previous),
         funnel=[FunnelStageOut(stage="registered", count=trakt.registered)]
         + [FunnelStageOut(stage=step.value, count=count) for step, count in trakt.steps],
         alert=None if before_start else _alert(games, names),
@@ -201,6 +204,8 @@ async def class_overview(user: authz.Principal, session_id: uuid.UUID) -> ClassO
         class_id=found.id,
         class_name=found.name,
         session_number=number,
+        # Never for a Control test Class session, which no report counts (AD-27).
+        class_report=authz.can(user, "class_report.read", found) and not found.control_test,
     )
 
 
@@ -311,6 +316,7 @@ def _ai_out(games: list[ClassGameSummary]) -> OverviewAiOut:
 def _cost_out(
     finished: list[ClassGameSummary],
     parts: dict[uuid.UUID, dict[str, tuple[Decimal, Decimal]]],
+    previous: Decimal | None = None,
 ) -> ClassCostOut | None:
     """«Klassens kostnad» over the finished Class games the overview lists, which leaves out
     lecturer test and simulation Games (AD-13); None while none has finished."""
@@ -331,6 +337,7 @@ def _cost_out(
         upper_quartile=found.upper_quartile,
         holding_cost=found.holding_cost,
         backorder_cost=found.backorder_cost,
+        previous_median=previous,
         roles=[
             RoleCostOut(
                 role=Role(mean.role),

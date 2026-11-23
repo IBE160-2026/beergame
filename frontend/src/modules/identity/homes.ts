@@ -55,6 +55,10 @@ export function adminOperationsPath(classSessionId: string): string {
   return `${ADMIN_OPERATIONS_PATH}/${encodeURIComponent(classSessionId)}`;
 }
 
+/** «Tverrinstitusjonell statistikk» in the Admin-område (Story 14.7, cut list): only while
+ * `FEATURE_CROSS_INSTITUTION_STATS` is on (`SessionUser.cross_institution_stats`). */
+export const ADMIN_CROSS_INSTITUTION_PATH = "/admin/tverrinstitusjonell-statistikk";
+
 /** «Kontrolltest» in the Admin-område (Story 12.7). */
 export const ADMIN_CONTROL_TESTS_PATH = "/admin/kontrolltest";
 
@@ -90,6 +94,15 @@ export const studentPagePath = (sessionId: string, userId: string) =>
 /** The Oversikt of a Class session's Class games, for its staff (Story 7.1). */
 export const classOverviewPath = (id: string) => `${classSessionPath(id)}/oversikt`;
 
+/** The Klasserapport (Story 14.1): how the Class games went, for the Lecturers of the Class. */
+export const classReportPath = (id: string) => `${classSessionPath(id)}/klasserapport`;
+
+/** Tverrklasse-statistikk (Story 14.3): the Lecturer's Class sessions compared on stored aggregates. */
+export const crossClassPath = "/tverrklasse-statistikk";
+
+/** «Alle spill side om side» (Story 14.5): a Student's view of every Class game of their session. */
+export const allGamesPath = (id: string) => `/alle-spill/${encodeURIComponent(id)}`;
+
 /** «Start spill» (Story 8.10): every Class game of the session that has not started, for its
  * Lecturers. */
 export const startGamesPath = (id: string) => `${classOverviewPath(id)}/start`;
@@ -97,6 +110,8 @@ export const startGamesPath = (id: string) => `${classOverviewPath(id)}/start`;
 /** «Sett inn KI-spillere» (Story 8.12): every Seat the Class session's games wait for, for its
  * Lecturers. */
 export const fillSeatsPath = (id: string) => `${classOverviewPath(id)}/sett-inn`;
+/** «Alle spill i plenum» (Story 14.6): the Oversikt's games for the projector. */
+export const plenaryPath = (id: string) => `${classOverviewPath(id)}/plenum`;
 
 /** The Oversikt after «Sett inn 9 KI-spillere» (Story 8.12): it reads «9 KI-spillere er satt inn.»
  * once. */

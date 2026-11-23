@@ -141,6 +141,8 @@ SPEND_ALERT_TABLES = {"ai_spend_alerts"}
 """The table of revision 0068 (Story 15.7)."""
 ERROR_EVENT_TABLES = {"error_events"}
 """The table of revision 0069 (Story 15.8)."""
+AGGREGATE_TABLES = {"class_aggregates", "class_aggregate_measures"}
+"""The tables of revision 0401 (Story 14.3); the walk takes them off first."""
 CONNECTION_REPORT_TABLES = {"db_connection_reports"}
 """The table of revision 0070 (Story 15.9)."""
 FLAG_TABLES = {"ai_feedback_flags"}
@@ -205,7 +207,8 @@ HEAD_TABLES = (
 # 0209 (12.10), 0208 (12.9), 0207 (12.8), 0206 (12.6), 0205 (12.5), 0204 (12.4), 0203 (12.3)
 # and 0202 (12.2) follow 0201 (12.7);
 # 0120-0130 follow 0064
-HEAD = "0073"  # 0073 the deletion date of a Class session without a Test deadline (Epic 15)
+# 0073 (Epic 15) follows 0072; 0401 (Story 14.3) follows 0073; 0402 (Story 14.7) follows 0401.
+HEAD = "0402"  # 0402 the Institution of each stored aggregate (Story 14.7)
 
 
 def reset_schema(url: str) -> None:
@@ -275,7 +278,7 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     reset_schema(url)
     cfg = config(url)
     command.upgrade(cfg, "head")
-    assert tables(url) == HEAD_TABLES
+    assert tables(url) == HEAD_TABLES | AGGREGATE_TABLES
     assert current_version(url) == HEAD
     command.check(cfg)  # fails when a module table and the revisions disagree
 
@@ -340,6 +343,53 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     assert "'class_session'" in sent["ck_messages_recipient_kind"]
     # 0303 (Story 13.6): and the Students who have not met the requirement.
     assert "'requirement_not_met'" in sent["ck_messages_recipient_kind"]
+
+    # 0402 (Story 14.7): each aggregate header names its Institution; and back.
+    assert "institution_id" in columns(url, "class_aggregates")
+    assert "ON DELETE RESTRICT" in definition(url, "fk_class_aggregates_institution")
+    command.downgrade(cfg, "0401")
+    assert "institution_id" not in columns(url, "class_aggregates")
+    # Its backfill: an aggregate written before 0402 gets its Class's Institution.
+    with psycopg.connect(libpq_dsn(url), autocommit=True) as conn:
+        conn.execute(
+            "INSERT INTO institutions (id, name, created_at, updated_at) VALUES "
+            "('00000000-0000-0000-0000-000000004029', 'I', now(), now())"
+        )
+        conn.execute(
+            "INSERT INTO classes (id, name, institution_id, created_at) VALUES "
+            "('00000000-0000-0000-0000-000000004022', 'K', "
+            "'00000000-0000-0000-0000-000000004029', now())"
+        )
+        conn.execute(
+            "INSERT INTO class_sessions (id, class_id, game_settings, ai_mode, debrief_mode, "
+            "inactivity_limit_hours, obligatory, required_share_percent, created_at) VALUES "
+            "('00000000-0000-0000-0000-000000004021', '00000000-0000-0000-0000-000000004022', "
+            "'{}', 'rule_based', 'group', 24, false, 80, now())"
+        )
+        conn.execute(
+            "INSERT INTO class_aggregates (class_session_id, written_at, students, "
+            "game_students, games_finished, keys) VALUES "
+            "('00000000-0000-0000-0000-000000004021', now(), 12, 12, 3, '{}')"
+        )
+    command.upgrade(cfg, "0402")
+    assert rows(url, "SELECT institution_id::text FROM class_aggregates") == [
+        ("00000000-0000-0000-0000-000000004029",)
+    ]
+    command.downgrade(cfg, "0401")
+    with psycopg.connect(libpq_dsn(url), autocommit=True) as conn:
+        conn.execute("DELETE FROM class_sessions WHERE id::text LIKE '%%4021'")
+        conn.execute("DELETE FROM classes WHERE id::text LIKE '%%4022'")
+        conn.execute("DELETE FROM institutions WHERE id::text LIKE '%%4029'")
+
+    # 0401 (Story 14.3): one aggregate header per Class session and its measure rows, a withheld
+    # one with no value; and back.
+    measures = constraints(url, "class_aggregate_measures")
+    assert "value IS NULL" in measures["ck_class_aggregate_measures_withheld"]
+    assert "user_id" not in columns(url, "class_aggregates") | columns(
+        url, "class_aggregate_measures"
+    )
+    command.downgrade(cfg, "0072")
+    assert tables(url) == HEAD_TABLES
 
     # 0072 (Story 15.3): the Institution's retention period (1-120 months or NULL) and when
     # retention deleted a Class session's Student data, and back.
@@ -983,7 +1033,7 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     assert function_names(url, "seat_occupancy_append_only") == set()
 
     command.upgrade(cfg, "head")
-    assert tables(url) == HEAD_TABLES
+    assert tables(url) == HEAD_TABLES | AGGREGATE_TABLES
     assert current_version(url) == HEAD
     assert delivery_columns <= columns(url, "mail_deliveries")
 
@@ -1280,7 +1330,7 @@ def test_alembic_cli_uses_database_url_from_environment(migrations_database):
         timeout=60,
     )
     assert result.returncode == 0, result.stderr
-    assert tables(migrations_database) == HEAD_TABLES
+    assert tables(migrations_database) == HEAD_TABLES | AGGREGATE_TABLES
 
 
 CHECKS = {

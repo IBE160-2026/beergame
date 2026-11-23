@@ -1418,6 +1418,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/class-sessions/{session_id}/class-report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Class Report
+         * @description The Klasserapport (Story 14.1): the Trakt, Kjedekost and Kostnad per Rolle, Forsterkning per
+         *     Rolle, «Mønstre», the AI play and the plausibility ratings per AI mode over the Class session's
+         *     finished Class games, every figure computed here (AD-10).
+         */
+        get: operations["getClassReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class-sessions/{session_id}/class-report/learning": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Class Learning Report
+         * @description The Klasserapport's learning part (Story 14.2): the Starting task beside the matching test
+         *     items, results per question and the AI assessment totals with the Core-only subscore, over the
+         *     Class session's reporting Students; every figure computed here (AD-10), never a letter
+         *     (FR-56). Access and answers as `getClassReport`.
+         */
+        get: operations["getClassLearningReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/class-sessions/{session_id}/completion-export": {
         parameters: {
             query?: never;
@@ -1509,6 +1554,34 @@ export interface paths {
          *     the same series.
          */
         get: operations["getClassSessionDemandSeries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class-sessions/{session_id}/game-data-export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download Game Data Export
+         * @description «Last ned spilldata (CSV)» (Story 14.8, cut list, FR-88, AD-13, AD-14, AD-15, AD-17): one
+         *     row per Game, Week and Seat of the Decision log, for the Class games, make-up games and
+         *     Replays `reporting_games()` counts, with the fixed columns `game_data_export.COLUMNS` (the
+         *     purpose, the game, the Week, the Role, what the Seat saw, the Order, its cost, who decided it,
+         *     the AD-15 mark and the occupant kind). Never an AI score, AI feedback, Indicative letter, name
+         *     or id. Streamed, never stored; recorded in the audit log once the rows are read. 404 as an
+         *     unknown route while `FEATURE_GAME_DATA_EXPORT` is off; 409 `data_deleted` once the Student
+         *     data is deleted; 403 `forbidden` for an Assistant lecturer, anyone else outside the Class's
+         *     Lecturers and a Class session that does not exist (FR-5, AD-12).
+         */
+        get: operations["downloadGameDataExport"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1663,6 +1736,29 @@ export interface paths {
          *     exist (FR-5, NFR-7).
          */
         get: operations["getWallAggregates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class-sessions/{session_id}/plenary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Class Plenary
+         * @description «Alle spill i plenum» (Story 14.6, FR-86): every Class game's Netto lager and Orders per Role
+         *     and Week keyed by game number, for the projector; no name, id, occupant, status, wait or cost
+         *     (AD-14). Read by the Oversikt's readers; 403 `forbidden` for anyone else and for a Class
+         *     session that does not exist, alike (FR-5).
+         */
+        get: operations["getClassPlenary"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2195,6 +2291,31 @@ export interface paths {
          *     twice. Answers the real counts. 403 `forbidden` for anyone but a Lecturer of the Class.
          */
         post: operations["fillWaitedForSeats"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class-statistics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Class Statistics
+         * @description Tverrklasse-statistikk (Story 14.3, FR-65): every Class session of the Classes the caller
+         *     owns (archived included, Control tests never), and the Class report measures of those with a
+         *     written aggregate side by side, read from the aggregates only (AD-14). Anyone without the
+         *     Lecturer role answers 403 `forbidden`. Story 14.4: each optional parameter is a filter
+         *     option's `value`; only the Class sessions holding every given one are compared (a value no
+         *     Class session holds is ignored).
+         */
+        get: operations["getClassStatistics"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3371,6 +3492,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/institution-statistics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Institution Statistics
+         * @description «Tverrinstitusjonell statistikk» (Story 14.7, cut list, FR-65, FR-5, AD-12, AD-14): the
+         *     stored aggregates of every Institution's Class sessions, grouped by Institution, read from the
+         *     aggregates only; no Class, Lecturer or Student is named. The Admin only: anyone else answers
+         *     403 `forbidden`. The filters are Story 14.4's. An Institution whose one compared Class session
+         *     has a withheld measure is withheld as a whole.
+         */
+        get: operations["getInstitutionStatistics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/internal/report-snapshots/{snapshot_id}": {
         parameters: {
             query?: never;
@@ -3429,6 +3574,29 @@ export interface paths {
          *     never the Game settings (FR-18). Empty for a User who is no Student.
          */
         get: operations["listMyClassSessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/class-sessions/{session_id}/all-games": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Class Games
+         * @description «Alle spill side om side» (Story 14.5, FR-86): every Class game's Orders per Role and Week
+         *     keyed by game number, the Student's own game marked; no name, id, occupant or cost (AD-14).
+         *     403 `all_games_locked` until the Student's Debrief is done and the Play deadline has passed;
+         *     403 `forbidden` for a Class session that is not their own locked one, alike for all (FR-5).
+         */
+        get: operations["getMyClassGames"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4386,6 +4554,19 @@ export interface components {
             weight: number;
         };
         /**
+         * AdaptedPartOut
+         * @description The Adapted part, which differs between Students: its total weight in the selection, how many
+         *     handed-in tests had Adapted items and how many had the replacement items instead.
+         */
+        AdaptedPartOut: {
+            /** Adapted */
+            adapted: number;
+            /** Replaced */
+            replaced: number;
+            /** Weight */
+            weight: number;
+        };
+        /**
          * AdaptedPreviewItemOut
          * @description One Adapted item template filled for the sample Student (Story 11.9): its id, the Game it
          *     reads (`game`, the Class game, or `replay`), its fact kind, its weight (its share of the
@@ -5030,10 +5211,24 @@ export interface components {
             lower_quartile: string;
             /** Median */
             median: string;
+            /** Previous Median */
+            previous_median?: string | null;
             /** Roles */
             roles: components["schemas"]["RoleCostOut"][];
             /** Upper Quartile */
             upper_quartile: string;
+        };
+        /**
+         * ClassGamesOut
+         * @description The Class session's Class games side by side, per Role in chain order (Detaljist first).
+         */
+        ClassGamesOut: {
+            /** Own Game */
+            own_game: number | null;
+            /** Roles */
+            roles: components["schemas"]["RoleOrdersOut"][];
+            /** Weeks */
+            weeks: number;
         };
         /**
          * ClassIn
@@ -5051,6 +5246,30 @@ export interface components {
              * @default
              */
             name: string;
+        };
+        /**
+         * ClassLearningOut
+         * @description The Klasserapport's learning part (Story 14.2) over the Class session's reporting Students
+         *     (`students`): how many handed in the Individual test and how many may still hand it in (an open
+         *     test, or none yet before their own Test deadline, an extension included).
+         */
+        ClassLearningOut: {
+            adapted: components["schemas"]["AdaptedPartOut"];
+            ai: components["schemas"]["LearningAiOut"];
+            /**
+             * Class Session Id
+             * Format: uuid
+             */
+            class_session_id: string;
+            /** Questions */
+            questions: components["schemas"]["QuestionResultOut"][];
+            starting_task: components["schemas"]["LearningStartingTaskOut"];
+            /** Still To Submit */
+            still_to_submit: number;
+            /** Students */
+            students: number;
+            /** Submitted */
+            submitted: number;
         };
         /**
          * ClassListItem
@@ -5140,6 +5359,11 @@ export interface components {
             class_id: string;
             /** Class Name */
             class_name: string;
+            /**
+             * Class Report
+             * @default false
+             */
+            class_report: boolean;
             cost: components["schemas"]["ClassCostOut"] | null;
             counts: components["schemas"]["OverviewCountsOut"];
             /**
@@ -5171,6 +5395,45 @@ export interface components {
              * @default 0
              */
             startable: number;
+        };
+        /**
+         * ClassReportOut
+         * @description The Klasserapport of a Class session (Story 14.1). `games` counts its Class games,
+         *     `finished` those finished, which every game figure is over, and `facts_games` those of them
+         *     whose every Seat has its stored facts set, which Forsterkning and Mønstre are over. `cost` is
+         *     None while no game has finished.
+         */
+        ClassReportOut: {
+            ai: components["schemas"]["ReportAiOut"];
+            /** Amplification */
+            amplification: components["schemas"]["RoleAmplificationOut"][];
+            /**
+             * Class Id
+             * Format: uuid
+             */
+            class_id: string;
+            /** Class Name */
+            class_name: string;
+            /**
+             * Class Session Id
+             * Format: uuid
+             */
+            class_session_id: string;
+            cost: components["schemas"]["ReportCostOut"] | null;
+            /** Facts Games */
+            facts_games: number;
+            /** Finished */
+            finished: number;
+            /** Funnel */
+            funnel: components["schemas"]["FunnelStageOut"][];
+            /** Games */
+            games: number;
+            /** Patterns */
+            patterns: components["schemas"]["PatternOut"][];
+            /** Ratings */
+            ratings: components["schemas"]["RatingModeOut"][];
+            /** Session Number */
+            session_number: number;
         };
         /** ClassSessionListItem */
         ClassSessionListItem: {
@@ -5399,6 +5662,94 @@ export interface components {
             label: string;
             /** Value */
             value: number;
+        };
+        /**
+         * ComparedInstitutionOut
+         * @description An Institution with at least one compared Class session: its name, how many of its Class
+         *     sessions are compared, and what its compared Class sessions differ in from the most common
+         *     setup. `withheld` when its one compared Class session has a shown measure over fewer than 10
+         *     Students: then it shows no figure and no difference.
+         */
+        ComparedInstitutionOut: {
+            /** Differs */
+            differs: ("game_settings" | "ai_mode" | "model" | "prompt_versions" | "effort_level" | "question_set" | "item_weights" | "scoring_guide")[];
+            /**
+             * Institution Id
+             * Format: uuid
+             */
+            institution_id: string;
+            /** Name */
+            name: string;
+            /** Sessions */
+            sessions: number;
+            /** Withheld */
+            withheld: boolean;
+        };
+        /**
+         * ComparedMeasureOut
+         * @description One measure across the ready Class sessions, in their order: `key` is the stored measure
+         *     code the page names from `nb.ts`, `unit` how it is formatted.
+         */
+        ComparedMeasureOut: {
+            /** Comparable */
+            comparable?: boolean | null;
+            /** Key */
+            key: string;
+            /**
+             * Unit
+             * @enum {string}
+             */
+            unit: "kroner" | "ratio" | "percent" | "points";
+            /** Values */
+            values: components["schemas"]["ComparedValueOut"][];
+        };
+        /**
+         * ComparedSessionOut
+         * @description A Class session the Lecturer may compare: its Class, number and whether the Class is
+         *     archived; `written_at` is when its aggregate was written, None while it is not (not ready for
+         *     comparison).
+         */
+        ComparedSessionOut: {
+            /** Archived */
+            archived: boolean;
+            /** Class Name */
+            class_name: string;
+            /**
+             * Class Session Id
+             * Format: uuid
+             */
+            class_session_id: string;
+            /**
+             * Compared
+             * @default false
+             */
+            compared: boolean;
+            /**
+             * Differs
+             * @default []
+             */
+            differs: ("game_settings" | "ai_mode" | "model" | "prompt_versions" | "effort_level" | "question_set" | "item_weights" | "scoring_guide")[];
+            /** Session Number */
+            session_number: number;
+            /** Written At */
+            written_at: string | null;
+        };
+        /**
+         * ComparedValueOut
+         * @description One Class session's figure of a measure: `withheld` when its group held fewer than 10
+         *     Students (no value); neither a value nor withheld when the measure was not measured (no
+         *     finished game, the AI assessment off).
+         */
+        ComparedValueOut: {
+            /**
+             * Class Session Id
+             * Format: uuid
+             */
+            class_session_id: string;
+            /** Value */
+            value: string | null;
+            /** Withheld */
+            withheld: boolean;
         };
         /**
          * CompletionOut
@@ -5851,6 +6202,23 @@ export interface components {
             total_cost: string;
         };
         /**
+         * CrossClassOut
+         * @description Tverrklasse-statistikk: every Class session of the Lecturer's own Classes (archived ones
+         *     included, Control tests never), by Class and number, and the shown measures over those with a
+         *     written aggregate. «Samme mål, samme regnestykke.»
+         */
+        CrossClassOut: {
+            /**
+             * Filters
+             * @default []
+             */
+            filters: components["schemas"]["FilterOut"][];
+            /** Measures */
+            measures: components["schemas"]["ComparedMeasureOut"][];
+            /** Sessions */
+            sessions: components["schemas"]["ComparedSessionOut"][];
+        };
+        /**
          * DailySpendOut
          * @description The AI spend of one Europe/Oslo day and its alert (Story 15.7, FR-69): decimal strings as
          *     summed by `ai.calls.day_spend`, unrounded.
@@ -6120,6 +6488,22 @@ export interface components {
             /** Week */
             week: number;
         };
+        /**
+         * DistributionOut
+         * @description The values of a distribution (one per finished Class game, by game number, for the
+         *     Kostnadsfordeling's ticks) with their median and quartiles (the inclusive method of
+         *     `analysis.wall.quartiles`).
+         */
+        DistributionOut: {
+            /** Lower Quartile */
+            lower_quartile: string;
+            /** Median */
+            median: string;
+            /** Upper Quartile */
+            upper_quartile: string;
+            /** Values */
+            values: string[];
+        };
         /** EffortLevelEntryOut */
         EffortLevelEntryOut: {
             /** Label */
@@ -6188,6 +6572,11 @@ export interface components {
          */
         EnrolledSessionOut: {
             adjustment?: components["schemas"]["OwnAdjustmentOut"] | null;
+            /**
+             * All Games Open
+             * @default false
+             */
+            all_games_open: boolean;
             /**
              * Class Id
              * Format: uuid
@@ -6477,6 +6866,43 @@ export interface components {
             /** Skipped */
             skipped: components["schemas"]["SkippedSeatOut"][];
         };
+        /**
+         * FilterOptionOut
+         * @description One value of a filter dimension among the Class sessions with an aggregate. `value` is the
+         *     token the query sends back (a hash of the stored key). `label` is data, never copy: for Game
+         *     settings `classic` or None (then named by `ordinal`), the AI mode's code, the model config's
+         *     name, the prompt versions as «purpose version» pairs, the Effort level's label; None when the
+         *     Class session had none (no model for rule-based players). `count` is the Class sessions
+         *     holding it that match the other dimensions' filters.
+         */
+        FilterOptionOut: {
+            /** Count */
+            count: number;
+            /** Label */
+            label: string | null;
+            /** Ordinal */
+            ordinal: number;
+            /** Selected */
+            selected: boolean;
+            /** Value */
+            value: string;
+        };
+        /**
+         * FilterOut
+         * @description A filter dimension: its options, and `all_count`, the Class sessions «Alle» would compare
+         *     (those matching the other dimensions' filters).
+         */
+        FilterOut: {
+            /** All Count */
+            all_count: number;
+            /**
+             * Dimension
+             * @enum {string}
+             */
+            dimension: "game_settings" | "ai_mode" | "model" | "prompt_versions" | "effort_level";
+            /** Options */
+            options: components["schemas"]["FilterOptionOut"][];
+        };
         /** FinalIn */
         FinalIn: {
             choice: components["schemas"]["Choice"];
@@ -6606,18 +7032,23 @@ export interface components {
              */
             stage: "registered" | "class_game" | "debrief" | "quiz_passed" | "replay" | "test_submitted" | "assessment_ready";
         };
-        /** GameCostOut */
-        GameCostOut: {
-            /** Above */
-            above: boolean;
-            /** Calls */
-            calls: number;
-            /** Game Id */
-            game_id: string | null;
+        /**
+         * GameAiOut
+         * @description One finished Class game's AI play (FR-68): its Orders outside Guided Weeks, those an LLM
+         *     player decided and their share in percent (None with no Order), and those the fallback
+         *     replaced (AD-15).
+         */
+        GameAiOut: {
+            /** Fallback */
+            fallback: number;
+            /** Llm */
+            llm: number;
+            /** Llm Percent */
+            llm_percent: string | null;
             /** Number */
             number: number | null;
-            /** Usd */
-            usd: string;
+            /** Ordered */
+            ordered: number;
         };
         /**
          * GameInsightOut
@@ -6705,6 +7136,18 @@ export interface components {
             waited_for: components["schemas"]["WaitedSeatOut"][];
             /** Weeks Total */
             weeks_total: number | null;
+        };
+        /**
+         * GameOrdersOut
+         * @description One Class game's Orders for one Role, Uke 1 first.
+         */
+        GameOrdersOut: {
+            /** Number */
+            number: number;
+            /** Orders */
+            orders: (number | null)[];
+            /** Own */
+            own: boolean;
         };
         /**
          * GameResult
@@ -7213,6 +7656,24 @@ export interface components {
             next_cursor: string | null;
         };
         /**
+         * InstitutionMeasureOut
+         * @description One measure across the listed Institutions, in their order (Story 14.3's codes and units);
+         *     `comparable` on a score measure as in Story 14.4.
+         */
+        InstitutionMeasureOut: {
+            /** Comparable */
+            comparable?: boolean | null;
+            /** Key */
+            key: string;
+            /**
+             * Unit
+             * @enum {string}
+             */
+            unit: "kroner" | "ratio" | "percent" | "points";
+            /** Values */
+            values: components["schemas"]["InstitutionValueOut"][];
+        };
+        /**
          * InstitutionOut
          * @description One Institution (Story 3.11): what the Admin's list shows and what other modules read.
          */
@@ -7247,6 +7708,43 @@ export interface components {
             retention_default_months: number;
             /** Retention Months */
             retention_months?: number | null;
+        };
+        /**
+         * InstitutionStatisticsOut
+         * @description The Institutions in Norwegian name order, the shown measures over them, and the filters
+         *     (one per dimension once two Class sessions have an aggregate). `ready` counts the Class
+         *     sessions with an aggregate, `compared` those matching the filters.
+         */
+        InstitutionStatisticsOut: {
+            /** Compared */
+            compared: number;
+            /** Filters */
+            filters: components["schemas"]["FilterOut"][];
+            /** Institutions */
+            institutions: components["schemas"]["ComparedInstitutionOut"][];
+            /** Measures */
+            measures: components["schemas"]["InstitutionMeasureOut"][];
+            /** Ready */
+            ready: number;
+        };
+        /**
+         * InstitutionValueOut
+         * @description One Institution's figure of a measure: the median of its compared Class sessions' stored,
+         *     unwithheld values (`sessions` of them). `withheld` with no value when only withheld figures
+         *     were stored (or the Institution is withheld); neither when the measure was not measured.
+         */
+        InstitutionValueOut: {
+            /**
+             * Institution Id
+             * Format: uuid
+             */
+            institution_id: string;
+            /** Sessions */
+            sessions: number;
+            /** Value */
+            value: string | null;
+            /** Withheld */
+            withheld: boolean;
         };
         /**
          * IntRange
@@ -7485,6 +7983,62 @@ export interface components {
             order: number;
             /** Week */
             week: number;
+        };
+        /**
+         * LearningAiOut
+         * @description The AI assessment totals (FR-55: AI-generated and not a grade): `switched_off` when the
+         *     «KI-vurdering» is off for the Class session, `not_ready` while no assessment of a handed-in test
+         *     is ready, else `ready` with how many are (`ready` of `submitted`). The totals and the Core-only
+         *     subscores in points of 100, as distributions and bands; null without a ready assessment.
+         */
+        LearningAiOut: {
+            /** Bands */
+            bands: components["schemas"]["ScoreBandOut"][];
+            core: components["schemas"]["DistributionOut"] | null;
+            /** Ready */
+            ready: number;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "switched_off" | "not_ready" | "ready";
+            /** Submitted */
+            submitted: number;
+            total: components["schemas"]["DistributionOut"] | null;
+        };
+        /**
+         * LearningStartingItemOut
+         * @description One Starting task item beside the matching Individual test item, over the Students who
+         *     finished the Starting task and handed in a test holding that item (`students`): how many
+         *     answered it right in the Starting task, and how many got the test item fully right with their
+         *     mean credit in percent (an unanswered test item counts 0).
+         */
+        LearningStartingItemOut: {
+            /** Number */
+            number: number;
+            /** Start Correct */
+            start_correct: number;
+            /** Start Percent */
+            start_percent: string | null;
+            /** Students */
+            students: number;
+            /** Test Percent */
+            test_percent: string | null;
+            /** Test Right */
+            test_right: number;
+            /** Title */
+            title: string;
+        };
+        /**
+         * LearningStartingTaskOut
+         * @description The Starting task beside the test: `students` is how many finished the Starting task and
+         *     handed in the test.
+         */
+        LearningStartingTaskOut: {
+            /** Items */
+            items: components["schemas"]["LearningStartingItemOut"][];
+            /** Students */
+            students: number;
         };
         /**
          * LecturerOverviewOut
@@ -8449,6 +9003,21 @@ export interface components {
             email: string;
         };
         /**
+         * PatternOut
+         * @description A Detected pattern across the covered Class games: the occurrences in Weeks a Student
+         *     decided, and in how many games at least one.
+         */
+        PatternOut: {
+            /** Games */
+            games: number;
+            /** Name */
+            name: string;
+            /** Occurrences */
+            occurrences: number;
+            /** Pattern */
+            pattern: string;
+        };
+        /**
          * PauseOut
          * @description The game's pause line (Story 8.6, FR-89, UX-DR62): `paused` while a Pause is in force,
          *     named by who set it («Pause, satt av Sara.»); `ended` from the Order that ended it until the
@@ -8518,6 +9087,38 @@ export interface components {
             order: number | null;
             /** Viewed */
             viewed: boolean;
+        };
+        /**
+         * PlenaryGameOut
+         * @description One Class game's values for one Role, Uke 1 first.
+         */
+        PlenaryGameOut: {
+            /** Net */
+            net: number[];
+            /** Number */
+            number: number;
+            /** Orders */
+            orders: (number | null)[];
+        };
+        /**
+         * PlenaryOut
+         * @description The Class session's Class games for the plenary, per Role in chain order (Detaljist
+         *     first).
+         */
+        PlenaryOut: {
+            /** Roles */
+            roles: components["schemas"]["PlenaryRoleOut"][];
+            /** Weeks */
+            weeks: number;
+        };
+        /**
+         * PlenaryRoleOut
+         * @description Every Class game's values for one Role, in game-number order.
+         */
+        PlenaryRoleOut: {
+            /** Games */
+            games: components["schemas"]["PlenaryGameOut"][];
+            role: components["schemas"]["Role"];
         };
         /** PoolerCheckOut */
         PoolerCheckOut: {
@@ -8615,6 +9216,50 @@ export interface components {
             type: "choice" | "table" | "number" | "long" | "drawn";
             /** Weight */
             weight: number;
+        };
+        /**
+         * QuestionResultOut
+         * @description One Core question of the selection in force, in the set's order. A question taken out
+         *     (`excluded`) has no number, no weight and no figures, and counts in no total. Over the handed-in
+         *     tests holding it (`students`): a computed question has right, partly, wrong and not answered
+         *     with the mean credit in percent; a long-answer question (`scoring = ai`) only how many answered
+         *     it, its scores being the AI assessment's.
+         */
+        QuestionResultOut: {
+            /** Answered */
+            answered: number;
+            /** Excluded */
+            excluded: boolean;
+            /** Id */
+            id: string;
+            /** Not Answered */
+            not_answered: number;
+            /** Number */
+            number: number | null;
+            /** Partly */
+            partly: number;
+            /** Percent */
+            percent: string | null;
+            /** Right */
+            right: number;
+            /**
+             * Scoring
+             * @enum {string}
+             */
+            scoring: "computed" | "ai" | "excluded";
+            /** Students */
+            students: number;
+            /** Title */
+            title: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "choice" | "table" | "number" | "long" | "drawn";
+            /** Weight */
+            weight: number | null;
+            /** Wrong */
+            wrong: number;
         };
         /**
          * QuestionSetIn
@@ -8765,6 +9410,31 @@ export interface components {
             question_id: string;
             /** Right Choice */
             right_choice: string;
+        };
+        /** RatingCountOut */
+        RatingCountOut: {
+            /** Count */
+            count: number;
+            /** Rating */
+            rating: number;
+        };
+        /**
+         * RatingModeOut
+         * @description The plausibility ratings of one AI mode (FR-70): the count of each value 1–5, their
+         *     number and median. Never a single rating or who gave it.
+         */
+        RatingModeOut: {
+            /**
+             * Ai Mode
+             * @enum {string}
+             */
+            ai_mode: "llm" | "rule_based";
+            /** Count */
+            count: number;
+            /** Median */
+            median: string;
+            /** Values */
+            values: components["schemas"]["RatingCountOut"][];
         };
         /**
          * RecordDebriefOut
@@ -9281,6 +9951,31 @@ export interface components {
             state: "pending" | "ready";
         };
         /**
+         * ReportAiOut
+         * @description The share of Seats played by AI players (FR-64), the Share of LLM Orders per game and the
+         *     switches (FR-68), and the share of LLM-held Seats the Play guard switched (FR-79).
+         */
+        ReportAiOut: {
+            /** Ai Percent */
+            ai_percent: string | null;
+            /** Ai Seats */
+            ai_seats: number;
+            /** Games */
+            games: components["schemas"]["GameAiOut"][];
+            /** Guard Percent */
+            guard_percent: string | null;
+            /** Guard Switched */
+            guard_switched: number;
+            /** Llm Seats */
+            llm_seats: number;
+            /** Seats */
+            seats: number;
+            /** Switches */
+            switches: components["schemas"]["SwitchOut"][];
+            /** Whole Game */
+            whole_game: number;
+        };
+        /**
          * ReportAiScoreOut
          * @description The AI's score of a long-answer or Adapted item (Story 12.2): its step on the Scoring
          *     guide's scale with the label, its written feedback (`ai_generated`, quotes as «…») or that the
@@ -9320,6 +10015,24 @@ export interface components {
             type: "choice" | "table" | "number" | "long" | "adapted";
             /** Weight */
             weight: number;
+        };
+        /**
+         * ReportCostOut
+         * @description Kjedekost and Kostnad per Rolle (FR-64, UX-DR72): the chain cost's distribution with the
+         *     chain's mean Lager and Restordre per game, and each Role in chain order (Detaljist first).
+         */
+        ReportCostOut: {
+            /** Backorder Cost */
+            backorder_cost: string;
+            chain: components["schemas"]["DistributionOut"];
+            /** Games */
+            games: components["schemas"]["app__modules__reports__class_report_schemas__GameCostOut"][];
+            /** Holding Cost */
+            holding_cost: string;
+            /** Previous Median */
+            previous_median?: string | null;
+            /** Roles */
+            roles: components["schemas"]["RoleCostDistributionOut"][];
         };
         /**
          * ReportDataOut
@@ -9780,6 +10493,17 @@ export interface components {
          */
         Role: "retailer" | "wholesaler" | "distributor" | "factory";
         /**
+         * RoleAmplificationOut
+         * @description One Role's Order amplification (`orders_std / demand_std`, the facts sets' chain part)
+         *     over the covered games where demand varied; None without one.
+         */
+        RoleAmplificationOut: {
+            distribution: components["schemas"]["DistributionOut"] | null;
+            /** Games */
+            games: number;
+            role: components["schemas"]["Role"];
+        };
+        /**
          * RoleCapacityOut
          * @description A capped Role (Story 6.22, FR-12): the most it ships per Week, a rule of the game.
          */
@@ -9795,6 +10519,21 @@ export interface components {
         RoleCost: {
             /** Backorder Cost */
             backorder_cost: string;
+            /** Holding Cost */
+            holding_cost: string;
+            role: components["schemas"]["Role"];
+            /** Total Cost */
+            total_cost: string;
+        };
+        /**
+         * RoleCostDistributionOut
+         * @description One Role's Total cost over the finished Class games: its distribution and its mean Lager
+         *     and Restordre per game (`total_cost` is their sum), in kroner rounded to the øre.
+         */
+        RoleCostDistributionOut: {
+            /** Backorder Cost */
+            backorder_cost: string;
+            distribution: components["schemas"]["DistributionOut"];
             /** Holding Cost */
             holding_cost: string;
             role: components["schemas"]["Role"];
@@ -9821,6 +10560,15 @@ export interface components {
          */
         RoleIn: {
             role: components["schemas"]["AccountRole"];
+        };
+        /**
+         * RoleOrdersOut
+         * @description Every Class game's Orders for one Role, in game-number order.
+         */
+        RoleOrdersOut: {
+            /** Games */
+            games: components["schemas"]["GameOrdersOut"][];
+            role: components["schemas"]["Role"];
         };
         /** RosterColumn */
         RosterColumn: {
@@ -9980,6 +10728,21 @@ export interface components {
             label: string;
             /** Step */
             step: number;
+        };
+        /**
+         * ScoreBandOut
+         * @description How many ready AI assessments have their total, and their Core-only subscore, in `low` to
+         *     `high` points of 100 (each band holds its lower bound; the last also holds 100).
+         */
+        ScoreBandOut: {
+            /** Core */
+            core: number;
+            /** High */
+            high: number;
+            /** Low */
+            low: number;
+            /** Total */
+            total: number;
         };
         /** ScorerIn */
         ScorerIn: {
@@ -10406,7 +11169,7 @@ export interface components {
             /** Per Day */
             per_day: components["schemas"]["DayCostOut"][];
             /** Per Game */
-            per_game: components["schemas"]["GameCostOut"][];
+            per_game: components["schemas"]["app__modules__ops__ai_schemas__GameCostOut"][];
             /** Per Game Above */
             per_game_above: boolean;
             /** Per Game Usd */
@@ -11291,6 +12054,19 @@ export interface components {
             stage: "ordered" | "in_transit" | "in_production";
         };
         /**
+         * SwitchOut
+         * @description A switch by the cost limit or the Play guard: the game, the Seat's Role, the Week it took
+         *     effect and its mark from the one AD-15 mapping.
+         */
+        SwitchOut: {
+            mark: components["schemas"]["SeatMark"];
+            /** Number */
+            number: number | null;
+            role: components["schemas"]["Role"];
+            /** Week */
+            week: number;
+        };
+        /**
          * TableColumnOut
          * @description A given column of a value table: its heading and one number per row.
          */
@@ -11563,6 +12339,11 @@ export interface components {
         };
         /** UserOut */
         UserOut: {
+            /**
+             * Cross Institution Stats
+             * @default false
+             */
+            cross_institution_stats: boolean;
             /** Email */
             email: string;
             /**
@@ -11895,6 +12676,11 @@ export interface components {
              * @default false
              */
             deleted: boolean;
+            /**
+             * Game Data Export
+             * @default false
+             */
+            game_data_export: boolean;
             /** Generated At */
             generated_at: string | null;
             /**
@@ -11904,6 +12690,29 @@ export interface components {
             status: "none" | "pending" | "ready" | "failed";
             /** Students */
             students: number | null;
+        };
+        /** GameCostOut */
+        app__modules__ops__ai_schemas__GameCostOut: {
+            /** Above */
+            above: boolean;
+            /** Calls */
+            calls: number;
+            /** Game Id */
+            game_id: string | null;
+            /** Number */
+            number: number | null;
+            /** Usd */
+            usd: string;
+        };
+        /**
+         * GameCostOut
+         * @description A finished Class game's chain Total cost, for «Vis som tabell».
+         */
+        app__modules__reports__class_report_schemas__GameCostOut: {
+            /** Chain Cost */
+            chain_cost: string;
+            /** Number */
+            number: number | null;
         };
     };
     responses: never;
@@ -15496,6 +16305,104 @@ export interface operations {
             };
         };
     };
+    getClassReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassReportOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getClassLearningReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassLearningOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     downloadCompletionExport: {
         parameters: {
             query?: {
@@ -15700,6 +16607,73 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    downloadGameDataExport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The CSV file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": unknown;
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -16176,6 +17150,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getClassPlenary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlenaryOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -17647,6 +18670,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FilledSeatsOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getClassStatistics: {
+        parameters: {
+            query?: {
+                game_settings?: string | null;
+                ai_mode?: string | null;
+                model?: string | null;
+                prompt_versions?: string | null;
+                effort_level?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CrossClassOut"];
                 };
             };
             /** @description Unauthorized */
@@ -20736,6 +21812,68 @@ export interface operations {
             };
         };
     };
+    getInstitutionStatistics: {
+        parameters: {
+            query?: {
+                game_settings?: string | null;
+                ai_mode?: string | null;
+                model?: string | null;
+                prompt_versions?: string | null;
+                effort_level?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstitutionStatisticsOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     readReportSnapshot: {
         parameters: {
             query?: never;
@@ -20841,6 +21979,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getMyClassGames: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassGamesOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

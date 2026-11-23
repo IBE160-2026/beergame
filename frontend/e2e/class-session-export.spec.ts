@@ -13,8 +13,9 @@ import { lockedClassGames } from "./support/live-game";
  * with 200 % text and 1440 px. The rules are `backend/tests/reports/test_reports_zip.py`. */
 const copy = nb.reports.export;
 const completion = copy.completion;
+const gameData = copy.gameData;
 
-test("staff make and download one ZIP of every Student report, and the Completion export, from «Eksport»", async ({ browser, lecturerSession }) => {
+test("staff make and download one ZIP of every Student report, the Completion export and the Game data, from «Eksport»", async ({ browser, lecturerSession }) => {
   test.slow(); // Invitations through the worker, a Class session, a lock and two renders
   const locked = await lockedClassGames(browser, lecturerSession, 2, { aiMode: "rule_based" });
   const page = await lecturerPage(browser, lecturerSession, VIEWPORTS[2]!);
@@ -59,6 +60,16 @@ test("staff make and download one ZIP of every Student report, and the Completio
     expect(xlsxFile.suggestedFilename()).toMatch(/^fullforingsliste-klasseokt-\d+\.xlsx$/);
     expect(fs.readFileSync(await xlsxFile.path()).subarray(0, 2).toString()).toBe("PK");
 
+    // Story 14.8 (FR-88, `FEATURE_GAME_DATA_EXPORT` on locally): «Last ned spilldata (CSV)». The
+    // rules of the file are `backend/tests/reports/test_game_data_export.py`.
+    const gameSaved = page.waitForEvent("download");
+    await block.getByRole("link", { name: gameData.action }).click();
+    const gameFile = await gameSaved;
+    expect(gameFile.suggestedFilename()).toMatch(/^spilldata-klasseokt-\d+\.csv$/);
+    const gameText = fs.readFileSync(await gameFile.path(), "utf-8");
+    expect(gameText.startsWith("\ufeffpurpose;game;week;role;")).toBe(true);
+    for (const student of locked.students) expect(gameText).not.toContain(student.name);
+
     // An Assistant lecturer of the Class sees the same ZIP, but not the Completion export, and the
     // export route refuses them.
     const classId = (await (await page.request.get(`/api/class-sessions/${locked.sessionId}`)).json())
@@ -74,6 +85,8 @@ test("staff make and download one ZIP of every Student report, and the Completio
     await expect(helperBlock).not.toContainText(completion.note);
     const refused = await helper.request.get(`/api/class-sessions/${locked.sessionId}/completion-export?format=csv`);
     expect(refused.status()).toBe(403);
+    await expect(helperBlock.getByRole("link", { name: gameData.action })).toHaveCount(0);
+    expect((await helper.request.get(`/api/class-sessions/${locked.sessionId}/game-data-export`)).status()).toBe(403);
     await assistant.close();
 
     // Each width: the block reflows and axe is clean.
@@ -84,6 +97,7 @@ test("staff make and download one ZIP of every Student report, and the Completio
       await expect(view.locator("[data-export]").getByRole("link", { name: copy.zip.action })).toBeVisible();
       await view.locator("[data-export]").getByRole("button", { name: completion.action }).click();
       await expect(view.locator("[data-export]").getByRole("link", { name: completion.xlsx })).toBeVisible();
+      await expect(view.locator("[data-export]").getByRole("link", { name: gameData.action })).toBeVisible();
       await expectAccessible(view, viewport.phone);
       await view.context().close();
     }
