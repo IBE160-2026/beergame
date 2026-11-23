@@ -142,6 +142,17 @@ Merged to `main`: Epics 1–12 (PRs #165, #179, #196, #199, #224, #240). Three f
 - Builder briefs are in the scratchpad: `brief-lane1.md`, `brief-lane2.md`, `brief-lane3.md` (agents spawned without a name; no SendMessage reports). Close-out lists `epic13-todo.md`, `epic14-todo.md`; queued log sections in `pending-log.md`.
 - Stray untracked root files `policy.py`, `walkthrough-chart.tsx`, `nb.ts` are not ours.
 
+## Progress (2026-11-23, after the compact)
+
+- Epic 13 merged (PR #256, close-out Issue #257); Epic 15 merged (PR #261, close-out Issue #264). Main's Alembic head is 0073 (…0308 → 0065…0073).
+- Lane 3, `epic-14`: `main` (Epic 13) and `origin/epic-15` merged in; 14.1–14.6 and 14.8 done; 14.7 in progress. Its migration 0401 revises 0072 and must be relinked after 0073 when `epic-14` merges `main`. Close-out list `epic14-todo.md`.
+- Sprint status and the run log are committed on `epic-15` after its merge; they reach `main` through a last small PR at the end (or by merging `epic-15` into `epic-14` before Epic 14's PR).
+- Then: Epic 14 close-out and merge → user journeys with Playwright (GOAL item 4) → final log section (review: 2.7 #56, 2.11 #60, 9.14 #173, 9.15 #176, 10.7, 15.12 #247).
+
+## Finished (2026-11-24)
+
+Epic 14 merged (PR #266, Issue #267); user journeys UJ-1…UJ-9 pass with Playwright (PR #268, `npm run e2e:journeys` with `playwright.journeys.config.ts`). The final section of the run log lists the `review` stories. The last sprint and log commits reach `main` through a small PR from `epic-15`.
+
 ## Done
 
 The goal is reached when every story outside the skip list is `done`, `review` or (after three attempts) `blocked`, every epic is merged to `main` with CI green, and a final log section lists the `review` and `blocked` stories with their issues.
