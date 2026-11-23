@@ -13,7 +13,13 @@ import { usePageState } from "@/lib/page-state";
 import { scorerError } from "@/modules/assessment/scoring";
 import { type Scorers, scorersKey, useNameScorer, useRemoveScorer, useScorers } from "@/modules/assessment/scoring-api";
 import { GuardedPage } from "@/modules/identity/home-page";
-import { ADMIN_CONTROL_TESTS_PATH, controlTestScorersPath, HOME_PATH, scoringListPath } from "@/modules/identity/homes";
+import {
+  ADMIN_CONTROL_TESTS_PATH,
+  controlTestResultsPath,
+  controlTestScorersPath,
+  HOME_PATH,
+  scoringListPath,
+} from "@/modules/identity/homes";
 import { PageShell } from "@/modules/identity/page-shell";
 
 const copy = nb.scoring.scorers;
@@ -73,9 +79,12 @@ function ScorersView({ page, sessionId }: { page: Scorers; sessionId: string }) 
     <>
       <p className={`${LINE} mt-2 max-w-2xl text-ink-secondary`}>{copy.lead}</p>
       <p className={`${LINE} mt-3 text-ink tabular-nums`}>{copy.answers(total)}</p>
-      <p className="mt-2">
+      <p className="mt-2 flex flex-wrap gap-x-6">
         <Link href={scoringListPath(sessionId)} standalone>
           {copy.readAnswers}
+        </Link>
+        <Link href={controlTestResultsPath(sessionId)} standalone>
+          {nb.scoring.results.title}
         </Link>
       </p>
       <section aria-labelledby="scorers-title" className="mt-8 max-w-2xl">

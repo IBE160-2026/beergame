@@ -2216,6 +2216,8 @@ export const nb = {
         "control_test.scorer_named": "Sensor utnevnt for Kontrolltest",
         "control_test.scorer_removed": "Sensor fjernet fra Kontrolltest",
         "control_test.answers_read": "Svar i Kontrolltest lest av Admin",
+        "control_test.results_read": "Resultater av Kontrolltest lest av Admin",
+        "control_test.checked": "Kontrolltest fullført, Sensorveiledning kontrollert",
       } as Record<string, string>,
       /** What an action concerns, by its target key. */
       targets: {
@@ -3518,6 +3520,61 @@ export const nb = {
         empty: "Skriv e-postadressen.",
       } as Record<string, string>,
       failed: "Sensoren ble ikke utnevnt. Prøv igjen.",
+      notFound: "Kontrolltesten finnes ikke.",
+    },
+    /** Admin-område → «Kontrolltest» → «Resultater» (Story 12.10, FR-82, UX-DR57). «Teller aldri
+     * med i en Klasseøkt.» is the spine's (`nb.admin.controlTests.never`); the rest is
+     * [ASSUMPTION] draft copy. */
+    results: {
+      title: "Resultater",
+      openFrom: (name: string) => `Resultater for ${name}`,
+      lead: "Sensorenes vurderinger og KI-vurderingen av de samme svarene, side om side, med samsvaret mellom dem.",
+      checked: "Sensorveiledningen er kontrollert med denne modellkonfigurasjonen.",
+      preliminary: "Foreløpige tall. Sensorveiledningen er ikke kontrollert ennå.",
+      preliminaryCheckedElsewhere:
+        "Foreløpige tall for denne Kontrolltesten. Sensorveiledningen er alt kontrollert med denne modellkonfigurasjonen av en annen Kontrolltest.",
+      missing: (count: number, text: string) => (count === 1 ? "1 vurdering mangler." : `${text} vurderinger mangler.`),
+      openAttempts: (count: number, text: string) =>
+        count === 1 ? "1 test er ikke levert ennå." : `${text} tester er ikke levert ennå.`,
+      aiMissing: (count: number, text: string) =>
+        count === 1 ? "KI-vurderingen mangler for 1 svar." : `KI-vurderingen mangler for ${text} svar.`,
+      noScorers: "Ingen sensorer er utnevnt.",
+      notOpen: (date: string) => `Resultatene kommer etter testfristen ${date}.`,
+      empty: "Ingen svar å sammenligne.",
+      withheld:
+        "Du er selv sensor i denne Kontrolltesten. KI-vurderingene og samsvaret vises når du har vurdert alle svarene.",
+      measures: {
+        title: "Samsvar",
+        pairs: (text: string) => `Beregnet over ${text} par av sensor- og KI-vurdering.`,
+        noPairs: "Ingen par å beregne ennå.",
+        exact: "Helt likt",
+        exactHelp: "Andel par der sensor og KI valgte samme trinn.",
+        withinOne: "Innen ett trinn",
+        withinOneHelp: "Andel par der de er høyst ett trinn fra hverandre.",
+        offset: "Systematisk forskyvning",
+        offsetHelp: "Gjennomsnittlig KI-trinn minus sensorens trinn. Over 0: KI gir høyere.",
+        compression: "Spredning, KI mot sensor",
+        compressionHelp: "KI-ens spredning delt på sensorenes. Under 1: KI bruker mindre av skalaen.",
+        none: "Ikke beregnet",
+        steps: (text: string) => `${text} trinn`,
+      },
+      byLength: {
+        title: "Samsvar etter svarlengde",
+        band: "Svarlengde",
+        pairs: "Par",
+        bands: { short: "Under 50 ord", medium: "50–149 ord", long: "150 ord eller mer" } as Record<string, string>,
+      },
+      table: {
+        title: "Vurderingene side om side",
+        answer: "Svar",
+        type: "Type",
+        words: "Ord",
+        scorer: (number: string) => `Sensor ${number}`,
+        ai: "KI",
+        notScored: "Ikke vurdert",
+        aiMissing: "Mangler",
+        hidden: "Skjult",
+      },
       notFound: "Kontrolltesten finnes ikke.",
     },
   },

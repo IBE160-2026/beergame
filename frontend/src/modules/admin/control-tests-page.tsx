@@ -16,6 +16,7 @@ import {
   ADMIN_INSTITUTIONS_PATH,
   classPath,
   classSessionPath,
+  controlTestResultsPath,
   controlTestScorersPath,
   HOME_PATH,
 } from "@/modules/identity/homes";
@@ -144,9 +145,12 @@ function ControlTestRow({ item }: { item: ControlTest }) {
           </div>
         ))}
       </dl>
-      <p className="mt-2">
+      <p className="mt-2 flex flex-wrap gap-x-6">
         <Link href={controlTestScorersPath(item.id)} standalone>
           {nb.scoring.scorers.openFrom(item.name)}
+        </Link>
+        <Link href={controlTestResultsPath(item.id)} standalone>
+          {nb.scoring.results.openFrom(item.name)}
         </Link>
       </p>
       {item.can_open ? (

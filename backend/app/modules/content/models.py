@@ -1,5 +1,5 @@
-"""The table owned by `modules/content` (Stories 6.3, 9.1, 9.4, 9.6, 9.7, 9.9, 9.14, 11.1,
-11.2, 11.7, AD-23)."""
+"""The tables owned by `modules/content` (Stories 6.3, 9.1, 9.4, 9.6, 9.7, 9.9, 9.14, 11.1,
+11.2, 11.7, 12.10, AD-23, AD-27)."""
 
 from enum import StrEnum
 
@@ -7,7 +7,9 @@ from sqlalchemy import (
     CheckConstraint,
     Column,
     DateTime,
+    ForeignKey,
     Integer,
+    PrimaryKeyConstraint,
     Table,
     Text,
     UniqueConstraint,
@@ -54,3 +56,24 @@ content_records = Table(
 )
 """A trigger (migration 0046) refuses every UPDATE: a record never changes once stored. The
 version numbers are one sequence per kind; a default is a record without `class_session_id`."""
+
+
+scoring_guide_checks = Table(
+    "scoring_guide_checks",
+    metadata,
+    Column(
+        "scoring_guide_id",
+        Uuid,
+        ForeignKey("content_records.id", ondelete="RESTRICT"),
+        nullable=False,
+    ),
+    # No foreign key: only `app/ai` owns the model config table (AD-6).
+    Column("model_config_id", Uuid, nullable=False),
+    # No foreign key: the check outlives the Control test that made it.
+    Column("control_test_id", Uuid, nullable=False),
+    Column("checked_at", DateTime(timezone=True), nullable=False),
+    PrimaryKeyConstraint("scoring_guide_id", "model_config_id", name="pk_scoring_guide_checks"),
+)
+"""Story 12.10 (FR-81, AD-27): a Scoring guide version a Control test checked with a model config
+(every named scorer scored every listed answer). Written once by `mark_checked` (the first check
+of a pair stays) and read by `is_checked`; a trigger (migration 0209) refuses every UPDATE."""

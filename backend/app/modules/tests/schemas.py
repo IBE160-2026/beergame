@@ -628,6 +628,88 @@ class ScorersOut(BaseModel):
     scorers: list[ScorerOut]
 
 
+# The results of a Control test (Story 12.10, FR-82, AD-27): the Admin only.
+
+
+class ResultsGuideOut(BaseModel):
+    """The Scoring guide version the Control test is pinned to."""
+
+    version: int
+    edited: bool
+
+
+class ResultsConfigOut(BaseModel):
+    """The model config the Control test is pinned to."""
+
+    name: str
+    model_version: str
+
+
+class ResultsScorerOut(BaseModel):
+    """A named scorer, a column of the side-by-side table (in the order they were named)."""
+
+    name: str
+
+
+class ResultsRowOut(BaseModel):
+    """One listed answer: «Svar N», its item type, question and word count, each named scorer's
+    step (null: not scored yet) in the order of `scorers`, and the AI's step (null: none stored,
+    or withheld)."""
+
+    number: int
+    type: Literal["long", "adapted"]
+    question: str
+    words: int
+    human: list[int | None]
+    ai: int | None
+
+
+class LengthBandOut(BaseModel):
+    """Agreement over the pairs of one answer-length band (`max_words` null: no upper end)."""
+
+    band: Literal["short", "medium", "long"]
+    min_words: int
+    max_words: int | None
+    pairs: int
+    exact: float | None
+    within_one: float | None
+
+
+class AgreementOut(BaseModel):
+    """The FR-82 measures from `analysis.agreement`: shares 0 to 1, `offset` in steps (positive:
+    the AI scores higher), `compression` the AI's spread over the humans' (under 1: compressed;
+    null: the human steps do not vary)."""
+
+    pairs: int
+    exact: float | None
+    within_one: float | None
+    offset: float | None
+    compression: float | None
+    by_length: list[LengthBandOut]
+
+
+class ControlResultsOut(BaseModel):
+    """`GET /api/admin/control-tests/{id}/results`. `missing`: human scores the named scorers
+    still owe; `ai_missing`: listed answers with no AI step; `open_attempts`: attempts not closed
+    yet. `complete` when there is a named scorer, a listed answer, no open attempt and nothing
+    missing; otherwise the measures are preliminary. `checked`: the pinned guide version is checked
+    for the pinned model config. `withheld`: the reader is a named scorer with answers still to
+    score, so every AI step and the measures are left out (AD-27)."""
+
+    test: ScoringTestOut
+    scoring_guide: ResultsGuideOut
+    ai_config: ResultsConfigOut | None
+    scorers: list[ResultsScorerOut]
+    rows: list[ResultsRowOut]
+    missing: int
+    ai_missing: int
+    open_attempts: int
+    complete: bool
+    checked: bool
+    withheld: bool
+    measures: AgreementOut | None
+
+
 class ScorerIn(BaseModel):
     model_config = _IN
 

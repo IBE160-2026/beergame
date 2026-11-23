@@ -14,11 +14,17 @@ export type ScoringEntry = components["schemas"]["ScoringEntryOut"];
 export type ScoringItem = components["schemas"]["ScoringItemOut"];
 export type Scorers = components["schemas"]["ScorersOut"];
 export type Scorer = components["schemas"]["ScorerOut"];
+/** The results of a Control test (Story 12.10, FR-82). */
+export type ControlResults = components["schemas"]["ControlResultsOut"];
+export type ResultsRow = components["schemas"]["ResultsRowOut"];
+export type Agreement = components["schemas"]["AgreementOut"];
+export type LengthBand = components["schemas"]["LengthBandOut"];
 
 export const myScoringKey = ["scoring", "mine"] as const;
 export const scoringListKey = (sessionId: string) => ["scoring", sessionId] as const;
 export const scoringAnswerKey = (sessionId: string, answerId: string) => ["scoring", sessionId, answerId] as const;
 export const scorersKey = (sessionId: string) => ["admin", "control-tests", sessionId, "scorers"] as const;
+export const controlResultsKey = (sessionId: string) => ["admin", "control-tests", sessionId, "results"] as const;
 
 /** The Control tests the User is a named scorer of: their home shows the Lenke while there is one. */
 export function useMyScoring() {
@@ -123,5 +129,21 @@ export function useRemoveScorer(sessionId: string) {
     networkMode: "always",
     retry: false,
     onSuccess: (scorers) => queryClient.setQueryData(scorersKey(sessionId), scorers),
+  });
+}
+
+/** Admin-område → «Kontrolltest» → «Resultater»: human and AI scores side by side and the
+ * agreement measures (Story 12.10). Admin only; 404 `not_found` for no such Control test. */
+export function useControlResults(sessionId: string) {
+  return useQuery({
+    queryKey: controlResultsKey(sessionId),
+    queryFn: () =>
+      request(() =>
+        api.GET("/api/admin/control-tests/{session_id}/results", {
+          params: { path: { session_id: sessionId } },
+          cache: "no-store",
+        }),
+      ),
+    retry: false,
   });
 }

@@ -326,6 +326,76 @@
         "title": "AdjustmentOut",
         "type": "object"
       },
+      "AgreementOut": {
+        "description": "The FR-82 measures from `analysis.agreement`: shares 0 to 1, `offset` in steps (positive:\nthe AI scores higher), `compression` the AI's spread over the humans' (under 1: compressed;\nnull: the human steps do not vary).",
+        "properties": {
+          "by_length": {
+            "items": {
+              "$ref": "#/components/schemas/LengthBandOut"
+            },
+            "title": "By Length",
+            "type": "array"
+          },
+          "compression": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Compression"
+          },
+          "exact": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exact"
+          },
+          "offset": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Offset"
+          },
+          "pairs": {
+            "title": "Pairs",
+            "type": "integer"
+          },
+          "within_one": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Within One"
+          }
+        },
+        "required": [
+          "pairs",
+          "exact",
+          "within_one",
+          "offset",
+          "compression",
+          "by_length"
+        ],
+        "title": "AgreementOut",
+        "type": "object"
+      },
       "AiAssessmentOut": {
         "description": "The «KI-vurdering» switch of a Class session (Story 12.1, FR-61), stored by\n`modules/assessment`.",
         "properties": {
@@ -2618,6 +2688,91 @@
         ],
         "title": "ConsentStatus",
         "type": "string"
+      },
+      "ControlResultsOut": {
+        "description": "`GET /api/admin/control-tests/{id}/results`. `missing`: human scores the named scorers\nstill owe; `ai_missing`: listed answers with no AI step; `open_attempts`: attempts not closed\nyet. `complete` when there is a named scorer, a listed answer, no open attempt and nothing\nmissing; otherwise the measures are preliminary. `checked`: the pinned guide version is checked\nfor the pinned model config. `withheld`: the reader is a named scorer with answers still to\nscore, so every AI step and the measures are left out (AD-27).",
+        "properties": {
+          "ai_config": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResultsConfigOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ai_missing": {
+            "title": "Ai Missing",
+            "type": "integer"
+          },
+          "checked": {
+            "title": "Checked",
+            "type": "boolean"
+          },
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "measures": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AgreementOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "missing": {
+            "title": "Missing",
+            "type": "integer"
+          },
+          "open_attempts": {
+            "title": "Open Attempts",
+            "type": "integer"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/ResultsRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "scorers": {
+            "items": {
+              "$ref": "#/components/schemas/ResultsScorerOut"
+            },
+            "title": "Scorers",
+            "type": "array"
+          },
+          "scoring_guide": {
+            "$ref": "#/components/schemas/ResultsGuideOut"
+          },
+          "test": {
+            "$ref": "#/components/schemas/ScoringTestOut"
+          },
+          "withheld": {
+            "title": "Withheld",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "test",
+          "scoring_guide",
+          "ai_config",
+          "scorers",
+          "rows",
+          "missing",
+          "ai_missing",
+          "open_attempts",
+          "complete",
+          "checked",
+          "withheld",
+          "measures"
+        ],
+        "title": "ControlResultsOut",
+        "type": "object"
       },
       "ControlTestConfigOut": {
         "description": "A model config: its name and model version; `default` for the active default.",
@@ -5780,6 +5935,71 @@
         "title": "LecturerOverviewOut",
         "type": "object"
       },
+      "LengthBandOut": {
+        "description": "Agreement over the pairs of one answer-length band (`max_words` null: no upper end).",
+        "properties": {
+          "band": {
+            "enum": [
+              "short",
+              "medium",
+              "long"
+            ],
+            "title": "Band",
+            "type": "string"
+          },
+          "exact": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exact"
+          },
+          "max_words": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Words"
+          },
+          "min_words": {
+            "title": "Min Words",
+            "type": "integer"
+          },
+          "pairs": {
+            "title": "Pairs",
+            "type": "integer"
+          },
+          "within_one": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Within One"
+          }
+        },
+        "required": [
+          "band",
+          "min_words",
+          "max_words",
+          "pairs",
+          "exact",
+          "within_one"
+        ],
+        "title": "LengthBandOut",
+        "type": "object"
+      },
       "LetterChoiceIn": {
         "additionalProperties": false,
         "description": "Story 12.6: the Student's «Veiledende bokstav» Bryter for their own view, on or off.",
@@ -8822,6 +9042,118 @@
           "token"
         ],
         "title": "ResetTokenIn",
+        "type": "object"
+      },
+      "ResultsConfigOut": {
+        "description": "The model config the Control test is pinned to.",
+        "properties": {
+          "model_version": {
+            "title": "Model Version",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "model_version"
+        ],
+        "title": "ResultsConfigOut",
+        "type": "object"
+      },
+      "ResultsGuideOut": {
+        "description": "The Scoring guide version the Control test is pinned to.",
+        "properties": {
+          "edited": {
+            "title": "Edited",
+            "type": "boolean"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "edited"
+        ],
+        "title": "ResultsGuideOut",
+        "type": "object"
+      },
+      "ResultsRowOut": {
+        "description": "One listed answer: «Svar N», its item type, question and word count, each named scorer's\nstep (null: not scored yet) in the order of `scorers`, and the AI's step (null: none stored,\nor withheld).",
+        "properties": {
+          "ai": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ai"
+          },
+          "human": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Human",
+            "type": "array"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "long",
+              "adapted"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "words": {
+            "title": "Words",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "number",
+          "type",
+          "question",
+          "words",
+          "human",
+          "ai"
+        ],
+        "title": "ResultsRowOut",
+        "type": "object"
+      },
+      "ResultsScorerOut": {
+        "description": "A named scorer, a column of the side-by-side table (in the order they were named).",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "ResultsScorerOut",
         "type": "object"
       },
       "RevealOut": {
@@ -13684,6 +14016,79 @@
         "summary": "Create Control Test",
         "tags": [
           "admin"
+        ]
+      }
+    },
+    "/api/admin/control-tests/{session_id}/results": {
+      "get": {
+        "description": "The Control test's results (Story 12.10, FR-82, AD-27): each listed answer's human and AI\nsteps side by side and the agreement measures, preliminary while scores are missing; the AI\nsteps and measures are withheld from an Admin who is a named scorer with answers still to\nscore. Admin only; each read is audited. 404 `not_found` for no such Control test.",
+        "operationId": "controlTestResults",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlResultsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Control Test Results",
+        "tags": [
+          "tests"
         ]
       }
     },

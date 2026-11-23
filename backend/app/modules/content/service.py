@@ -9,7 +9,8 @@ lock pins the version a Class session uses (`starting_task_pin`, `detected_patte
 `debrief_quiz_pin`, `narration_templates_pin` and `adapted_templates_pin`, registered by
 `sessions`); readers ask for that version, or the latest for a session locked before the pin
 existed. Whether a Scoring guide version is checked by a Control test is asked of `is_checked`
-only (AD-27). This module imports no feature module."""
+only (AD-27); `mark_checked` (Story 12.10) records it, called only by `assessment`. This module
+imports no feature module."""
 
 import uuid
 from dataclasses import dataclass
@@ -20,7 +21,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.content.models import Kind, content_records
+from app.modules.content.models import Kind, content_records, scoring_guide_checks
 from app.modules.content.schemas import (
     CRITERIA_MAX,
     CRITERIA_MIN,
@@ -63,6 +64,7 @@ __all__ = [
     "detected_patterns_pin",
     "get",
     "is_checked",
+    "mark_checked",
     "latest_body",
     "latest_scoring_guide",
     "stored_version_of",
@@ -511,13 +513,54 @@ async def scoring_guide_choices(session: AsyncSession) -> list[ScoringGuideChoic
 
 
 async def is_checked(
-    scoring_guide_version_id: uuid.UUID, model_config_id: uuid.UUID | None
+    scoring_guide_version_id: uuid.UUID,
+    model_config_id: uuid.UUID | None,
+    *,
+    session: AsyncSession | None = None,
 ) -> bool:
     """Whether a Control test has checked this Scoring guide version with this model config
-    (Story 11.2, FR-81, AD-27): the only place that answers it. The `checked` record is created
-    and written by the Control test in Epic 12; until then no version is checked."""
-    del scoring_guide_version_id, model_config_id
-    return False
+    (Story 11.2, Story 12.10, FR-81, AD-27): the only place that answers it, from
+    `scoring_guide_checks`. Checked is per version and config: another config, or a later version
+    of the same guide, is unchecked. No model config (a Rule-based Class session) is unchecked.
+    In the caller's `session` when given."""
+    if model_config_id is None:
+        return False
+    if session is None:
+        async with get_sessionmaker()() as own:
+            return await is_checked(scoring_guide_version_id, model_config_id, session=own)
+    found = await session.scalar(
+        select(scoring_guide_checks.c.checked_at).where(
+            scoring_guide_checks.c.scoring_guide_id == scoring_guide_version_id,
+            scoring_guide_checks.c.model_config_id == model_config_id,
+        )
+    )
+    return found is not None
+
+
+async def mark_checked(
+    session: AsyncSession,
+    scoring_guide_version_id: uuid.UUID,
+    model_config_id: uuid.UUID,
+    *,
+    control_test_id: uuid.UUID,
+    now: datetime,
+) -> bool:
+    """Record that the Control test `control_test_id` checked this Scoring guide version with this
+    model config (Story 12.10, FR-81, AD-27), in the caller's transaction. Called only by
+    `assessment`, with the last submitted human score. False (nothing written) when the pair is
+    checked already: the first check stays, and a check is never taken back."""
+    found = await session.execute(
+        insert(scoring_guide_checks)
+        .values(
+            scoring_guide_id=scoring_guide_version_id,
+            model_config_id=model_config_id,
+            control_test_id=control_test_id,
+            checked_at=now,
+        )
+        .on_conflict_do_nothing(constraint="pk_scoring_guide_checks")
+        .returning(scoring_guide_checks.c.scoring_guide_id)
+    )
+    return found.first() is not None
 
 
 async def starting_task_pin(session: AsyncSession, _class_session: Any) -> dict[str, int]:

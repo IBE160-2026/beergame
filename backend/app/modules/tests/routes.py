@@ -35,6 +35,7 @@ from app.modules.tests import (
     attempt,
     blind,
     commands,
+    control_results,
     guide,
     preview,
     selection,
@@ -44,6 +45,7 @@ from app.modules.tests.schemas import (
     AdaptedPreviewOut,
     AnswerIn,
     AssessmentListOut,
+    ControlResultsOut,
     DeadlineExtensionIn,
     FinalIn,
     HumanScoreIn,
@@ -728,6 +730,27 @@ async def remove_scorer(
         found = await blind.remove_scorer(
             user, _admin_id(session_id), _admin_id(user_id), auth.utcnow()
         )
+    except blind.ControlTestNotFound:
+        return _no_control_test()
+    return JSONResponse(found.model_dump(mode="json"), headers=_PERSONAL)
+
+
+@router.get(
+    "/admin/control-tests/{session_id}/results",
+    response_model=ControlResultsOut,
+    responses=documented(401, 403, 404),
+    operation_id="controlTestResults",
+)
+async def control_test_results(
+    session_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("control_tests.manage"))],
+) -> Response:
+    """The Control test's results (Story 12.10, FR-82, AD-27): each listed answer's human and AI
+    steps side by side and the agreement measures, preliminary while scores are missing; the AI
+    steps and measures are withheld from an Admin who is a named scorer with answers still to
+    score. Admin only; each read is audited. 404 `not_found` for no such Control test."""
+    try:
+        found = await control_results.results(user, _admin_id(session_id), auth.utcnow())
     except blind.ControlTestNotFound:
         return _no_control_test()
     return JSONResponse(found.model_dump(mode="json"), headers=_PERSONAL)

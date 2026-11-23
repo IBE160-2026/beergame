@@ -148,13 +148,13 @@ async def test_the_load_refuses_other_shape_errors_as_invalid_record_and_publish
     assert await cli.load(tmp_path) == (["scoring_guide unchanged (v2)"], [])
 
 
-async def test_no_version_is_checked_before_the_control_test_exists():
-    """AD-27: `is_checked` is the only answer, False in this epic, and no table holds it."""
+async def test_no_version_is_checked_until_a_control_test_marks_it():
+    """AD-27: `is_checked` is the only answer; a version no Control test checked (Story 12.10
+    writes `scoring_guide_checks`) is unchecked, and so is any version with no model config."""
     record = await content.latest_version("scoring_guide")
     assert record == 1
     assert await content.is_checked(uuid.uuid4(), None) is False
     assert await content.is_checked(uuid.uuid4(), uuid.uuid4()) is False
-    assert rows("SELECT to_regclass('scoring_guide_checks')") == [(None,)]
 
 
 # The block.

@@ -868,11 +868,13 @@ def control_test_session_ids() -> Select[tuple[uuid.UUID]]:
 @dataclass(frozen=True)
 class ControlTestFacts:
     """A Control test as its scorers see it (Story 12.9): the Class's name and the Class
-    session's Test deadline, after which its answers are scored."""
+    session's Test deadline, after which its answers are scored; and (Story 12.10) the model
+    config under test, pinned at creation."""
 
     id: uuid.UUID
     name: str
     test_deadline: datetime
+    model_config_id: uuid.UUID | None = None
 
 
 async def control_test_facts(
@@ -888,7 +890,9 @@ async def control_test_facts(
     for row in kept:
         fact = names.get(row["class_id"])
         if fact is not None:
-            found[row["id"]] = ControlTestFacts(row["id"], fact.name, row["test_deadline"])
+            found[row["id"]] = ControlTestFacts(
+                row["id"], fact.name, row["test_deadline"], row["model_config_id"]
+            )
     return found
 
 

@@ -35,6 +35,9 @@ export const ADMIN_CONTROL_TESTS_PATH = "/admin/kontrolltest";
 /** «Sensorer» of one Control test in the Admin-område (Story 12.9). */
 export const controlTestScorersPath = (id: string) => `${ADMIN_CONTROL_TESTS_PATH}/${encodeURIComponent(id)}`;
 
+/** «Resultater» of one Control test in the Admin-område (Story 12.10). */
+export const controlTestResultsPath = (id: string) => `${controlTestScorersPath(id)}/resultater`;
+
 /** «Sensur av Kontrolltest» (Story 12.9): the Control tests a named scorer scores, reached from
  * their own home; one Control test's answers, and one answer. */
 export const SCORING_PATH = "/sensur";

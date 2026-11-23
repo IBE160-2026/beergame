@@ -28,7 +28,7 @@ from datetime import datetime
 from typing import Any
 
 import structlog
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.assessment import service as assessment
@@ -36,7 +36,7 @@ from app.modules.content import service as content
 from app.modules.content.schemas import QuestionSet
 from app.modules.identity import service as identity
 from app.modules.sessions import service as sessions
-from app.modules.tests import assessed
+from app.modules.tests import assessed, guide
 from app.modules.tests.adapted import ADAPTED
 from app.modules.tests.models import test_answers, test_attempts
 from app.modules.tests.schemas import (
@@ -59,6 +59,7 @@ from app.platform.db import get_sessionmaker
 
 __all__ = [
     "ANSWERS_READ",
+    "GUIDE_CHECKED",
     "SCORER_NAMED",
     "SCORER_REMOVED",
     "AnswerNotFound",
@@ -67,7 +68,9 @@ __all__ = [
     "ScorerRefused",
     "answer",
     "answers",
+    "entries",
     "my_tests",
+    "open_attempts",
     "name_scorer",
     "remove_scorer",
     "scorers",
@@ -80,6 +83,10 @@ SCORER_NAMED = "control_test.scorer_named"
 SCORER_REMOVED = "control_test.scorer_removed"
 ANSWERS_READ = "control_test.answers_read"
 """The audit actions of Story 12.9 (AD-15): ids only."""
+GUIDE_CHECKED = "control_test.checked"
+"""Story 12.10: the last score (or a removal) made the Control test complete and its Scoring
+guide version checked for its model config (ids only; `first` False when the pair was checked by
+another Control test before)."""
 
 
 class AnswerNotFound(Exception):
@@ -113,6 +120,8 @@ class _Entry:
     type: str
     question: str
     frozen: Mapping[str, Any]
+    words: int = 0
+    """The answer's word count (Story 12.10: agreement by answer length)."""
     number: int = 0
 
     @property
@@ -193,12 +202,39 @@ async def _entries(s: AsyncSession, class_session_id: uuid.UUID) -> list[_Entry]
             by_id = {i.id: i for i in (*sets[version].items, *sets[version].replacements)}
             item = by_id.get(row.item_id)
             question = item.title if item is not None else ""
-        found.append(_Entry(row.id, row.attempt_id, row.item_id, frozen["type"], question, frozen))
+        found.append(
+            _Entry(
+                row.id,
+                row.attempt_id,
+                row.item_id,
+                frozen["type"],
+                question,
+                frozen,
+                len(row.value.split()),
+            )
+        )
     found.sort(key=lambda each: (each.item_id, each.ref))
     return [
-        _Entry(e.answer_id, e.attempt_id, e.item_id, e.type, e.question, e.frozen, number)
+        _Entry(e.answer_id, e.attempt_id, e.item_id, e.type, e.question, e.frozen, e.words, number)
         for number, e in enumerate(found, start=1)
     ]
+
+
+async def entries(s: AsyncSession, class_session_id: uuid.UUID) -> list[_Entry]:
+    """The Control test's listed answers, numbered (Story 12.10's results read the same list)."""
+    return await _entries(s, class_session_id)
+
+
+async def open_attempts(s: AsyncSession, class_session_id: uuid.UUID) -> int:
+    """How many attempts of the Control test are still open (an extension, a timed sitting): its
+    answers are not listed yet, so the Control test is not complete (Story 12.10)."""
+    found = await s.scalar(
+        select(func.count()).where(
+            test_attempts.c.class_session_id == class_session_id,
+            test_attempts.c.closed_at.is_(None),
+        )
+    )
+    return int(found or 0)
 
 
 async def _reader(
@@ -329,6 +365,39 @@ async def answer(
         return await _item(s, reader, user, entry, now)
 
 
+async def _audit_complete(
+    s: AsyncSession,
+    user: authz.Principal,
+    test: sessions.ControlTestFacts,
+    scoring_guide_id: uuid.UUID,
+    recorded: assessment.RecordedScore,
+    now: datetime,
+) -> None:
+    """One `control_test.checked` audit row when the Control test became complete (`first`:
+    whether it wrote the pair's check, False when another Control test checked it before)."""
+    if not recorded.complete:
+        return
+    await audit.record(
+        s,
+        user.id,
+        GUIDE_CHECKED,
+        {"class_session_id": test.id},
+        {
+            "scoring_guide_id": str(scoring_guide_id),
+            "model_config_id": str(test.model_config_id),
+            "first": recorded.checked,
+        },
+        now,
+    )
+    log.info(
+        "scoring_guide_checked",
+        class_session_id=str(test.id),
+        scoring_guide_id=str(scoring_guide_id),
+        model_config_id=str(test.model_config_id),
+        first=recorded.checked,
+    )
+
+
 async def submit(
     user: authz.Principal,
     class_session_id: uuid.UUID,
@@ -343,9 +412,34 @@ async def submit(
         reader = await _reader(s, user, class_session_id)
         if reader is None or not reader.scorer:
             return None
-        entry = await _entry(s, reader, ref, now)
+        if now < reader.test.test_deadline:
+            raise AnswerNotFound
+        # The scorer rows first, then the answers: a concurrent last score waits here and then
+        # reads this one.
+        named = await assessment.hold_scorers(s, class_session_id)
+        listed = await _entries(s, class_session_id)
+        entry = next((e for e in listed if e.ref == ref), None)
+        if entry is None:
+            raise AnswerNotFound
         answer_id = entry.answer_id
-        if not await assessment.insert_human_score(s, answer_id, user.id, score, now=now):
+        in_force = await guide.in_force(s, class_session_id)
+        try:
+            recorded = await assessment.record_human_score(
+                s,
+                class_session_id,
+                answer_id,
+                user.id,
+                score,
+                named=named,
+                listed=[e.answer_id for e in listed],
+                settled=await open_attempts(s, class_session_id) == 0,
+                scoring_guide_id=in_force.record.id,
+                model_config_id=reader.test.model_config_id,
+                now=now,
+            )
+        except assessment.ScorerNotNamed:
+            return None
+        if not recorded.stored:
             log.info(
                 "human_score_refused", answer_id=str(answer_id), error_code="human_score_exists"
             )
@@ -355,6 +449,7 @@ async def submit(
             class_session_id=str(class_session_id),
             answer_id=str(answer_id),
         )
+        await _audit_complete(s, user, reader.test, in_force.record.id, recorded, now)
         # The answer it gives back is a read too: an Admin who is a named scorer is audited.
         await _audit_read(s, reader, user, now, entry)
         return await _item(s, reader, user, entry, now)
@@ -437,6 +532,7 @@ async def remove_scorer(
     Removing one not named writes nothing. Raises `ControlTestNotFound`."""
     async with get_sessionmaker().begin() as s:
         facts = await _control_test(s, class_session_id)
+        await assessment.hold_scorers(s, class_session_id)
         if await assessment.remove_scorer(s, class_session_id, user_id):
             await audit.record(
                 s,
@@ -447,4 +543,17 @@ async def remove_scorer(
                 now,
             )
             log.info("scorer_removed", class_session_id=str(class_session_id), user_id=str(user_id))
+            # The scorers left may now have scored everything (Story 12.10).
+            if now >= facts.test_deadline:
+                in_force = await guide.in_force(s, class_session_id)
+                settled = await assessment.settle_after_removal(
+                    s,
+                    class_session_id,
+                    listed=[e.answer_id for e in await _entries(s, class_session_id)],
+                    settled=await open_attempts(s, class_session_id) == 0,
+                    scoring_guide_id=in_force.record.id,
+                    model_config_id=facts.model_config_id,
+                    now=now,
+                )
+                await _audit_complete(s, user, facts, in_force.record.id, settled, now)
         return await _scorers_out(s, facts, now)

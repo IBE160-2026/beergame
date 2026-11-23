@@ -119,6 +119,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/control-tests/{session_id}/results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Control Test Results
+         * @description The Control test's results (Story 12.10, FR-82, AD-27): each listed answer's human and AI
+         *     steps side by side and the agreement measures, preliminary while scores are missing; the AI
+         *     steps and measures are withheld from an Admin who is a named scorer with answers still to
+         *     score. Admin only; each read is audited. 404 `not_found` for no such Control test.
+         */
+        get: operations["controlTestResults"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/control-tests/{session_id}/scorers": {
         parameters: {
             query?: never;
@@ -3597,6 +3620,26 @@ export interface components {
             time_factor: number;
         };
         /**
+         * AgreementOut
+         * @description The FR-82 measures from `analysis.agreement`: shares 0 to 1, `offset` in steps (positive:
+         *     the AI scores higher), `compression` the AI's spread over the humans' (under 1: compressed;
+         *     null: the human steps do not vary).
+         */
+        AgreementOut: {
+            /** By Length */
+            by_length: components["schemas"]["LengthBandOut"][];
+            /** Compression */
+            compression: number | null;
+            /** Exact */
+            exact: number | null;
+            /** Offset */
+            offset: number | null;
+            /** Pairs */
+            pairs: number;
+            /** Within One */
+            within_one: number | null;
+        };
+        /**
          * AiAssessmentOut
          * @description The «KI-vurdering» switch of a Class session (Story 12.1, FR-61), stored by
          *     `modules/assessment`.
@@ -4513,6 +4556,37 @@ export interface components {
          * @enum {string}
          */
         ConsentStatus: "given" | "declined" | "pending";
+        /**
+         * ControlResultsOut
+         * @description `GET /api/admin/control-tests/{id}/results`. `missing`: human scores the named scorers
+         *     still owe; `ai_missing`: listed answers with no AI step; `open_attempts`: attempts not closed
+         *     yet. `complete` when there is a named scorer, a listed answer, no open attempt and nothing
+         *     missing; otherwise the measures are preliminary. `checked`: the pinned guide version is checked
+         *     for the pinned model config. `withheld`: the reader is a named scorer with answers still to
+         *     score, so every AI step and the measures are left out (AD-27).
+         */
+        ControlResultsOut: {
+            ai_config: components["schemas"]["ResultsConfigOut"] | null;
+            /** Ai Missing */
+            ai_missing: number;
+            /** Checked */
+            checked: boolean;
+            /** Complete */
+            complete: boolean;
+            measures: components["schemas"]["AgreementOut"] | null;
+            /** Missing */
+            missing: number;
+            /** Open Attempts */
+            open_attempts: number;
+            /** Rows */
+            rows: components["schemas"]["ResultsRowOut"][];
+            /** Scorers */
+            scorers: components["schemas"]["ResultsScorerOut"][];
+            scoring_guide: components["schemas"]["ResultsGuideOut"];
+            test: components["schemas"]["ScoringTestOut"];
+            /** Withheld */
+            withheld: boolean;
+        };
         /**
          * ControlTestConfigOut
          * @description A model config: its name and model version; `default` for the active default.
@@ -5966,6 +6040,27 @@ export interface components {
             waiting: components["schemas"]["WaitingClass"][];
         };
         /**
+         * LengthBandOut
+         * @description Agreement over the pairs of one answer-length band (`max_words` null: no upper end).
+         */
+        LengthBandOut: {
+            /**
+             * Band
+             * @enum {string}
+             */
+            band: "short" | "medium" | "long";
+            /** Exact */
+            exact: number | null;
+            /** Max Words */
+            max_words: number | null;
+            /** Min Words */
+            min_words: number;
+            /** Pairs */
+            pairs: number;
+            /** Within One */
+            within_one: number | null;
+        };
+        /**
          * LetterChoiceIn
          * @description Story 12.6: the Student's «Veiledende bokstav» Bryter for their own view, on or off.
          */
@@ -7278,6 +7373,57 @@ export interface components {
         ResetTokenIn: {
             /** Token */
             token: string;
+        };
+        /**
+         * ResultsConfigOut
+         * @description The model config the Control test is pinned to.
+         */
+        ResultsConfigOut: {
+            /** Model Version */
+            model_version: string;
+            /** Name */
+            name: string;
+        };
+        /**
+         * ResultsGuideOut
+         * @description The Scoring guide version the Control test is pinned to.
+         */
+        ResultsGuideOut: {
+            /** Edited */
+            edited: boolean;
+            /** Version */
+            version: number;
+        };
+        /**
+         * ResultsRowOut
+         * @description One listed answer: «Svar N», its item type, question and word count, each named scorer's
+         *     step (null: not scored yet) in the order of `scorers`, and the AI's step (null: none stored,
+         *     or withheld).
+         */
+        ResultsRowOut: {
+            /** Ai */
+            ai: number | null;
+            /** Human */
+            human: (number | null)[];
+            /** Number */
+            number: number;
+            /** Question */
+            question: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "long" | "adapted";
+            /** Words */
+            words: number;
+        };
+        /**
+         * ResultsScorerOut
+         * @description A named scorer, a column of the side-by-side table (in the order they were named).
+         */
+        ResultsScorerOut: {
+            /** Name */
+            name: string;
         };
         /**
          * RevealOut
@@ -9528,6 +9674,64 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    controlTestResults: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ControlResultsOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

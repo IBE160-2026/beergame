@@ -77,10 +77,20 @@ writes one score per answer and scorer once (a second is refused, and a trigger 
 update); `human_scores_by` and `score_counts` read them back. The caller (`tests.scoring`) has
 judged access through `platform/authz` and writes the audit rows.
 
+Story 12.10 (FR-81, AD-27): `record_human_score` is how a scorer's score is stored. The caller
+first holds the Control test's scorer rows (`hold_scorers`, so two last scores never miss each
+other) and then reads the listed answers; it refuses a scorer no longer named, inserts once and,
+when every named scorer has now scored every listed answer and no attempt is still open, calls
+`content.service.mark_checked` for the pinned Scoring guide version and model config in the same
+transaction: this module is its only caller. `settle_after_removal` does the same when a removal
+leaves the remaining scorers complete.
+`scores_of` reads every score of the listed answers for the results page.
+
 No answer text, guide text or score is logged: ids, counts and codes only.
 
 This module imports no feature module but `progress.service` (AD-16: any module records a step
-through it): `sessions` and `tests` call it, never the other way round, and the Admins come
+through it) and `content.service` (Story 12.10, AD-27: the checked mark; `content` imports no
+feature module): `sessions` and `tests` call it, never the other way round, and the Admins come
 through the reader `sessions` registers."""
 
 import uuid
@@ -111,6 +121,7 @@ from app.modules.assessment.models import (
     control_test_scorers,
     human_scores,
 )
+from app.modules.content import service as content
 from app.modules.progress import service as progress
 from app.platform import audit, auth, events, jobs, notify
 from app.platform.config import get_settings
@@ -167,6 +178,12 @@ __all__ = [
     "HumanScore",
     "human_scores_by",
     "insert_human_score",
+    "hold_scorers",
+    "record_human_score",
+    "RecordedScore",
+    "ScorerNotNamed",
+    "scores_of",
+    "settle_after_removal",
     "name_scorer",
     "remove_scorer",
     "score_counts",
@@ -1635,3 +1652,138 @@ async def score_counts(
         .group_by(human_scores.c.scorer_id)
     )
     return {scorer: int(count) for scorer, count in found.all()}
+
+
+class ScorerNotNamed(Exception):
+    """The scorer was taken off the Control test before their score was stored (403)."""
+
+
+@dataclass(frozen=True)
+class RecordedScore:
+    """What `record_human_score` (or `settle_after_removal`) did: whether the score was stored
+    (False: scored already), whether the Control test is now complete, and whether that wrote the
+    pair's check (False when another Control test checked the pair first)."""
+
+    stored: bool
+    complete: bool = False
+    checked: bool = False
+
+
+async def hold_scorers(s: AsyncSession, class_session_id: uuid.UUID) -> set[uuid.UUID]:
+    """The Control test's named scorers, their rows held until the transaction ends (Story
+    12.10): a score submit and a removal take this first, so two last steps never miss each
+    other. The caller reads the listed answers after it."""
+    return set(
+        await s.scalars(
+            select(control_test_scorers.c.user_id)
+            .where(control_test_scorers.c.class_session_id == class_session_id)
+            .with_for_update()
+        )
+    )
+
+
+async def _settle(
+    s: AsyncSession,
+    class_session_id: uuid.UUID,
+    named: set[uuid.UUID],
+    *,
+    listed: list[uuid.UUID],
+    settled: bool,
+    scoring_guide_id: uuid.UUID,
+    model_config_id: uuid.UUID | None,
+    now: datetime,
+) -> tuple[bool, bool]:
+    """(complete, checked): when the Control test has a named scorer, a listed answer, no open
+    attempt (`settled`), a pinned model config and every named scorer's score of every listed
+    answer, the pinned guide version is marked checked for the config."""
+    if not named or not listed or not settled or model_config_id is None:
+        return False, False
+    counts = await score_counts(s, list(named), listed)
+    unique = len(set(listed))
+    if any(counts.get(each, 0) < unique for each in named):
+        return False, False
+    marked = await content.mark_checked(
+        s, scoring_guide_id, model_config_id, control_test_id=class_session_id, now=now
+    )
+    return True, marked
+
+
+async def record_human_score(
+    s: AsyncSession,
+    class_session_id: uuid.UUID,
+    answer_id: uuid.UUID,
+    scorer_id: uuid.UUID,
+    score: int,
+    *,
+    named: set[uuid.UUID],
+    listed: list[uuid.UUID],
+    settled: bool,
+    scoring_guide_id: uuid.UUID,
+    model_config_id: uuid.UUID | None,
+    now: datetime,
+) -> RecordedScore:
+    """Store the scorer's score of one answer of the Control test, once, in the caller's
+    transaction (Story 12.9, Story 12.10, FR-81, AD-27). `named` comes from `hold_scorers`, taken
+    before the caller read `listed` (every answer to score) and `settled` (no attempt open).
+    Raises `ScorerNotNamed` when `scorer_id` is no longer named (nothing written). When this
+    score completes the Control test, the pinned Scoring guide version is marked checked for the
+    model config (`content.service.mark_checked`)."""
+    if scorer_id not in named:
+        raise ScorerNotNamed
+    if not await insert_human_score(s, answer_id, scorer_id, score, now=now):
+        return RecordedScore(stored=False)
+    complete, checked = await _settle(
+        s,
+        class_session_id,
+        named,
+        listed=listed,
+        settled=settled,
+        scoring_guide_id=scoring_guide_id,
+        model_config_id=model_config_id,
+        now=now,
+    )
+    return RecordedScore(stored=True, complete=complete, checked=checked)
+
+
+async def settle_after_removal(
+    s: AsyncSession,
+    class_session_id: uuid.UUID,
+    *,
+    listed: list[uuid.UUID],
+    settled: bool,
+    scoring_guide_id: uuid.UUID,
+    model_config_id: uuid.UUID | None,
+    now: datetime,
+) -> RecordedScore:
+    """After a scorer was taken off, in the same transaction: when the scorers left have scored
+    every listed answer, the Control test is complete and its guide checked, as after a last
+    score (Story 12.10). Removing the last scorer completes nothing."""
+    named = await hold_scorers(s, class_session_id)
+    complete, checked = await _settle(
+        s,
+        class_session_id,
+        named,
+        listed=listed,
+        settled=settled,
+        scoring_guide_id=scoring_guide_id,
+        model_config_id=model_config_id,
+        now=now,
+    )
+    return RecordedScore(stored=False, complete=complete, checked=checked)
+
+
+async def scores_of(
+    s: AsyncSession, answer_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, dict[uuid.UUID, int]]:
+    """Every human score of these answers: answer id → scorer id → step (Story 12.10)."""
+    if not answer_ids:
+        return {}
+    found: dict[uuid.UUID, dict[uuid.UUID, int]] = {}
+    rows = await s.execute(
+        select(human_scores.c.answer_id, human_scores.c.scorer_id, human_scores.c.score).where(
+            human_scores.c.answer_id.in_(answer_ids)
+        )
+    )
+    for row in rows:
+        found.setdefault(row.answer_id, {})[row.scorer_id] = row.score
+    return found
