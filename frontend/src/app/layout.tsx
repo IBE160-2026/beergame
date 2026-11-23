@@ -7,6 +7,7 @@ import "@fontsource/source-sans-3/600.css";
 import "@fontsource/source-sans-3/700.css";
 import "./globals.css";
 
+import { SiteFooter } from "@/components/site-footer";
 import { nb } from "@/copy/nb";
 
 import { Providers } from "./providers";
@@ -19,7 +20,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="nb">
       <body>
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          <SiteFooter />
+        </Providers>
       </body>
     </html>
   );

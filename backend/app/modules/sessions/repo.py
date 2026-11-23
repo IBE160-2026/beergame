@@ -120,6 +120,67 @@ async def sessions_of(session: AsyncSession, class_id: uuid.UUID) -> list[RowMap
     return list(result.mappings())
 
 
+async def evaluation_rows(
+    session: AsyncSession, ids: list[uuid.UUID] | None = None
+) -> list[RowMapping]:
+    """The saved Class sessions (or these ones, saved or not) with their numbers, Classes, Start
+    dates and Test deadlines, for the Admin's evaluation export (Story 15.4): no User's scope,
+    the Admin names Class sessions by id and sees no Student data here."""
+    query = select(
+        _numbered.c.id,
+        _numbered.c.class_id,
+        _numbered.c.number,
+        _numbered.c.start_at,
+        _numbered.c.test_deadline,
+        _numbered.c.deletion_date,
+    ).order_by(_numbered.c.id.desc())
+    if ids is None:
+        query = query.where(_numbered.c.saved_at.is_not(None))
+    else:
+        query = query.where(_numbered.c.id.in_(ids))
+    return list((await session.execute(query)).mappings())
+
+
+async def model_setting_rows(
+    session: AsyncSession, ids: list[uuid.UUID] | None = None
+) -> list[RowMapping]:
+    """The saved Class sessions (or these ones, saved or not) with their model setting, newest
+    first, for the Admin's «KI-kostnad» (Story 15.5): AI mode, model config, Effort level, the
+    lock and the snapshot's `session_runtime`. No User's scope and no Student data."""
+    query = select(
+        _numbered.c.id,
+        _numbered.c.class_id,
+        _numbered.c.number,
+        _numbered.c.start_at,
+        _numbered.c.locked_at,
+        _numbered.c.ai_mode,
+        _numbered.c.model_config_id,
+        _numbered.c.effort_level,
+        _numbered.c.kind,
+        _numbered.c.snapshot["session_runtime"].label("session_runtime"),
+    ).order_by(_numbered.c.id.desc())
+    if ids is None:
+        query = query.where(_numbered.c.saved_at.is_not(None))
+    else:
+        query = query.where(_numbered.c.id.in_(ids))
+    return list((await session.execute(query)).mappings())
+
+
+async def set_model_config(
+    session: AsyncSession,
+    session_id: uuid.UUID,
+    *,
+    model_config_id: uuid.UUID,
+    effort_level: str | None,
+) -> None:
+    """The Admin's pin (Story 15.5): the model config and the Effort level in force with it."""
+    await session.execute(
+        update(class_sessions)
+        .where(class_sessions.c.id == session_id)
+        .values(model_config_id=model_config_id, effort_level=effort_level)
+    )
+
+
 async def enrolled_sessions(session: AsyncSession, user: authz.Principal) -> list[RowMapping]:
     """The sessions of the Classes `user` is a Student in (`authz.classes_enrolled_by`), with
     their numbers: dates and the obligatory mark, and the settings and the snapshot's settings
@@ -672,6 +733,64 @@ async def set_deletion_date(
     )
 
 
+async def session_ids_of_classes(
+    session: AsyncSession, class_ids: list[uuid.UUID]
+) -> list[uuid.UUID]:
+    """Story 15.3: every Class session of these Classes, by id."""
+    if not class_ids:
+        return []
+    result = await session.execute(
+        select(class_sessions.c.id)
+        .where(class_sessions.c.class_id.in_(class_ids))
+        .order_by(class_sessions.c.id)
+    )
+    return list(result.scalars())
+
+
+async def retention_rows_of_classes(
+    session: AsyncSession, class_ids: list[uuid.UUID]
+) -> list[RowMapping]:
+    """Story 15.3: `id`, `class_id`, `deletion_date` and `data_deleted_at` of every Class session
+    of these Classes."""
+    if not class_ids:
+        return []
+    result = await session.execute(
+        select(
+            class_sessions.c.id,
+            class_sessions.c.class_id,
+            class_sessions.c.deletion_date,
+            class_sessions.c.data_deleted_at,
+        ).where(class_sessions.c.class_id.in_(class_ids))
+    )
+    return list(result.mappings())
+
+
+async def due_retention(session: AsyncSession, today: date) -> list[uuid.UUID]:
+    """Story 15.3: the Class sessions whose deletion date has come (on or before `today`) and
+    whose Student data retention has not finished deleting: by id, the earliest date first."""
+    result = await session.execute(
+        select(class_sessions.c.id)
+        .where(
+            class_sessions.c.deletion_date.is_not(None),
+            class_sessions.c.deletion_date <= today,
+            class_sessions.c.data_deleted_at.is_(None),
+        )
+        .order_by(class_sessions.c.deletion_date, class_sessions.c.id)
+    )
+    return list(result.scalars())
+
+
+async def mark_data_deleted(
+    session: AsyncSession, class_session_id: uuid.UUID, now: datetime
+) -> None:
+    """Story 15.3: set `data_deleted_at` once; a repeat keeps the first time."""
+    await session.execute(
+        update(class_sessions)
+        .where(class_sessions.c.id == class_session_id, class_sessions.c.data_deleted_at.is_(None))
+        .values(data_deleted_at=now)
+    )
+
+
 async def due_deletion_reminders(
     session: AsyncSession, today: date, ahead: timedelta
 ) -> list[uuid.UUID]:
@@ -821,3 +940,25 @@ async def save_adjustment(session: AsyncSession, **values: Any) -> None:
             },
         )
     )
+
+
+async def delete_adjustments_of(
+    session: AsyncSession, user_id: uuid.UUID, scope: uuid.UUID | None = None
+) -> None:
+    """Drop the Student's Tilrettelegging in every Class session (Story 15.2, FR-76), or in the
+    one Class session `scope` (Story 15.3, retention)."""
+    mine = student_adjustments.c.user_id == user_id
+    if scope is not None:
+        mine = mine & (student_adjustments.c.class_session_id == scope)
+    await session.execute(delete(student_adjustments).where(mine))
+
+
+async def delete_extensions_of(
+    session: AsyncSession, user_id: uuid.UUID, scope: uuid.UUID | None = None
+) -> None:
+    """Drop the Student's own Test and Debrief deadlines in every Class session (Story 15.2 after
+    Story 11.13), or in the one Class session `scope` (Story 15.3, retention)."""
+    mine = student_deadline_extensions.c.user_id == user_id
+    if scope is not None:
+        mine = mine & (student_deadline_extensions.c.class_session_id == scope)
+    await session.execute(delete(student_deadline_extensions).where(mine))

@@ -28,11 +28,12 @@ from typing import Annotated, Any, Literal
 from urllib.parse import parse_qsl, urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, ValidationError
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select, text, update
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.db import transaction
-from app.ai.models import default_pins, effort_measurements, model_configs
+from app.ai.models import default_pins, effort_measurements, model_configs, model_freezes
 from app.platform.config import get_settings
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
@@ -818,8 +819,16 @@ async def active_default(*, session: AsyncSession | None = None) -> ModelConfig 
     """The config of the newest pin that offers an Effort level in this environment, or None.
     A pin whose config offers nothing here (the seeded mock config once `APP_ENV=production`,
     a real config whose key is not set) is passed over, so a Class session is never handed a
-    default it cannot use."""
+    default it cannot use.
+
+    While a study freeze is active (Story 15.5) its config is the default, or None when it
+    offers nothing here: a frozen study never falls back to another model (FR-68)."""
     async with transaction(session) as s:
+        frozen = await active_freeze(session=s)
+        if frozen is not None:
+            if await offered_effort_levels(frozen.model_config_id, session=s):
+                return await get(frozen.model_config_id, session=s)
+            return None
         rows = (
             await s.execute(
                 select(default_pins.c.model_config_id).order_by(
@@ -835,3 +844,198 @@ async def active_default(*, session: AsyncSession | None = None) -> ModelConfig 
             if await offered_effort_levels(row.model_config_id, session=s):
                 return await get(row.model_config_id, session=s)
     return None
+
+
+# --- The Admin's model settings: catalogue and study freeze (Story 15.5) ---------------------
+
+
+async def measured_levels(
+    config_id: uuid.UUID | str, *, session: AsyncSession | None = None
+) -> list[str]:
+    """The Effort levels of a config, in its order, with a measurement that counts in this
+    environment, whether or not its endpoint may answer here: what makes a config pinnable to a
+    Class session (FR-78). A config whose key is missing stays pinnable; the page warns."""
+    async with transaction(session) as s:
+        found = await get(config_id, session=s)
+        if found is None:
+            raise ConfigNotFound(config_id)
+        rows = await measurements(found.id, session=s)
+    app_env = get_settings().app_env
+    counted = {row.effort_level for row in rows if _counts(row, app_env)}
+    return [level.name for level in found.spec.effort_levels if level.name in counted]
+
+
+@dataclass(frozen=True)
+class CatalogueLevel:
+    """One Effort level of a config as the Admin's «KI-kostnad» lists it."""
+
+    level: EffortLevel
+    offered: bool
+    """Offered to a Class session here (`offered_effort_levels`)."""
+    measurement: EffortMeasurement | None
+    """The newest measurement that counts here, or None: the figures exactly as stored."""
+
+
+@dataclass(frozen=True)
+class CatalogueEntry:
+    config: ModelConfig
+    may_answer: bool
+    active_default: bool
+    levels: list[CatalogueLevel]
+
+
+async def catalogue(*, session: AsyncSession | None = None) -> list[CatalogueEntry]:
+    """Every config, oldest first, with its Effort levels and their newest counting measurement
+    (Story 15.5, FR-68, FR-78): the figures of `effort_measurements` as stored, so no figure is
+    computed a second way."""
+    app_env = get_settings().app_env
+    async with transaction(session) as s:
+        configs = await list_all(session=s)
+        default = await active_default(session=s)
+        rows = (
+            await s.execute(
+                select(effort_measurements).order_by(
+                    effort_measurements.c.approved_at.desc(), effort_measurements.c.id.desc()
+                )
+            )
+        ).all()
+        offered = {
+            found.id: {level.name for level in await offered_effort_levels(found.id, session=s)}
+            for found in configs
+        }
+    newest: dict[tuple[uuid.UUID, str], EffortMeasurement] = {}
+    for row in rows:
+        measurement = _measurement(row)
+        if _counts(measurement, app_env):
+            newest.setdefault((measurement.model_config_id, measurement.effort_level), measurement)
+    return [
+        CatalogueEntry(
+            config=found,
+            may_answer=may_answer(found),
+            active_default=default is not None and default.id == found.id,
+            levels=[
+                CatalogueLevel(
+                    level, level.name in offered[found.id], newest.get((found.id, level.name))
+                )
+                for level in found.spec.effort_levels
+            ],
+        )
+        for found in configs
+    ]
+
+
+async def config_labels(ids: Sequence[uuid.UUID]) -> dict[uuid.UUID, str]:
+    """«mock-two · mock-1» per config id, for the audit page's `model_config_id` targets."""
+    async with transaction(None) as s:
+        rows = (
+            await s.execute(
+                select(
+                    model_configs.c.id, model_configs.c.name, model_configs.c.model_version
+                ).where(model_configs.c.id.in_(list(ids)))
+            )
+        ).all()
+    return {row.id: f"{row.name} · {row.model_version}" for row in rows}
+
+
+@dataclass(frozen=True)
+class Freeze:
+    """A learning study's freeze of one model config (Story 15.5)."""
+
+    id: uuid.UUID
+    model_config_id: uuid.UUID
+    class_session_ids: tuple[uuid.UUID, ...]
+    frozen_at: datetime
+    lifted_at: datetime | None
+
+
+class FreezeNotFound(Exception):
+    def __init__(self, freeze_id: object) -> None:
+        self.code = "freeze_not_found"
+        super().__init__(f"no freeze {freeze_id!s}")
+
+
+def _freeze(row: Any) -> Freeze:
+    return Freeze(
+        row.id, row.model_config_id, tuple(row.class_session_ids), row.frozen_at, row.lifted_at
+    )
+
+
+async def active_freeze(*, session: AsyncSession | None = None) -> Freeze | None:
+    """The freeze in force, or None."""
+    async with transaction(session) as s:
+        row = (
+            await s.execute(select(model_freezes).where(model_freezes.c.lifted_at.is_(None)))
+        ).one_or_none()
+    return None if row is None else _freeze(row)
+
+
+async def freeze(
+    config_id: uuid.UUID | str,
+    class_session_ids: Sequence[uuid.UUID],
+    *,
+    now: datetime,
+    session: AsyncSession | None = None,
+) -> Freeze:
+    """Freeze a config for a learning study (FR-68): mark it referenced, so an edit makes a new
+    row, and record the freeze with the Class sessions the caller pins to it. Refused
+    (`ConfigRefused`) with `no_measured_level` when no level is measured here, and with
+    `freeze_active` while another freeze is in force (one at a time, so the default is one)."""
+    async with transaction(session) as s:
+        found = await get(config_id, session=s)
+        if found is None:
+            raise ConfigNotFound(config_id)
+        if not await measured_levels(found.id, session=s):
+            raise ConfigRefused(
+                "no_measured_level", f"model config {found.id} has no measured Effort level here"
+            )
+        await mark_referenced(found.id, session=s)
+        row = (
+            await s.execute(
+                insert(model_freezes)
+                .values(
+                    id=uuid.uuid7(),
+                    model_config_id=found.id,
+                    class_session_ids=list(dict.fromkeys(class_session_ids)),
+                    frozen_at=now,
+                )
+                .on_conflict_do_nothing(
+                    index_elements=[text("(lifted_at IS NULL)")],
+                    index_where=model_freezes.c.lifted_at.is_(None),
+                )
+                .returning(*model_freezes.c)
+            )
+        ).one_or_none()
+        if row is None:
+            raise ConfigRefused("freeze_active", "another freeze is in force; lift it first")
+    return _freeze(row)
+
+
+async def lift_freeze(
+    freeze_id: uuid.UUID | str, *, now: datetime, session: AsyncSession | None = None
+) -> Freeze:
+    """Lift a freeze: new Class sessions take the newest pin again; the Class sessions it pinned
+    keep their config. `FreezeNotFound`, or `ConfigRefused` `freeze_lifted` when lifted already."""
+    key = _uuid(freeze_id)
+    async with transaction(session) as s:
+        row = (
+            None
+            if key is None
+            else (
+                await s.execute(
+                    select(model_freezes).where(model_freezes.c.id == key).with_for_update()
+                )
+            ).one_or_none()
+        )
+        if row is None:
+            raise FreezeNotFound(freeze_id)
+        if row.lifted_at is not None:
+            raise ConfigRefused("freeze_lifted", f"freeze {row.id} was lifted already")
+        row = (
+            await s.execute(
+                update(model_freezes)
+                .where(model_freezes.c.id == row.id)
+                .values(lifted_at=max(now, row.frozen_at))
+                .returning(*model_freezes.c)
+            )
+        ).one()
+    return _freeze(row)

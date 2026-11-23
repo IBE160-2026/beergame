@@ -20,6 +20,8 @@ from app.modules.games import commands as games_commands
 from app.modules.games import service as games
 from app.modules.identity import service as identity
 from app.modules.messaging import service as messaging
+from app.modules.ops import cost_limit, retention, spend_alert
+from app.modules.ops import service as ops_service
 from app.modules.reports import snapshot as report_snapshots
 from app.modules.sessions import service as sessions
 from app.modules.tests import commands as tests_commands
@@ -123,6 +125,11 @@ async def _verify_finished(game_id: object, now: datetime) -> object:
         raise Backoff from exc
     if _failing_checks.pop(game_id, None) is not None:
         log.info("finished_check_recovered", game_id=game_id)
+    if not checked.ok:
+        # Story 15.8 (FR-29, NFR-8): the violation counts under the Game's Class session: a Class
+        # game, a played-out one or a Replay. The sweep only finds Games with no check yet, so
+        # each failed check is counted once.
+        await ops_service.record_game_check_failure(game_id, at=now)
     return checked
 
 
@@ -349,6 +356,13 @@ DUE_ACTIONS: tuple[DueAction, ...] = (
     # Story 9.14 (AD-9): defer the narration job of a Seat again when it was lost (no narration
     # stored ten minutes after its Class game finished).
     DueAction("debrief.narration", debrief.due_narrations, debrief.narrate_due),
+    # Story 15.7 (FR-69): once today's AI spend (Europe/Oslo) passes `AI_DAILY_ALERT_USD`, tell
+    # every active Admin once that day, an immediate notice. Before the deadline reminders, which
+    # stay last.
+    DueAction("ops.daily_spend_alert", spend_alert.due_days, spend_alert.alert_due),
+    # Story 15.6 (FR-69, AD-9): once a Class session's players' limit is reached, tell every owner
+    # of its Class once that its LLM players switched to Rule-based players, a digest notice.
+    DueAction("ops.cost_limit_notice", cost_limit.due_sessions, cost_limit.notice_due),
     # Story 11.8 (AD-9): prepare the Adapted items of each Student through the Replay who has not
     # opened the Individual test, on `llm-batch`, so opening never waits on an LLM call.
     DueAction("tests.prepare_adapted", tests_prepare.due_prepares, tests_prepare.prepare_due),
@@ -372,6 +386,15 @@ DUE_ACTIONS: tuple[DueAction, ...] = (
         "sessions.send_deletion_reminder",
         sessions.due_deletion_reminders,
         sessions.send_deletion_reminder_due,
+    ),
+    # Story 15.3: delete each Class session's Student data once its deletion date has come, one
+    # Student per transaction, aggregates first (FR-77, AD-14); then the Roster addresses an
+    # archived Class with no Class session keeps until its archive time plus the period.
+    DueAction("ops.retention", retention.due_sessions, retention.retain),
+    DueAction(
+        "ops.retention_archived_classes",
+        retention.archived_classes,
+        retention.purge_archived_class,
     ),
 )
 

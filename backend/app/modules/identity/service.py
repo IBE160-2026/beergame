@@ -19,8 +19,9 @@ import structlog
 from sqlalchemy import RowMapping
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.identity import repo, roster_file
+from app.modules.identity import erasure, repo, roster_file
 from app.modules.identity.schemas import (
+    ROLES_KEEP_ONE_ACTIVE,
     ROSTER_PREVIEW_ROWS,
     AccessRequestListOut,
     AccessRequestOut,
@@ -33,6 +34,8 @@ from app.modules.identity.schemas import (
     InvitationListOut,
     InvitationOut,
     InvitationStatus,
+    ProcessingAgreementIn,
+    ProcessingAgreementOut,
     RosterColumn,
     RosterInvalidRow,
     RosterPasteTooLong,
@@ -932,8 +935,6 @@ ROLE_GRANTED = "role.granted"
 """The audit action of a role the Admin grants (FR-3)."""
 ROLE_REVOKED = "role.revoked"
 """The audit action of a role the Admin revokes (FR-3)."""
-ROLES_KEEP_ONE_ACTIVE = frozenset({AccountRole.admin.value})
-"""Roles at least one active User always holds: the product is never left without an Admin."""
 
 RevokeBlocker = Callable[[AsyncSession, uuid.UUID], Awaitable[int]]
 """Asked inside the revoke transaction: how many Classes the User owns that keep the role. Epic 4
@@ -1001,7 +1002,7 @@ async def grant_role(
     role = AccountRole(role)
     async with get_sessionmaker().begin() as s:
         user = await repo.lock_user(s, user_id)
-        if user is None:
+        if user is None or user["deleted_at"] is not None:
             return RoleRefused("not_found")
         if await repo.grant_role(s, user_id, role.value):
             await audit.record(
@@ -1030,7 +1031,7 @@ async def revoke_role(
         # pass the count below.
         await repo.lock_role(s, role.value)
         user = await repo.lock_user(s, user_id)
-        if user is None:
+        if user is None or user["deleted_at"] is not None:
             return RoleRefused("not_found")
         roles = await repo.roles_of(s, user_id)
         if role.value not in set(roles):
@@ -1085,7 +1086,7 @@ async def deactivate_user(
         for role in sorted(ROLES_KEEP_ONE_ACTIVE):
             await repo.lock_role(s, role)
         user = await repo.lock_user(s, user_id)
-        if user is None:
+        if user is None or user["deleted_at"] is not None:
             return StatusRefused("not_found")
         roles = await repo.roles_of(s, user_id)
         if not user["is_active"]:
@@ -1122,7 +1123,7 @@ async def reactivate_user(
     Sessions from before the deactivation stay ended."""
     async with get_sessionmaker().begin() as s:
         user = await repo.lock_user(s, user_id)
-        if user is None:
+        if user is None or user["deleted_at"] is not None:
             return StatusRefused("not_found")
         roles = await repo.roles_of(s, user_id)
         if user["is_active"]:
@@ -1133,6 +1134,33 @@ async def reactivate_user(
         user = await repo.user_by_id(s, user_id)
     log.info("user_reactivated", user_id=str(user_id), action=USER_REACTIVATED)
     return _list_item(user, roles)
+
+
+# Erasing Users (Story 15.2, FR-76, AD-14): the routine lives in `identity.erasure`; the modules
+# that own the rest of a User's data register their part through these names at import.
+
+register_erasure_preparation = erasure.register_erasure_preparation
+register_aggregate_writer = erasure.register_aggregate_writer
+register_erasure_step = erasure.register_erasure_step
+register_object_eraser = erasure.register_object_eraser
+register_session_aggregate_writer = erasure.register_session_aggregate_writer
+write_session_aggregates = erasure.write_session_aggregates
+erase_user = erasure.erase_user
+DeleteRefused = erasure.DeleteRefused
+
+
+async def delete_user(
+    actor: uuid.UUID, user_id: uuid.UUID, reference: str, *, now: datetime
+) -> bool | erasure.DeleteRefused:
+    """Erase the User on the Institution's instruction (`erasure.delete_user`); a User who owns
+    Classes is refused by the same blockers as a revoke of the Lecturer role (FR-2)."""
+    return await erasure.delete_user(
+        actor,
+        user_id,
+        reference,
+        now=now,
+        blockers=list(_REVOKE_BLOCKERS.get(AccountRole.lecturer.value, ())),
+    )
 
 
 # The Invitation list and resending (Story 3.10, FR-1, FR-3).
@@ -1240,6 +1268,9 @@ INSTITUTION_OPERATOR_MARKED = "institution.operator_marked"
 """The audit action of the Admin marking the operator's own Institution (Story 12.7, AD-15)."""
 INSTITUTION_NO_LETTER = "institution.no_letter_changed"
 """The audit action of the Admin switching an Institution's no-letter mark (Story 12.6, FR-56)."""
+INSTITUTION_PROCESSING_AGREEMENT = "institution.processing_agreement_recorded"
+"""The audit action of the Admin recording an Institution's data processing agreement (Story
+15.12, FR-8, AD-15): ids and the day only, never who signed."""
 
 
 @dataclass(frozen=True)
@@ -1248,12 +1279,24 @@ class InstitutionRefused:
 
 
 def _institution_out(row) -> InstitutionOut:
+    agreement = (
+        ProcessingAgreementOut(
+            signed_by=row["dpa_signed_by"],
+            signed_on=row["dpa_signed_on"],
+            recorded_at=row["dpa_recorded_at"],
+        )
+        if row["dpa_signed_on"] is not None
+        else None
+    )
     return InstitutionOut(
         id=row["id"],
         name=row["name"],
         created_at=row["created_at"],
         operator_owned=row["operator_owned"],
         no_letter=row["no_letter"],
+        processing_agreement=agreement,
+        retention_months=row["retention_months"],
+        retention_default_months=get_settings().retention_months,
     )
 
 
@@ -1368,6 +1411,155 @@ async def set_institution_no_letter(
         on=on,
     )
     return _institution_out(row)
+
+
+async def record_processing_agreement(
+    actor: uuid.UUID, institution_id: uuid.UUID, body: ProcessingAgreementIn, *, now: datetime
+) -> InstitutionOut | InstitutionRefused:
+    """Record (or replace) the Institution's data processing agreement (Story 15.12, FR-8, PRD
+    §6.1, AD-12): who signed for it and the day, in one transaction with one audit row (ids and
+    the day). The same agreement again writes nothing. Refused with `not_found`."""
+    async with get_sessionmaker().begin() as s:
+        row = await repo.lock_institution(s, institution_id)
+        if row is None:
+            return InstitutionRefused("not_found")
+        if (row["dpa_signed_by"], row["dpa_signed_on"]) == (body.signed_by, body.signed_on):
+            return _institution_out(row)
+        replaced = row["dpa_signed_on"] is not None
+        row = await repo.set_processing_agreement(
+            s, institution_id, body.signed_by, body.signed_on, now
+        )
+        await audit.record(
+            s,
+            actor,
+            INSTITUTION_PROCESSING_AGREEMENT,
+            {"institution_id": institution_id},
+            {"signed_on": body.signed_on.isoformat(), "replaced": replaced},
+            now,
+        )
+    log.info(
+        "institution_processing_agreement_recorded",
+        institution_id=str(institution_id),
+        actor_user_id=str(actor),
+    )
+    return _institution_out(row)
+
+
+INSTITUTION_RETENTION = "institution.retention_changed"
+"""The audit action of the Admin setting an Institution's retention period (Story 15.3, FR-77,
+FR-3): ids and the months only."""
+
+RetentionListener = Callable[[AsyncSession, uuid.UUID, datetime], Awaitable[None]]
+"""`(session, institution_id, now)`: called in the transaction that changed the Institution's
+retention period, so the deletion dates it rules move with it (`sessions`, Story 13.9)."""
+
+_RETENTION_LISTENERS: dict[str, RetentionListener] = {}
+
+
+def register_retention_listener(name: str, listener: RetentionListener) -> None:
+    """Called at import by `sessions`, which stores each Class session's deletion date; `identity`
+    imports no feature module."""
+    _RETENTION_LISTENERS[name] = listener
+
+
+async def set_retention_months(
+    actor: uuid.UUID, institution_id: uuid.UUID, months: int | None, *, now: datetime
+) -> InstitutionOut | InstitutionRefused:
+    """The Institution's retention period (Story 15.3, FR-77, FR-3): whole calendar months after
+    the latest effective Test deadline, or None for the configured placeholder. One transaction
+    with one audit row (ids and the months); every registered listener recomputes the deletion
+    dates the period rules in it. The same value again writes nothing. Refused with
+    `not_found`."""
+    async with get_sessionmaker().begin() as s:
+        row = await repo.lock_institution(s, institution_id)
+        if row is None:
+            return InstitutionRefused("not_found")
+        previous = row["retention_months"]
+        if previous == months:
+            return _institution_out(row)
+        row = await repo.set_retention_months(s, institution_id, months, now)
+        await audit.record(
+            s,
+            actor,
+            INSTITUTION_RETENTION,
+            {"institution_id": institution_id},
+            {"months": months, "previous_months": previous},
+            now,
+        )
+        for listener in list(_RETENTION_LISTENERS.values()):
+            await listener(s, institution_id, now)
+    log.info(
+        "institution_retention_changed",
+        institution_id=str(institution_id),
+        actor_user_id=str(actor),
+        months=months,
+    )
+    return _institution_out(row)
+
+
+async def retention_months_of(
+    institution_id: uuid.UUID | None, session: AsyncSession | None = None
+) -> int:
+    """Story 15.3 (FR-77): the Institution's retention period in calendar months, its own or the
+    configured placeholder (`RETENTION_MONTHS`) while it has none; the placeholder for None or an
+    unknown id. In the caller's `session` when given."""
+    own = None
+    if institution_id is not None:
+        async with reading(session) as s:
+            own = await repo.retention_months_of(s, institution_id)
+    return own if own is not None else get_settings().retention_months
+
+
+async def roster_user_ids(session: AsyncSession, class_id: uuid.UUID) -> list[uuid.UUID]:
+    """Story 15.3 (retention): every User on the Class's Roster, removed ones too, by id."""
+    return await repo.roster_user_ids(session, class_id)
+
+
+async def roster_classes_of_user(
+    session: AsyncSession, user_id: uuid.UUID
+) -> list[tuple[uuid.UUID, bool]]:
+    """Story 15.3 (retention): `(class_id, removed)` of every Roster entry of the User."""
+    return [
+        (row["class_id"], row["removed_at"] is not None)
+        for row in await repo.roster_classes_of_user(session, user_id)
+    ]
+
+
+async def holds_account_role(session: AsyncSession, user_id: uuid.UUID) -> bool:
+    """Story 15.3 (retention): whether the User holds an account role (Admin, Lecturer); such a
+    User keeps the account when a Class session they were a Student in is deleted."""
+    return bool(await repo.roles_of(session, user_id))
+
+
+async def is_erased(session: AsyncSession, user_id: uuid.UUID) -> bool:
+    """Story 15.3: whether the User was erased (or never existed)."""
+    user = await repo.user_by_id(session, user_id)
+    return user is None or user["deleted_at"] is not None
+
+
+async def has_unregistered_roster(session: AsyncSession, class_id: uuid.UUID) -> bool:
+    """Story 15.3: whether the Class still holds a Roster address of someone who never registered
+    or a Student Invitation not accepted."""
+    return await repo.has_unregistered_roster(session, class_id)
+
+
+async def delete_unregistered_roster(session: AsyncSession, class_id: uuid.UUID) -> tuple[int, int]:
+    """Story 15.3 (FR-77, FR-6, AD-14): once a Class's retention has run, the Roster addresses of
+    people who never registered and the Student Invitations to it not accepted are personal data
+    with no User behind them: delete them, in the caller's transaction. Returns `(entries,
+    invitations)` deleted. Idempotent."""
+    return await repo.delete_unregistered_roster(session, class_id)
+
+
+async def has_processing_agreement(
+    institution_id: uuid.UUID, session: AsyncSession | None = None
+) -> bool:
+    """Story 15.12 (FR-8, AD-12): whether the Institution's data processing agreement is
+    recorded; in the caller's `session` when given. False for an unknown id. `classes` asks it
+    before it sends Student Invitations; the operator's own Institution needs none (its
+    `operator_institution` is read beside it)."""
+    async with reading(session) as s:
+        return await repo.processing_agreement_recorded(s, institution_id)
 
 
 async def institution_forbids_letter(
@@ -2655,6 +2847,12 @@ async def people(s: AsyncSession, ids: list[uuid.UUID]) -> dict[uuid.UUID, Perso
     return {r["id"]: Person(r["id"], r["name"], r["email"]) for r in await repo.people(s, ids)}
 
 
+async def erased_among(session: AsyncSession, user_ids: list[uuid.UUID]) -> set[uuid.UUID]:
+    """Which of these Users were erased (Story 15.2): the evaluation export (Story 15.4) gives
+    them no pseudonym, so nothing it hands out links their rows."""
+    return await repo.erased_among(session, user_ids)
+
+
 # Test students and their consent (Story 12.8, FR-82, AD-13, AD-27). The mark is set when a User is
 # made from a Control test's Roster; each decision on Hjem is a row with the text version read.
 
@@ -2748,3 +2946,7 @@ async def consented_users(session: AsyncSession, user_ids: Collection[uuid.UUID]
     caller's `session` (Story 12.8: a Control test seats no one else)."""
     found = await repo.latest_decisions(session, list(user_ids), CONSENT_TEXT_VERSION)
     return {user for user, row in found.items() if row["decision"] == "given"}
+
+
+# «Mine data» (Story 15.1, FR-75): the Student's own rows of this module, by their own id.
+from app.modules.identity.own_data import own_records  # noqa: E402, F401

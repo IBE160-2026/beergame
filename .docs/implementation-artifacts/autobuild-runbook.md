@@ -132,6 +132,16 @@ All stories of Epics 7–10 are built; 7 and 9 are merged to `main` (PRs #165, #
 - Faster close-outs: visual checks deferred to a close-out are done there once, in one pass. Only one lane runs the full Playwright suite at a time; the other runs targeted specs. Do not edit files by relative path with .NET (`[IO.File]`): its working directory is not PowerShell's location.
 - Memory: Docker's WSL VM can hold 20+ GB page cache after many builds. Free it with `wsl -d docker-desktop -u root sh -c "echo 1 > /proc/sys/vm/drop_caches"` and `echo 1 > /proc/sys/vm/compact_memory`; stop leftover `tail -f` processes older than an hour.
 
+## Resume point (2026-11-23, before the founder's `/compact`)
+
+Merged to `main`: Epics 1–12 (PRs #165, #179, #196, #199, #224, #240). Three folders, at most three builders:
+- **Lane 1**, main folder, `epic-15` (holds `sprint-status.yaml` and the run log; commit only these two with explicit paths): 15.2, 15.4–15.9, 15.11, 15.13, 15.6 done; 15.12 `review` (#247, founder decides `REQUIRE_DPA_FOR_INVITATIONS`). Main (Epics 11–12) is merged in; head 0071. Left: **15.1** (needs 13.7) and **15.3** (needs 13.9) after Epic 13 merges; then the Epic 15 close-out. Stack: `POSTGRES_DB=olspillet_e15b`, pytest `olspillet_e15b_t`.
+- **Lane 2**, `.claude/worktrees/lane-2`, `epic-13`: 13.1–13.11 done; main (Epic 12) merged in (811cab7: 0301 after 0209, head 0306; one Studentside policy `student_pages.read`; `reports/scope.py` uses 12.7/12.8). Stack: `olspillet_m6`, `POSTGRES_DB=olspillet_app6`. Left: 13.12, 13.13, 13.14, then the Epic 13 close-out (list `epic13-todo.md`).
+- **Lane 3**, `.claude/worktrees/lane-3`, `epic-14` (stack 8082/5434): 14.1, 14.2, 14.5, 14.6 done. Left: 14.3 and 14.4 (need 15.3 and 13.9), 14.7 (needs 14.3/14.4), 14.8 (needs 13.13), then the close-out (list `epic14-todo.md`). Epic 14 uses local scope stand-ins to relink to Epic 13's `reports.scope` at merge.
+- Order from here: finish Epic 13 → merge 13 → epic-14 and epic-15 merge main → 15.1, 15.3, 14.3, 14.4, 14.7, 14.8 → close-outs of 14 and 15 → merge → user journeys with Playwright (GOAL item 4, a whole game with test users and a test lecturer) → final log section listing review/blocked stories (2.7 #56, 2.11 #60, 9.14 #173, 9.15 #176, 10.7, 15.12 #247).
+- Builder briefs are in the scratchpad: `brief-lane1.md`, `brief-lane2.md`, `brief-lane3.md` (agents spawned without a name; no SendMessage reports). Close-out lists `epic13-todo.md`, `epic14-todo.md`; queued log sections in `pending-log.md`.
+- Stray untracked root files `policy.py`, `walkthrough-chart.tsx`, `nb.ts` are not ours.
+
 ## Done
 
 The goal is reached when every story outside the skip list is `done`, `review` or (after three attempts) `blocked`, every epic is merged to `main` with CI green, and a final log section lists the `review` and `blocked` stories with their issues.

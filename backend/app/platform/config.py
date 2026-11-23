@@ -7,6 +7,7 @@ secret is missing or still has its built-in local default.
 
 import base64
 import ipaddress
+from dataclasses import dataclass
 from decimal import Decimal
 from email.utils import parseaddr
 from functools import lru_cache
@@ -54,6 +55,10 @@ class Settings(BaseSettings):
     app_env: Literal["local", "test", "ci", "production"] = "local"
     database_url: str = LOCAL_DATABASE_URL
     db_pool_size: int = Field(10, ge=1)
+    # The pool size of the Supabase session pooler, copied by hand from Supabase (Database ->
+    # Connection pooling), since it cannot be read over the pooler (Story 15.9). Unset (empty)
+    # means the pooler check reports "not checked", never "passed".
+    db_pooler_size: int | None = Field(None, ge=1)
     log_level: Literal["debug", "info", "warning", "error", "critical"] = "info"
 
     # PRD §8.1 cut-list flags only (AD-17).
@@ -65,11 +70,22 @@ class Settings(BaseSettings):
     feature_game_data_export: bool = True
     feature_capacity: bool = True
 
+    # Story 15.12 (FR-8, PRD §6.1, AD-12): refuse Student Invitations (and manual registration)
+    # in a Class whose Institution has no recorded data processing agreement. Off, a missing
+    # agreement is only logged with ids. The value is the founder's decision (spine's Deferred
+    # list, `docs/ops/readiness.md` R15); `false` until it is recorded. The operator's own
+    # Institution and Control tests never wait (FR-82); Lecturer and Admin Invitations never do.
+    require_dpa_for_invitations: bool = False
+
     # AI budgets in USD (FR-69, AD-6). PLACEHOLDERS until the prototype sets them (issue #8):
     # the default cost limit of a new Class session, and the reserve kept for the Debrief and
     # the AI assessment when a budget is created without one.
     ai_default_session_budget_usd: Decimal = Field(Decimal("15.00"), ge=0, decimal_places=8)
     ai_budget_reserve_usd: Decimal = Field(Decimal("1.00"), ge=0, decimal_places=8)
+    # The daily AI spend above which every Admin is alerted once that day (Story 15.7, FR-69).
+    # PLACEHOLDER until the prototype sets it (issue #8): about 50 Students at the USD 0.50 target
+    # in one day. Empty (`AI_DAILY_ALERT_USD=`) means not set: no alert is sent.
+    ai_daily_alert_usd: Decimal | None = Field(Decimal("25.00"), ge=0, decimal_places=8)
 
     # Session and login (AD-11, Story 3.2). Production refuses a missing, default or weak one.
     jwt_secret: str = LOCAL_JWT_SECRET
@@ -221,10 +237,23 @@ class Settings(BaseSettings):
     # Comma-separated networks whose `X-Forwarded-For` the api believes (Story 3.14).
     trusted_proxy_cidrs: str = LOCAL_TRUSTED_PROXY_CIDRS
 
+    # The error tracker (Story 15.11, AD-17, issue #28): a DSN in the Sentry form
+    # `https://<key>@<host>/<project>`, which Sentry, GlitchTip and Bugsink accept. The tool is
+    # the founder's open decision: empty outside production keeps every report in the recording
+    # mock; empty in production only logs that reports are not sent.
+    error_tracker_dsn: str = ""
+    # The deployed commit, which Railway sets; sent with each report as its release.
+    railway_git_commit_sha: str = ""
+
     @field_validator("log_level", mode="before")
     @classmethod
     def _lower_level(cls, v: object) -> object:
         return v.lower() if isinstance(v, str) else v
+
+    @field_validator("ai_daily_alert_usd", "db_pooler_size", mode="before")
+    @classmethod
+    def _unset_alert(cls, v: object) -> object:
+        return None if isinstance(v, str) and not v.strip() else v
 
     @field_validator("database_url")
     @classmethod
@@ -241,13 +270,25 @@ class Settings(BaseSettings):
         trusted_networks(v)  # a malformed entry refuses at load, naming the variable
         return v
 
+    @field_validator("error_tracker_dsn")
+    @classmethod
+    def _dsn(cls, v: str) -> str:
+        v = v.strip()
+        if v:
+            parse_dsn(v)  # a malformed DSN refuses at load, naming the variable, not its value
+        return v
+
     def production_problems(self) -> list[str]:
         """The fields that break a production rule, in declaration order; empty outside
         production."""
         if self.app_env != "production":
             return []
         bad: list[str] = []
-        if self.database_url == LOCAL_DATABASE_URL or not _requires_tls(self.database_url):
+        if (
+            self.database_url == LOCAL_DATABASE_URL
+            or not _requires_tls(self.database_url)
+            or uses_transaction_pooler(self.database_url)
+        ):
             bad.append("database_url")
         secret = self.jwt_secret
         if (
@@ -283,13 +324,22 @@ class Settings(BaseSettings):
         networks = trusted_networks(self.trusted_proxy_cidrs)
         if not networks or any(net.prefixlen == 0 for net in networks):
             bad.append("trusted_proxy_cidrs")
+        if self.error_tracker_dsn and parse_dsn(self.error_tracker_dsn).scheme != "https":
+            bad.append("error_tracker_dsn")  # reports leave only over TLS (NFR-7)
         return bad
 
     def check_production(self) -> None:
         bad = self.production_problems()
         if bad:
+            why = ""
+            if "database_url" in bad and _names_transaction_pooler(self.database_url):
+                why = (
+                    f" (DATABASE_URL points at the transaction pooler (port "
+                    f"{TRANSACTION_POOLER_PORT}), which breaks LISTEN/NOTIFY and procrastinate; "
+                    "use the session pooler on port 5432)"
+                )
             raise ConfigError(
-                "Refusing to start with APP_ENV=production: "
+                f"Refusing to start with APP_ENV=production{why}: "
                 f"missing, default or unsafe value for {', '.join(n.upper() for n in bad)}"
             )
 
@@ -297,6 +347,48 @@ class Settings(BaseSettings):
 def trusted_networks(value: str) -> list[ipaddress.IPv4Network | ipaddress.IPv6Network]:
     """The networks of a comma-separated CIDR list; raises ValueError on a malformed entry."""
     return [ipaddress.ip_network(part.strip()) for part in value.split(",") if part.strip()]
+
+
+@dataclass(frozen=True)
+class Dsn:
+    """An error tracker's DSN, read: where its envelopes go and the key that signs them."""
+
+    scheme: str
+    public_key: str
+    host: str
+    """The host with its port, when the DSN names one."""
+    prefix: str
+    """The path before the project id, without a trailing slash (empty for most trackers)."""
+    project_id: str
+
+    @property
+    def envelope_url(self) -> str:
+        return f"{self.scheme}://{self.host}{self.prefix}/api/{self.project_id}/envelope/"
+
+
+def parse_dsn(value: str) -> Dsn:
+    """Read `<scheme>://<key>@<host>[:port][/<prefix>]/<project_id>`; raises ValueError naming
+    no part of the value (it holds the key)."""
+    parts = urlsplit(value.strip())
+    try:
+        port = parts.port
+    except ValueError:
+        raise ValueError("the DSN's port is not a number") from None
+    path = parts.path.rstrip("/")
+    prefix, _, project_id = path.rpartition("/")
+    if (
+        parts.scheme not in ("http", "https")
+        or not parts.username
+        or not parts.hostname
+        or not project_id
+        or parts.query
+        or parts.fragment
+    ):
+        raise ValueError("not a DSN of the form <scheme>://<key>@<host>/<project>")
+    host = f"[{parts.hostname}]" if ":" in parts.hostname else parts.hostname  # IPv6
+    if port is not None:
+        host = f"{host}:{port}"
+    return Dsn(parts.scheme, parts.username, host, prefix, project_id)
 
 
 def webhook_key(secret: str) -> bytes | None:
@@ -310,6 +402,37 @@ def webhook_key(secret: str) -> bytes | None:
     except ValueError:
         return None
     return key or None
+
+
+TRANSACTION_POOLER_PORT = 6543
+"""Supabase's transaction pooler (Supavisor, transaction mode). It hands a client a server
+connection per transaction, so LISTEN/NOTIFY and procrastinate's worker break on it; production
+must use the session pooler on port 5432 (SETUP-GUIDE §5, Story 15.9)."""
+
+
+def _ports(database_url: str) -> list[str]:
+    """Every port the URL names: in its host part and in a libpq `port` query parameter. Raises
+    ValueError when the host part's port cannot be read."""
+    parts = urlsplit(database_url)
+    found = [str(parts.port)] if parts.port is not None else []
+    return found + [p.strip() for p in parse_qs(parts.query).get("port", [])]
+
+
+def uses_transaction_pooler(database_url: str) -> bool:
+    """True when the URL names the transaction pooler's port. A URL whose port cannot be read
+    counts as one, so a malformed port never passes the production guard."""
+    try:
+        return str(TRANSACTION_POOLER_PORT) in _ports(database_url)
+    except ValueError:
+        return True
+
+
+def _names_transaction_pooler(database_url: str) -> bool:
+    """True only when the URL's port reads as the transaction pooler's (for the message)."""
+    try:
+        return str(TRANSACTION_POOLER_PORT) in _ports(database_url)
+    except ValueError:
+        return False
 
 
 def _requires_tls(database_url: str) -> bool:

@@ -1,0 +1,13 @@
+{# Today's AI spend passed AI_DAILY_ALERT_USD (Story 15.7, FR-69), an immediate kind sent once a
+   day to each active Admin. `day` (a date), `day_path`, `spent`, `alert` and `sessions` (each `name`
+   «Klasse · Klasseøkt n» and `spent`, the dearest first) come from
+   `messaging.delivery._daily_spend_context` at send time. No Student data.
+   [ASSUMPTION] Story 15.7 draft copy. #}
+{% set months = ["januar", "februar", "mars", "april", "mai", "juni", "juli", "august", "september", "oktober", "november", "desember"] %}
+{% set subject = "KI-kostnaden har passert varselgrensen" %}
+KI-kostnaden {{ day.day }}. {{ months[day.month - 1] }} {{ day.year }} er {{ spent }} og har passert varselgrensen på {{ alert }} per dag.
+{% if sessions %}
+Klasseøktene med høyest KI-kostnad:
+{% for item in sessions %}- {{ item.name }}: {{ item.spent }}
+{% endfor %}{% endif %}
+Se KI-kostnad for dagen: {{ url(day_path) }}

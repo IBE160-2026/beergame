@@ -8,6 +8,8 @@ it). Story 13.12: the staff's download of one Student's report (`…/students/{u
 (`/api/class-sessions/{id}/reports/zip`, its `/file`). Story 13.14: the Completion export
 (`/api/class-sessions/{id}/completion-export`). Story 14.8: the Game data export
 (`/api/class-sessions/{id}/game-data-export`), only while `FEATURE_GAME_DATA_EXPORT` is on.
+Story 15.1: «Mine data», everything stored about
+the caller (`/api/me/data`).
 
 An id that is not one, a Class session that does not exist, a Class outside the caller's scope and
 a User who is no Student of the Class all answer the same 403 `forbidden` (FR-5)."""
@@ -24,6 +26,7 @@ from app.modules.reports import (
     corrections,
     game_data_export,
     makeup,
+    my_data,
     report,
     snapshot,
     studentside,
@@ -31,6 +34,7 @@ from app.modules.reports import (
 from app.modules.reports.report_data import ReportDataOut
 from app.modules.reports.schemas import (
     CorrectionIn,
+    MyDataOut,
     ReportRequestIn,
     ReportStateOut,
     StudentRecordOut,
@@ -55,7 +59,7 @@ def _id(value: str) -> uuid.UUID:
 @router.get(
     "/class-sessions/{session_id}/students/{user_id}/record",
     response_model=StudentRecordOut,
-    responses=documented(401, 403),
+    responses=documented(401, 403, 409),
     operation_id="getStudentRecord",
 )
 async def get_student_record(
@@ -69,8 +73,14 @@ async def get_student_record(
     the Individual test and the AI assessment's state, for the Lecturers and Assistant lecturers
     of its Class. 403 `forbidden` for anyone else, an Admin without a staff role in the Class
     included, for a User who is no Student of the Class now and for a Class session that does not
-    exist (FR-5, AD-12)."""
-    found = await studentside.student_record(user, _id(session_id), _id(user_id))
+    exist (FR-5, AD-12). 409 `data_deleted` for its staff once the Class session's Student data
+    is deleted (Story 15.3, FR-77)."""
+    try:
+        found = await studentside.student_record(user, _id(session_id), _id(user_id))
+    except studentside.RecordDeleted:
+        return error_response(
+            409, "data_deleted", "The Student data of this Class session is deleted."
+        )
     if found is None:
         raise authz.Forbidden
     return JSONResponse(found.model_dump(mode="json"), headers=PERSONAL)
@@ -531,3 +541,18 @@ async def read_report_snapshot(
     if data is None:
         return error_response(404, "not_found", "No such report snapshot.")
     return JSONResponse(data, headers=PERSONAL)
+
+
+@router.get(
+    "/me/data",
+    response_model=MyDataOut,
+    responses=documented(401),
+    operation_id="getMyData",
+)
+async def get_my_data(
+    user: Annotated[authz.Principal, Depends(authz.require(my_data.READ_OWN))],
+) -> JSONResponse:
+    """«Mine data» (Story 15.1, FR-75): every category of data stored about the caller, their own
+    rows only, labelled by the page. Never cached."""
+    found = await my_data.my_data(user)
+    return JSONResponse(found.model_dump(mode="json"), headers=PERSONAL)

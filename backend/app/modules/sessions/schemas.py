@@ -368,6 +368,9 @@ class ClassSessionOut(BaseModel):
     lock_refused: bool = False
     """Not locked, and the sweep has refused the lock for a missing provider key (GitHub issue
     109): LLM players and no key for the model's provider. The sweep tries again each minute."""
+    cost_limit_reached_at: datetime | None = None
+    """Story 15.6 (FR-69): when the Class session's AI cost limit for players was reached and its
+    LLM players switched to Rule-based players for the rest of it; null before."""
     lock_refused_reason: str | None = None
     """Why the sweep refused the lock, while `lock_refused`: `provider_key_missing` or
     `question_set_draft` (Story 11.1)."""

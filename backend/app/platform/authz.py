@@ -85,6 +85,9 @@ POLICIES: dict[str, frozenset[str]] = {
     "users.list": frozenset({ADMIN}),
     "users.manage": frozenset({ADMIN}),
     "institutions.manage": frozenset({ADMIN}),
+    # Story 15.12 (FR-8, PRD §6.1, AD-12): only the Admin records an Institution's data processing
+    # agreement, which Student Invitations wait for while `REQUIRE_DPA_FOR_INVITATIONS` is on.
+    "institutions.processing_agreement": frozenset({ADMIN}),
     "audit.read": frozenset({ADMIN}),
     # Admin-område → «Kontrolltest» (Story 12.7, FR-82, AD-27): only the Admin sets one up.
     "control_tests.manage": frozenset({ADMIN}),
@@ -158,6 +161,9 @@ POLICIES: dict[str, frozenset[str]] = {
     # The Student's own Student report (Story 13.7, FR-57): any User, held to their own locked
     # Class session (`sessions.own_report_session`); every other session is refused alike.
     "reports.download_own": frozenset({ANY_USER}),
+    # «Mine data» (Story 15.1, FR-75, FR-5): any User, for their own data only; every reader
+    # takes the principal's id (`reports.my_data`), never an id from the request.
+    "my_data.read_own": frozenset({ANY_USER}),
     # The Student's own Debrief (Story 9.2): any User, held to `own_seat` through
     # `games.service.student_game`; the service refuses every other Debrief alike.
     "debriefs.own": frozenset({ANY_USER}),
@@ -200,6 +206,21 @@ POLICIES: dict[str, frozenset[str]] = {
     "session.read": frozenset({ANY_USER}),
     # The live event stream (Story 6.4, AD-8): any User; the scope decides which topics it sends.
     "events.read": frozenset({ANY_USER}),
+    # «Pseudonymisert eksport» (Story 15.4, FR-71, AD-12, AD-14): the Admin records Institution
+    # agreements, replaces the key fingerprint and reads the export list.
+    "evaluation.manage": frozenset({ADMIN}),
+    # The one Admin exception to FR-5 (AD-12): a pseudonymised export of a Class session, held to
+    # the recorded Institution agreement (`RESOURCE_CONDITIONS`).
+    "export_pseudonymised": frozenset({ADMIN}),
+    # «KI-kostnad» (Story 15.5, FR-68): the Admin reads the model configs, pins one for a Class
+    # session before its Start date and freezes one for a learning study.
+    "ai_models.manage": frozenset({ADMIN}),
+    # «Drift» (Story 15.8, NFR-8): the Admin reads error counts, fallback, response times, the Play
+    # guard share and AI cost per Class session. Counts and timings only, no Student data (FR-5).
+    "operations.read": frozenset({ADMIN}),
+    # A deliberate error for one Class session (Story 15.11, NFR-4): the Admin checks that an
+    # error reaches the error tracker and «Drift». It records the error and changes nothing else.
+    "operations.test_error": frozenset({ADMIN}),
     # The Studentside (Story 8.9; Story 12.5 opens it to Assistant lecturers) and its record of
     # one Student (Story 13.2, FR-63): the Class's owners and Assistant lecturers read it, never
     # another Student, never an Admin without a staff role; its «Tilrettelegging» and «Frister»
@@ -274,11 +295,27 @@ class ClassResource(Protocol):
     staff_role: str
 
 
+class EvaluationResource(Protocol):
+    """A Class session as the pseudonymised export sees it (Story 15.4): whether an Institution
+    agreement is recorded for it."""
+
+    agreement_recorded: bool
+
+
+RESOURCE_CONDITIONS: dict[str, Callable[[Any], bool]] = {
+    # Story 15.4 (FR-71, AD-12): the Admin may export a Class session only while an Institution
+    # agreement is recorded for it.
+    "export_pseudonymised": lambda resource: getattr(resource, "agreement_recorded", False) is True,
+}
+"""Action → what its resource must satisfy besides the account roles."""
+
+
 def can(user: Principal, action: str, resource: Any = None) -> bool:
     """Whether `user` may do `action`. A Class action on a `resource` also needs a staff role in
-    that Class the action allows; with no resource only the account roles are checked (the
-    route's policy, before any Class is loaded). When the Admin role is the only one that grants
-    a Class action (`CONTROL_TEST_ACTIONS`), the resource must be a Control test Class."""
+    that Class the action allows, and an action in `RESOURCE_CONDITIONS` its condition; with no
+    resource only the account roles are checked (the route's policy, before anything is
+    loaded). When the Admin role is the only one that grants a Class action
+    (`CONTROL_TEST_ACTIONS`), the resource must be a Control test Class."""
     allowed = POLICIES[action]
     granted = allowed.intersection(user.roles)
     if not (ANY_USER in allowed or granted):
@@ -288,6 +325,8 @@ def can(user: Principal, action: str, resource: Any = None) -> bool:
             return False
         if granted == {ADMIN} and action in CONTROL_TEST_ACTIONS:
             return getattr(resource, "control_test", False) is True
+    if resource is not None and action in RESOURCE_CONDITIONS:
+        return RESOURCE_CONDITIONS[action](resource)
     return True
 
 

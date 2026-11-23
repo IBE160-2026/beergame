@@ -84,6 +84,9 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # A due Takeover the sweep found but `takeover` refused (Story 8.3, AD-8): the time has
         # passed with no command, so the Game and its Class session are announced again.
         "ops.takeover_skipped": frozenset({"game", "session"}),
+        # Retention deleted a Class session's Student data (Story 15.3): each erased Student's
+        # open pages reload (`user`) and the staff read the Klasseøkt again (`session`).
+        "ops.retention": frozenset({"session", "user"}),
         # A notice to a User (Story 3.5, AD-9); a notice addressed by reference emits nothing.
         "notify.enqueue": frozenset({"user"}),
         # A role the Admin grants or revokes (Story 3.9): the User's open pages reload it.

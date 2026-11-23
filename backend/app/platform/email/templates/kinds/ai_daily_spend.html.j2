@@ -1,0 +1,7 @@
+{# Today's AI spend passed AI_DAILY_ALERT_USD (Story 15.7, FR-69), an immediate kind. See the text
+   part for the variables. [ASSUMPTION] Story 15.7 draft copy. #}
+{% set months = ["januar", "februar", "mars", "april", "mai", "juni", "juli", "august", "september", "oktober", "november", "desember"] %}
+<p style="margin:0 0 12px;">KI-kostnaden {{ day.day }}. {{ months[day.month - 1] }} {{ day.year }} er {{ spent }} og har passert varselgrensen på {{ alert }} per dag.</p>
+{% if sessions %}<p style="margin:0 0 4px;">Klasseøktene med høyest KI-kostnad:</p>
+<ul style="margin:0 0 12px;padding-left:20px;">{% for item in sessions %}<li>{{ item.name }}: {{ item.spent }}</li>{% endfor %}</ul>
+{% endif %}<p style="margin:0;">Se <a href="{{ url(day_path) }}" style="color:#2B6CA3;font-weight:600;">KI-kostnad for dagen</a>.</p>

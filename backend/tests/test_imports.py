@@ -172,7 +172,8 @@ AI_PUBLIC = (
     "app.ai.text",
 )
 AI_TABLES = re.compile(
-    r"\b(ai_model_configs|ai_budgets|llm_call|effort_measurements|ai_default_pins)\b"
+    r"\b(ai_model_configs|ai_budgets|llm_call|effort_measurements|ai_default_pins"
+    r"|ai_model_freezes|ai_spend_alerts)\b"
 )
 """Whole words, so `llm_call_ids` (on the gateway's results) is not a table name."""
 
@@ -196,7 +197,10 @@ def test_only_ops_imports_messaging_and_nothing_imports_ops():
     `messaging.service`, and only the worker entry point imports `ops`. The app factory mounts
     the local dev mailbox, `messaging.routes` (Story 3.6), the provider's webhook,
     `messaging.webhooks` (Story 4.6), and the Meldingsskjema's endpoints,
-    `messaging.message_routes` (Story 7.9)."""
+    `messaging.message_routes` (Story 7.9); and the Admin's operations endpoints,
+    `ops.routes` (Story 15.4), `ops.ai_routes` (Story 15.5) and `ops.operations_routes` with the
+    5xx hook of `ops.service` (Story 15.8). «Mine data» (`reports.my_data`, Story 15.1) reads
+    the Student's received Messages through `messaging.service`."""
     for path, line, name in imports(APP):
         inside = {
             folder: (APP / "modules" / folder) in path.parents
@@ -208,12 +212,22 @@ def test_only_ops_imports_messaging_and_nothing_imports_ops():
                 "app.modules.messaging.webhooks",
                 "app.modules.messaging.message_routes",
             )
+            # Story 15.1 (FR-75): «Mine data» reads the Messages written to the Student, a read.
+            reads_own = path == APP / "modules" / "reports" / "my_data.py"
             assert mounts_routes or (
-                (inside["ops"] or inside["classes"])
+                (inside["ops"] or inside["classes"] or reads_own)
                 and name.startswith("app.modules.messaging.service")
             ), f"{path.name}:{line} imports {name}"
         if name.startswith("app.modules.ops") and not inside["ops"]:
-            assert path == APP / "worker.py", f"{path.name}:{line} imports {name}"
+            # Stories 15.4, 15.5 and 15.8: the app factory also mounts the Admin's operations
+            # endpoints and hands the request log its 5xx hook (`ops.service.record_api_error`).
+            mounts_ops = path == APP / "main.py" and name in (
+                "app.modules.ops.routes",
+                "app.modules.ops.ai_routes",
+                "app.modules.ops.operations_routes",
+                "app.modules.ops.service",
+            )
+            assert mounts_ops or path == APP / "worker.py", f"{path.name}:{line} imports {name}"
 
 
 def test_messaging_reaches_other_modules_only_through_their_service():
@@ -249,6 +263,11 @@ def test_reports_reaches_other_modules_only_through_their_service_and_nothing_im
             # left behind, through `reports.snapshot.purge_expired`.
             if path == APP / "modules" / "ops" / "sweep.py":
                 assert name == "app.modules.reports.snapshot", f"{path.name}:{line} imports {name}"
+                continue
+            # Story 15.4 (AD-13): the pseudonymised export reads through the one reporting scope,
+            # `reports.scope`'s subqueries over every Class session.
+            if path == APP / "modules" / "ops" / "evaluation.py":
+                assert name == "app.modules.reports.scope", f"{path.name}:{line} imports {name}"
                 continue
             assert path == APP / "main.py", f"{path.name}:{line} imports {name}"
 

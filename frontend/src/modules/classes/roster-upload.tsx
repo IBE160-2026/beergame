@@ -133,6 +133,7 @@ export function RosterUpload({ classId }: { classId: string }) {
     messages: {
       not_found: copy.sendGone,
       nothing_to_send: copy.nothingToSend,
+      processing_agreement_missing: nb.classes.processingAgreementMissing,
       invalid_request: copy.validDaysError(VALID_DAYS.min, VALID_DAYS.max),
     },
     fallback: copy.sendFailed,

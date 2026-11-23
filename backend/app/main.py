@@ -19,6 +19,10 @@ from app.modules.identity import service as identity_service
 from app.modules.messaging import message_routes
 from app.modules.messaging import routes as messaging_routes
 from app.modules.messaging import webhooks as messaging_webhooks
+from app.modules.ops import ai_routes as ops_ai_routes
+from app.modules.ops import operations_routes as ops_operations_routes
+from app.modules.ops import routes as ops_routes
+from app.modules.ops import service as ops_service
 from app.modules.replay import dev as replay_dev
 from app.modules.replay import routes as replay_routes
 from app.modules.reports import (
@@ -31,7 +35,7 @@ from app.modules.sessions import dev as sessions_dev
 from app.modules.sessions import routes as sessions_routes
 from app.modules.tests import dev as tests_dev
 from app.modules.tests import routes as tests_routes
-from app.platform import audit, auth, authz, db, storage
+from app.platform import audit, auth, authz, db, error_reporting, storage
 from app.platform.auth import CsrfMiddleware
 from app.platform.config import get_settings
 from app.platform.errors import error_response
@@ -58,6 +62,7 @@ async def health():
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()  # refuses to start on a bad production config
     log.info("startup", app_env=settings.app_env)
+    error_reporting.log_start(settings)  # Story 15.11: the tracker, or that none is set yet
     from app.ai import seed
 
     await seed.ensure_zero_config_logged()  # AD-17: a default model config with zero keys
@@ -66,6 +71,16 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     if settings.app_env == "production":
         # AD-17: the first Admin's Invitation, for each listed address with no account yet.
         await identity_service.ensure_bootstrap_invitations(auth.utcnow())
+    # Story 15.9: the connections this process holds against the written budget, and the pooler
+    # check (`DB_POOLER_SIZE`); a failed check is logged, it does not stop the start.
+    await ops_service.report_connections("backend", settings)
+    check = ops_service.check_connection_budget(settings)
+    (log.warning if check.status == "failed" else log.info)(
+        "db_pooler_check",
+        status=check.status,
+        pooler_size=check.pooler_size,
+        pooler_required=check.required,
+    )
     yield
     await event_hub.close()  # every open event stream ends (Story 6.4)
     await db.dispose()
@@ -127,6 +142,9 @@ def create_app() -> FastAPI:
     app.include_router(message_routes.router)  # Messages from staff (Story 7.9)
     app.include_router(replay_routes.router)  # the Student's Replay (Story 10.3)
     app.include_router(class_report_routes.router)  # the Klasserapport (Story 14.1)
+    app.include_router(ops_routes.router)  # «Pseudonymisert eksport» (Story 15.4)
+    app.include_router(ops_ai_routes.router)  # «KI-kostnad» (Story 15.5)
+    app.include_router(ops_operations_routes.router)  # «Drift» per Class session (Story 15.8)
     app.include_router(reports_routes.router)  # the Studentside's record (Story 13.2)
     app.include_router(messaging_webhooks.router)  # the provider's events (Story 4.6), signed
     if get_settings().app_env != "production":
@@ -143,13 +161,17 @@ def create_app() -> FastAPI:
     audit.register_labels("invitation_id", identity_service.invitation_labels)
     audit.register_labels("institution_id", identity_service.institution_labels)
     audit.register_labels("access_request_id", identity_service.access_request_labels)
+    audit.register_labels("class_session_id", ops_routes.evaluation.class_session_labels)
+    audit.register_labels("model_config_id", ops_ai_routes.ai_models.config_labels)
     app.add_exception_handler(authz.NotAuthenticated, _not_authenticated)
     app.add_exception_handler(authz.Forbidden, _forbidden)
     app.add_exception_handler(RequestValidationError, _invalid_request)
     app.add_exception_handler(classes_service.ClassArchived, _class_archived)
     app.add_exception_handler(classes_service.ControlTestClass, _control_test_class)
     app.add_middleware(CsrfMiddleware)
-    app.add_middleware(RequestLogMiddleware)  # outermost: refused requests are logged too
+    # Outermost: refused requests are logged too, and each 5xx answer is counted under its Class
+    # session through `ops.service` (Story 15.8, NFR-8).
+    app.add_middleware(RequestLogMiddleware, on_server_error=ops_service.record_api_error)
     return app
 
 

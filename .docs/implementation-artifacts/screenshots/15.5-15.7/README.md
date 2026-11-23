@@ -1,0 +1,43 @@
+# 15.5-15.7
+
+Screenshot | what it shows | matches the design?
+
+- `frys-feil-1280-utsnitt.png` | Detail crop: freeze form with error (long, all Class sessions as checkboxes) (1280, crop) | matches
+- `frys-feil-390-utsnitt.png` | Detail crop: freeze form with error (long, all Class sessions as checkboxes) (390, crop) | matches
+- `frys-fryst-1280-utsnitt.png` | Detail crop: freeze form while frozen (1280, crop) | matches
+- `frys-fryst-390-utsnitt.png` | Detail crop: freeze form while frozen (390, crop) | matches
+- `ki-kostnad-festet-1280-200pst.png` | After pinning a model, status line in the row (1280-200pst) | matches
+- `ki-kostnad-festet-1280.png` | After pinning a model, status line in the row (1280) | matches
+- `ki-kostnad-festet-390.png` | After pinning a model, status line in the row (390) | matches
+- `ki-kostnad-frys-feil-ingen-valgt-1280-200pst.png` | Freeze pressed with no Class session chosen (1280-200pst) | matches
+- `ki-kostnad-frys-feil-ingen-valgt-1280.png` | Freeze pressed with no Class session chosen (1280) | matches
+- `ki-kostnad-frys-feil-ingen-valgt-390.png` | Freeze pressed with no Class session chosen (390) | matches
+- `ki-kostnad-fryst-1280-200pst.png` | Freeze active: «… er fryst for 1 Klasseøkt siden» and «Fryst for en studie» on the config (1280-200pst) | matches
+- `ki-kostnad-fryst-1280.png` | Freeze active: «… er fryst for 1 Klasseøkt siden» and «Fryst for en studie» on the config (1280) | matches
+- `ki-kostnad-fryst-390.png` | Freeze active: «… er fryst for 1 Klasseøkt siden» and «Fryst for en studie» on the config (390) | matches
+- `ki-kostnad-last-klasseokt-1280-200pst.png` | Class session locked: read-only row with model, endpoint and the prompts by name and version, technical id in brackets (1280-200pst) | matches (UX-rettinger: prompts named in words, e.g. «Ordre fra LLM-spiller, versjon 1 (player_order)»; names are draft copy)
+- `ki-kostnad-last-klasseokt-1280.png` | Class session locked: read-only row with model, endpoint and the prompts by name and version, technical id in brackets (1280) | matches (UX-rettinger: prompts named in words, e.g. «Ordre fra LLM-spiller, versjon 1 (player_order)»; names are draft copy)
+- `ki-kostnad-last-klasseokt-390.png` | Class session locked: read-only row with model, endpoint and the prompts by name and version, technical id in brackets (390) | matches (UX-rettinger: prompts named in words, e.g. «Ordre fra LLM-spiller, versjon 1 (player_order)»; names are draft copy)
+- `ki-kostnad-modeller-1280-200pst.png` | «KI-kostnad», whole page (long: all test Class sessions listed) (1280-200pst) | matches
+- `ki-kostnad-modeller-1280.png` | «KI-kostnad», whole page (long: all test Class sessions listed) (1280) | matches
+- `ki-kostnad-modeller-390.png` | «KI-kostnad», whole page (long: all test Class sessions listed) (390) | matches
+- `ki-kostnad-per-dag-med-varsel-1280-200pst.png` | «KI-kostnad per dag» with alert (mocked day, two Class sessions) (1280-200pst) | matches (UX-rettinger: the alert is a notice between two rules; cost and call columns right-aligned)
+- `ki-kostnad-per-dag-med-varsel-1280-utsnitt.png` | «KI-kostnad per dag» with alert (mocked day, two Class sessions) (1280, crop) | matches (UX-rettinger: the alert is a notice between two rules; cost and call columns right-aligned)
+- `ki-kostnad-per-dag-med-varsel-1280.png` | «KI-kostnad per dag» with alert (mocked day, two Class sessions) (1280) | matches (UX-rettinger: the alert is a notice between two rules; cost and call columns right-aligned)
+- `ki-kostnad-per-dag-med-varsel-390-utsnitt.png` | «KI-kostnad per dag» with alert (mocked day, two Class sessions) (390, crop) | matches (UX-rettinger: the alert is a notice between two rules; cost and call columns right-aligned)
+- `ki-kostnad-per-dag-med-varsel-390.png` | «KI-kostnad per dag» with alert (mocked day, two Class sessions) (390) | matches (UX-rettinger: the alert is a notice between two rules; cost and call columns right-aligned)
+- `ki-kostnad-per-dag-uten-varsel-1280-200pst.png` | «KI-kostnad per dag» for today, no alert (real api) (1280-200pst) | matches (UX-rettinger: cost and call columns right-aligned with tabular figures); no per-day graph yet, left open
+- `ki-kostnad-per-dag-uten-varsel-1280-utsnitt.png` | «KI-kostnad per dag» for today, no alert (real api) (1280, crop) | matches (UX-rettinger: cost and call columns right-aligned with tabular figures); no per-day graph yet, left open
+- `ki-kostnad-per-dag-uten-varsel-1280.png` | «KI-kostnad per dag» for today, no alert (real api) (1280) | matches (UX-rettinger: cost and call columns right-aligned with tabular figures); no per-day graph yet, left open
+- `ki-kostnad-per-dag-uten-varsel-390-utsnitt.png` | «KI-kostnad per dag» for today, no alert (real api) (390, crop) | matches (UX-rettinger: cost and call columns right-aligned with tabular figures); no per-day graph yet, left open
+- `ki-kostnad-per-dag-uten-varsel-390.png` | «KI-kostnad per dag» for today, no alert (real api) (390) | matches (UX-rettinger: cost and call columns right-aligned with tabular figures); no per-day graph yet, left open
+- `klasseokt-rad-festet-1280-utsnitt.png` | Detail crop: row after pin (1280, crop) | matches
+- `klasseokt-rad-festet-390-utsnitt.png` | Detail crop: row after pin (390, crop) | matches
+- `klasseokt-rad-for-feste-1280-utsnitt.png` | Detail crop: row with model choice and pin button (1280, crop) | matches
+- `klasseokt-rad-for-feste-390-utsnitt.png` | Detail crop: row with model choice and pin button (390, crop) | matches
+- `klasseokt-rad-last-1280-utsnitt.png` | Detail crop: locked row (1280, crop) | matches (UX-rettinger: prompts named in words)
+- `klasseokt-rad-last-390-utsnitt.png` | Detail crop: locked row (390, crop) | matches (UX-rettinger: prompts named in words)
+- `modellkonfigurasjoner-liste-1280-utsnitt.png` | Detail crop: model configs (1280, crop) | matches
+- `modellkonfigurasjoner-liste-390-utsnitt.png` | Detail crop: model configs (390, crop) | matches
+- `modellkonfigurasjoner-med-fryst-merke-1280-utsnitt.png` | Detail crop: config marked «Fryst for en studie» (1280, crop) | matches
+- `modellkonfigurasjoner-med-fryst-merke-390-utsnitt.png` | Detail crop: config marked «Fryst for en studie» (390, crop) | matches

@@ -102,18 +102,53 @@ async def any_class_of(session: AsyncSession, user_id: uuid.UUID) -> bool:
 
 
 async def class_label(session: AsyncSession, class_id: uuid.UUID) -> RowMapping | None:
-    """The Class's name, course code, archive time and whether it is a Control test, for its
-    Invitations' mail, «Du er invitert» and its Roster rule (no User's scope: the Invitation names
-    the Class by id)."""
+    """The Class's name, course code, archive time, Institution and whether it is a Control test,
+    for its Invitations' mail, «Du er invitert», its Roster rule and the agreement gate (Story
+    15.12). No User's scope: the Invitation names the Class by id."""
     result = await session.execute(
         select(
             classes.c.name,
             classes.c.course_code,
             classes.c.archived_at,
+            classes.c.institution_id,
             _control_test.label("control_test"),
         ).where(classes.c.id == class_id)
     )
     return result.mappings().one_or_none()
+
+
+async def labels_of(session: AsyncSession, class_ids: list[uuid.UUID]) -> list[RowMapping]:
+    """The name, course code and Institution of these Classes, for the Admin's evaluation export
+    (Story 15.4): no User's scope, the Admin names Class sessions by id."""
+    result = await session.execute(
+        select(classes.c.id, classes.c.name, classes.c.course_code, classes.c.institution_id).where(
+            classes.c.id.in_(class_ids)
+        )
+    )
+    return list(result.mappings())
+
+
+async def class_ids_of_institution(
+    session: AsyncSession, institution_id: uuid.UUID
+) -> list[uuid.UUID]:
+    """Story 15.3: the ids of every Class of the Institution, archived ones included."""
+    result = await session.execute(
+        select(classes.c.id)
+        .where(classes.c.institution_id == institution_id)
+        .order_by(classes.c.id)
+    )
+    return list(result.scalars())
+
+
+async def archived_classes_before(session: AsyncSession, before: datetime) -> list[RowMapping]:
+    """Story 15.3: `id`, `institution_id` and `archived_at` of every Class archived before
+    `before`, oldest first."""
+    result = await session.execute(
+        select(classes.c.id, classes.c.institution_id, classes.c.archived_at)
+        .where(classes.c.archived_at.is_not(None), classes.c.archived_at < before)
+        .order_by(classes.c.archived_at, classes.c.id)
+    )
+    return list(result.mappings())
 
 
 async def class_rows(session: AsyncSession, class_ids: list[uuid.UUID]) -> list[RowMapping]:
@@ -201,6 +236,14 @@ async def set_archived(session: AsyncSession, class_id: uuid.UUID, now: datetime
     await session.execute(update(classes).where(classes.c.id == class_id).values(archived_at=now))
 
 
+async def is_staff_anywhere(session: AsyncSession, user_id: uuid.UUID) -> bool:
+    """Story 15.3: whether the User is on the staff of any Class."""
+    found = await session.scalar(
+        select(class_staff.c.user_id).where(class_staff.c.user_id == user_id).limit(1)
+    )
+    return found is not None
+
+
 async def staff_of(session: AsyncSession, class_id: uuid.UUID) -> list[RowMapping]:
     """Every staff row of the Class: `user_id`, `role`."""
     result = await session.execute(
@@ -263,3 +306,13 @@ async def is_assistant_anywhere(session: AsyncSession, user_id: uuid.UUID) -> bo
         .limit(1)
     )
     return result.first() is not None
+
+
+async def delete_staff_rows_of(
+    session: AsyncSession, user_id: uuid.UUID, scope: uuid.UUID | None = None
+) -> None:
+    """Story 15.2 (FR-76): an erased User is no Lecturer or Assistant lecturer of any Class.
+    Retention of one Class session (`scope`, Story 15.3) leaves the staff as they are."""
+    if scope is not None:
+        return
+    await session.execute(delete(class_staff).where(class_staff.c.user_id == user_id))

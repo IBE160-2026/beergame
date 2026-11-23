@@ -14,6 +14,7 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "check:copy": "node scripts/check-copy.mjs",
+    "conformance": "node scripts/conformance.mjs",
     "lint:colours": "node scripts/lint-colours.mjs",
     "theme": "node scripts/build-theme.mjs",
     "api:generate": "openapi-typescript src/lib/api/openapi.json -o src/lib/api/schema.ts"

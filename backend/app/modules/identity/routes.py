@@ -31,6 +31,7 @@ from app.modules.identity.schemas import (
     InstitutionIn,
     InstitutionListOut,
     InstitutionOut,
+    InvalidDeleteReference,
     InvalidInstitutionName,
     InvitationCheckOut,
     InvitationIn,
@@ -41,14 +42,19 @@ from app.modules.identity.schemas import (
     NewPasswordIn,
     NoLetterIn,
     PasswordResetIn,
+    ProcessingAgreementIn,
     ResetCheckOut,
     ResetEmailOut,
     ResetTokenIn,
+    RetentionIn,
     RoleIn,
     SessionOut,
+    UserDeletedOut,
+    UserDeleteIn,
     UserListItem,
     UserListOut,
     UserOut,
+    delete_reference,
 )
 from app.platform import auth, authz, ratelimit
 from app.platform.errors import documented, error_response
@@ -454,6 +460,53 @@ async def reactivate_user(
     return _status_answer(await service.reactivate_user(user.id, user_id, now=auth.utcnow()))
 
 
+DELETE_REFUSALS = {
+    "not_found": (404, "No such User."),
+    "last_admin": (409, "The product would be left without an active Admin."),
+    "role_revoke_blocked": (409, "The User owns Classes; add another Lecturer or archive them."),
+}
+
+
+@admin_router.post(
+    "/users/{user_id}/delete",
+    response_model=UserDeletedOut,
+    responses=documented(401, 403, 404, 409, 422),
+    operation_id="deleteUser",
+)
+async def delete_user(
+    user_id: uuid.UUID,
+    body: UserDeleteIn,
+    user: Annotated[UserOut, Depends(authz.require("users.manage"))],
+) -> Response:
+    """Erase a User on the Institution's instruction (Story 15.2, FR-76, AD-14): a Seat they hold
+    in a running Class game goes to an AI player first, then the User is anonymised in place and
+    their personal data deleted; their Games keep the Seat by Role. `reference` names the
+    instruction and is audited; it may not hold `@` or the User's name (422 `fields.reference`
+    `reference_empty`, `reference_too_long`, `reference_invalid`, `reference_names_user`).
+    Refused 409 `last_admin` for oneself or the last active Admin and `role_revoke_blocked`
+    (`fields.classes`) for a User who owns Classes. Repeating it on an erased User finishes any
+    part left undone and answers the same."""
+    try:
+        reference = delete_reference(body.reference)
+    except InvalidDeleteReference as error:
+        return error_response(
+            422, "invalid_request", "The reference is not valid.", {"reference": error.code}
+        )
+    outcome = await service.delete_user(user.id, user_id, reference, now=auth.utcnow())
+    if isinstance(outcome, service.DeleteRefused):
+        if outcome.code == "reference_names_user":
+            return error_response(
+                422,
+                "invalid_request",
+                "The reference names the User.",
+                {"reference": "reference_names_user"},
+            )
+        status, message = DELETE_REFUSALS[outcome.code]
+        fields = {"classes": outcome.classes} if outcome.code == "role_revoke_blocked" else None
+        return error_response(status, outcome.code, message, fields)
+    return JSONResponse(UserDeletedOut(id=user_id).model_dump(mode="json"))
+
+
 @admin_router.get(
     "/invitations",
     response_model=InvitationListOut,
@@ -621,6 +674,58 @@ async def set_institution_no_letter(
     outcome = await service.set_institution_no_letter(
         user.id, institution_id, body.on, now=auth.utcnow()
     )
+    return _institution_answer(outcome)
+
+
+@admin_router.put(
+    "/institutions/{institution_id}/retention",
+    response_model=InstitutionOut,
+    responses=documented(401, 403, 404, 422),
+    operation_id="setInstitutionRetention",
+)
+async def set_institution_retention(
+    institution_id: uuid.UUID,
+    body: RetentionIn,
+    user: Annotated[UserOut, Depends(authz.require("institutions.manage"))],
+) -> Response:
+    """The Institution's retention period (Story 15.3, FR-77, FR-3): whole calendar months, 1 to
+    120, after the latest effective Test deadline of each Class session, or null for the
+    configured placeholder. Every Class session of the Institution whose deletion date has not
+    come gets its date recomputed in the same transaction, and its Students see the new date on
+    Hjem. Audited as `institution.retention_changed`; the same value again writes nothing. An
+    unknown id is `not_found`."""
+    outcome = await service.set_retention_months(
+        user.id, institution_id, body.months, now=auth.utcnow()
+    )
+    return _institution_answer(outcome)
+
+
+@admin_router.put(
+    "/institutions/{institution_id}/processing-agreement",
+    response_model=InstitutionOut,
+    responses=documented(401, 403, 404, 422),
+    operation_id="recordProcessingAgreement",
+)
+async def record_processing_agreement(
+    institution_id: uuid.UUID,
+    body: ProcessingAgreementIn,
+    user: Annotated[UserOut, Depends(authz.require("institutions.processing_agreement"))],
+) -> Response:
+    """Record or replace the Institution's data processing agreement with the operator (Story
+    15.12, FR-8, PRD §6.1): who signed for the Institution and the day, not after today in
+    Europe/Oslo (422 `fields.signed_on` = `in_future`). Audited as
+    `institution.processing_agreement_recorded`; the same agreement again writes nothing. While
+    `REQUIRE_DPA_FOR_INVITATIONS` is on, Students of the Institution are invited only once it is
+    recorded. An unknown id is `not_found`."""
+    now = auth.utcnow()
+    if body.signed_on > now.astimezone(service.OSLO).date():
+        return error_response(
+            422,
+            "invalid_request",
+            "The agreement cannot be dated in the future.",
+            {"signed_on": "in_future"},
+        )
+    outcome = await service.record_processing_agreement(user.id, institution_id, body, now=now)
     return _institution_answer(outcome)
 
 

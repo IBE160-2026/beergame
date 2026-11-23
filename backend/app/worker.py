@@ -15,7 +15,7 @@ import asyncio
 import sys
 from collections.abc import Sequence
 
-from app.platform import jobs
+from app.platform import error_reporting, jobs
 from app.platform.config import get_settings
 from app.platform.logging import configure_logging
 
@@ -49,16 +49,20 @@ def build_parser() -> argparse.ArgumentParser:
 
 async def serve(names: Sequence[str], *, concurrency: int) -> None:
     """Run the worker on `names`; with `ai-orders` among them, also the rescue loop
-    (`players.rescue`, AD-5), which stops when the worker stops."""
+    (`players.rescue`, AD-5), which stops when the worker stops. A job that fails for good is
+    counted under its Class session through `ops.service` (Story 15.8)."""
+    from app.modules.ops import service as ops_service
+
+    on_failure = ops_service.record_job_failure
     if jobs.AI_ORDERS not in names:
-        await jobs.run_worker(names, concurrency=concurrency)
+        await jobs.run_worker(names, concurrency=concurrency, on_failure=on_failure)
         return
     from app.modules.players import rescue
 
     stop = asyncio.Event()
     loop = asyncio.create_task(rescue.run(stop=stop))
     try:
-        await jobs.run_worker(names, concurrency=concurrency)
+        await jobs.run_worker(names, concurrency=concurrency, on_failure=on_failure)
     finally:
         stop.set()
         await loop
@@ -89,10 +93,19 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 async def _start(names: Sequence[str], *, concurrency: int) -> None:
-    """Seed the zero-config default where allowed (AD-17), then serve."""
+    """Seed the zero-config default where allowed (AD-17), log and record the connections this
+    worker holds against the written budget (Story 15.9), then serve."""
     from app.ai import seed
+    from app.modules.ops import service as ops_service
 
     await seed.ensure_zero_config_logged()
+    error_reporting.log_start(get_settings())  # Story 15.11: the tracker, or that none is set
+    await ops_service.report_connections(
+        ops_service.worker_process(list(names)),
+        get_settings(),
+        concurrency=concurrency,
+        queues=list(names),
+    )
     await serve(names, concurrency=concurrency)
 
 

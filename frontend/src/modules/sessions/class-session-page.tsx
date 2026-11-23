@@ -428,6 +428,12 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
               {item.lock_refused_reason === "question_set_draft" ? copy.lock.refusedDraft : copy.lock.refused}
             </p>
           ) : null}
+          {/* Story 15.6 (FR-69): the players' cost limit was reached; the owners are told by mail too. */}
+          {item.cost_limit_reached_at ? (
+            <p className="mt-1 text-body-phone font-semibold text-ink lg:text-body" data-cost-limit="">
+              {copy.lock.costLimit(osloDateText(item.cost_limit_reached_at))}
+            </p>
+          ) : null}
           {item.can_manage ? (
             <p className="mt-1 text-body-phone text-ink-secondary lg:text-body">
               {assessmentOpen ? copy.lock.openWithAssessment : deadlinesOpen ? copy.lock.open : copy.lock.labHoursOpen}

@@ -85,6 +85,7 @@ export function ManualForm({
         ...(from.entryId ? { roster_entry_id: from.entryId } : {}),
         ...(from.uploadRow ? { upload_row: from.uploadRow } : {}),
       }),
+    messages: { processing_agreement_missing: nb.classes.processingAgreementMissing },
     fallback: copy.failed,
     onSuccess: (result) => {
       invalidateRoster(queryClient, classId);

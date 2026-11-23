@@ -1,11 +1,19 @@
 """API shapes of `modules/identity`."""
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictBool,
+    StrictInt,
+    StringConstraints,
+    field_validator,
+)
 from pydantic_core import PydanticCustomError
 
 
@@ -221,6 +229,50 @@ class RoleIn(BaseModel):
     role: AccountRole
 
 
+ROLES_KEEP_ONE_ACTIVE = frozenset({AccountRole.admin.value})
+"""Roles at least one active User always holds: the product is never left without an Admin
+(revoke, deactivation and erasure alike)."""
+
+DELETE_REFERENCE_MAX_LENGTH = 200
+"""The longest reference to an Institution's instruction (Story 15.2)."""
+
+
+class InvalidDeleteReference(ValueError):
+    """`code`: reference_empty | reference_too_long | reference_invalid."""
+
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
+
+
+def delete_reference(value: str) -> str:
+    """The stored form of the reference to the Institution's instruction (Story 15.2, FR-76):
+    trimmed, inner whitespace collapsed. Refuses an empty one, one over 200 characters, and one
+    holding `@` or a control character: it lands in the audit row, which never holds an address
+    (`platform/audit`). The service refuses one that holds the User's name."""
+    value = " ".join(value.split())
+    if not value:
+        raise InvalidDeleteReference("reference_empty")
+    if len(value) > DELETE_REFERENCE_MAX_LENGTH:
+        raise InvalidDeleteReference("reference_too_long")
+    if "@" in value or any(not ch.isprintable() for ch in value):
+        raise InvalidDeleteReference("reference_invalid")
+    return value
+
+
+class UserDeleteIn(BaseModel):
+    """The Admin's deletion of a User (Story 15.2): the reference to the Institution's
+    instruction, checked by `delete_reference`; a bad one answers `fields.reference`."""
+
+    reference: str = Field(max_length=4 * DELETE_REFERENCE_MAX_LENGTH)
+
+
+class UserDeletedOut(BaseModel):
+    """The erased User's id (Story 15.2): the row is gone from every list."""
+
+    id: uuid.UUID
+
+
 class InvitationStatus(StrEnum):
     """An Invitation as the Admin's list states it (Story 3.10). Expiry is read from `expires_at`
     against the api's clock; a voided Invitation that was never accepted reads as expired."""
@@ -294,6 +346,36 @@ class InstitutionIn(BaseModel):
     name: str = Field(max_length=4 * INSTITUTION_NAME_MAX_LENGTH)
 
 
+PROCESSING_AGREEMENT_TEXT_MAX = 200
+"""The longest «Signert av» of a data processing agreement (Story 15.12)."""
+
+ProcessingAgreementText = Annotated[
+    str,
+    StringConstraints(
+        strip_whitespace=True, min_length=1, max_length=PROCESSING_AGREEMENT_TEXT_MAX
+    ),
+]
+
+
+class ProcessingAgreementIn(BaseModel):
+    """Story 15.12: who signed the Institution's data processing agreement and on which day (not
+    after today in Europe/Oslo, checked by the route)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    signed_by: ProcessingAgreementText
+    signed_on: date
+
+
+class ProcessingAgreementOut(BaseModel):
+    """A recorded data processing agreement (Story 15.12): who signed for the Institution, the day,
+    and when the Admin recorded it."""
+
+    signed_by: str
+    signed_on: date
+    recorded_at: datetime
+
+
 class InstitutionOut(BaseModel):
     """One Institution (Story 3.11): what the Admin's list shows and what other modules read."""
 
@@ -306,6 +388,30 @@ class InstitutionOut(BaseModel):
     no_letter: bool = False
     """Story 12.6 (FR-56): its data protection officer requires that no Indicative letter is
     shown; every Class session of the Institution reads the letter as unavailable."""
+    processing_agreement: ProcessingAgreementOut | None = None
+    """Story 15.12 (FR-8, PRD §6.1): the Institution's data processing agreement with the operator,
+    or None while none is recorded. While `REQUIRE_DPA_FOR_INVITATIONS` is on, its Students are
+    invited only once it is recorded (or it is the operator's own)."""
+    retention_months: int | None = None
+    """Story 15.3 (FR-77): the Institution's own retention period in calendar months after the
+    latest effective Test deadline, or None while the placeholder applies."""
+    retention_default_months: int = 6
+    """Story 15.3: the configured placeholder (`RETENTION_MONTHS`) that applies while
+    `retention_months` is None."""
+
+
+RETENTION_MONTHS_MIN = 1
+RETENTION_MONTHS_MAX = 120
+"""Story 15.3: the retention periods the Admin may set, in whole months (the column's check)."""
+
+
+class RetentionIn(BaseModel):
+    """Story 15.3 (FR-77): the Institution's retention period in whole calendar months, or None to
+    go back to the configured placeholder."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    months: StrictInt | None = Field(ge=RETENTION_MONTHS_MIN, le=RETENTION_MONTHS_MAX)
 
 
 class NoLetterIn(BaseModel):

@@ -11,6 +11,7 @@ the providers registered at the end of this module, since `reports` imports `ses
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,10 +27,12 @@ from app.analysis.completion import (
 from app.modules.debrief import service as debrief
 from app.modules.games import service as games
 from app.modules.games.service import Purpose
+from app.modules.identity import service as identity
 from app.modules.progress import service as progress
 from app.modules.reports import repo, scope
 from app.modules.sessions import service as sessions
 from app.modules.tests import service as tests
+from app.platform import storage
 from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker
 
@@ -188,3 +191,30 @@ sessions.register_completion(completion_status, _funnel_in)
 sessions.register_reporting_students(scope.reporting_students)
 # Story 13.4: Hjem and the `makeup_given` mail find the Student's Oppfølgingsspill here.
 sessions.register_makeup_game(repo.makeup_game_of)
+
+
+async def _erase_reports(user_id: uuid.UUID, now: datetime, scope: uuid.UUID | None = None) -> None:
+    """The erasure of a Student (Story 15.2, FR-76, AD-14), before the erasure's transaction while
+    the Roster still names their Classes: delete the PDFs of every report about them and then
+    the rows (their snapshots go with them); delete every stored ZIP of their Class sessions,
+    which holds their report, and clear its path. Objects go before rows, so a storage failure
+    leaves the rows for a repeat; every part is idempotent. With `scope` (Story 15.3, retention),
+    the reports about them in that Class session and every ZIP of it."""
+    del now
+    files = storage.get_storage()
+    async with get_sessionmaker().begin() as s:
+        reports = await repo.report_paths_of(s, user_id, scope)
+        zips = await repo.zip_paths_of(s, user_id, scope)
+    for path in reports + zips:
+        await files.delete(storage.REPORTS, path)
+    async with get_sessionmaker().begin() as s:
+        await repo.delete_report_requests_of(s, user_id, scope)
+        await repo.clear_zip_paths(s, zips)
+
+
+identity.register_erasure_preparation(
+    "reports", {"report_requests", "report_snapshots"}, _erase_reports
+)
+identity.register_erasure_step(
+    "completion", {"completion_corrections"}, progress.delete_corrections_of
+)

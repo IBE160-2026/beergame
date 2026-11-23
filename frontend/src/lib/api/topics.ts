@@ -5,7 +5,7 @@ import { debriefsKey } from "@/modules/debrief/api";
 import { classOverviewKey, gameInsightKey, startGamesKey, waitedForSeatsKey } from "@/modules/games/api";
 import { meKey } from "@/modules/identity/api";
 import { messageFormKey, myMessagesKey, sentMessagesKey } from "@/modules/messaging/api";
-import { myReportsKey, staffReportsKey } from "@/modules/reports/api";
+import { myDataKey, myReportsKey, staffReportsKey } from "@/modules/reports/api";
 import { classReportKey } from "@/modules/reports/class-report-api";
 import {
   allocationKey,
@@ -44,6 +44,8 @@ export function topicKeys(event: ChangeEvent): QueryKey[] {
         myTestsKey,
         // Story 13.7: the Student report's state, once its render has ended.
         myReportsKey,
+        // Story 15.1: «Mine data» reads again what changed about the User.
+        myDataKey,
         // Story 13.12: a staff download of a Student's report, once the render the User asked for
         // has ended.
         staffReportsKey,

@@ -207,4 +207,48 @@ test.describe("a refused send", () => {
     await expectAccessible(lecturer, false);
     await lecturer.context().close();
   });
+
+  test("an Institution with no data processing agreement: the line says so and the staging stays", async ({
+    page,
+    browser,
+  }) => {
+    // Story 15.12: the api's refusal while `REQUIRE_DPA_FOR_INVITATIONS` is on (tested in the api
+    // tests); the local stack runs with it off, so the answer is set here.
+    const { lecturer } = await classPage(page, browser);
+    const classId = new URL(lecturer.url()).pathname.split("/").pop()!;
+    const tag = `${Date.now()}${Math.floor(Math.random() * 1e6)}`;
+    await stageFile(lecturer, classId, tag);
+    await lecturer.reload();
+    const send = lecturer.getByRole("button", { name: copy.send(2) });
+    await expect(send).toBeVisible();
+
+    const path = `**/api/classes/${classId}/invitations`;
+    await lecturer.route(path, (route) =>
+      route.request().method() === "POST"
+        ? route.fulfill({
+            status: 409,
+            contentType: "application/json",
+            body: JSON.stringify({
+              error: {
+                code: "processing_agreement_missing",
+                message: "The Institution's data processing agreement is not recorded.",
+                fields: {},
+              },
+            }),
+          })
+        : route.fallback(),
+    );
+    const refused = answerTo(lecturer, "/invitations");
+    await tabTo(lecturer, send);
+    await lecturer.keyboard.press("Enter");
+    expect((await refused).status()).toBe(409);
+    await expect(
+      lecturer.getByRole("alert").filter({ hasText: nb.classes.processingAgreementMissing }),
+    ).toBeVisible();
+    // Nothing was sent: the staging and its button are still there.
+    await expect(send).toBeVisible();
+    await expectAccessible(lecturer, false);
+    await lecturer.unroute(path);
+    await lecturer.context().close();
+  });
 });

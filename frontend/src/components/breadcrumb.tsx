@@ -17,21 +17,23 @@ export function Breadcrumb({ items }: { items: readonly Crumb[] }) {
         {items.map((crumb, i) => {
           const current = i === items.length - 1;
           return (
-            <li key={`${i}:${crumb.href}`} className="flex items-center gap-x-2">
-              {i > 0 ? (
-                <span aria-hidden="true" className="text-ink-muted">
-                  /
-                </span>
-              ) : null}
+            // The separator ends its crumb rather than starting the next, so a wrapped line at
+            // 390 px begins with a crumb, never with a lone «/».
+            <li key={`${i}:${crumb.href}`} className="flex min-w-0 items-center gap-x-2">
               {current ? (
-                <span aria-current="page" className="text-ink">
+                <span aria-current="page" className="text-ink [overflow-wrap:anywhere]">
                   {crumb.label}
                 </span>
               ) : (
                 // A short crumb («Hjem», Story 12.9) still makes a 44 px tap target.
-                <Link href={crumb.href} standalone className="min-w-tap-target-min">
+                <Link href={crumb.href} standalone className="min-w-tap-target-min [overflow-wrap:anywhere]">
                   {crumb.label}
                 </Link>
+              )}
+              {current ? null : (
+                <span aria-hidden="true" className="text-ink-muted">
+                  /
+                </span>
               )}
             </li>
           );

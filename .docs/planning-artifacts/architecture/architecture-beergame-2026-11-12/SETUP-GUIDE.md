@@ -52,12 +52,16 @@ Dropped compared with `technology.md`: Redis, the backup cron service, watchdog,
 | `APP_ENV` | 🟡🟢 | yourself | `local`, `test`, `ci` or `production`. In production the app refuses to start on missing or default secrets (AD-17). |
 | `DATABASE_URL` | 🔴🟢 | Supabase → Connect → **Session pooler** | `postgresql+psycopg://…@…pooler.supabase.com:5432/postgres?sslmode=require`. One driver, psycopg 3, for both SQLAlchemy and procrastinate. |
 | `DB_POOL_SIZE` | 🟡 | yourself | Start with `backend` 10, `worker-ai` 5 and `worker-batch` 5, with no overflow. See the connection budget in section 5. |
+| `DB_POOLER_SIZE` | 🟡 | Supabase → Database → Connection pooling | The pooler's pool size, copied by hand (Story 15.9); «Drift» and the preflight compare it with the connection budget. Unset means "not checked". |
 | `JWT_SECRET` | 🔴🟢 | generate (64+ random bytes) | Signs the session cookie (AD-11). |
 | `JWT_EXPIRE_MINUTES` | 🟡 | yourself | Default 43200 (30 days), as in `technology.md`. |
 | `PUBLIC_BASE_URL` | 🟡🟢 | yourself | For example `https://olspillet.no`. Used in email links. |
 | `WEB_INTERNAL_URL` | 🟡🟢 | Railway private networking | `http://web.railway.internal:3000`. The worker uses it to fetch the print route. |
 | `BOOTSTRAP_ADMIN_EMAILS` | 🟡🟢 | yourself | Comma-separated. These users get the Admin role at first login (UJ-1). |
 | `LOG_LEVEL` | 🟡 | yourself | `info` in production. Logs never contain names, emails or free text. |
+| `ERROR_TRACKER_DSN` | 🟡 | the error tracker's project settings (Story 15.11) | `https://<key>@<host>/<project>`; any tracker that accepts Sentry envelopes. Empty locally: reports stay in a recording mock. Empty in production: the app starts and logs `error_tracker_not_configured`. `http://` is refused in production. The tool is open (`docs/ops/readiness.md`, R2). |
+| `REQUIRE_DPA_FOR_INVITATIONS` | 🟡 | the founder's decision (`docs/ops/readiness.md`, R15) | `true`: Student Invitations, reminders and manual registrations are refused for a Class whose Institution has no recorded data processing agreement (Story 15.12). `false` (default): they go on and the missing agreement is logged with ids. The operator's own Institution and Control tests always pass. Backend only. |
+| `RAILWAY_GIT_COMMIT_SHA` | 🟢 | set by Railway on each deploy | Sent with each error report as its release. Not set by hand. |
 
 **The pseudonym key is not an environment variable.** Someone other than the founder generates and keeps it (PRD §10), and types it in when a pseudonymised export is run (FR-71). The system stores only a fingerprint of it, to detect a changed key (AD-14). The same key must be used for the whole of a study.
 
@@ -187,7 +191,7 @@ Caddyfile sketch:
 4. Resend domain verified (SPF, DKIM, DMARC), region eu-west-1, bounce webhook registered and tested.
 5. LLM provider chosen by the prototype, which is the simulation runner `python -m app.sim` (AD-22). Terms (EU region, ZDR, no training) and the rate limit confirmed in writing. Model pinned and tested on all-AI runs (FR-68, PRD §10).
 6. `APP_ENV=production`, and confirm that the app refuses to start with one secret removed (AD-17).
-7. Sub-processor list for the DPIA pack: Railway, Supabase, Resend, the LLM provider and the DNS provider.
-8. The backup level decided, and an error-tracking or uptime tool chosen (spine, Deferred).
+7. Sub-processor list for the DPIA pack: Railway, Supabase, Resend, the LLM provider and the DNS provider (`docs/ops/sub-processors.md`, Story 15.11).
+8. The backup level decided, and an error-tracking or uptime tool chosen (spine, Deferred): the items, options and drills are in the readiness record, `docs/ops/readiness.md` (Story 15.11).
 9. A load test of 250 simultaneous players including provider rate limits (NFR-3).
 10. The rehearsal Class session and the Control test have been run in production, as a `control_test` Class session and with test Students.

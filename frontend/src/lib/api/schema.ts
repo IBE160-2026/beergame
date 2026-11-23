@@ -45,6 +45,249 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/ai/class-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Sessions
+         * @description Every saved Class session, newest first, with its model config and Effort level; once
+         *     locked, what `SessionRuntime` froze (model version, endpoint, prompt versions).
+         */
+        get: operations["listModelSessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/ai/class-sessions/{class_session_id}/assessment/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop Assessment
+         * @description Stop the Class session's AI assessment while its reserve is used up (Story 12.4's
+         *     `stop_for_session`, audited): the retries end and Students see it switched off. Refused with
+         *     409 `reserve_not_used_up`; 404 `not_found`.
+         */
+        post: operations["stopSessionAssessment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/ai/class-sessions/{class_session_id}/budget": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Limit
+         * @description Set the Class session's cost limit on its one budget row (FR-69), audited as
+         *     `ai_budget.limit_set`; the reserve and the spend stay. A raise while the AI assessment waits
+         *     for the Admin also resumes it (Story 12.4). Refused with 422 `limit_below_spent` or
+         *     `reserve_above_limit` (`fields.limit_usd`); 404 `not_found`.
+         */
+        put: operations["setSessionCostLimit"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/ai/class-sessions/{class_session_id}/model-config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Pin
+         * @description Pin a model config for a Class session before its Start date (FR-68), audited as
+         *     `model_config.pinned`. Refused with 409 `model_config_frozen` once the session is locked,
+         *     `study_frozen` for another config in a frozen study, `no_measured_level` for a config with no
+         *     measured Effort level here; 404 `config_not_found` or `not_found`. The answer warns
+         *     `provider_key_missing` when its LLM players' provider has no key here (AD-17).
+         */
+        put: operations["pinModelConfig"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/ai/costs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Costs
+         * @description Every saved Class session's AI cost against its budget (limit, reserve, spent), per Game
+         *     and per Student against the targets, and the simulation budgets apart (Story 15.6, FR-69,
+         *     AD-22).
+         */
+        get: operations["listSessionCosts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/ai/costs/{class_session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Session Cost
+         * @description One Class session's AI cost per Game and per Europe/Oslo day, its budget and cost-limit
+         *     state: the players' limit reached, the reserve used up, the AI assessment stopped.
+         */
+        get: operations["getSessionCost"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/ai/daily-spend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Daily Spend
+         * @description The AI spend of a Europe/Oslo day (today when no `day` is given) across every scope, with
+         *     its dearest Class sessions by name, the evaluation runs apart, `AI_DAILY_ALERT_USD` (null when
+         *     not set; for an alerted day the amount it was alerted at) and when the Admins were alerted
+         *     about the day (Story 15.7, FR-69). A day after today is refused with 422 `day_in_future`.
+         */
+        get: operations["getDailySpend"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/ai/freeze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Freeze State
+         * @description The study freeze in force, or null.
+         */
+        get: operations["getModelFreeze"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/ai/freezes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Freeze
+         * @description Freeze a model config for a learning study (FR-68): the chosen Class sessions get it and
+         *     new ones get it as their default until it is lifted. Refused with 409 `freeze_active`,
+         *     `no_measured_level` or `model_config_frozen` (a chosen session locked with another config,
+         *     `fields.class_session_ids`); 404 `config_not_found` or `not_found`. Audited as
+         *     `model_config.frozen`.
+         */
+        post: operations["freezeModelConfig"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/ai/freezes/{freeze_id}/lift": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Lift
+         * @description Lift the study freeze, audited as `model_config.freeze_lifted`; 409 `freeze_lifted` when
+         *     it was lifted already.
+         */
+        post: operations["liftModelFreeze"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/ai/model-configs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Configs
+         * @description Every model config with provider, endpoint, region, model version and per Effort level the
+         *     newest measurement that counts here (cost per Game, fallback share, Play-guard switched
+         *     share), as stored by Story 2.12.
+         */
+        get: operations["listModelConfigs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/audit": {
         parameters: {
             query?: never;
@@ -190,6 +433,102 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/evaluation/class-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Sessions
+         * @description Every saved Class session, newest first, with its Institution agreement (or null) and the
+         *     day its Student data is deleted (null while it has no Test deadline). No Student data.
+         */
+        get: operations["listEvaluationSessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/evaluation/class-sessions/{class_session_id}/agreement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Record Agreement
+         * @description Record or replace the Institution agreement of a Class session (FR-71): who agreed, on
+         *     which day, and who is controller for the evaluation. Audited as
+         *     `evaluation_agreement.recorded`.
+         */
+        put: operations["recordEvaluationAgreement"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/evaluation/exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Exports
+         * @description The newest export runs and refusals: who, when, the Class sessions with their deletion
+         *     dates, the key fingerprint and the outcome.
+         */
+        get: operations["listEvaluationExports"];
+        put?: never;
+        /**
+         * Run Export
+         * @description Run the pseudonymised export of the chosen Class sessions and stream it as a ZIP (FR-71).
+         *     Refused with 403 `no_agreement` (`fields.class_session_ids`) when a Class session has no
+         *     agreement, and 409 `pseudonym_key_changed` when the key is not the one whose fingerprint is
+         *     stored. Every run and refusal is audited as `evaluation_export.run`.
+         */
+        post: operations["runEvaluationExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/evaluation/key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Key State
+         * @description The stored fingerprint of the pseudonym key, or nulls before the first export.
+         */
+        get: operations["getPseudonymKeyState"];
+        put?: never;
+        /**
+         * Replace Key
+         * @description Replace the stored fingerprint with the new key's (AD-14), audited as
+         *     `pseudonym_key.replaced`. Later exports must use the new key.
+         */
+        post: operations["replacePseudonymKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/institutions": {
         parameters: {
             query?: never;
@@ -281,6 +620,56 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/institutions/{institution_id}/processing-agreement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Record Processing Agreement
+         * @description Record or replace the Institution's data processing agreement with the operator (Story
+         *     15.12, FR-8, PRD §6.1): who signed for the Institution and the day, not after today in
+         *     Europe/Oslo (422 `fields.signed_on` = `in_future`). Audited as
+         *     `institution.processing_agreement_recorded`; the same agreement again writes nothing. While
+         *     `REQUIRE_DPA_FOR_INVITATIONS` is on, Students of the Institution are invited only once it is
+         *     recorded. An unknown id is `not_found`.
+         */
+        put: operations["recordProcessingAgreement"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/institutions/{institution_id}/retention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Institution Retention
+         * @description The Institution's retention period (Story 15.3, FR-77, FR-3): whole calendar months, 1 to
+         *     120, after the latest effective Test deadline of each Class session, or null for the
+         *     configured placeholder. Every Class session of the Institution whose deletion date has not
+         *     come gets its date recomputed in the same transaction, and its Students see the new date on
+         *     Hjem. Audited as `institution.retention_changed`; the same value again writes nothing. An
+         *     unknown id is `not_found`.
+         */
+        put: operations["setInstitutionRetention"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/invitations": {
         parameters: {
             query?: never;
@@ -330,6 +719,95 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/operations/class-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Sessions
+         * @description Every saved Class session, newest first, with its errors of the last 24 hours.
+         */
+        get: operations["listOperationsSessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/operations/class-sessions/{class_session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Session Figures
+         * @description One Class session's errors by source and hour (the last 24 hours) and in total, the share
+         *     of its LLM players' Orders each fallback kind replaced, their response times per Effort level
+         *     (median and 95th percentile), the share of LLM Seats the Play guard switched, and its AI
+         *     cost. 404 `not_found` for an unknown Class session.
+         */
+        get: operations["getSessionOperations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/operations/class-sessions/{class_session_id}/test-error": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Error
+         * @description Raise a deliberate error in one Class session (Story 15.11, NFR-4): the answer is 500, the
+         *     error tracker gets a report of type `DeliberateTestError`, and «Drift» counts one `api_error`
+         *     for the session. The readiness record's check of the tracker in production. 404 `not_found`
+         *     for an unknown Class session; nothing else is changed.
+         */
+        post: operations["raiseOperationsTestError"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/operations/connections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Connections
+         * @description The database connection budget (Story 15.9, NFR-3, NFR-4): per process its written budget
+         *     and what its latest start reported, the sums against the budget and a deploy overlap, and the
+         *     pooler check (`DB_POOLER_SIZE` against twice the budget plus the migration's connection; not
+         *     checked while it is unset).
+         */
+        get: operations["getConnectionBudget"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/users": {
         parameters: {
             query?: never;
@@ -366,6 +844,33 @@ export interface paths {
          *     is deleted (FR-3). Refused with `last_admin` for oneself or the last active Admin.
          */
         post: operations["deactivateUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/users/{user_id}/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete User
+         * @description Erase a User on the Institution's instruction (Story 15.2, FR-76, AD-14): a Seat they hold
+         *     in a running Class game goes to an AI player first, then the User is anonymised in place and
+         *     their personal data deleted; their Games keep the Seat by Role. `reference` names the
+         *     instruction and is audited; it may not hold `@` or the User's name (422 `fields.reference`
+         *     `reference_empty`, `reference_too_long`, `reference_invalid`, `reference_names_user`).
+         *     Refused 409 `last_admin` for oneself or the last active Admin and `role_revoke_blocked`
+         *     (`fields.classes`) for a User who owns Classes. Repeating it on an erased User finishes any
+         *     part left undone and answers the same.
+         */
+        post: operations["deleteUser"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1669,7 +2174,8 @@ export interface paths {
          *     the Individual test and the AI assessment's state, for the Lecturers and Assistant lecturers
          *     of its Class. 403 `forbidden` for anyone else, an Admin without a staff role in the Class
          *     included, for a User who is no Student of the Class now and for a Class session that does not
-         *     exist (FR-5, AD-12).
+         *     exist (FR-5, AD-12). 409 `data_deleted` for its staff once the Class session's Student data
+         *     is deleted (Story 15.3, FR-77).
          */
         get: operations["getStudentRecord"];
         put?: never;
@@ -2022,7 +2528,9 @@ export interface paths {
          *     today (Europe/Oslo), in one transaction; the mails leave from `worker-batch`. 404
          *     `not_found` when `upload_id` is not the Class's staging (sent already, replaced or expired);
          *     422 `nothing_to_send` when no staged row is valid; 422 `invalid_request` with
-         *     `fields.valid_days` for a validity outside 1–60 days. Nothing changes on a refusal.
+         *     `fields.valid_days` for a validity outside 1–60 days; 409 `processing_agreement_missing` while
+         *     `REQUIRE_DPA_FOR_INVITATIONS` is on and the Class's Institution has no recorded data processing
+         *     agreement (Story 15.12). Nothing changes on a refusal.
          */
         post: operations["sendRosterInvitations"];
         delete?: never;
@@ -2071,7 +2579,8 @@ export interface paths {
          *     with `roster_entry_id` to that one alone; their old links stop working. Addresses whose last
          *     mail bounced hard are left out and named in `left_out`. 422 `nothing_to_send` when nothing
          *     would be sent or left out (all registered, or the entry is registered or not on the Roster);
-         *     422 `invalid_request` with `fields.valid_days` for a validity outside 1–60 days.
+         *     422 `invalid_request` with `fields.valid_days` for a validity outside 1–60 days; 409
+         *     `processing_agreement_missing` as for the first sending (Story 15.12).
          */
         post: operations["sendReminders"];
         delete?: never;
@@ -2215,7 +2724,8 @@ export interface paths {
          * @description «Registrer manuelt» (Story 4.8, FR-9): the address's User (created without a password, or
          *     the existing one) is a Student in the Class at once, registered manually, and is mailed a
          *     single-use link to set a password when it has none. 422 `invalid_request` with
-         *     `fields.email` (an address problem or `already_registered`) or `fields.name`.
+         *     `fields.email` (an address problem or `already_registered`) or `fields.name`; 409
+         *     `processing_agreement_missing` as for a sending of Invitations (Story 15.12).
          */
         post: operations["registerStudentManually"];
         delete?: never;
@@ -3346,6 +3856,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/data": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Data
+         * @description «Mine data» (Story 15.1, FR-75): every category of data stored about the caller, their own
+         *     rows only, labelled by the page. Never cached.
+         */
+        get: operations["getMyData"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me/games/{game_id}": {
         parameters: {
             query?: never;
@@ -4057,6 +4588,22 @@ export interface components {
             time_factor: number;
         };
         /**
+         * AgreementIn
+         * @description An Institution agreement for one Class session: who agreed, on which day, and who is
+         *     controller for the evaluation (FR-71).
+         */
+        AgreementIn: {
+            /** Agreed By */
+            agreed_by: string;
+            /**
+             * Agreed On
+             * Format: date
+             */
+            agreed_on: string;
+            /** Controller */
+            controller: string;
+        };
+        /**
          * AgreementOut
          * @description The FR-82 measures from `analysis.agreement`: shares 0 to 1, `offset` in steps (positive:
          *     the AI scores higher), `compression` the AI's spread over the humans' (under 1: compressed;
@@ -4513,6 +5060,22 @@ export interface components {
          */
         BouncedRegistration: "bounced";
         /**
+         * BudgetOut
+         * @description A budget row as `ai.budget` holds it.
+         */
+        BudgetOut: {
+            /** Limit Usd */
+            limit_usd: string;
+            /** Players Exhausted At */
+            players_exhausted_at: string | null;
+            /** Reserve Usd */
+            reserve_usd: string;
+            /** Reserved Usd */
+            reserved_usd: string;
+            /** Spent Usd */
+            spent_usd: string;
+        };
+        /**
          * ChainOut
          * @description Step 3, the whole chain (Story 9.5, FR-44, UX-DR33, UX-DR34): all four Roles, Fabrikk
          *     first (upstream first, the order the Ordrestolper rows and the scrubber's reading take), each
@@ -4878,6 +5441,8 @@ export interface components {
             /** Class Name */
             class_name: string;
             copied_from?: components["schemas"]["CopiedFromOut"] | null;
+            /** Cost Limit Reached At */
+            cost_limit_reached_at?: string | null;
             /**
              * Created At
              * Format: date-time
@@ -5148,6 +5713,47 @@ export interface components {
              * @enum {string}
              */
             result: "right" | "partly" | "wrong" | "not_answered";
+        };
+        /**
+         * ConnectionBudgetOut
+         * @description The database connection budget against the running processes (Story 15.9, NFR-3,
+         *     NFR-4).
+         */
+        ConnectionBudgetOut: {
+            /** Budget Total */
+            budget_total: number;
+            /** Configured Total */
+            configured_total: number;
+            /** Overlap Total */
+            overlap_total: number;
+            pooler: components["schemas"]["PoolerCheckOut"];
+            /** Processes */
+            processes: components["schemas"]["ProcessConnectionsOut"][];
+            /**
+             * Read At
+             * Format: date-time
+             */
+            read_at: string;
+            /**
+             * Running
+             * @enum {string}
+             */
+            running: "within" | "over" | "incomplete";
+        };
+        /**
+         * ConnectionCountsOut
+         * @description Database connections of one process: its SQLAlchemy pool, its procrastinate pool, its
+         *     LISTEN connection, and their total.
+         */
+        ConnectionCountsOut: {
+            /** Listen */
+            listen: number;
+            /** Procrastinate Pool */
+            procrastinate_pool: number;
+            /** Sqlalchemy Pool */
+            sqlalchemy_pool: number;
+            /** Total */
+            total: number;
         };
         /**
          * ConsentIn
@@ -5433,6 +6039,17 @@ export interface components {
             /** Units */
             units: number;
         };
+        /** CostListOut */
+        CostListOut: {
+            /** Evaluations */
+            evaluations: components["schemas"]["EvaluationCostOut"][];
+            /** Game Target Usd */
+            game_target_usd: string;
+            /** Sessions */
+            sessions: components["schemas"]["SessionCostOut"][];
+            /** Student Target Usd */
+            student_target_usd: string;
+        };
         /**
          * CostSum
          * @description Holding and backlog cost and their sum, in kroner (Story 6.18).
@@ -5444,6 +6061,39 @@ export interface components {
             holding_cost: string;
             /** Total Cost */
             total_cost: string;
+        };
+        /**
+         * DailySpendOut
+         * @description The AI spend of one Europe/Oslo day and its alert (Story 15.7, FR-69): decimal strings as
+         *     summed by `ai.calls.day_spend`, unrounded.
+         */
+        DailySpendOut: {
+            /** Alert Usd */
+            alert_usd: string | null;
+            /** Alerted At */
+            alerted_at: string | null;
+            /** Calls */
+            calls: number;
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /** Evaluation Usd */
+            evaluation_usd: string;
+            /** Passed */
+            passed: boolean;
+            /** Session Count */
+            session_count: number;
+            /** Sessions */
+            sessions: components["schemas"]["DaySessionSpendOut"][];
+            /**
+             * Today
+             * Format: date
+             */
+            today: string;
+            /** Total Usd */
+            total_usd: string;
         };
         /**
          * DatesIn
@@ -5458,6 +6108,37 @@ export interface components {
             start_at: string | null;
             /** Test Deadline */
             test_deadline: string | null;
+        };
+        /** DayCostOut */
+        DayCostOut: {
+            /** Calls */
+            calls: number;
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /** Usd */
+            usd: string;
+        };
+        /**
+         * DaySessionSpendOut
+         * @description One Class session's AI spend on the day, named as the Admin names it (no Student data).
+         */
+        DaySessionSpendOut: {
+            /** Calls */
+            calls: number;
+            /**
+             * Class Session Id
+             * Format: uuid
+             */
+            class_session_id: string;
+            /** Institution Name */
+            institution_name: string | null;
+            /** Label */
+            label: string;
+            /** Usd */
+            usd: string;
         };
         /**
          * DeadlineExtensionIn
@@ -5667,6 +6348,16 @@ export interface components {
             /** Values */
             values: string[];
         };
+        /** EffortLevelEntryOut */
+        EffortLevelEntryOut: {
+            /** Label */
+            label: string | null;
+            measurement: components["schemas"]["MeasurementOut"] | null;
+            /** Name */
+            name: string;
+            /** Offered */
+            offered: boolean;
+        };
         /**
          * EnrolledClassListOut
          * @description The Classes the User is a Student in, by name. No paging: a Student has a handful.
@@ -5787,9 +6478,98 @@ export interface components {
             /** Message */
             message: string;
         };
+        /**
+         * ErrorCountsOut
+         * @description Counted errors per source.
+         */
+        ErrorCountsOut: {
+            /** Api Error */
+            api_error: number;
+            /** Conservation Check */
+            conservation_check: number;
+            /** Job Failed */
+            job_failed: number;
+        };
         /** ErrorEnvelope */
         ErrorEnvelope: {
             error: components["schemas"]["ErrorBody"];
+        };
+        /** ErrorHourOut */
+        ErrorHourOut: {
+            /** Api Error */
+            api_error: number;
+            /** Conservation Check */
+            conservation_check: number;
+            /**
+             * Hour
+             * Format: date-time
+             */
+            hour: string;
+            /** Job Failed */
+            job_failed: number;
+        };
+        /** EvaluationAgreementOut */
+        EvaluationAgreementOut: {
+            /** Agreed By */
+            agreed_by: string;
+            /**
+             * Agreed On
+             * Format: date
+             */
+            agreed_on: string;
+            /** Controller */
+            controller: string;
+            /**
+             * Recorded At
+             * Format: date-time
+             */
+            recorded_at: string;
+        };
+        /**
+         * EvaluationCostOut
+         * @description A model config's evaluation budget (simulation runs, AD-22), apart from Class sessions.
+         */
+        EvaluationCostOut: {
+            budget: components["schemas"]["BudgetOut"];
+            /**
+             * Model Config Id
+             * Format: uuid
+             */
+            model_config_id: string;
+            /** Model Name */
+            model_name: string;
+        };
+        /** EvaluationSessionListOut */
+        EvaluationSessionListOut: {
+            /** Items */
+            items: components["schemas"]["EvaluationSessionOut"][];
+        };
+        /**
+         * EvaluationSessionOut
+         * @description A Class session as the export page lists it: how it is named, its Test deadline, the day
+         *     its Student data is deleted (null while there is no Test deadline), and its agreement.
+         */
+        EvaluationSessionOut: {
+            agreement: components["schemas"]["EvaluationAgreementOut"] | null;
+            /** Class Name */
+            class_name: string;
+            /** Course Code */
+            course_code: string | null;
+            /** Deletion Date */
+            deletion_date: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Institution Name */
+            institution_name: string | null;
+            /** Number */
+            number: number;
+            /** Start At */
+            start_at: string | null;
+            /** Test Deadline */
+            test_deadline: string | null;
         };
         /**
          * ExplanationIn
@@ -5815,6 +6595,74 @@ export interface components {
             saved_at: string;
             /** Text */
             text: string;
+        };
+        /** ExportIn */
+        ExportIn: {
+            /** Class Session Ids */
+            class_session_ids: string[];
+            /**
+             * Key
+             * Format: password
+             */
+            key: string;
+        };
+        /** ExportListOut */
+        ExportListOut: {
+            /** Items */
+            items: components["schemas"]["ExportOut"][];
+        };
+        /**
+         * ExportOut
+         * @description One export run or refusal, from its audit row.
+         */
+        ExportOut: {
+            /** Actor Id */
+            actor_id: string | null;
+            /** Actor Name */
+            actor_name: string | null;
+            /** Class Sessions */
+            class_sessions: components["schemas"]["ExportSessionOut"][];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Key Fingerprint */
+            key_fingerprint: string | null;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Outcome */
+            outcome: string;
+        };
+        /**
+         * ExportSessionOut
+         * @description A Class session of an export, with the day by which the exported data must be deleted;
+         *     the name fields are null for a Class session that is gone.
+         */
+        ExportSessionOut: {
+            /** Class Name */
+            class_name: string | null;
+            /** Deletion Date */
+            deletion_date: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Number */
+            number: number | null;
+        };
+        /** FallbackOut */
+        FallbackOut: {
+            /** Kind */
+            kind: string;
+            /** Orders */
+            orders: number;
+            /** Share */
+            share: string | null;
         };
         /**
          * FeedbackOut
@@ -5912,6 +6760,72 @@ export interface components {
              */
             state: "off" | "open" | "closed";
         };
+        /** FreezeIn */
+        FreezeIn: {
+            /** Class Session Ids */
+            class_session_ids: string[];
+            /**
+             * Model Config Id
+             * Format: uuid
+             */
+            model_config_id: string;
+        };
+        /** FreezeOut */
+        FreezeOut: {
+            /** Class Session Ids */
+            class_session_ids: string[];
+            /**
+             * Frozen At
+             * Format: date-time
+             */
+            frozen_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Lifted At */
+            lifted_at: string | null;
+            /**
+             * Model Config Id
+             * Format: uuid
+             */
+            model_config_id: string;
+            /** Model Name */
+            model_name: string | null;
+            /** Model Version */
+            model_version: string | null;
+        };
+        /**
+         * FreezeStateOut
+         * @description The freeze in force, or null.
+         */
+        FreezeStateOut: {
+            active: components["schemas"]["FreezeOut"] | null;
+        };
+        /**
+         * FrozenSettingOut
+         * @description What the lock froze in `SessionRuntime` (AD-4), read-only.
+         */
+        FrozenSettingOut: {
+            /** Effort Level */
+            effort_level: string | null;
+            /** Endpoint */
+            endpoint: string | null;
+            /**
+             * Model Config Id
+             * Format: uuid
+             */
+            model_config_id: string;
+            /** Model Name */
+            model_name: string | null;
+            /** Model Version */
+            model_version: string | null;
+            /** Prompt Versions */
+            prompt_versions: {
+                [key: string]: number;
+            };
+        };
         /**
          * FunnelStageOut
          * @description One stage of the Trakt (Story 7.6, FR-39): how many registered Students reached it.
@@ -5942,16 +6856,6 @@ export interface components {
             number: number | null;
             /** Ordered */
             ordered: number;
-        };
-        /**
-         * GameCostOut
-         * @description A finished Class game's chain Total cost, for «Vis som tabell».
-         */
-        GameCostOut: {
-            /** Chain Cost */
-            chain_cost: string;
-            /** Number */
-            number: number | null;
         };
         /**
          * GameInsightOut
@@ -6585,6 +7489,14 @@ export interface components {
              * @default false
              */
             operator_owned: boolean;
+            processing_agreement?: components["schemas"]["ProcessingAgreementOut"] | null;
+            /**
+             * Retention Default Months
+             * @default 6
+             */
+            retention_default_months: number;
+            /** Retention Months */
+            retention_months?: number | null;
         };
         /**
          * IntRange
@@ -6748,6 +7660,27 @@ export interface components {
             terms: components["schemas"]["SumTermOut"][];
         };
         JsonValue: unknown;
+        /**
+         * KeyIn
+         * @description The pseudonym key, typed by the key holder; never stored, logged or echoed.
+         */
+        KeyIn: {
+            /**
+             * Key
+             * Format: password
+             */
+            key: string;
+        };
+        /**
+         * KeyStateOut
+         * @description The stored fingerprint of the pseudonym key, or nulls before the first export.
+         */
+        KeyStateOut: {
+            /** Fingerprint */
+            fingerprint: string | null;
+            /** Set At */
+            set_at: string | null;
+        };
         /**
          * LabHourIn
          * @description A Lab hour as the Lecturer adds or changes it (Story 5.6, FR-19): its start and end as
@@ -6962,6 +7895,11 @@ export interface components {
          * @enum {string}
          */
         Lifecycle: "not_started" | "running" | "playing_out" | "finished";
+        /** LimitIn */
+        LimitIn: {
+            /** Limit Usd */
+            limit_usd: number | string;
+        };
         /** LoginIn */
         LoginIn: {
             /** Email */
@@ -6986,6 +7924,31 @@ export interface components {
             /** Roster Entry Id */
             roster_entry_id?: string | null;
             upload_row?: components["schemas"]["UploadRow"] | null;
+        };
+        /**
+         * MeasurementOut
+         * @description The newest measurement of an Effort level that counts here, as the approval of Story 2.12
+         *     stored it: decimal strings, never recomputed. A mock measurement has no
+         *     figures.
+         */
+        MeasurementOut: {
+            /**
+             * Approved At
+             * Format: date-time
+             */
+            approved_at: string;
+            /** Cost Per Game Usd */
+            cost_per_game_usd: string | null;
+            /** Fallback Share */
+            fallback_share: string | null;
+            /** Games */
+            games: number | null;
+            /** Mock */
+            mock: boolean;
+            /** Switched Share */
+            switched_share: string | null;
+            /** Time Per Order P95 S */
+            time_per_order_p95_s: string | null;
         };
         /**
          * MessageFormOut
@@ -7056,6 +8019,88 @@ export interface components {
             sent_before: number;
             /** Students */
             students: number;
+        };
+        /** ModelConfigListOut */
+        ModelConfigListOut: {
+            /** Items */
+            items: components["schemas"]["ModelConfigOut"][];
+        };
+        /** ModelConfigOut */
+        ModelConfigOut: {
+            /** Active Default */
+            active_default: boolean;
+            /** Effort Levels */
+            effort_levels: components["schemas"]["EffortLevelEntryOut"][];
+            /** Endpoint */
+            endpoint: string;
+            /** Frozen */
+            frozen: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** May Answer */
+            may_answer: boolean;
+            /** Model Version */
+            model_version: string;
+            /** Name */
+            name: string;
+            /** Pinnable */
+            pinnable: boolean;
+            /** Prompts */
+            prompts: {
+                [key: string]: number;
+            };
+            /** Provider */
+            provider: string;
+            /** Quantisation */
+            quantisation: string;
+            /** Referenced */
+            referenced: boolean;
+            /** Region */
+            region: string;
+        };
+        /** ModelSessionListOut */
+        ModelSessionListOut: {
+            /** Items */
+            items: components["schemas"]["ModelSessionOut"][];
+        };
+        /**
+         * ModelSessionOut
+         * @description A saved Class session with its model setting.
+         */
+        ModelSessionOut: {
+            /** Ai Mode */
+            ai_mode: string;
+            /** Class Name */
+            class_name: string;
+            /** Effort Level */
+            effort_level: string | null;
+            frozen: components["schemas"]["FrozenSettingOut"] | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** In Freeze */
+            in_freeze: boolean;
+            /** Institution Name */
+            institution_name: string | null;
+            /** Locked */
+            locked: boolean;
+            /** Model Config Id */
+            model_config_id: string | null;
+            /** Model Name */
+            model_name: string | null;
+            /** Model Version */
+            model_version: string | null;
+            /** Number */
+            number: number;
+            /** Start At */
+            start_at: string | null;
+            /** Warnings */
+            warnings: string[];
         };
         /**
          * MomentOut
@@ -7136,6 +8181,58 @@ export interface components {
             total_max: number | null;
             /** Unassessed */
             unassessed: number[];
+        };
+        /** MyDataCategoryOut */
+        MyDataCategoryOut: {
+            /** Items */
+            items: components["schemas"]["MyDataItemOut"][];
+            /**
+             * Key
+             * @enum {string}
+             */
+            key: "account" | "orders" | "game" | "explanation" | "reflection" | "follow_ups" | "debrief" | "quiz" | "starting_task" | "test" | "assessment" | "letter" | "adjustments" | "messages" | "completion";
+        };
+        /**
+         * MyDataFieldOut
+         * @description One stored value: `key` and, for `kind` `code`, the value are labelled by the page from
+         *     `nb.ts`; `datetime` and `date` values are ISO 8601; `bool` is `true` or `false`.
+         */
+        MyDataFieldOut: {
+            /** Key */
+            key: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "text" | "number" | "bool" | "datetime" | "date" | "code";
+            /** Value */
+            value: string | null;
+        };
+        /**
+         * MyDataItemOut
+         * @description One stored row of the Student: what it is (`kind`), the Class and Klasseøkt it belongs to
+         *     (null for the account), when it was stored, and its fields.
+         */
+        MyDataItemOut: {
+            /** At */
+            at: string | null;
+            /** Class Name */
+            class_name: string | null;
+            /** Fields */
+            fields: components["schemas"]["MyDataFieldOut"][];
+            /** Kind */
+            kind: string;
+            /** Session Number */
+            session_number: number | null;
+        };
+        /**
+         * MyDataOut
+         * @description Everything the product stores about the caller, by «Mine data» category in page order.
+         *     `adjustments` is left out when the Student has no Tilrettelegging.
+         */
+        MyDataOut: {
+            /** Categories */
+            categories: components["schemas"]["MyDataCategoryOut"][];
         };
         /**
          * MyExplanationOut
@@ -7390,6 +8487,72 @@ export interface components {
             time_per_order_median_s: string | null;
         };
         /**
+         * OperationsOut
+         * @description One Class session's operations figures (Story 15.8, NFR-8, FR-79).
+         */
+        OperationsOut: {
+            /** Ai Calls */
+            ai_calls: number;
+            /**
+             * Class Session Id
+             * Format: uuid
+             */
+            class_session_id: string;
+            /** Cost Usd */
+            cost_usd: string;
+            /** Fallbacks */
+            fallbacks: components["schemas"]["FallbackOut"][];
+            /** Hours */
+            hours: components["schemas"]["ErrorHourOut"][];
+            /** Institution Name */
+            institution_name: string | null;
+            /** Label */
+            label: string;
+            /** Llm Orders */
+            llm_orders: number;
+            /** Llm Seats */
+            llm_seats: number;
+            /**
+             * Read At
+             * Format: date-time
+             */
+            read_at: string;
+            /** Response Times */
+            response_times: components["schemas"]["ResponseTimeOut"][];
+            /** Switched Seats */
+            switched_seats: number;
+            /** Switched Share */
+            switched_share: string | null;
+            totals: components["schemas"]["ErrorCountsOut"];
+        };
+        /** OperationsSessionListOut */
+        OperationsSessionListOut: {
+            /** Items */
+            items: components["schemas"]["OperationsSessionOut"][];
+            /**
+             * Read At
+             * Format: date-time
+             */
+            read_at: string;
+        };
+        /**
+         * OperationsSessionOut
+         * @description A Class session as «Drift» lists it, with its errors of the last 24 hours.
+         */
+        OperationsSessionOut: {
+            /** Errors 24H */
+            errors_24h: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Institution Name */
+            institution_name: string | null;
+            /** Label */
+            label: string;
+        };
+        /**
          * OrderIn
          * @description The Student's Order for the open Week (Story 6.12): one whole number; the command checks
          *     it lies from 0 to the Game settings maximum (`order_invalid`).
@@ -7631,6 +8794,14 @@ export interface components {
              */
             state: "paused" | "ended";
         };
+        /** PinIn */
+        PinIn: {
+            /**
+             * Model Config Id
+             * Format: uuid
+             */
+            model_config_id: string;
+        };
         /**
          * PlayOut
          * @description The play screen's one envelope (Story 6.6, AD-3): what the Student's own Seat sees in the
@@ -7700,6 +8871,65 @@ export interface components {
             /** Games */
             games: components["schemas"]["PlenaryGameOut"][];
             role: components["schemas"]["Role"];
+        };
+        /** PoolerCheckOut */
+        PoolerCheckOut: {
+            /** Pooler Size */
+            pooler_size: number | null;
+            /** Required */
+            required: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "passed" | "failed" | "not_checked";
+        };
+        /** ProcessConnectionsOut */
+        ProcessConnectionsOut: {
+            budget: components["schemas"]["ConnectionCountsOut"];
+            configured: components["schemas"]["ConnectionCountsOut"] | null;
+            /** Over Budget */
+            over_budget: boolean;
+            /**
+             * Process
+             * @enum {string}
+             */
+            process: "backend" | "worker-ai" | "worker-batch";
+            /** Reported At */
+            reported_at: string | null;
+        };
+        /**
+         * ProcessingAgreementIn
+         * @description Story 15.12: who signed the Institution's data processing agreement and on which day (not
+         *     after today in Europe/Oslo, checked by the route).
+         */
+        ProcessingAgreementIn: {
+            /** Signed By */
+            signed_by: string;
+            /**
+             * Signed On
+             * Format: date
+             */
+            signed_on: string;
+        };
+        /**
+         * ProcessingAgreementOut
+         * @description A recorded data processing agreement (Story 15.12): who signed for the Institution, the day,
+         *     and when the Admin recorded it.
+         */
+        ProcessingAgreementOut: {
+            /**
+             * Recorded At
+             * Format: date-time
+             */
+            recorded_at: string;
+            /** Signed By */
+            signed_by: string;
+            /**
+             * Signed On
+             * Format: date
+             */
+            signed_on: string;
         };
         /**
          * ProposalPersonOut
@@ -8548,7 +9778,7 @@ export interface components {
             backorder_cost: string;
             chain: components["schemas"]["DistributionOut"];
             /** Games */
-            games: components["schemas"]["GameCostOut"][];
+            games: components["schemas"]["app__modules__reports__class_report_schemas__GameCostOut"][];
             /** Holding Cost */
             holding_cost: string;
             /** Roles */
@@ -8902,6 +10132,19 @@ export interface components {
             /** Token */
             token: string;
         };
+        /** ResponseTimeOut */
+        ResponseTimeOut: {
+            /** Calls */
+            calls: number;
+            /** Effort Level */
+            effort_level: string;
+            /** Label */
+            label?: string | null;
+            /** Median Ms */
+            median_ms: number;
+            /** P95 Ms */
+            p95_ms: number;
+        };
         /**
          * ResultsConfigOut
          * @description The model config the Control test is pinned to.
@@ -8952,6 +10195,15 @@ export interface components {
         ResultsScorerOut: {
             /** Name */
             name: string;
+        };
+        /**
+         * RetentionIn
+         * @description Story 15.3 (FR-77): the Institution's retention period in whole calendar months, or None to
+         *     go back to the configured placeholder.
+         */
+        RetentionIn: {
+            /** Months */
+            months: number | null;
         };
         /**
          * RevealOut
@@ -9638,6 +10890,84 @@ export interface components {
             items: components["schemas"]["SentMessageOut"][];
             /** Session Number */
             session_number: number;
+        };
+        /**
+         * SessionCostDetailOut
+         * @description One Class session's cost per Game and per day, with its cost-limit state.
+         */
+        SessionCostDetailOut: {
+            /** Ai Mode */
+            ai_mode: string;
+            /** Assessment Stopped At */
+            assessment_stopped_at: string | null;
+            budget: components["schemas"]["BudgetOut"] | null;
+            /** Calls */
+            calls: number;
+            /** Can Stop */
+            can_stop: boolean;
+            /**
+             * Class Session Id
+             * Format: uuid
+             */
+            class_session_id: string;
+            /** Games */
+            games: number;
+            /** Institution Name */
+            institution_name: string | null;
+            /** Label */
+            label: string;
+            /** Per Day */
+            per_day: components["schemas"]["DayCostOut"][];
+            /** Per Game */
+            per_game: components["schemas"]["app__modules__ops__ai_schemas__GameCostOut"][];
+            /** Per Game Above */
+            per_game_above: boolean;
+            /** Per Game Usd */
+            per_game_usd: string | null;
+            /** Per Student Above */
+            per_student_above: boolean;
+            /** Per Student Usd */
+            per_student_usd: string | null;
+            /** Reserve Used Up */
+            reserve_used_up: boolean;
+            /** Students */
+            students: number;
+            /** Total Usd */
+            total_usd: string;
+        };
+        /**
+         * SessionCostOut
+         * @description One saved Class session's AI cost against its budget.
+         */
+        SessionCostOut: {
+            /** Ai Mode */
+            ai_mode: string;
+            budget: components["schemas"]["BudgetOut"] | null;
+            /** Calls */
+            calls: number;
+            /**
+             * Class Session Id
+             * Format: uuid
+             */
+            class_session_id: string;
+            /** Games */
+            games: number;
+            /** Institution Name */
+            institution_name: string | null;
+            /** Label */
+            label: string;
+            /** Per Game Above */
+            per_game_above: boolean;
+            /** Per Game Usd */
+            per_game_usd: string | null;
+            /** Per Student Above */
+            per_student_above: boolean;
+            /** Per Student Usd */
+            per_student_usd: string | null;
+            /** Students */
+            students: number;
+            /** Total Usd */
+            total_usd: string;
         };
         /** SessionOut */
         SessionOut: {
@@ -10708,6 +12038,26 @@ export interface components {
             upload_id: string;
         };
         /**
+         * UserDeleteIn
+         * @description The Admin's deletion of a User (Story 15.2): the reference to the Institution's
+         *     instruction, checked by `delete_reference`; a bad one answers `fields.reference`.
+         */
+        UserDeleteIn: {
+            /** Reference */
+            reference: string;
+        };
+        /**
+         * UserDeletedOut
+         * @description The erased User's id (Story 15.2): the row is gone from every list.
+         */
+        UserDeletedOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+        };
+        /**
          * UserListItem
          * @description One User on «Brukere og roller» (Story 3.9).
          */
@@ -11086,6 +12436,29 @@ export interface components {
             /** Students */
             students: number | null;
         };
+        /** GameCostOut */
+        app__modules__ops__ai_schemas__GameCostOut: {
+            /** Above */
+            above: boolean;
+            /** Calls */
+            calls: number;
+            /** Game Id */
+            game_id: string | null;
+            /** Number */
+            number: number | null;
+            /** Usd */
+            usd: string;
+        };
+        /**
+         * GameCostOut
+         * @description A finished Class game's chain Total cost, for «Vis som tabell».
+         */
+        app__modules__reports__class_report_schemas__GameCostOut: {
+            /** Chain Cost */
+            chain_cost: string;
+            /** Number */
+            number: number | null;
+        };
     };
     responses: never;
     parameters: never;
@@ -11197,6 +12570,602 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listModelSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelSessionListOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    stopSessionAssessment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionCostDetailOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    setSessionCostLimit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LimitIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionCostDetailOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    pinModelConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PinIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelSessionOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listSessionCosts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CostListOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getSessionCost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionCostDetailOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getDailySpend: {
+        parameters: {
+            query?: {
+                /** @description A Europe/Oslo day. */
+                day?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DailySpendOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getModelFreeze: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FreezeStateOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    freezeModelConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FreezeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FreezeStateOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    liftModelFreeze: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                freeze_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FreezeStateOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listModelConfigs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelConfigListOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -11628,6 +13597,293 @@ export interface operations {
             };
         };
     };
+    listEvaluationSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationSessionListOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    recordEvaluationAgreement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgreementIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationSessionOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listEvaluationExports: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportListOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    runEvaluationExport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": string;
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getPseudonymKeyState: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KeyStateOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    replacePseudonymKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KeyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KeyStateOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     listInstitutions: {
         parameters: {
             query?: {
@@ -11929,6 +14185,130 @@ export interface operations {
             };
         };
     };
+    recordProcessingAgreement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                institution_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProcessingAgreementIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstitutionOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    setInstitutionRetention: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                institution_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RetentionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstitutionOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     listInvitations: {
         parameters: {
             query?: {
@@ -12106,6 +14486,198 @@ export interface operations {
             };
         };
     };
+    listOperationsSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationsSessionListOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getSessionOperations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationsOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    raiseOperationsTestError: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getConnectionBudget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectionBudgetOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     listUsers: {
         parameters: {
             query?: {
@@ -12175,6 +14747,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserListItem"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    deleteUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserDeleteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserDeletedOut"];
                 };
             };
             /** @description Unauthorized */
@@ -15423,6 +18066,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -16424,6 +19076,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
             /** @description Unprocessable Content */
             422: {
                 headers: {
@@ -16519,6 +19180,15 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -16949,6 +19619,15 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -19856,6 +22535,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getMyData: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyDataOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

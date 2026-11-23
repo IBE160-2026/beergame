@@ -1,0 +1,135 @@
+# Readiness record
+
+The founder's go/no-go list before the first Class session with real Students (NFR-4, NFR-7, NFR-10, SETUP-GUIDE §7). Story 15.11 started it with the operations decisions and the checks no code can make; Stories 15.13 and 15.14 add theirs. Revise it in place.
+
+**Status: NO-GO.** The record says go only when every item below is `passed`, or carries an accepted deviation signed by the founder. An item stays `open` with its issue number until the founder records it with who did it and the date. No story marks an item passed, and no story decides an item: where the autonomous build asked an independent review to propose a value (no human in the loop), the proposal is written beside the item as **Proposal**, and the item is still open. When the founder decides, note the decision also against the spine's Deferred list (`ARCHITECTURE-SPINE.md`) and on the issue.
+
+| # | Item | Owner | Issue | Status | Recorded (who, date) |
+| --- | --- | --- | --- | --- | --- |
+| R1 | Backup level chosen (below) | founder | #28 | open | |
+| R2 | Error-tracking tool chosen, with its region and the data it receives; `ERROR_TRACKER_DSN` set in Railway | founder | #28 | open | |
+| R3 | Uptime-monitoring tool chosen, with its region and the data it receives | founder | #28 | open | |
+| R4 | One restore into a separate database, checked with `verify_restore` | founder | #28 | open | |
+| R5 | A deliberate error in production seen in the tracker and in `error_events` | founder | #28 | open | |
+| R6 | A stopped `backend` health check raises an uptime alert that reaches the named contact | founder | #28 | open | |
+| R7 | Named contact during Lab hours | founder | #28 | open | |
+| R8 | Response route: how the contact is reached and what they do | founder | #28 | open | |
+| R9 | How availability during Lab hours (99.5 %) is measured from the uptime tool | founder | #28 | open | |
+| R10 | The contact named in the Lecturer material of Story 2.13 | founder | #28 | open | |
+| R11 | Sub-processor register (`docs/ops/sub-processors.md`) confirmed for the DPIA pack, its open rows filled in | founder | #28, #29 | open | |
+| R12 | The e-mail provider's data residency decided or listed as open (Story 15.14 completes it) | founder | #29 | open | |
+| R13 | Conformance report [conformance-report-2026-11-22.md](../accessibility/conformance-report-2026-11-22.md): its checks tools cannot make (screen reader, keyboard only) done and recorded (below) | founder | | open | |
+| R14 | The accessibility statement's contact address (`nb.accessibility.contact.email`, now the placeholder `tilgjengelighet@example.com`) set to an address someone reads | founder | | open | |
+| R15 | Data processing agreement gate decided: whether Student Invitations are refused for an Institution with no recorded agreement, `REQUIRE_DPA_FOR_INVITATIONS` set to it in Railway, and the pilot Institution's agreement recorded in «Institusjoner» | founder | | open | |
+
+## R1 Backup level
+
+NFR-4: "game state is never lost once a Week has been shown". Issue #28 sets the target: at most 5 minutes of data lost and the service back within 1 hour. The options below are what Supabase offers; the plan names, retention days and prices must be confirmed against Supabase's current pricing and backup documentation before the choice is made.
+
+| Option | What is kept | Worst data loss on a database loss or a bad change | What it means for NFR-4 |
+| --- | --- | --- | --- |
+| Free plan | No backups the project can restore; the project pauses when idle | Everything | Not met. Not allowed for the pilot (SETUP-GUIDE §2). |
+| Pro plan, daily backups (7 days kept) | One physical backup a day | Up to about 24 hours: every Week shown since the last backup | Not met: a Lab hour's shown Weeks can be lost. |
+| Team plan, daily backups (14 days kept) | As Pro, kept longer | Up to about 24 hours | Not met, as Pro. |
+| Point-in-time recovery (PITR) add-on, 7, 14 or 28 days (on Pro or Team; needs at least the Small compute add-on; daily backups stop when it is on) | The WAL, archived about every 2 minutes, restorable to any second in the window | About 2 minutes | Meets the 5-minute target of issue #28; strictly, a shown Week from the last 2 minutes can still be lost. |
+| Manual `pg_dump` by the operator (any plan) | What the dump held when it ran | Since the last dump | Not met on its own; a supplement before risky changes. |
+
+A restore of a daily backup or PITR replaces the database of the project (downtime while it runs) or goes into a new project; either way the restored copy is checked with `verify_restore` (R4) before the app is pointed at it.
+
+**Proposal** (independent review, not a founder decision): PITR, 7 days; see "Proposals" below.
+
+## R2 Error-tracking tool
+
+Story 15.11 added the adapter (`backend/app/platform/error_reporting.py`). It sends one report per unhandled api exception and per job that fails for good, as a Sentry envelope to the tracker named by `ERROR_TRACKER_DSN` (`https://<key>@<host>/<project>`); Sentry, GlitchTip and Bugsink accept it, so the tool stays open. Empty in production, the process starts and logs `error_tracker_not_configured`; the errors are still in the logs and counted per Class session in `error_events` («Drift»), which do not depend on the tool. A report carries the error's class, its stack (file, module, function, line) and the ids listed in the sub-processor register, never a message, local variable, request body, name, e-mail or User id. A DSN with `http://` is refused in production.
+
+Record: the tool, its data region, the plan, and that the project's settings store no IP addresses of the senders (the only addresses it sees are the servers').
+
+## R3 Uptime-monitoring tool
+
+Calls `GET https://<domain>/api/health` (answers `200 {"status": "ok"}`, or `503 db_unavailable` when the database cannot be reached) from outside, at least every minute during Lab hours, and alerts the named contact (R7) by the response route (R8). It receives no app data. Record: the tool, its region, the check interval, who is alerted and how.
+
+## R4 Restore drill
+
+Restore the production backup (R1) into a **separate** database (a new Supabase project or branch, never the production one), then run from a `backend` shell or a machine that can reach it:
+
+```
+python -m app.ops.verify_restore '<the restored database URL>?sslmode=require'
+```
+
+Give the URL with `sslmode=require`: the copy holds production personal data. The URL is an argument, so run the command in a one-off shell whose history is not kept.
+
+It reads only (one read-only transaction), replays every finished Game at its stored `rules_version` and prints one line per Game and `result: pass` (exit 0), `result: FAIL` (exit 1) or `result: cannot verify` (exit 2). It never prints the URL. `--limit N` checks the newest N finished Games, `--game <id>` one Game. A Game that cannot be read or replayed fails by itself; the others are still checked. Record: the date, the backup point used, the time the restore took, and the result line.
+
+What the drill does not show: it checks finished Games only (a running Game has no last Week to replay), and it counts no other rows (Users, Rosters, answers). The `database revision` line shows whether the copy is at the migration the deployed code expects; compare it with `alembic heads`.
+
+## R5 Deliberate error in production
+
+As the Admin, in the browser's developer console on the production site, for the rehearsal Class session's id:
+
+```
+fetch('/api/admin/operations/class-sessions/<class session id>/test-error',
+      {method: 'POST', headers: {'X-Requested-With': 'olspillet'}})
+```
+
+The answer is 500. The tracker shows one `DeliberateTestError` (module `app.modules.ops.operations_routes`) tagged with the Class session id and a request id, and «Drift» for that Class session shows one more API error. Record: the date, the request id seen in both.
+
+## R6 Stopped health check
+
+During a rehearsal, outside Lab hours: stop the `backend` service in Railway (or point its database at a closed port) until the uptime tool alerts, then start it again. Passed when the alert reached the named contact by the response route within the tool's stated time. Record: the date, the minutes from stop to alert, who got it.
+
+## R7–R10 Contact, response route, availability, Lecturer material
+
+- **R7.** The person who answers during every Lab hour of the pilot, and a stand-in.
+- **R8.** How they are reached (the uptime tool's alert channel, a phone number), what they check first («Drift», the tracker, Railway's service status), and when they tell the Lecturer that the Class session moves to another hour.
+- **R9.** Availability is measured as the share of the uptime tool's checks during the Lab hours of the Class sessions that answered 200; the target is 99.5 % (NFR-4). Record where the figure is read and for which period.
+- **R10.** The Lecturer material (Story 2.13) names the contact and the route, so a Lecturer knows whom to call during a Lab hour.
+
+## R13–R14 Accessibility (Story 15.13)
+
+NFR-6: the statement is published at `/tilgjengelighet`, linked from the footer of every page, the Landing's included (not from the print route, which only WeasyPrint reads, nor from the shared projection screen `/delt-skjerm`); its copy is `nb.accessibility` in `frontend/src/copy/nb.ts`. The conformance report in `docs/accessibility/` lists every surface of the build at 320, 360 and 1440 px, 400 % zoom and 200 % text, with axe and the sideways-scroll check. Make it again before the pilot, once Epics 11–14 are built, from `frontend/` with the local stack running:
+
+```
+npm run conformance
+```
+
+It scans with fresh data, writes `docs/accessibility/conformance-report-<date>.md` and points R13 at it; commit both. `-- --from <dir>` makes the report from a CI run's `conformance-results` artifact instead, and `-- --verapdf <file>` adds a sample Student report's veraPDF result.
+
+- **R13.** Passed when every check in the report's "Checks tools cannot make" section shows who did it and when (fill `docs/accessibility/conformance-inputs.json` and run the command again), the surfaces show `pass` or a deviation the statement lists, and the statement's «Kjente avvik» says the same as the report. The independent review of the autonomous build did the keyboard and focus checks in the founder's place and found no defect; it closes nothing.
+- **R14.** The address Students' Faglærere and others write to. Until it is set, the statement shows the placeholder (Story 15.14's preflight should refuse it in production).
+
+## R15 Data processing agreement gate (Story 15.12)
+
+PRD §6.1: the operator signs a data processing agreement with each Institution before any of its Students are invited, the founder's own Institution for the pilot included. Story 15.12 built the record and the gate; whether the gate refuses is the founder's decision (spine, Deferred list).
+
+- The Admin records who signed for the Institution and the day in Admin-område → «Institusjoner» → «Databehandleravtale» (audited as `institution.processing_agreement_recorded`).
+- `REQUIRE_DPA_FOR_INVITATIONS=true`: a Lecturer's «Send N Invitasjoner», «Send påminnelse» and «Registrer manuelt» in a Class whose Institution has no recorded agreement answer `409 processing_agreement_missing`, change nothing, and the Lecturer is told the agreement is missing.
+- `false` (the default until the founder decides): the send goes on and the backend logs `invitation_without_processing_agreement` with the Class and Institution ids.
+- Either way the operator's own Institution and every Control test pass (the operator is controller for test students, FR-82), and Lecturer, Admin and Assistant Invitations are never held.
+- **R15** is passed when the founder has recorded the decision with the date against the spine's Deferred list, set the variable in Railway to it, and the pilot Institution's agreement is recorded.
+
+## Proposals
+
+Proposals only, written in place of the founder (autonomous build, no human in the loop). They close nothing: every item above (R1–R12) and the two open sub-processor rows stay `open` until the founder records a decision. No account was made and no project detail was sent anywhere; the reviewer used its own knowledge and generic web searches only. Every figure marked **to confirm** comes from memory or from third-party pages and must be read against the provider's own current pricing, DPA and documentation before it is used.
+
+| Item | Proposal | Reason |
+| --- | --- | --- |
+| **R1** Backup level | **PITR add-on, 7 days**, on the Pro plan (daily backups stop while it is on). Compute is already Large from the connection-budget proposal, which is above the add-on's minimum (Small; to confirm). Before every migration or risky change during the pilot, also take a manual `pg_dump` and keep it for the 7 days. Re-evaluate to 14 days only if Class sessions are more than a week apart. | Only PITR reaches the 5-minute target of #28 (about 2 minutes lost, WAL archived about every 2 minutes; to confirm); daily backups lose up to 24 hours of shown Weeks and fail NFR-4. 7 days is enough: a bad change or a wrong delete is noticed in the next weekly Lab hour, and 14 and 28 days double and quadruple the price for no pilot benefit. Price about USD 100 a month for 7 days, 200 for 14, 400 for 28 (to confirm; third-party sources; the add-on is not covered by the spend cap and is said to bill by the hour, which would allow enabling it for the pilot weeks only; to confirm). |
+| **R2** Error tracker | **Sentry (SaaS), EU data region (Germany), plan Developer (free)**, one organisation, one project (platform Python, "Other"). DSN host is the EU ingest host of the organisation (of the form `o<id>.ingest.de.sentry.io`; to confirm). Fallback if the Developer plan's quota or terms do not fit: GlitchTip hosted, EU instance (Frankfurt), plan Small (about USD 15 a month; to confirm). Project and organisation settings, all to be set before the DSN goes into Railway: **Prevent Storing of IP Addresses: on**; **Data Scrubber: on**, **Use Default Scrubbers: on**, **Prevent storing IP in scrubbing: on** (second guard on top of the adapter, which sends no message, locals, request, user or IP); Additional sensitive fields: `email`, `name`, `token`, `authorization`, `cookie`; **Allow Sentry staff limited support access: off**; generative-AI / Seer features and "share data for product improvement": off; require two-factor for members; keep the project to one member (the contact) and one stand-in; spike protection on and a rate limit on the key (for example 60 events a minute) so a failing loop cannot burn the quota; retention at the plan's default (30 days; to confirm); no Session Replay, no tracing, no profiling. Optional: one issue alert "new issue" by e-mail to the contact (R7). | The tool must take the Sentry envelope the adapter sends: Sentry itself does, so there is no adapter risk. The EU region keeps even the technical reports in the EU at rest (Sentry says EU residency is on every plan at the same price; to confirm), and the free plan costs nothing for a pilot (about 5,000 errors a month, one user; to confirm). Self-hosting GlitchTip or Bugsink on Railway EU West would remove one sub-processor, but adds a service that can itself fail and needs patching with nobody to do it; not worth it for a pilot. The tracker is still a sub-processor: it receives class, module, file, line, and the ids `request_id`, `class_session_id`, `game_id`, `job_id` that the app can join to Students. Treat those ids as pseudonymous data and keep the row in the register. |
+| **R3** Uptime monitor | **UptimeRobot, paid Solo plan, month to month** (about USD 7 a month; to confirm), one HTTPS monitor on `GET https://<domain>/api/health`, interval **1 minute**, keyword monitor requiring `ok` in the body (so a 200 with a wrong body also alerts) and a timeout of 10 seconds; alert only after **2 consecutive failed checks**; probe locations in the EU (Frankfurt/Amsterdam or the nearest the tool lists; to confirm) with no US-only probe chosen; **no public status page** (nothing about the service is published). Alert channels: mobile push (the tool's app) and SMS to the primary contact, e-mail to a shared contact address, and the same to the stand-in; a voice-call channel only if the plan includes it (to confirm). Fallback: Better Stack, whose paid plan checks every 30 seconds and calls by phone (price to confirm); its free plan checks only every 3 minutes (to confirm) and is too slow. | A free plan checks only every 3-5 minutes (UptimeRobot free: 5 minutes; to confirm), which is too slow to measure 99.5 % in a Lab hour and to meet the alert time of R6; the paid 1-minute plan is cheap. The monitor must run outside Railway and Supabase, so it still works when they fail (this rules out using the tracker's own uptime feature as the only monitor). It receives no app data: the public URL and the health answer only. A paid plan that asks for the contact's phone number makes the contact's own data the only personal data it holds. The vendor's data residency is not confirmed (to confirm: location of the vendor and of its account data). |
+| **R6** Acceptable alert time | **At most 5 minutes from the stop of `backend` to the alert received on the contact's phone** (1-minute checks, alert after 2 failures = about 2-3 minutes, plus delivery under 1 minute and a margin). The drill fails if it takes more, or if the alert does not reach both the contact and, when the contact does not acknowledge, the stand-in. | 99.5 % of a 90-minute Lab hour is 27 seconds; 5 minutes of alert time is already outside the target on its own, so the alert time cannot be looser than this. It must also leave most of the 1-hour recovery budget of #28 for the fix. A tighter time costs false alarms (one lost packet) for no gain. |
+| **R7** Named contact | Roles, not names. **Primary:** the founder (operations contact), reachable by phone and by the tool's push from 15 minutes before to 15 minutes after every Lab hour, with Railway, Supabase, the tracker and the uptime tool open and a laptop at hand. **Stand-in:** one named second person with access to Railway, Supabase and the uptime tool (a co-developer, teaching assistant or the Lecturer's technical colleague; to be named by the founder), who is alerted if the primary does not acknowledge within 5 minutes. Their phone numbers and e-mail addresses are kept outside this public repository (the uptime tool and the Lecturer material hold them); the readiness record names the roles and the date they were set. | Matches NFR-4 (a person answers during Lab hours) and the pilot's size. A stand-in is needed because one person is a single point of failure for a human response when the whole system is otherwise autonomous. |
+| **R8** Response route | **Reached by:** the uptime tool's push and SMS first; escalation to the stand-in after 5 minutes without acknowledgement. **First checks, in order, within 5 minutes of the alert:** (1) the status pages of Railway and Supabase; (2) «Drift» (`/admin/drift`) if the site answers: API errors, database connections against the budget; (3) the tracker's newest issue and the `request_id` in it; (4) Railway: the logs of `backend`, and whether a deploy ran in the last 30 minutes (if so, roll back to the previous deploy first, then investigate); (5) `/api/health` answering `503 db_unavailable`: Supabase dashboard (database up, connections, disk), the pooler port; (6) restart `backend`, then `worker-ai`, `worker-batch`. **Tell the Lecturer:** at 5 minutes of a confirmed outage ("we are investigating; shown Weeks are stored"); at 15 minutes without service back, or at any sign of lost data, a failed restore, or a database restore under way: "move the Class session to another hour"; when service is back: one message, with the cause when known. A restore is done only after a second look (a restore replaces data written since the restore point) and always checked with `verify_restore` before the app is pointed at it. | The route follows the order in which cause is cheapest to find (provider status, the app's own Drift page, the tracker, the last deploy). The thresholds keep the Lecturer informed before Students lose patience, and make "move the session" a decision by time, not by mood: a 1-hour recovery target (#28) cannot be spent inside a 90-minute class. |
+| **R9** Availability during Lab hours | Read from UptimeRobot: **the uptime percentage of the one monitor over a custom date range**, repeated for each Class session's Lab hour window (start to end, in the tool's time zone set to Europe/Oslo) and for the pilot as a whole; the exact range through the API's custom uptime ranges (`getMonitors`, `custom_uptime_ranges` with start and end timestamps; to confirm) or the response-time/log export for the same ranges, from which the share of checks that answered 200 is computed by a script. **Window:** the union of the Lab hours of all Class sessions of the pilot, each added to the readiness record before the session starts (date, start, end); the pilot figure = checks answered 200 divided by checks made in those windows; **target 99.5 %** (at 1-minute checks and, for example, 10 Lab hours, 600 checks, at most 3 failed). A check counts as failed when the tool marks the monitor down after its own confirmation; planned maintenance is not excluded. Also record the per-session figure, for the Lecturer. | NFR-4 says availability *during Lab hours*, so the monthly figure the tool shows by default hides a bad Lab hour and must not be used. Measuring the union of windows keeps one 5-minute outage from reading as 94 % of a single hour while still counting it; per-session numbers show where the failure was. The windows are written in advance so nobody chooses them after the fact. |
+| **Transfer basis, Error tracker row** | Region: "Sentry EU region, data stored in Germany (Frankfurt; to confirm). Provider Functional Software, Inc. (US), with access from the US for support and operation." Transfer basis: "Sentry's data processing agreement with the EU Standard Contractual Clauses; and the EU-US Data Privacy Framework if the provider is certified at the time (to confirm). A report holds no name, e-mail, free text or User id, so the transfer is of technical data and pseudonymous ids only; the DPA is signed as a precaution and the register row stays." If GlitchTip is chosen instead: "GlitchTip EU instance (Germany), provider Burke Software LLC (US); its DPA with SCCs (to confirm)." | The ids can be joined to Students by whoever holds the app's database, which is why the register keeps the row and a DPA even though no direct identifier is sent. EU storage plus SCCs is the standard basis for a US-owned provider with EU storage. |
+| **Transfer basis, Uptime monitor row** | Region: "Provider's account and logs in its own region (to confirm, the vendor's data location); checks run from EU probe locations." Personal data it receives: "No Student data. The named contact's own name, e-mail address and phone number, given by the contact for alerts." Transfer basis: "None needed for Students' data, since none is sent. The contact's own data is covered by the provider's terms and data processing agreement with the EU Standard Contractual Clauses if the provider or its processors are outside the EU/EEA (to confirm); the contact is told which data is held and why." | The monitor never sees Students' data, so the question is only the one contact's data; saying so keeps the DPIA short and honest. |
+
+### Notes
+
+- **Cost for a small pilot (all to confirm):** Sentry Developer free; UptimeRobot Solo about USD 7 a month; the PITR add-on about USD 100 a month for 7 days, on top of the Pro plan and the Large compute of the connection-budget proposal. The PITR add-on and the compute are the large lines; if they are billed by the hour, enable them only from the week before the first session with real Students to the end of the pilot.
+- **R1 and the compute proposal fit:** PITR needs at least Small compute (one third-party page says that requirement has been dropped; unconfirmed), and Large is proposed already, so the compute choice does not conflict with this proposal.
+- **Residual risk to record, not hide:** PITR can lose up to about 2 minutes. "Never lost once a Week has been shown" is therefore met to within the archive interval, not strictly; the founder should accept this as a deviation in writing, or ask whether the app can show a Week only after its commit (a design question, not an operations one).
+- **R4 matters for the 1-hour target:** the time a restore takes grows with the database, so R4 must record the minutes the restore took; if it takes more than about 30 minutes, the 1-hour target of #28 leaves too little for detection and checks and the target or the plan must be revisited.
+- **R5 and the tracker's quota:** the Developer plan drops events over its quota; `error_events` («Drift») keeps counting regardless, so the tracker is a help for diagnosis, not the record of errors.
+- **R10:** the Lecturer material names the role and the route (phone number and e-mail of the primary and the stand-in, when to expect a message, the 5- and 15-minute rules above), and nothing else.
+- **Not confirmed from a primary source anywhere in this section:** every price, every plan limit (events, retention, check interval), the PITR compute minimum, the exact EU ingest host, the vendors' DPA and certification status, the vendors' account-data locations, and the API parameter for custom uptime ranges.
+- **Sources consulted (third-party, generic searches):** Supabase PITR pricing and backup guides (for example makerkit.dev, supabackup.com, backupdrill.com); GlitchTip's pricing page (glitchtip.com/pricing) and Bugsink's comparison; Sentry's EU Region FAQ (sentry.zendesk.com) and pricing summaries; Better Stack and UptimeRobot comparison pages (betterstack.com, help.uptimerobot.com).

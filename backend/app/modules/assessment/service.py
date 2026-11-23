@@ -106,6 +106,7 @@ from sqlalchemy.dialects.postgresql import JSONB, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai import budget as ai_budget
+from app.ai import calls as ai_calls
 from app.ai import config as ai_config
 from app.ai import gateway
 from app.analysis import feedback as feedback_rules
@@ -128,6 +129,7 @@ from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker
 
 __all__ = [
+    "own_records",
     "ASSESS_TASK",
     "DEFAULT_SWITCH",
     "PURPOSE",
@@ -1813,3 +1815,30 @@ async def scores_of(
     for row in rows:
         found.setdefault(row.answer_id, {})[row.scorer_id] = row.score
     return found
+
+
+async def erase_feedback_of_user(
+    s: AsyncSession, user_id: uuid.UUID, scope: uuid.UUID | None = None
+) -> None:
+    """Story 15.2 (FR-76, AD-14) after Epic 12, in the erasure's transaction: the written feedback
+    of the User's AI assessments is emptied (it may quote their answer), and so are the bodies of
+    the AI calls that assessed them (they hold the answer). The scores, the flags and the cost rows
+    stay, so every id still holds. Idempotent. With `scope` (Story 15.3, retention), only the
+    assessments in that Class session."""
+    mine = ai_assessments.c.user_id == user_id
+    if scope is not None:
+        mine = mine & (ai_assessments.c.class_session_id == scope)
+    attempts = list((await s.execute(select(ai_assessments.c.attempt_id).where(mine))).scalars())
+    await s.execute(
+        update(ai_item_scores)
+        .where(
+            ai_item_scores.c.assessment_id.in_(select(ai_assessments.c.id).where(mine)),
+            ai_item_scores.c.feedback.is_not(None),
+        )
+        .values(feedback=None)
+    )
+    await ai_calls.clear_bodies_by_ref(s, "attempt_id", attempts)
+
+
+# «Mine data» (Story 15.1, FR-75): the Student's own rows of this module, by their own id.
+from app.modules.assessment.own_data import own_records  # noqa: E402

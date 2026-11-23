@@ -28,9 +28,12 @@ export function PageShell({
   header,
   skeleton,
   liveLines,
+  profileLink,
   children,
 }: {
   user?: SessionUser;
+  /** The Lenke beside the User's name in the header («Mine data» on Hjem, Story 15.1). */
+  profileLink?: { href: string; label: string };
   /** The staff breadcrumb to this page (UX-DR77), shown above the heading. */
   crumbs?: readonly Crumb[];
   title?: string;
@@ -62,7 +65,7 @@ export function PageShell({
   }, [title, ready]);
   return (
     <div className="min-h-dvh">
-      {user ? <SessionHeader user={user} /> : <AppHeader />}
+      {user ? <SessionHeader user={user} profileLink={profileLink} /> : <AppHeader />}
       <main className="px-gutter-phone pt-10 pb-16 lg:px-margin-laptop lg:pt-16">
         <ConnectionLine pageError={phase === "failed"} onRetry={onRetry} updatedAt={updatedAt} lines={liveLines} />
         {phase === "loading" || phase === "slow" ? (

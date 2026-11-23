@@ -76,10 +76,25 @@ def _game_state(status: games.PlayStatus) -> str:
     return status.status
 
 
+class RecordDeleted(Exception):
+    """Story 15.3 (FR-77): the Class session's Student data counts as deleted (its deletion date
+    has come); the Studentside says so (409 `data_deleted`) to its Class's staff."""
+
+
 async def student_record(
     user: authz.Principal, class_session_id: uuid.UUID, user_id: uuid.UUID
 ) -> StudentRecordOut | None:
-    """The Studentside's record of `user_id` in the Class session, or None (403)."""
+    """The Studentside's record of `user_id` in the Class session, or None (403). Raises
+    `RecordDeleted` for the staff of its Class once the Class session's Student data counts as
+    deleted (Story 15.3), asked before the Student is looked up: an erased Student is no Student
+    of the Class any more."""
+    if await sessions.staffed_session(user, class_session_id, READ) is not None:
+        async with get_sessionmaker()() as s:
+            target = await sessions.retention_target(s, class_session_id)
+        if target is not None and sessions.data_deleted(
+            {"deletion_date": target.deletion_date}, auth.utcnow()
+        ):
+            raise RecordDeleted
     reached = await sessions.student_target(user, class_session_id, user_id, READ)
     if reached is None:
         return None

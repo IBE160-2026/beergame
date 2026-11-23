@@ -1,0 +1,5 @@
+{# A Class session's AI cost limit for players was reached (Story 15.6, FR-69): a digest kind sent
+   once per Class session to each owner of its Class. [ASSUMPTION] Story 15.6 draft copy. #}
+{% import "kinds/_deadline.j2" as d %}
+<p style="margin:0 0 12px 0;">Kostnadsgrensen for KI i Klassen {{ class_name }}, Klasseøkt {{ session_number }}, ble nådd {{ d.when(reached_at) }}. LLM-spillerne er byttet til regelbaserte spillere for resten av Klasseøkten. Spillene fortsetter som før.</p>
+<p style="margin:0;">Se <a href="{{ url(session_path) }}" style="color:#2B6CA3;font-weight:600;">Klasseøkten</a>.</p>
