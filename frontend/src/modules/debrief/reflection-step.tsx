@@ -68,6 +68,11 @@ export function ReflectionStep({ debrief, userId }: { debrief: Debrief; userId: 
       <h2 id={`${id}-heading`} className="text-headline text-ink">
         {copy.heading}
       </h2>
+      {/* Story 13.10 (FR-58): who reads the answers, and that those on feelings stay out of the
+          Student report. */}
+      <p data-reflection-report="" className={`${LINE} mt-2 text-ink-secondary`}>
+        {copy.report}
+      </p>
       {answered.length > 0 ? (
         <ol className="mt-4 flex flex-col gap-4">
           {answered.map((q) => (

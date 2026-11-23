@@ -30,8 +30,9 @@ export function heroTotal(total: string) {
 /** The page's heading: «Spillet er ferdig» over «Grossist, Spill 17», as the Topplinje stands; a
  * Replay's reads «Replay er ferdig» over «Grossist, Replay» (Story 10.5), or «Replay stengt» once
  * closed at the Testfrist unfinished (Story 10.6). */
-export function endTitle(game: Pick<MyGame, "replay" | "end_reason">): string {
-  if (game.end_reason === "test_deadline") return copy.replayClosed.title;
+export function endTitle(game: Pick<MyGame, "replay" | "end_reason"> & { makeup?: boolean }): string {
+  // Story 13.4: an Oppfølgingsspill closed at the Testfrist reads «Oppfølgingsspill stengt».
+  if (game.end_reason === "test_deadline") return game.makeup ? copy.makeupClosed.title : copy.replayClosed.title;
   return game.replay ? copy.replayEnd.title : copy.end.title;
 }
 

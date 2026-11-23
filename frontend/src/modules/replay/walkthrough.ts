@@ -26,7 +26,12 @@ export type RunCells = { net: number; order: string; cost: string };
  * none. */
 export type WalkthroughRow = { week: number; replay: RunCells | null; klass: RunCells | null };
 
-function cells(run: WalkthroughRun | null | undefined): Map<number, RunCells> {
+/** A run's Uker as the walkthrough and the Student report (Story 13.10) both read them. */
+type RunWeeks = { weeks: readonly Pick<WalkthroughRun["weeks"][number], "week" | "net_inventory" | "order" | "total_cost">[] };
+/** The two runs set side by side: the Replay's and, unless left out, the Class game's. */
+export type Runs = { replay?: RunWeeks | null; class_game?: RunWeeks | null };
+
+function cells(run: RunWeeks | null | undefined): Map<number, RunCells> {
   return new Map(
     (run?.weeks ?? []).map((w) => [
       w.week,
@@ -37,7 +42,7 @@ function cells(run: WalkthroughRun | null | undefined): Map<number, RunCells> {
 
 /** «Vis som tabell»: every Uke of either run, in order, with the Replay's and the Class game's
  * Netto lager, Din ordre and Kostnad så langt side by side (the chart's columns and more). */
-export function walkthroughRows(data: Walkthrough): WalkthroughRow[] {
+export function walkthroughRows<T extends Runs>(data: T): WalkthroughRow[] {
   const replay = cells(data.replay);
   const klass = cells(data.class_game);
   const weeks = [...new Set([...replay.keys(), ...klass.keys()])].sort((a, b) => a - b);
@@ -46,7 +51,7 @@ export function walkthroughRows(data: Walkthrough): WalkthroughRow[] {
 
 /** «Ikke like for like.» and its reasons in words (FR-50, UX-DR70): AI neighbours, other demand,
  * and each run's number of Uker. Never which run was better. */
-export function unlikeReasons(data: Walkthrough): string[] {
+export function unlikeReasons<T extends Runs>(data: T): string[] {
   const replayWeeks = data.replay?.weeks.length ?? 0;
   const classWeeks = data.class_game?.weeks.length ?? 0;
   return [copy.unlikeNeighbours, copy.unlikeDemand, copy.unlikeWeeks(replayWeeks, classWeeks)];

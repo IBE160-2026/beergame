@@ -155,6 +155,32 @@ REGISTRY: dict[str, Entry] = {
     "scoring_guide_checks": _e("none", "Which Scoring guide a Control test checked, by ids."),
     # progress
     "progress_steps": _e("keep", "Steps reached by User id."),
+    "completion_corrections": _e(
+        "delete",
+        "A Lecturer's corrections of the Student's Completion status (Story 13.3): the reason is "
+        "free text about the Student. Append-only but for `actor_user_id`, which is an id.",
+    ),
+    # reports (Epic 13)
+    "makeup_games": _e(
+        "keep",
+        "The Student's Oppfølgingsspill by User id (Story 13.4); `given_by` is an id; no text.",
+    ),
+    "report_requests": _e(
+        "delete",
+        "Each Student report request about the Student (Story 13.7); `requested_by` is an id. "
+        "The PDFs in the `reports` bucket go first, then the rows.",
+    ),
+    "report_snapshots": _e(
+        "delete",
+        "A report's content (the Student's name and work) between the assembler and the print "
+        "route, deleted when its render ends; the Student's go with their requests.",
+    ),
+    "report_zips": _e(
+        "keep",
+        "A ZIP of all Student reports per Class session (Story 13.13): `requested_by` is an id, "
+        "no text. At an erasure the stored ZIPs of the Student's Class sessions are deleted and "
+        "their paths cleared.",
+    ),
     # replay
     "replays": _e("keep", "The Student's Replay Game by User id."),
     "replay_another_round": _e("keep", "A yes or no by User id."),

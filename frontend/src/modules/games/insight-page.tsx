@@ -160,7 +160,6 @@ export function InsightBody({ data }: { data: GameInsight }) {
               seat={seat}
               sessionId={data.class_session_id}
               gameId={data.game_id}
-              canAdjust={data.can_adjust ?? false}
               replay={data.replay}
             />
           ))}
@@ -191,14 +190,11 @@ function SeatItem({
   seat,
   sessionId,
   gameId,
-  canAdjust,
   replay,
 }: {
   seat: InsightSeat;
   sessionId: string;
   gameId: string;
-  /** A Lecturer of the Class: the Student's name leads to their Studentside (Story 8.9). */
-  canAdjust: boolean;
   replay: boolean;
 }) {
   const links = linkTexts(seat, replay);
@@ -208,7 +204,9 @@ function SeatItem({
     <li className="min-w-0" data-role={seat.role}>
       <p className="text-label text-ink">{roleName(seat.role)}</p>
       <p className="flex flex-wrap items-baseline gap-x-3 text-body-phone text-ink [overflow-wrap:anywhere] lg:text-body">
-        {student && canAdjust ? (
+        {/* The Student's name leads to their Studentside, for every staff member of the Class
+            (Story 8.9; Story 13.2 opens it to Assistant lecturers). */}
+        {student ? (
           <Link
             href={studentPagePath(sessionId, student.id)}
             aria-label={nb.reports.studentPage.linkLabel(student.name)}

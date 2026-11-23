@@ -3,6 +3,7 @@ import { expect, type Page } from "@playwright/test";
 import { nb } from "../src/copy/nb";
 import { loginByApi } from "./support/auth";
 import { expectAccessible, freshClass, freshLecturer, test } from "./support/classes";
+import { staffRecord } from "./support/record";
 
 /** The Indicative letter (Story 12.6, FR-56, NFR-6, UX-DR12, UX-DR66) at 320, 360 and 1440 px with
  * axe and 44 px targets on phone:
@@ -225,8 +226,14 @@ test("staff: the Studentside shows a letter shown to everyone, with the same lab
       },
     }),
   );
-  await page.route(`**/api/class-sessions/${SESSION}/students/${STUDENT_ID}/assessment`, (route) =>
-    route.fulfill({ status: 200, json: { ...READY, letter: "C" } }),
+  await page.route(`**/api/class-sessions/${SESSION}/students/${STUDENT_ID}/record`, (route) =>
+    route.fulfill({
+      status: 200,
+      json: staffRecord(
+        { session: SESSION, classId: "01a1f8ee-33b9-75e6-9502-79db27b37c98", student: STUDENT_ID },
+        { ...READY, letter: "C" },
+      ),
+    }),
   );
   await page.goto(`/klasseokter/${SESSION}/studenter/${STUDENT_ID}`);
   const total = page.locator("[data-staff-assessment] [data-total]");

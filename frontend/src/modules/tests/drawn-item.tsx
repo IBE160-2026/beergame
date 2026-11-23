@@ -2,16 +2,15 @@
 
 import { useId, useRef, useState } from "react";
 
-import { AxisLabels } from "@/components/charts/axis-labels";
-import { PointGraph, TARGET } from "@/components/charts/point-graph";
-import { niceTicks, scaleY } from "@/components/charts/scales";
-import { type GraphColumn, type GraphField, GraphOverTable } from "@/components/graph-over-table";
+import { PointGraph } from "@/components/charts/point-graph";
+import { type GraphColumn, GraphOverTable } from "@/components/graph-over-table";
+import { pointField } from "@/components/interactive-answer";
 import { nb } from "@/copy/nb";
 import { formatNumber } from "@/lib/number-format";
 
 import type { MyTestItem } from "./api";
 import type { AnswerValue } from "./autosave";
-import { cellText, graphDomain, parseCell, pointValue, startValue, stepValue, tableValues, withCell } from "./interactive";
+import { cellText, parseCell, pointValue, stepValue, tableValues, withCell } from "./interactive";
 import { CellInput, useFieldTexts } from "./interactive-item";
 import { SaveLine, useAutosave } from "./use-autosave";
 
@@ -21,8 +20,6 @@ const LINE = "text-body-phone text-ink lg:text-body";
 
 type Table = NonNullable<MyTestItem["table"]>;
 
-/** About eleven lines of `caption` high: room for the axis' labels at any text size. */
-const HEIGHT_EM = 11;
 const ROW_LABEL = "sticky left-0 z-10 min-w-row-label-phone bg-paper py-2 pr-4 text-left align-middle font-normal text-ink lg:min-w-row-label-laptop";
 const UKE_COL = "border-b border-axis px-2 py-2 text-right align-bottom text-label font-semibold whitespace-nowrap text-ink";
 
@@ -46,7 +43,6 @@ export function DrawnItem({ classSessionId, userId, item, table }: { classSessio
   const { texts, setTexts, errors, setErrors, sent, send } = useFieldTexts(entry.value, toTexts, pick);
   const values = tableValues(sent, rows);
   const axis = table.axis ?? { min: 0, max: 10 };
-  const domain = graphDomain(axis, values);
   const captionId = `${id}-caption`;
   const errorId = `${id}-error`;
 
@@ -75,61 +71,41 @@ export function DrawnItem({ classSessionId, userId, item, table }: { classSessio
     when: "past",
     phone: true,
   }));
-  const field: GraphField = {
+  // The Interaktiv oppgave's graph field (`components/interactive-answer.tsx`): the range, the
+  // ticks and the axis labels; here with the points' sliders laid over the drawing.
+  const field = pointField({
     key: "drawn",
-    heightEm: HEIGHT_EM,
-    interactive: true,
-    render: (size) => {
-      // Room for half a point's target above the top and below the bottom of the range.
-      const pad = Math.max(TARGET / 2, size.fontSize * 0.75);
-      const top = pad;
-      const bottom = size.height - pad;
-      const ticks = niceTicks(domain, bottom - top, size.fontSize);
-      const y = scaleY(domain, top, bottom);
-      const starts = values.map((_, i) => startValue(values, i, domain));
-      return {
-        plot: (
-          <PointGraph
-            width={size.width}
-            height={size.height}
-            xs={size.xs}
-            values={values}
-            starts={starts}
-            domain={domain}
-            top={top}
-            bottom={bottom}
-            title={drawn.svg(table.caption)}
-            label={drawn.graph}
-            names={table.rows}
-            valueText={(i) => {
-              const v = values[i];
-              const week = table.rows[i] ?? "";
-              return v === null || v === undefined ? drawn.notAnsweredText(week) : drawn.valueText(week, formatNumber(v), v);
-            }}
-            ticks={ticks}
-            onKey={(i, key) => stepValue(key, values[i] ?? starts[i] ?? 0, domain)}
-            onPointer={(i, at) => {
-              const value = pointValue(at, top, bottom, domain, axis);
-              if (placed.current[i] !== value) place(i, value);
-            }}
-            onPlace={place}
-          />
-        ),
-        axis: (
-          <AxisLabels
-            width={size.labelWidth}
-            height={size.height}
-            fontSize={size.fontSize}
-            title={drawn.axisSvg}
-            ticks={ticks.map((tick) => ({
-              y: y(tick),
-              text: formatNumber(tick),
-            }))}
-          />
-        ),
-      };
-    },
-  };
+    values,
+    axis,
+    targets: true,
+    plot: (size, { domain, top, bottom, ticks, starts }) => (
+      <PointGraph
+        width={size.width}
+        height={size.height}
+        xs={size.xs}
+        values={values}
+        starts={starts}
+        domain={domain}
+        top={top}
+        bottom={bottom}
+        title={drawn.svg(table.caption)}
+        label={drawn.graph}
+        names={table.rows}
+        valueText={(i) => {
+          const v = values[i];
+          const week = table.rows[i] ?? "";
+          return v === null || v === undefined ? drawn.notAnsweredText(week) : drawn.valueText(week, formatNumber(v), v);
+        }}
+        ticks={ticks}
+        onKey={(i, key) => stepValue(key, values[i] ?? starts[i] ?? 0, domain)}
+        onPointer={(i, at) => {
+          const value = pointValue(at, top, bottom, domain, axis);
+          if (placed.current[i] !== value) place(i, value);
+        }}
+        onPlace={place}
+      />
+    ),
+  });
 
   return (
     // On a laptop the graph and table reach past the items' text column, up to 64rem, so a test's

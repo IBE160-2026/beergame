@@ -74,9 +74,10 @@ mail_deliveries = Table(
 message id, and what the provider reported of it later (Story 4.6). A `mail` job that finds its
 row sent (or skipped) sends nothing. Ids only."""
 
-RECIPIENT_KINDS = ("student", "class_game", "class_session", "list")
+RECIPIENT_KINDS = ("student", "class_game", "class_session", "list", "requirement_not_met")
 """Whom a Message was written to (Story 7.9): one Student, a Class game, a whole Class session,
-or a list of Students a calling module passed (Epic 13)."""
+a list of Students a calling module passed (Epic 13), or the Students of an Obligatory class
+session who had not met the requirement when it was sent (Story 13.6)."""
 
 messages = Table(
     "messages",

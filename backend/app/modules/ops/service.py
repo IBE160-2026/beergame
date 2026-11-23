@@ -9,7 +9,7 @@ module; `worker.py` and `main.py` hand them `record_job_failure` and `record_api
 
 import re
 import uuid
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 
 import structlog
@@ -135,11 +135,19 @@ async def record_job_failure(task_name: str, task_kwargs: Mapping[str, object], 
     return await record_error(JOB_FAILED, code, session_id, None if job_id is None else str(job_id))
 
 
-async def report_connections(process: str, settings: Settings, *, concurrency: int = 1) -> bool:
+async def report_connections(
+    process: str,
+    settings: Settings,
+    *,
+    concurrency: int = 1,
+    queues: Sequence[str] = (),
+) -> bool:
     """At a process's start (Story 15.9): log and record the database connections its settings
     give it against the written budget (`connection_budget`). `main.py` calls it for `backend`,
     `worker.py` for a worker (named by its queues through `worker_process`). Never raises."""
-    return await report_start(process, configured(process, settings, concurrency=concurrency))
+    return await report_start(
+        process, configured(process, settings, concurrency=concurrency, queues=queues)
+    )
 
 
 async def record_api_error(status: int, path_ids: Mapping[str, str], request_id: str | None):

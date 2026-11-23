@@ -21,6 +21,7 @@ from app.analysis import moments as moment_text
 from app.engine import ROLES
 from app.modules.content import service as content
 from app.modules.debrief import insight
+from app.modules.debrief import service as debrief_service
 from app.modules.games import commands as game_commands
 from app.modules.games import service as games
 from app.modules.identity.schemas import AccountRole
@@ -579,6 +580,17 @@ async def finished(
         ("structure", "Forsinkelser."),
     ]
     assert all(a["prompt"] for a in summary["reflection"])
+    # Story 13.10: the Student report's read holds the Explanation, the moments, the line and
+    # the attempts, and the answers on evidence and structure; never the one on feelings (FR-58).
+    reported = await debrief_service.report_debrief(mine, uuid.UUID(session_id))
+    assert reported.explanation is not None and reported.finished_at is not None
+    assert [m.id for m in reported.moments] == moment_ids
+    assert reported.narration is not None
+    assert reported.reflection == [
+        (a["prompt"], a["text"]) for a in summary["reflection"] if a["question_id"] != "feelings"
+    ]
+    assert [text for _, text in reported.reflection] == ["Fabrikken svingte mest.", "Forsinkelser."]
+    assert (reported.quiz_attempts, reported.quiz_passed) == (0, False)
     [(finished_at, late)] = rows(
         "SELECT s.finished_at, s.finished_at > c.debrief_deadline FROM debrief_summaries s "
         "JOIN class_sessions c ON c.id = s.class_session_id WHERE s.user_id = %s",

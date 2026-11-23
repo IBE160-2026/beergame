@@ -149,6 +149,16 @@ async def _deadline_reminder_context(
     return await sessions.deadline_reminder_mail_context(session, user_id, ref, now)
 
 
+DELETION_REMINDER_KIND = "deletion_reminder"
+"""`sessions.service.DELETION_REMINDER_NOTICE` (Story 13.9), named here for the same reason."""
+
+
+async def _deletion_reminder_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    return await sessions.deletion_reminder_mail_context(session, user_id, ref, now)
+
+
 TIME_PROPOSED_KIND = "time_proposed"
 """`games.commands.TIME_PROPOSED_NOTICE` (Story 6.19), named here for the same reason."""
 
@@ -219,6 +229,18 @@ async def _debrief_fallback_context(
     return await sessions.debrief_fallback_mail_context(session, user_id, ref, now)
 
 
+MAKEUP_GIVEN_KIND = "makeup_given"
+"""`reports.makeup.NOTICE` (Story 13.4), named here for the same reason."""
+
+
+async def _makeup_given_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    # `reports.service` registers the lookup of a Student's Oppfølgingsspill with `sessions` at
+    # import, in the api and in the worker (`jobs.TASK_MODULES`).
+    return await sessions.makeup_given_mail_context(session, user_id, ref, now)
+
+
 ASSESSMENT_READY_KIND = "assessment_ready"
 """`assessment.service.READY_NOTICE` (Story 12.4), named here for the same reason."""
 
@@ -237,6 +259,16 @@ async def _assessment_failed_context(
     session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
 ) -> Mapping[str, object] | None:
     return await sessions.assessment_failed_mail_context(session, user_id, ref, now)
+
+
+REPORTS_ZIP_READY_KIND = "reports_zip_ready"
+"""`sessions.service.REPORTS_ZIP_READY_NOTICE` (Story 13.13), named here for the same reason."""
+
+
+async def _reports_zip_ready_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    return await sessions.reports_zip_mail_context(session, user_id, ref, now)
 
 
 MESSAGE_KIND = "message"
@@ -317,6 +349,10 @@ KINDS: Mapping[str, Delivery] = MappingProxyType(
         DEADLINE_REMINDER_KIND: Delivery(
             DIGEST, DEADLINE_REMINDER_KIND, context=_deadline_reminder_context
         ),
+        # Digest: the Class session's data is deleted soon; download the report (Story 13.9).
+        DELETION_REMINDER_KIND: Delivery(
+            DIGEST, DELETION_REMINDER_KIND, context=_deletion_reminder_context
+        ),
         TIME_PROPOSED_KIND: Delivery(DIGEST, TIME_PROPOSED_KIND, context=_time_proposed_context),
         # Digest: the game has waited for the Student's Order (Story 8.13, FR-27), gathered with
         # the day's other notices and never sent between 22:00 and 07:00.
@@ -325,6 +361,8 @@ KINDS: Mapping[str, Delivery] = MappingProxyType(
             DIGEST, DEBRIEF_RELEASED_KIND, context=_debrief_released_context
         ),
         QUIZ_CHANGED_KIND: Delivery(DIGEST, QUIZ_CHANGED_KIND, context=_quiz_changed_context),
+        # Digest: a Lecturer gave the Student an Oppfølgingsspill (Story 13.4, FR-17).
+        MAKEUP_GIVEN_KIND: Delivery(DIGEST, MAKEUP_GIVEN_KIND, context=_makeup_given_context),
         DEBRIEF_FALLBACK_KIND: Delivery(
             DIGEST, DEBRIEF_FALLBACK_KIND, context=_debrief_fallback_context
         ),
@@ -345,6 +383,11 @@ KINDS: Mapping[str, Delivery] = MappingProxyType(
         # Immediate: an AI player took a Student's Seat over (Story 8.2, FR-36, AD-9), sent at once
         # at any hour, also between 22:00 and 07:00.
         TAKEOVER_KIND: Delivery(IMMEDIATE, TAKEOVER_KIND, context=_takeover_context),
+        # Immediate: the ZIP of all Student reports the staff member asked for is ready (Story
+        # 13.13, FR-59); they wait for it.
+        REPORTS_ZIP_READY_KIND: Delivery(
+            IMMEDIATE, REPORTS_ZIP_READY_KIND, context=_reports_zip_ready_context
+        ),
         # Immediate: a Message a staff member sent (Story 7.9, AD-9).
         MESSAGE_KIND: Delivery(IMMEDIATE, MESSAGE_KIND, context=_message_context),
         # Digest (Story 15.6, FR-69): a Class session's players' cost limit was reached.
@@ -374,9 +417,10 @@ notice (Story 5.7, digest), the allocation notice (Story 5.9, digest), the Stude
 quiz (Story 9.10, digest), the opened Group debrief (Story 9.11, immediate) and its 48-hour
 fallback to a Personal debrief (Story 9.12, digest), a staff member's Message (Story 7.9,
 immediate), the Takeover notice (Story 8.2, immediate), the turn reminder (Story 8.13,
-digest), the ready and failed AI assessment notices (Story 12.4, digest), the daily AI spend
-alert to each Admin (Story 15.7, immediate) and the cost-limit notice to the owners (Story 15.6,
-digest)."""
+digest), the Oppfølgingsspill given (Story 13.4, digest), the deletion reminder (Story
+13.9, digest), the ready and failed AI assessment notices (Story 12.4, digest), the ready ZIP
+of all Student reports (Story 13.13, immediate), the daily AI spend alert to each Admin (Story
+15.7, immediate) and the cost-limit notice to the owners (Story 15.6, digest)."""
 
 TEST_KINDS: Mapping[str, Delivery] = MappingProxyType(
     {

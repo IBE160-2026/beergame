@@ -46,6 +46,13 @@ PUBLIC_ROUTES = {
     ("POST", "/api/dev/games/{game_id}/seats/{seat}/narrate"),
     # The mail provider's events (Story 4.6): admitted by their Svix signature.
     ("POST", "/api/webhooks/resend"),
+    # Story 13.7: the print route's read of a report snapshot, admitted by its single-use render
+    # token; the proxy refuses `/api/internal/*`, so only the frontend server reaches it.
+    ("GET", "/api/internal/report-snapshots/{snapshot_id}"),
+    # Story 13.7: the storage mock's signed download (HMAC), mounted only for the mock.
+    ("GET", "/api/storage/local/{bucket}/{path:path}"),
+    # Story 13.7: the local dev Test deadline passing, never in production.
+    ("POST", "/api/dev/class-sessions/{class_session_id}/test-deadline-passed"),
     # Later stories add theirs here, and only these kinds: webhooks (signature-checked), and dev
     # routes that are never mounted in production.
 }

@@ -145,6 +145,14 @@ jobs:
         working-directory: frontend
       - run: npx playwright test
         working-directory: frontend
+      # AD-18, NFR-6 (Story 13.7): WeasyPrint's pdf/ua-1 does not guarantee valid PDF/UA, so the
+      # sample Student report the e2e `student-report.spec.ts` downloaded through the real
+      # pipeline is checked with veraPDF (pinned Docker image) and fails on a violation.
+      - name: Student report PDF/UA check (veraPDF)
+        run: python3 scripts/verapdf frontend/test-results/student-report.pdf
+      # Story 13.11: the sample with the «KI-vurdering» section the Student added.
+      - name: Student report with the AI section PDF/UA check (veraPDF)
+        run: python3 scripts/verapdf frontend/test-results/student-report-ai.pdf
       # The conformance scan (Story 15.13): every surface at every NFR-6 viewport, recorded rather
       # than failed on (the specs above fail on a violation). `npm run conformance -- --from <dir>`
       # makes the dated report from the artifact.

@@ -4,8 +4,8 @@ the deletion date and the pseudonym. No database."""
 import uuid
 from datetime import UTC, date, datetime
 
-from app.modules.ops import evaluation, retention
-from app.platform import authz
+from app.modules.ops import evaluation
+from app.platform import authz, retention
 
 KEY = "Nøkkelholder-K7q2-evaluering-2026-wXyZ-0123456789"
 OTHER_KEY = "En-helt-annen-nøkkel-for-evaluering-abcdefghij"
@@ -30,7 +30,7 @@ def test_the_policy_holds_only_for_an_admin_and_an_agreement():
 def test_the_deletion_date_is_six_calendar_months_after_the_test_deadline():
     assert retention.add_months(date(2026, 8, 31), 6) == date(2027, 2, 28)
     assert retention.add_months(date(2026, 1, 15), 6) == date(2026, 7, 15)
-    assert retention.deletion_date(None) is None
+    assert retention.deletion_date(None, 6) is None
 
 
 def test_the_pseudonym_is_the_hmac_of_the_user_id_and_never_the_fingerprint():
@@ -44,7 +44,7 @@ def test_the_pseudonym_is_the_hmac_of_the_user_id_and_never_the_fingerprint():
 def test_the_deletion_date_is_read_on_the_oslo_calendar():
     # 22:30 UTC on 31 August is 1 September in Oslo: six months on is 1 March.
     late = datetime(2026, 8, 31, 22, 30, tzinfo=UTC)
-    assert retention.deletion_date(late) == date(2027, 3, 1)
+    assert retention.deletion_date(late, 6) == date(2027, 3, 1)
 
 
 def test_a_text_a_spreadsheet_would_run_gets_a_leading_quote():

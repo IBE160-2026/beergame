@@ -86,7 +86,11 @@ function SummaryBody({ item }: { item: StaffSummary }) {
         {item.name ?? copy.removed}
       </p>
       <p className={`${LINE} text-ink-secondary`}>
-        {item.role ? nb.debriefEntry.roleGame(roleName(item.role), item.game_number ?? null) : copy.noStudent}
+        {item.role
+          ? item.makeup
+            ? nb.debriefEntry.roleMakeup(roleName(item.role))
+            : nb.debriefEntry.roleGame(roleName(item.role), item.game_number ?? null)
+          : copy.noStudent}
       </p>
       <section id="forklaring" aria-labelledby="summary-explanation" data-summary-explanation="" className={SECTION}>
         <h2 id="summary-explanation" className="text-headline text-ink">

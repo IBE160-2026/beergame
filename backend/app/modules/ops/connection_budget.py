@@ -14,6 +14,7 @@ What the system checks, since the pooler's own pool size cannot be read over the
 """
 
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Literal
@@ -74,7 +75,9 @@ BUDGET: dict[str, Connections] = {
     "backend": Connections(sqlalchemy_pool=10, procrastinate_pool=0, listen=1),
     # `DB_POOL_SIZE` 5; procrastinate's pool at `--concurrency 1` (its LISTEN is inside it).
     "worker-ai": Connections(sqlalchemy_pool=5, procrastinate_pool=2, listen=0),
-    "worker-batch": Connections(sqlalchemy_pool=5, procrastinate_pool=2, listen=0),
+    # Story 13.7 and the close-out of Epic 13: plus `reports-single`'s 2 slots and `reports-bulk`'s
+    # 1, which it runs beside its other queues (`jobs.worker_sides`).
+    "worker-batch": Connections(sqlalchemy_pool=5, procrastinate_pool=5, listen=0),
 }
 """The written budget per process, PLACEHOLDERS to be tuned under load (issue #28). Equal to the
 table in `docs/ops/connection-budget.md` (checked by a test)."""
@@ -102,12 +105,18 @@ def pooler_required() -> int:
     return overlap_total() + MIGRATION_CONNECTIONS
 
 
-def configured(process: str, settings: Settings, *, concurrency: int = 1) -> Connections:
+def configured(
+    process: str,
+    settings: Settings,
+    *,
+    concurrency: int = 1,
+    queues: Sequence[str] = (),
+) -> Connections:
     """The connections `process` holds with `settings`: its `DB_POOL_SIZE`, and for a worker the
-    procrastinate pool of its concurrency, for `backend` its LISTEN connection."""
+    procrastinate pool of its concurrency and `queues`, for `backend` its LISTEN connection."""
     if process == "backend":
         return Connections(settings.db_pool_size, 0, 1)
-    return Connections(settings.db_pool_size, jobs.procrastinate_pool_size(concurrency), 0)
+    return Connections(settings.db_pool_size, jobs.procrastinate_pool_size(concurrency, queues), 0)
 
 
 def worker_process(queues: list[str] | tuple[str, ...]) -> Process:

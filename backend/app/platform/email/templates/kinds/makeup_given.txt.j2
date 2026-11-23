@@ -1,0 +1,6 @@
+{# A Lecturer gave the Student an Oppfølgingsspill (Story 13.4, FR-17), a digest kind. `class_name`
+   and `at` (the Student's Test deadline, Europe/Oslo) come from
+   `sessions.service.makeup_given_mail_context` at send time. Draft copy. #}
+{% import "kinds/_deadline.j2" as d %}
+{% set subject = "Du har fått et Oppfølgingsspill" %}
+Faglæreren har gitt deg et Oppfølgingsspill i Klassen {{ class_name }}: et eget Klassespill mot tre KI-spillere. Det er åpent til Testfristen {{ d.when(at) }}. Du starter det fra Hjem.

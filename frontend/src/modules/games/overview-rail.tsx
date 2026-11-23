@@ -3,11 +3,13 @@
 import { useId, useRef, useState } from "react";
 
 import { CostDistribution } from "@/components/charts/cost-distribution";
-import { LINK_BUTTON } from "@/components/link";
+import { Link, LINK_BUTTON } from "@/components/link";
 import { nb } from "@/copy/nb";
 import { useBoxSize } from "@/lib/box-size";
 import { formatNumber } from "@/lib/number-format";
 import { cn } from "@/lib/utils";
+import { messagePath } from "@/modules/identity/homes";
+import { useMessageForm } from "@/modules/messaging/api";
 
 import type { ClassOverview } from "./api";
 import {
@@ -32,15 +34,18 @@ const whole = (value: string | number) => formatNumber(value, { decimals: 0 });
  * The Oversikt's right rail (Story 7.6, UX-DR40, `08-laerer-oversikt.png`): «Venter ellers» with
  * the AI line, «Klassens kostnad» (not before the Start date) and «Trakt». Beside the wall from
  * 1024 px, under it below. Every number is the api's (AD-10); the rail reads the answer the page
- * shows, so it holds still with the rest while «Oppdater automatisk» is off.
+ * shows, so it holds still with the rest while «Oppdater automatisk» is off. Story 13.6: under the
+ * Trakt, the Lenke to the Meldingsskjema for the Students who have not met the requirement.
  */
 export function OverviewRail({
+  sessionId,
   data,
   groups,
   now,
   className,
   alertId = null,
 }: {
+  sessionId: string;
   data: ClassOverview;
   groups: readonly OverviewGroup[];
   now: number;
@@ -52,7 +57,7 @@ export function OverviewRail({
     <aside aria-label={copy.label} className={cn("min-w-0 text-body-phone text-ink lg:text-body", className)} data-overview-rail="">
       <WaitingElsewhere data={data} groups={groups} now={now} alertId={alertId} />
       {data.before_start ? null : <ClassCostBlock data={data} />}
-      <Funnel funnel={data.funnel} />
+      <Funnel funnel={data.funnel} sessionId={sessionId} />
     </aside>
   );
 }
@@ -199,7 +204,7 @@ function CostPicture({ cost, data }: { cost: ClassCost; data: ClassOverview }) {
   );
 }
 
-function Funnel({ funnel }: { funnel: ClassOverview["funnel"] }) {
+function Funnel({ funnel, sessionId }: { funnel: ClassOverview["funnel"]; sessionId: string }) {
   return (
     <Section title={copy.funnel.title} name="funnel">
       <ol className="mt-2" data-funnel="">
@@ -213,6 +218,26 @@ function Funnel({ funnel }: { funnel: ClassOverview["funnel"] }) {
           </li>
         ))}
       </ol>
+      <NotMetLink sessionId={sessionId} />
     </Section>
+  );
+}
+
+/**
+ * «Send Melding til 12 som ikke har oppfylt kravet» (Story 13.6, FR-17, UX-DR54): the count is the
+ * Meldingsskjema's own read for that recipient, under the same policy as sending a Message (AD-12).
+ * Absent while it loads, when the Klasseøkt is not Obligatorisk, when everyone has met the
+ * requirement, and for anyone the api refuses.
+ */
+function NotMetLink({ sessionId }: { sessionId: string }) {
+  const found = useMessageForm(sessionId, { requirement: true });
+  const count = found.data?.students ?? 0;
+  if (count === 0) return null;
+  return (
+    <p className="mt-3">
+      <Link href={messagePath(sessionId, { requirement: true })} standalone data-not-met-link="">
+        {copy.funnel.notMet(count)}
+      </Link>
+    </p>
   );
 }

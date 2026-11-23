@@ -47,7 +47,6 @@ from app.modules.debrief import service as debrief
 from app.modules.games import service as games
 from app.modules.identity import service as identity
 from app.modules.ops.models import evaluation_agreements, pseudonym_key_fingerprints
-from app.modules.ops.retention import OSLO, deletion_date
 from app.modules.ops.schemas import (
     AgreementIn,
     EvaluationAgreementOut,
@@ -63,6 +62,7 @@ from app.modules.sessions import service as sessions
 from app.modules.tests import service as tests
 from app.platform import audit, authz
 from app.platform.db import get_sessionmaker
+from app.platform.retention import OSLO
 
 EXPORT_ACTION = "evaluation_export.run"
 AGREEMENT_ACTION = "evaluation_agreement.recorded"
@@ -164,7 +164,7 @@ def _session_out(found: sessions.EvaluationSession, agreement: Any) -> Evaluatio
         institution_name=found.institution_name,
         start_at=found.start_at,
         test_deadline=found.test_deadline,
-        deletion_date=deletion_date(found.test_deadline),
+        deletion_date=found.deletion_date,
         agreement=_agreement_out(agreement) if agreement is not None else None,
     )
 
@@ -357,7 +357,7 @@ async def run_export(
 async def _read(
     s: AsyncSession, ids: list[uuid.UUID], key: str, found: str, now: datetime
 ) -> Export:
-    in_scope = scope.reporting_games()
+    in_scope = scope.reporting_game_ids()
     students = scope.reporting_seat_holders()
     read: list[tuple[Section, tuple[str, ...], list[tuple[Any, ...]]]] = []
     for section in SECTIONS:
@@ -399,9 +399,7 @@ async def _read(
         "class_sessions": [
             {
                 "id": str(i),
-                "deletion_date": _iso(
-                    deletion_date(listed[i].test_deadline) if i in listed else None
-                ),
+                "deletion_date": _iso(listed[i].deletion_date if i in listed else None),
             }
             for i in ids
         ],
@@ -539,7 +537,7 @@ async def list_exports() -> ExportListOut:
             id=session_id,
             number=item.number if item else None,
             class_name=item.class_name if item else None,
-            deletion_date=deletion_date(item.test_deadline) if item else None,
+            deletion_date=item.deletion_date if item else None,
         )
 
     return ExportListOut(

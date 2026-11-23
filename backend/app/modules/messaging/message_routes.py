@@ -8,6 +8,9 @@ Student, a Class game or a whole Class session, and its send.
 
 The recipient comes from the params: a Student when `student_id` is given (a `game_id` then only
 names the game in the title), a Class game when only `game_id` is, else the whole Class session.
+Story 13.6: `recipient=requirement_not_met` (with neither id) writes to the Students of an
+Obligatory class session who have not met the requirement, judged again when the Message is sent;
+the form then lists them with their shares.
 Anyone who is not staff of the Class, a Class session that does not exist and a recipient outside
 it all answer the same 403 `forbidden` (FR-5). There is no route by which a Student writes.
 
@@ -49,10 +52,32 @@ def _optional_id(value: str | None) -> uuid.UUID | None:
     return None if value is None else _id(value)
 
 
+RecipientParam = Literal["requirement_not_met"]
+"""A recipient the api names by kind rather than by id (Story 13.6)."""
+
+
+class NotMetStudentOut(BaseModel):
+    """One Student who has not met the requirement (Story 13.6, FR-17), from
+    `reports.service.completion_status`."""
+
+    user_id: uuid.UUID
+    name: str | None
+    """The Student's name now; None when the api no longer has it."""
+    ordered_share: int | None
+    """The share of Weeks after the Guided Weeks the Student ordered, in percent; None without a
+    game."""
+    required_share: int
+    """The share required of this Student (their Tilrettelegging share where there is one)."""
+    playout_share: int | None
+    """The share of Weeks the Play deadline's playout played, in percent; None with no game."""
+    share_game: Literal["class", "makeup"] | None
+    """Which game the share comes from when the Student has an Oppfølgingsspill."""
+
+
 class MessageFormOut(BaseModel):
     """What the Meldingsskjema shows before a send (UX-DR46)."""
 
-    kind: Literal["student", "class_game", "class_session"]
+    kind: Literal["student", "class_game", "class_session", "requirement_not_met"]
     class_session_id: uuid.UUID
     class_id: uuid.UUID
     class_name: str
@@ -68,6 +93,8 @@ class MessageFormOut(BaseModel):
     """Messages of this Class session to the same recipient so far."""
     max_length: int
     """The most characters a Message may hold."""
+    not_met: list[NotMetStudentOut] = []
+    """For `requirement_not_met`: the Students it would go to now, by name; else empty."""
 
 
 class MessageIn(BaseModel):
@@ -75,6 +102,8 @@ class MessageIn(BaseModel):
     """Made by the client once per text: a repeat with the same key sends nothing new."""
     game_id: uuid.UUID | None = None
     student_id: uuid.UUID | None = None
+    recipient: RecipientParam | None = None
+    """`requirement_not_met` (Story 13.6), with neither id."""
     text: str = Field(max_length=TEXT_HARD_LIMIT)
 
 
@@ -97,12 +126,17 @@ async def get_message_form(
     user: Annotated[authz.Principal, Depends(authz.require(messages.SEND))],
     game_id: Annotated[str | None, Query(max_length=64)] = None,
     student_id: Annotated[str | None, Query(max_length=64)] = None,
+    recipient: RecipientParam | None = None,
 ) -> MessageFormOut:
     """The Meldingsskjema's recipient (Story 7.9): its title's parts, the Students it reaches now,
     the earlier Messages to it and the length limit. 403 `forbidden`, one answer, for anyone who
     is not staff of the Class and for a Class session, game or Student outside it (FR-5)."""
     found = await messages.message_form(
-        user, _id(session_id), game_id=_optional_id(game_id), student_id=_optional_id(student_id)
+        user,
+        _id(session_id),
+        game_id=_optional_id(game_id),
+        student_id=_optional_id(student_id),
+        requirement_not_met=recipient == "requirement_not_met",
     )
     if found is None:
         raise authz.Forbidden
@@ -118,6 +152,17 @@ async def get_message_form(
         students=found.students,
         sent_before=found.sent_before,
         max_length=found.max_length,
+        not_met=[
+            NotMetStudentOut(
+                user_id=row.user_id,
+                name=row.name,
+                ordered_share=row.ordered_share,
+                required_share=row.required_share,
+                playout_share=row.playout_share,
+                share_game=row.share_game,
+            )
+            for row in found.not_met
+        ],
     )
 
 
@@ -154,6 +199,7 @@ async def send_message(
             game_id=body.game_id,
             student_id=body.student_id,
             text=body.text,
+            requirement_not_met=body.recipient == "requirement_not_met",
         )
     except messages.MessageRefused as refused:
         return error_response(
@@ -215,7 +261,7 @@ class SentMessageOut(BaseModel):
     """One Message in «Meldinger» (Story 7.10): its recipient, sender, time and reach."""
 
     id: uuid.UUID
-    kind: Literal["student", "class_game", "class_session", "list"]
+    kind: Literal["student", "class_game", "class_session", "list", "requirement_not_met"]
     game_id: uuid.UUID | None
     game_number: int | None
     """The Class game it was written to, or from (a Student's title)."""

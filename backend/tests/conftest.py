@@ -341,7 +341,15 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     ones, which even the workers out. The
     migration tests stay together at the head of the first slice: run side by side, their
     schema rebuilds slowed each other several times over. Every worker computes the same order.
-    Without workers the long tests simply come first. Each group keeps its collected order."""
+    Without workers the long tests simply come first. Each group keeps its collected order.
+
+    Tests marked `slow` (load tests of many seconds) run in CI (`CI` set) or with `RUN_SLOW=1`;
+    the default local run skips them."""
+    if not (os.environ.get("CI") or os.environ.get("RUN_SLOW")):
+        skip = pytest.mark.skip(reason="slow: runs in CI, or locally with RUN_SLOW=1")
+        for item in items:
+            if item.get_closest_marker("slow") is not None:
+                item.add_marker(skip)
     top = [
         item
         for item in items

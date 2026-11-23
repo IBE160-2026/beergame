@@ -79,13 +79,6 @@ export function PointGraph({
   const box = useRef<HTMLDivElement>(null);
   const [low, high] = domain;
   const y = scaleY(domain, top, bottom);
-  const segments: string[] = [];
-  values.forEach((value, i) => {
-    const next = values[i + 1];
-    if (value !== null && next !== null && next !== undefined && xs[i + 1] !== undefined) {
-      segments.push(`M${xs[i]},${y(value)}L${xs[i + 1]},${y(next)}`);
-    }
-  });
 
   const nearest = (x: number) => {
     let best = 0;
@@ -164,20 +157,7 @@ export function PointGraph({
       onPointerUp={up}
       onPointerCancel={cancel}
     >
-      <svg aria-hidden="true" width={width} height={height} viewBox={`0 0 ${width} ${height}`} data-chart="points" fontFamily={CHART_FONT}>
-        <title>{title}</title>
-        {ticks.map((tick) => (
-          <line key={tick} x1={0} x2={width} y1={y(tick)} y2={y(tick)} stroke={colour(tick === 0 ? "axis" : "hairline")} strokeWidth={1} />
-        ))}
-        {segments.length > 0 ? (
-          <path data-mark="line" d={segments.join("")} fill="none" stroke={colour("ink")} strokeWidth={LINE} strokeLinejoin="round" />
-        ) : null}
-        {values.map((value, i) =>
-          value === null || xs[i] === undefined ? null : (
-            <circle key={i} data-mark="point" data-week={i + 1} data-x={xs[i]} cx={xs[i]} cy={y(value)} r={POINT / 2} fill={colour("ink")} />
-          ),
-        )}
-      </svg>
+      <PointMarks width={width} height={height} xs={xs} values={values} domain={domain} top={top} bottom={bottom} title={title} ticks={ticks} />
       {names.map((name, i) => {
         const value = values[i] ?? null;
         const shown = value ?? starts[i] ?? low;
@@ -206,5 +186,41 @@ export function PointGraph({
         );
       })}
     </div>
+  );
+}
+
+export type PointMarksProps = Pick<PointGraphProps, "width" | "height" | "xs" | "values" | "domain" | "top" | "bottom" | "title" | "ticks">;
+
+/**
+ * The drawn answer itself (Story 11.14, UX-DR38): the ticks as `hairline` grid lines (`axis` at 0),
+ * an 8 px `ink` point per answered Uke joined to its answered neighbours by a 2 px `ink` line, no
+ * point for an Uke with no value. A fixed-size SVG, `aria-hidden` with its `<title>` (AD-18): the
+ * value table is its reading. `PointGraph` lays its sliders over it; the Student report (Story
+ * 13.10) draws it alone, as the image of a handed-in answer.
+ */
+export function PointMarks({ width, height, xs, values, domain, top, bottom, title, ticks }: PointMarksProps) {
+  const y = scaleY(domain, top, bottom);
+  const segments: string[] = [];
+  values.forEach((value, i) => {
+    const next = values[i + 1];
+    if (value !== null && next !== null && next !== undefined && xs[i + 1] !== undefined) {
+      segments.push(`M${xs[i]},${y(value)}L${xs[i + 1]},${y(next)}`);
+    }
+  });
+  return (
+    <svg aria-hidden="true" width={width} height={height} viewBox={`0 0 ${width} ${height}`} data-chart="points" fontFamily={CHART_FONT}>
+      <title>{title}</title>
+      {ticks.map((tick) => (
+        <line key={tick} x1={0} x2={width} y1={y(tick)} y2={y(tick)} stroke={colour(tick === 0 ? "axis" : "hairline")} strokeWidth={1} />
+      ))}
+      {segments.length > 0 ? (
+        <path data-mark="line" d={segments.join("")} fill="none" stroke={colour("ink")} strokeWidth={LINE} strokeLinejoin="round" />
+      ) : null}
+      {values.map((value, i) =>
+        value === null || xs[i] === undefined ? null : (
+          <circle key={i} data-mark="point" data-week={i + 1} data-x={xs[i]} cx={xs[i]} cy={y(value)} r={POINT / 2} fill={colour("ink")} />
+        ),
+      )}
+    </svg>
   );
 }

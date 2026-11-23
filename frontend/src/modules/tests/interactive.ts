@@ -1,7 +1,12 @@
+import { clamp } from "@/components/interactive-values";
 import { parseWholeNumber } from "@/modules/games/starting-task";
 
 import type { MyTestItem } from "./api";
 import type { AnswerValue } from "./autosave";
+
+// The answer as shown (its values, the graph's range, an unanswered point's place) is the
+// Interaktiv oppgave's, in `components/interactive-values.ts` since Story 13.10.
+export { graphDomain, numberValue, startValue, tableValues } from "@/components/interactive-values";
 
 /**
  * Table and number Interactive items (Story 11.5, FR-80, UX-DR38) as pure steps: a cell's text
@@ -18,21 +23,6 @@ export function parseCell(text: string, negative: boolean): Cell {
   const value = parseWholeNumber(text);
   if (value === null || (!negative && value < 0)) return { kind: "invalid" };
   return { kind: "value", value };
-}
-
-/** A table answer as one value or null per row, whatever was stored (a missing answer, one of
- * another shape). */
-export function tableValues(value: AnswerValue, rows: number): (number | null)[] {
-  const cells = Array.isArray(value) ? value : [];
-  return Array.from({ length: rows }, (_, i) => {
-    const cell = cells[i];
-    return typeof cell === "number" ? cell : null;
-  });
-}
-
-/** A number answer's value, or null. */
-export function numberValue(value: AnswerValue): number | null {
-  return typeof value === "number" ? value : null;
 }
 
 /** The text a stored value shows in its field: plain digits with a leading minus. */
@@ -64,22 +54,6 @@ export function isInteractive(item: Pick<MyTestItem, "type" | "table" | "column"
  * Display only: the values are what the table holds, and the api scores them (AD-1).
  */
 
-/** The shown range: the item's axis, widened to hold every answered value so no point is cut. */
-export function graphDomain(axis: { min: number; max: number }, values: readonly (number | null)[]): [number, number] {
-  const answered = values.filter((v): v is number => v !== null);
-  return [Math.min(axis.min, ...answered), Math.max(axis.max, ...answered)];
-}
-
-/** Where an unanswered Uke's point starts: the nearest answered Uke before it, else 0, inside the
- * range. */
-export function startValue(values: readonly (number | null)[], index: number, domain: readonly [number, number]): number {
-  for (let i = index - 1; i >= 0; i--) {
-    const v = values[i];
-    if (v !== null && v !== undefined) return clamp(v, domain);
-  }
-  return clamp(0, domain);
-}
-
 /** The keys a point answers (the slider pattern): Up and Right by 1, Down and Left by −1, Page Up
  * and Page Down by 10, Home and End to the range's ends. Null for any other key. */
 export function stepValue(key: string, from: number, domain: readonly [number, number]): number | null {
@@ -97,8 +71,4 @@ export function pointValue(y: number, top: number, bottom: number, domain: reado
   const share = bottom === top ? 0 : (bottom - y) / (bottom - top);
   const value = Math.round(low + share * (high - low));
   return Math.min(axis.max, Math.max(axis.min, value === 0 ? 0 : value));
-}
-
-function clamp(value: number, [low, high]: readonly [number, number]): number {
-  return Math.min(high, Math.max(low, value));
 }

@@ -19,9 +19,9 @@ Then the second set is stopped. One line per check, `pass` or `FAIL`:
 - the second set started (two running containers of each service);
 - the simulation exited 0 (every Game finished and its check passed);
 - every request answered 200;
-- the peak of the services' connections stayed within the overlap budget (`--limit`, the 50 of
+- the peak of the services' connections stayed within the overlap budget (`--limit`, the 56 of
   `docs/ops/connection-budget.md`: twice the budget; no migration runs here, so its one
-  connection of the pooler need, 51, is not counted);
+  connection of the pooler need, 57, is not counted);
 - no service logged a pool timeout or "too many clients".
 Exit 0 only when every line passes, 2 when the stack is not up. Standard library only; no secret
 is needed.
@@ -43,7 +43,7 @@ from datetime import UTC, datetime, timedelta
 SERVICES = ("backend", "worker-ai", "worker-batch")
 APP_NAMES = {f"olspillet-{service}": service for service in SERVICES}
 SIM_APP_NAME = "olspillet-sim"
-OVERLAP_LIMIT = 50
+OVERLAP_LIMIT = 56
 """Twice the budget total (docs/ops/connection-budget.md); a test keeps it equal to
 `ops.connection_budget.overlap_total()`."""
 COMMAND_TIMEOUT_S = 900
@@ -212,7 +212,7 @@ def main(argv: list[str] | None = None, *, out=sys.stdout) -> int:
     parser.add_argument("--base", default="http://127.0.0.1:8080", help="the proxy")
     parser.add_argument("--games", type=int, default=BATCH["games"], help="scripted Games (6)")
     parser.add_argument("--concurrency", type=int, default=16, help="parallel requests (16)")
-    parser.add_argument("--limit", type=int, default=OVERLAP_LIMIT, help="overlap budget (50)")
+    parser.add_argument("--limit", type=int, default=OVERLAP_LIMIT, help="overlap budget (56)")
     parser.add_argument("--interval", type=float, default=0.5, help="seconds between samples")
     args = parser.parse_args(argv)
     base = args.base.rstrip("/")

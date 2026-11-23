@@ -46,7 +46,7 @@ def test_main_runs_a_worker_on_the_named_queues(monkeypatch):
 
     from app.modules.ops import service as ops_service
 
-    async def reported(process, settings, *, concurrency=1):
+    async def reported(process, settings, *, concurrency=1, queues=()):
         order.append("report")
         seen["reported"] = (process, settings.db_pool_size, concurrency)
 
@@ -86,7 +86,7 @@ def test_the_sweeper_flag_schedules_the_sweep_and_runs_its_queue(monkeypatch):
 
     from app.modules.ops import service as ops_service
 
-    async def reported(process, settings, *, concurrency=1):
+    async def reported(process, settings, *, concurrency=1, queues=()):
         seen["process"] = process
 
     monkeypatch.setattr(jobs, "run_worker", run_worker)
@@ -208,3 +208,66 @@ async def test_an_ai_orders_worker_runs_the_rescue_loop_until_the_worker_stops(m
     seen.clear()
     await worker.serve(["llm-batch"], concurrency=1)
     assert seen == [("worker", ["llm-batch"])]
+
+
+async def test_reports_single_beside_other_queues_runs_on_slots_of_its_own(monkeypatch):
+    """Story 13.7 (AD-9): `reports-single` gets `REPORTS_SINGLE_RESERVED` slots no other queue
+    takes; alone, or absent, there is one worker."""
+    from app.platform import jobs
+    from app.platform.config import get_settings
+
+    calls: list[dict] = []
+
+    async def run_worker_async(**kwargs):
+        calls.append(kwargs)
+
+    monkeypatch.setattr(jobs.app, "run_worker_async", run_worker_async)
+    monkeypatch.setattr(jobs.app, "open_async", _no_pool)
+    await jobs.run_worker(
+        [jobs.MAIL, jobs.REPORTS_SINGLE], wait=False, install_signal_handlers=False
+    )
+    reserved = get_settings().reports_single_reserved
+    assert sorted((c["queues"], c["concurrency"]) for c in calls) == [
+        ([jobs.MAIL], 1),
+        ([jobs.REPORTS_SINGLE], reserved),
+    ]
+    assert [
+        c["install_signal_handlers"] for c in calls if c["queues"] == [jobs.REPORTS_SINGLE]
+    ] == [False]
+    for alone in ([jobs.REPORTS_SINGLE], [jobs.MAIL], [jobs.REPORTS_BULK]):
+        calls.clear()
+        await jobs.run_worker(alone, wait=False, install_signal_handlers=False)
+        assert [(c["queues"], c["concurrency"]) for c in calls] == [(alone, 1)]
+
+    # The close-out of Epic 13: `reports-bulk` beside other queues gets a worker of its own, so a
+    # long ZIP never holds the sweep, the mail or the LLM batches behind it.
+    calls.clear()
+    batch = [jobs.LLM_BATCH, jobs.MAIL, jobs.REPORTS_BULK, jobs.REPORTS_SINGLE, jobs.SWEEP]
+    await jobs.run_worker(batch, wait=False, install_signal_handlers=False)
+    assert sorted((c["queues"], c["concurrency"]) for c in calls) == [
+        ([jobs.LLM_BATCH, jobs.MAIL, jobs.SWEEP], 1),
+        ([jobs.REPORTS_BULK], 1),
+        ([jobs.REPORTS_SINGLE], reserved),
+    ]
+    # The two report queues alone: the bulk one is the main worker, the single one beside it.
+    calls.clear()
+    await jobs.run_worker(
+        [jobs.REPORTS_BULK, jobs.REPORTS_SINGLE], wait=False, install_signal_handlers=False
+    )
+    assert sorted((c["queues"], c["concurrency"]) for c in calls) == [
+        ([jobs.REPORTS_BULK], 1),
+        ([jobs.REPORTS_SINGLE], reserved),
+    ]
+
+
+class _no_pool:
+    """`open_async` without a database: the workers above never touch it."""
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False

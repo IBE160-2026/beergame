@@ -95,7 +95,7 @@ export function projectionPoints(
 /** The two graph fields over the table (Story 6.7, UX-DR16): Netto lager with the Posisjon line,
  * then Kost per uke. Each draws the Uker of its columns up to nå, from the api's values; with
  * `projection` (the Replay, Story 10.4) the dashed projection runs on from nå. */
-function graphFields(state: SeatState, series: GraphSeries, projection?: Projection): GraphField[] {
+function graphFields(state: SeatState, series: GraphSeries, projection?: Projection, ended = false): GraphField[] {
   const byWeek = new Map(series.weeks.map((week) => [week.week, week]));
   const drawn = (size: FieldSize) =>
     size.columns.flatMap((column, i) => {
@@ -123,9 +123,9 @@ function graphFields(state: SeatState, series: GraphSeries, projection?: Project
               points={points}
               nowX={size.nowX}
               title={graphCopy.netSvg}
-              netLabel={graphCopy.netLabel(state.net_inventory, formatNumber(Math.abs(state.net_inventory)))}
-              positionLabel={graphCopy.positionLabel(formatNumber(state.position))}
-              nowLabel={graphCopy.now}
+              netLabel={ended ? "" : graphCopy.netLabel(state.net_inventory, formatNumber(Math.abs(state.net_inventory)))}
+              positionLabel={ended ? "" : graphCopy.positionLabel(formatNumber(state.position))}
+              nowLabel={ended ? "" : graphCopy.now}
               projection={ahead?.points}
               projectionClipped={ahead?.clipped}
             />
@@ -219,8 +219,16 @@ export function WeekTable({
   capped = false,
   label,
   projection,
+  span,
 }: {
   state: SeatState;
+  /**
+   * A finished game's Uker `from` … `to` (the Student report, Story 13.8): every column is past,
+   * with no nå, no Uker ahead, no «Nå» and no direct labels, and Din ordre of the last Uke
+   * (`nowOrder`) is a plain number. `state` is the Seat in its last opened Week. The report draws
+   * a long game in several blocks, each a `span` of at most the columns A4 holds.
+   */
+  span?: { from: number; to: number };
   /** The Replay's projection (Story 10.4, UX-DR19): the dashed line over the graph and its
    * sentence under the table. Only a play envelope with `projection` passes it. */
   projection?: Projection;
@@ -246,7 +254,13 @@ export function WeekTable({
   /** The region's name when not the play screen's «Graf og tabell» (the Debrief's moments). */
   label?: string;
 }) {
-  const columns = weekColumns(state.week);
+  const columns: Column[] = span
+    ? Array.from({ length: Math.max(0, Math.min(span.to, state.week) - span.from + 1) }, (_, i) => ({
+        week: span.from + i,
+        when: "past",
+        phone: true,
+      }))
+    : weekColumns(state.week);
   const series = graphSeries(state);
   const weekCol = cn(WEEK_COL, wide && WEEK_COL_WIDE);
   const weekCell = fixedCell(fixed, "week");
@@ -255,7 +269,7 @@ export function WeekTable({
     <GraphOverTable
       label={label ?? copy.region}
       columns={columns}
-      fields={graphFields(state, series, projection)}
+      fields={graphFields(state, series, projection, span !== undefined)}
       fixed={fixed}
       labelledBy={labelledBy}
       swipe={copy.swipe}
@@ -264,10 +278,12 @@ export function WeekTable({
       skip={skipMove}
       onMoving={onMoving}
       footer={
+        span ? undefined : (
         <p className="mt-1 text-caption text-ink-secondary">
           <span aria-hidden="true" className="mr-1 inline-block h-[0.9em] w-[1.2em] border border-ink align-[-0.1em]" />
           {copy.arrivalKey}
         </p>
+        )
       }
       head={
         <tr className="border-b border-axis">
@@ -304,7 +320,7 @@ export function WeekTable({
             <WeekCell
               key={column.week}
               column={column}
-              cell={cellFor(state, row.key, column.week, nowOrder, typed)}
+              cell={span ? endedCell(cellFor(state, row.key, column.week, nowOrder)) : cellFor(state, row.key, column.week, nowOrder, typed)}
               weekCol={weekCol}
               style={weekCell}
             />
@@ -445,6 +461,14 @@ export function MiniWeekTable({ state, nowOrder, label }: { state: SeatState; no
       ))}
     />
   );
+}
+
+/** A finished game's cell (`span`): its last Uke's Order is a plain number like every other Uke's,
+ * and a missing one an empty cell, never nå's block or the dashed box. */
+function endedCell(cell: Cell): Cell {
+  if (cell.kind === "order-placed") return { kind: "plain", text: cell.text };
+  if (cell.kind === "order-empty") return { kind: "empty" };
+  return cell;
 }
 
 function WeekCell({ column, cell, weekCol, style }: { column: Column; cell: Cell; weekCol: string; style?: CSSProperties }) {

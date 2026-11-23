@@ -9,8 +9,13 @@ whole numbers only. Tasks are never retried by procrastinate: a task that must n
 handles its own failures.
 
 Queues: `ai-orders` (`worker-ai`, the LLM players' Orders), `llm-batch` and `mail`
-(`worker-batch`, Story 3.5), and `sweep`, which only the `--sweeper` worker runs: it holds the
-per-minute `ops.sweep` (AD-9). Later epics add theirs. Alembic owns the procrastinate schema
+(`worker-batch`, Story 3.5), `reports-single` (`worker-batch`, Story 13.7: one Student report,
+with `REPORTS_SINGLE_RESERVED` slots no other queue takes, so a report meets its 30 seconds while
+the worker's other queues are busy), `reports-bulk` (`worker-batch`, Story 13.12: the long report
+jobs, the ZIP of Story 13.13, beside which a single report keeps its slots; beside other queues
+it runs in a worker of its own, so a long ZIP never holds the sweep or the mail), and `sweep`, which
+only the `--sweeper` worker runs: it holds the per-minute `ops.sweep` (AD-9). Later epics add
+theirs. Alembic owns the procrastinate schema
 (revision 0008).
 """
 
@@ -34,6 +39,8 @@ __all__ = [
     "LLM_BATCH",
     "MAIL",
     "QUEUES",
+    "REPORTS_BULK",
+    "REPORTS_SINGLE",
     "SWEEP",
     "TASK_MODULES",
     "app",
@@ -46,6 +53,7 @@ __all__ = [
     "load_tasks",
     "procrastinate_pool_size",
     "run_until_idle",
+    "worker_sides",
 ]
 
 log = structlog.get_logger(__name__)
@@ -53,8 +61,10 @@ log = structlog.get_logger(__name__)
 AI_ORDERS = "ai-orders"
 LLM_BATCH = "llm-batch"
 MAIL = "mail"
+REPORTS_BULK = "reports-bulk"
+REPORTS_SINGLE = "reports-single"
 SWEEP = "sweep"
-QUEUES = (AI_ORDERS, LLM_BATCH, MAIL, SWEEP)
+QUEUES = (AI_ORDERS, LLM_BATCH, MAIL, REPORTS_BULK, REPORTS_SINGLE, SWEEP)
 
 TASK_MODULES = (
     "app.modules.players.jobs",
@@ -63,6 +73,11 @@ TASK_MODULES = (
     "app.modules.debrief.jobs",
     "app.modules.replay.jobs",  # no task yet: its finish hook (Story 10.5)
     "app.modules.tests.jobs",
+    # No task: it registers the Completion assembler and the lookup of a Student's
+    # Oppfølgingsspill with `sessions` (Stories 13.1, 13.4), which the `makeup_given` mail reads.
+    "app.modules.reports.service",
+    "app.modules.reports.render",  # the Student report (Story 13.7)
+    "app.modules.reports.bundle",  # the ZIP of all Student reports (Story 13.13)
     "app.modules.assessment.jobs",
 )
 """The modules that register tasks on `app`; a worker imports them before it runs."""
@@ -168,10 +183,27 @@ async def live_locks(session: AsyncSession, locks: Iterable[str]) -> set[str]:
     return {str(lock) for lock in result.scalars()}
 
 
-def procrastinate_pool_size(concurrency: int) -> int:
-    """The connections a worker's procrastinate pool may hold: one per job run at once and one
-    for its LISTEN for new jobs, at least two (docs/ops/connection-budget.md)."""
-    return max(2, concurrency + 1)
+def worker_sides(queues: Sequence[str]) -> dict[str, int]:
+    """The queues a worker runs beside its others, on slots of their own, with their slots.
+
+    Story 13.7: `reports-single` beside other queues runs in a worker of its own with
+    `REPORTS_SINGLE_RESERVED` slots, so no other queue's job takes them (AD-9). The close-out of
+    Epic 13: `reports-bulk` beside other queues runs in a worker of its own too (one slot), so a
+    ZIP of many minutes never holds the sweep, the mail or the LLM batches behind it."""
+    sides: dict[str, int] = {}
+    if len(queues) > 1:
+        if REPORTS_SINGLE in queues:
+            sides[REPORTS_SINGLE] = get_settings().reports_single_reserved
+        if REPORTS_BULK in queues and len(queues) > len(sides) + 1:
+            sides[REPORTS_BULK] = 1
+    return sides
+
+
+def procrastinate_pool_size(concurrency: int, queues: Sequence[str] = ()) -> int:
+    """The connections a worker's procrastinate pool may hold: one per job run at once, the
+    slots of the queues it runs on their own (`worker_sides`), and one for its LISTEN for new
+    jobs, at least two (docs/ops/connection-budget.md)."""
+    return max(2, concurrency + sum(worker_sides(queues).values()) + 1)
 
 
 def _connector(database_url: str | None, size: int) -> procrastinate.PsycopgConnector:
@@ -256,15 +288,17 @@ async def run_worker(
     if unknown:
         raise ValueError(f"unknown queue(s): {', '.join(unknown)}")
     load_tasks()
+    sides = worker_sides(queues)
+    others = [queue for queue in queues if queue not in sides]
     # The app gets a pool that lives as long as this worker. It is the app itself, not a copy
     # (`with_connector`): the periodic deferrer of `ops.sweep` defers through the task's own app,
     # which must be the open one (Story 3.5).
     with app.replace_connector(
-        _connector(database_url, procrastinate_pool_size(concurrency))
+        _connector(database_url, procrastinate_pool_size(concurrency, queues))
     ) as worker_app:
         async with worker_app.open_async():
-            await worker_app.run_worker_async(
-                queues=list(queues),
+            main = worker_app.run_worker_async(
+                queues=others,
                 wait=wait,
                 concurrency=concurrency,
                 listen_notify=wait,
@@ -272,6 +306,44 @@ async def run_worker(
                 delete_jobs="successful",
                 worker_middleware=[failure_middleware(on_failure)] if on_failure else None,
             )
+            if not sides:
+                await main
+                return
+            side = [
+                asyncio.ensure_future(
+                    worker_app.run_worker_async(
+                        queues=[queue],
+                        name=queue,
+                        wait=wait,
+                        concurrency=slots,
+                        listen_notify=wait,
+                        install_signal_handlers=False,
+                        delete_jobs="successful",
+                    )
+                )
+                for queue, slots in sides.items()
+            ]
+            first = asyncio.ensure_future(main)
+            every = [first, *side]
+            try:
+                if not wait:
+                    await asyncio.gather(*every)  # run until idle: the reports too
+                    return
+                await asyncio.wait(every, return_when=asyncio.FIRST_COMPLETED)
+                stopped = [task for task in side if task.done()]
+                if stopped and not first.done():
+                    # A reports worker stopped on its own: the process stops, so it restarts.
+                    log.error("reports_worker_stopped")
+                    stopped[0].result()
+                    raise RuntimeError("a reports worker stopped")
+                await first
+            finally:
+                # On a stop, a render in flight is cancelled; its request ends `failed` and the
+                # Student presses again.
+                for task in every:
+                    if not task.done():
+                        task.cancel()
+                await asyncio.gather(*every, return_exceptions=True)
 
 
 async def run_until_idle(

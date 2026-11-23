@@ -81,7 +81,7 @@ import secrets
 import uuid
 from collections.abc import Awaitable, Callable, Collection, Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -92,6 +92,7 @@ from sqlalchemy import Select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai import budget, calls, config
+from app.analysis.completion import CompletionStatus
 from app.analysis.letter import judge_thresholds
 from app.engine import (
     RULES_VERSION,
@@ -206,7 +207,7 @@ from app.modules.sessions.schemas import (
     WaitingClass,
     WaitingReason,
 )
-from app.platform import audit, auth, authz, events, notify
+from app.platform import audit, auth, authz, events, notify, retention
 from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker, reading
 
@@ -637,6 +638,29 @@ def required_share(class_session: ClassSessionLike) -> int:
     FR-17): the one source Story 8.9 and Epic 13 read. It is stored whether or not the session is
     obligatory; whether a requirement applies is the obligatory mark's to say."""
     return _value(class_session, "required_share_percent")
+
+
+@dataclass(frozen=True)
+class CompletionTerms:
+    """What a Class session says about its requirement (Story 13.1, FR-17): its Class, whether it
+    is obligatory and its required share of Weeks (`required_share`)."""
+
+    class_id: uuid.UUID
+    obligatory: bool
+    required_share: int
+
+
+async def completion_terms(
+    session: AsyncSession, class_session_id: uuid.UUID
+) -> CompletionTerms | None:
+    """The `CompletionTerms` of the Class session, read in the caller's transaction; None for no
+    such session. For `reports.service.completion_status`."""
+    row = await repo.session_row(session, class_session_id)
+    if row is None:
+        return None
+    return CompletionTerms(
+        class_id=row["class_id"], obligatory=row["obligatory"], required_share=required_share(row)
+    )
 
 
 @dataclass(frozen=True)
@@ -1511,6 +1535,8 @@ async def save_session(
             # Story 11.3: open Individual test attempts keep their stored deadline in step.
             for mover in _test_deadline_movers:
                 await mover(s, session_id, changed["test_deadline"])
+            # Story 13.9: the deletion date follows, in this transaction.
+            await _store_deletion_date(s, session_id, changed["test_deadline"])
         if timing and _test_sitting:
             await _test_sitting[0][1](s, session_id, sitting, user.id, now)
         if switching_assessment:
@@ -1754,6 +1780,21 @@ async def enrolled_sessions(user: authz.Principal) -> EnrolledSessionListOut:
             if cards.get(row["id"]) is not None
             and progress.Step.QUIZ_PASSED in done.get(row["id"], set())
         }
+        # Story 13.4: the Oppfølgingsspill a Lecturer gave the Student, as a game card; once it
+        # finished and became their game (Story 13.5) it is `game` instead, not shown twice.
+        makeups = {
+            row["id"]: card
+            for row in locked
+            if (card := await _makeup_card(s, user.id, row, done.get(row["id"], set()))) is not None
+            and (cards.get(row["id"]) is None or cards[row["id"]].id != card.id)
+        }
+    # Story 13.1 (FR-17): in an Obligatory class session where the Student has a game, which steps
+    # count and whether the requirement is met, from the one assembler.
+    completions = {
+        row["id"]: await _completion_of(user.id, row["id"])
+        for row in locked
+        if row["obligatory"] and cards.get(row["id"]) is not None
+    }
     upcoming: dict[uuid.UUID, list[EnrolledLabHourOut]] = {}
     for lab in labs:
         upcoming.setdefault(lab["class_session_id"], []).append(
@@ -1780,22 +1821,40 @@ async def enrolled_sessions(user: authz.Principal) -> EnrolledSessionListOut:
                 and not is_locked(row, now=now),
                 drawn_seat=_drawn_seat(drafts.get(row["id"]), user.id),
                 game=cards.get(row["id"]),
-                steps=stegene(
-                    cards.get(row["id"]) is not None,
-                    done.get(row["id"], set()),
-                    held=_held(cards.get(row["id"])),
-                    quiz_changed=changed.get(row["id"], False),
-                    group_open=grouped.get(row["id"], False),
-                    replay_closed=_replay_closed(replays.get(row["id"]), user, row, now),
-                    test_closed=test_deadline_passed(user, row, now),
+                steps=_with_counts(
+                    stegene(
+                        cards.get(row["id"]) is not None
+                        or _after_makeup(None, makeups.get(row["id"])),
+                        done.get(row["id"], set()),
+                        # Story 13.5: a Student with no Class game plays the Oppfølgingsspill
+                        # that opens their Debrief.
+                        after_makeup=_after_makeup(cards.get(row["id"]), makeups.get(row["id"])),
+                        held=_held(cards.get(row["id"])),
+                        quiz_changed=changed.get(row["id"], False),
+                        group_open=grouped.get(row["id"], False),
+                        replay_closed=_replay_closed(replays.get(row["id"]), user, row, now),
+                        test_closed=test_deadline_passed(user, row, now),
+                        # Story 13.7: «Rapport» opens at the Student's Test deadline.
+                        report_open=test_deadline_passed(user, row, now),
+                    ),
+                    completions.get(row["id"]),
                 ),
+                requirement_met=_requirement_met(completions.get(row["id"])),
                 adjustment=own_adjustment(adjustments.get(row["id"])),
                 replay=replays.get(row["id"]),
+                makeup=makeups.get(row["id"]),
+                deletion_date=row["deletion_date"],
             )
             for row in rows
             if row["class_id"] in names
         ]
     )
+
+
+def _after_makeup(game: StudentGameOut | None, makeup: StudentGameOut | None) -> bool:
+    """Story 13.5: the Student has no Class game, and their Debrief opens when the
+    Oppfølgingsspill they were given finishes (not one closed at the Test deadline)."""
+    return game is None and makeup is not None and makeup.status != "finished"
 
 
 STEGENE: tuple[tuple[str, progress.Step], ...] = (
@@ -1818,6 +1877,8 @@ def stegene(
     group_open: bool = False,
     replay_closed: bool = False,
     test_closed: bool = False,
+    after_makeup: bool = False,
+    report_open: bool = False,
 ) -> list[StepOut]:
     """The state of each of Stegene's steps (Story 6.1, AD-10): a done step is `done`; with a
     game the first step not done is `current` and the later ones `locked`; with no game (before
@@ -1829,10 +1890,17 @@ def stegene(
     under way. `replay_closed` (Story 10.3): a current Replay step says the Test deadline has
     passed with no Replay started; it stays not done. `test_closed` (Story 11.11): a current
     Individual test step (not handed in) says the Student's Test deadline has passed; it stays
-    not done, and turns done when the sweep hands a saved attempt in."""
+    not done, and turns done when the sweep hands a saved attempt in. `after_makeup` (Story
+    13.5): a locked Debrief step says it opens when the Oppfølgingsspill is finished.
+    `report_open` (Story 13.7, UX-DR29): «Rapport» opens at the Student's effective Test deadline,
+    whatever the earlier steps (a step not done is marked so in the report); until then it is
+    `locked` and says what opens it."""
     steps: list[StepOut] = []
     current_given = not has_game
     for name, step in STEGENE:
+        if name == "report" and step not in done:
+            steps.append(StepOut(step=name, state="current" if report_open else "locked"))
+            continue
         if step in done:
             state = "done"
         elif not current_given:
@@ -1851,8 +1919,100 @@ def stegene(
                 continue
         else:
             state = "locked"
+            if name == "debrief" and after_makeup:
+                steps.append(StepOut(step=name, state=state, after_makeup=True))
+                continue
         steps.append(StepOut(step=name, state=state))
     return steps
+
+
+STEGENE_COMPLETION: dict[str, str] = {
+    "class_game": "class_game",
+    "debrief": "debrief",
+    "quiz": "quiz_passed",
+    "replay": "replay",
+    "test": "test_submitted",
+}
+"""Stegene's steps that are steps of the requirement (FR-17), by Completion's step name; the
+«Rapport» step is not one."""
+
+
+def _with_counts(steps: list[StepOut], status: CompletionStatus | None) -> list[StepOut]:
+    """Story 13.1: each step of the requirement says whether it counts, from the Completion
+    status; without one (not obligatory, no game yet) `counts` stays None. Story 13.3: and
+    whether a Lecturer's correction decided it."""
+    if status is None:
+        return steps
+    found = []
+    for step in steps:
+        if step.step in STEGENE_COMPLETION:
+            judged = status.step(STEGENE_COMPLETION[step.step])
+            step = step.model_copy(update={"counts": judged.done, "corrected": judged.corrected})
+        found.append(step)
+    return found
+
+
+def _requirement_met(status: CompletionStatus | None) -> bool | None:
+    return None if status is None else status.requirement_met
+
+
+# Story 13.1: a Student's Completion status and the Oversikt's funnel come from `reports`, which
+# imports `sessions`; it registers its assembler and its funnel here (AD-16, AD-25).
+
+CompletionProvider = Callable[[uuid.UUID, uuid.UUID], Awaitable[CompletionStatus | None]]
+"""`(user_id, class_session_id)` → the Student's Completion status, None outside the reporting
+scope (`reports.service.completion_status`)."""
+FunnelProvider = Callable[[AsyncSession, uuid.UUID], Awaitable[progress.Funnel]]
+"""`(session, class_session_id)` → the Trakt over the reporting Students
+(`reports.service.funnel`)."""
+
+_completion: list[CompletionProvider] = []
+_funnel: list[FunnelProvider] = []
+
+
+def register_completion(provider: CompletionProvider, funnel: FunnelProvider) -> None:
+    """`reports.service` registers its assembler and its funnel at import. The same ones again
+    change nothing; others are refused, so every reader judges Completion alike."""
+    if (_completion and _completion[0] is not provider) or (_funnel and _funnel[0] is not funnel):
+        raise ValueError("a Completion provider is registered already")
+    _completion[:] = [provider]
+    _funnel[:] = [funnel]
+
+
+async def _completion_of(
+    user_id: uuid.UUID, class_session_id: uuid.UUID
+) -> CompletionStatus | None:
+    if not _completion:
+        raise RuntimeError("no Completion provider: import app.modules.reports.service")
+    return await _completion[0](user_id, class_session_id)
+
+
+async def funnel_of(session: AsyncSession, class_session_id: uuid.UUID) -> progress.Funnel:
+    """The Oversikt's Trakt (Story 7.6) through `reports.service.funnel` (Story 13.1)."""
+    if not _funnel:
+        raise RuntimeError("no funnel provider: import app.modules.reports.service")
+    return await _funnel[0](session, class_session_id)
+
+
+ReportingStudents = Callable[[AsyncSession, uuid.UUID], Awaitable[list[uuid.UUID]]]
+"""`(session, class_session_id)` → the Students reports count (`scope.reporting_students`)."""
+_reporting_students: list[ReportingStudents] = []
+
+
+def register_reporting_students(read: ReportingStudents) -> None:
+    """`reports.service` registers `scope.reporting_students` at import, so a module `reports`
+    reads (Story 12.5's list of AI assessments) can count the same Students without importing it."""
+    _reporting_students[:] = [read]
+
+
+async def reporting_students_of(
+    session: AsyncSession, class_session_id: uuid.UUID
+) -> list[uuid.UUID]:
+    """The Students reports count in the Class session (Story 13.1): never a test student,
+    nobody in a Control test."""
+    if not _reporting_students:
+        raise RuntimeError("no reporting scope: import app.modules.reports.service")
+    return await _reporting_students[0](session, class_session_id)
 
 
 # Story 9.2: where the Student's Debrief stands, as `debrief.rules.state` judges it. `debrief`
@@ -2018,6 +2178,64 @@ def _replay_closed(
     if replay is None or not test_deadline_passed(user, row, now):
         return False
     return replay.game is None or replay.game.end_reason is not None
+
+
+# Story 13.4: the Student's Oppfølgingsspill in a Class session, as `reports` stores it. `reports`
+# imports `sessions`, so it registers its lookup here instead of `sessions` importing it (AD-25).
+
+MakeupGameProvider = Callable[[AsyncSession, uuid.UUID, uuid.UUID], Awaitable[uuid.UUID | None]]
+"""`(session, user_id, class_session_id)` → the id of the Student's Oppfølgingsspill, or None."""
+
+_makeup_game: list[MakeupGameProvider] = []
+
+
+def register_makeup_game(provider: MakeupGameProvider) -> None:
+    """`reports.makeup` registers its one lookup at import; another is refused."""
+    if _makeup_game and _makeup_game[0] is not provider:
+        raise ValueError("an Oppfølgingsspill provider is registered already")
+    _makeup_game[:] = [provider]
+
+
+async def _makeup_card(
+    s: AsyncSession, user_id: uuid.UUID, row: Mapping[str, Any], done: set[progress.Step]
+) -> StudentGameOut | None:
+    """The Student's Oppfølgingsspill on Hjem (Story 13.4) as a game card, while they hold its
+    Seat (`games.service.own_game`); None without one, or before `reports` has registered its
+    lookup."""
+    game_id = await _makeup_game[0](s, user_id, row["id"]) if _makeup_game else None
+    if game_id is None:
+        return None
+    found = await games_service.own_game(s, user_id, game_id)
+    if found is None or not found.makeup:
+        return None
+    return await _game_out(s, user_id, found, row, done)
+
+
+async def makeup_given_mail_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    """The template variables of a `makeup_given` notice (Story 13.4, AD-9), for `messaging` at
+    send time: the Class's name and the Student's Test deadline in Europe/Oslo, until which the
+    Oppfølgingsspill is open. None, so the notice is left out, when the Class session or the
+    Oppfølgingsspill is gone or has ended, the deadline has passed, the Class is archived, or the
+    User is no longer a registered Student of it."""
+    if ref is None or not _makeup_game:
+        return None
+    row = await repo.session_row(session, ref)
+    if row is None:
+        return None
+    game_id = await _makeup_game[0](session, user_id, ref)
+    if game_id is None or (await games_service.play_status(session, game_id)).status == "finished":
+        return None
+    deadline = effective_test_deadline(user_id, await _student_row(session, row, user_id))
+    if deadline is None or deadline <= now:
+        return None
+    label = await classes.label_of_class(session, row["class_id"])
+    if label is None or label.archived:
+        return None
+    if user_id not in await classes.registered_students(row["class_id"]):
+        return None
+    return {"class_name": label.name, "at": deadline.astimezone(OSLO)}
 
 
 async def group_debrief_opened_mail_context(
@@ -2199,12 +2417,14 @@ def register_test_deadline_mover(mover: TestDeadlineMover) -> None:
 
 
 async def test_session(
-    s: AsyncSession, class_session_id: uuid.UUID
+    s: AsyncSession, class_session_id: uuid.UUID, *, lock: bool = False
 ) -> IndividualTestSession | None:
     """The Class session for `tests.end_sitting` (Story 11.12, AD-9), read in `s` and share-locked
     with its pins, as `individual_test_session_of` holds it for a Student's own commands; None when
-    it is gone. The sweep has only ids."""
-    row = await repo.session_row(s, class_session_id, share=True)
+    it is gone. The sweep has only ids. With `lock` the row is locked for update instead: an
+    extension writes the deletion date on it (Story 13.9), and two share locks waiting to update
+    the same row would deadlock."""
+    row = await repo.session_row(s, class_session_id, share=not lock, lock=lock)
     if row is None:
         return None
     return IndividualTestSession(row=row, pins=await repo.session_pins(s, class_session_id))
@@ -2258,6 +2478,85 @@ async def debrief_session_of(
         class_id=row["class_id"],
         hold=row["debrief_release"] == DebriefRelease.hold.value,
         group=row["debrief_mode"] == DebriefMode.group.value,
+    )
+
+
+async def makeup_session_row(
+    s: AsyncSession, class_session_id: uuid.UUID, user_id: uuid.UUID, *, share: bool = False
+) -> Mapping[str, Any] | None:
+    """The whole Class session row with the Student's own deadlines, read in `s` (share-locked
+    with `share`, so its snapshot and Test deadline hold while an Oppfølgingsspill is made, Story
+    13.4); None for no such session. The caller has reached the Student through `student_target`
+    and reads the row only through `effective_test_deadline` and its frozen `snapshot`."""
+    row = await repo.session_row(s, class_session_id, share=share)
+    return None if row is None else await _student_row(s, row, user_id)
+
+
+async def own_report_session(
+    s: AsyncSession, user: authz.Principal, class_session_id: uuid.UUID
+) -> Mapping[str, Any] | None:
+    """The Class session row with the Student's own deadlines for their own Student report (Story
+    13.7), read in `s`; under `enrolled_locked_row`'s checks, None for every other case alike
+    (FR-5). The caller reads the deadline only through `report_opens_at`."""
+    if await enrolled_locked_row(s, user, class_session_id) is None:
+        return None
+    row = await repo.session_row(s, class_session_id)
+    return None if row is None else await _student_row(s, row, user.id)
+
+
+def report_opens_at(user: authz.Principal | uuid.UUID, row: Mapping[str, Any]) -> datetime | None:
+    """When the Student's report opens to them (Story 13.7, FR-57, UX-DR29): their effective
+    Test deadline; None while the Class session has none. Staff may download it at any time
+    (Story 13.12)."""
+    return effective_test_deadline(user, row)
+
+
+def data_deleted(row: Mapping[str, Any], now: datetime) -> bool:
+    """Whether the Class session's Student data counts as deleted (Story 13.12, FR-57, FR-77):
+    its deletion date (Story 13.9) has come, on the Oslo calendar. The staff's report action says
+    so and builds nothing."""
+    deletion = row.get("deletion_date")
+    return deletion is not None and now.astimezone(OSLO).date() >= deletion
+
+
+@dataclass(frozen=True)
+class ReportHeading:
+    """What the Student report's header says of the Class session (Story 13.7, FR-58): the Class,
+    its number, whether it is obligatory, and the dates, the Student's own Debrief and Test
+    deadlines."""
+
+    class_id: uuid.UUID
+    class_name: str
+    number: int
+    obligatory: bool
+    start_at: datetime | None
+    play_deadline: datetime | None
+    debrief_deadline: datetime | None
+    test_deadline: datetime | None
+
+
+async def report_heading(
+    s: AsyncSession, class_session_id: uuid.UUID, user_id: uuid.UUID
+) -> ReportHeading | None:
+    """The report header's Class session part for `user_id`, read in `s`; None for no such
+    session or Class. The caller (`reports.build_report_data`) runs after the policy allowed the
+    request."""
+    row = await repo.session_row(s, class_session_id)
+    if row is None:
+        return None
+    label = await classes.label_of_class(s, row["class_id"])
+    if label is None:
+        return None
+    own = await _student_row(s, row, user_id)
+    return ReportHeading(
+        class_id=row["class_id"],
+        class_name=label.name,
+        number=await repo.number_of(s, class_session_id, row["class_id"]),
+        obligatory=row["obligatory"],
+        start_at=row["start_at"],
+        play_deadline=row["play_deadline"],
+        debrief_deadline=effective_debrief_deadline(user_id, own),
+        test_deadline=effective_test_deadline(user_id, own),
     )
 
 
@@ -2317,9 +2616,9 @@ async def student_target(
     """The Student `user_id` of the Class session when `user` may do the Class action `action`
     on its Class's sessions (by default `class_sessions.manage`: a Lecturer of the Class, never an
     Assistant lecturer) and `user_id` is a Student of the Class now; None, one answer, for
-    anything else (FR-5, AD-12). The Studentside (Story 8.9; `student_pages.read` from Story
-    12.5), a deadline extension (Story 11.13) and the staff's AI assessment (Story 12.5,
-    `ai_assessments.read`) are reached only so."""
+    anything else (FR-5, AD-12). The Studentside and its record (Stories 8.9, 13.2;
+    `student_pages.read` from Story 12.5), a deadline extension (Story 11.13) and the staff's AI
+    assessment (Story 12.5, `ai_assessments.read`) are reached only so."""
     if action not in authz.CLASS_STAFF_ROLES:
         # A Class action only; an unknown one refuses (one answer) rather than raise.
         log.warning("student_target_unknown_action", action=action)
@@ -2383,13 +2682,14 @@ async def save_extension(
     now: datetime,
 ) -> Mapping[str, Any]:
     """Store the Student's own Test deadline (Story 11.13, FR-18), for
-    `tests.commands.extend_deadline` in its transaction: the Class session row share-locked, its
+    `tests.commands.extend_deadline` in its transaction: the Class session row locked, its
     Class writable (`ClassArchived`), the date judged (`InvalidExtension`), the Student's extension
     row locked, then upserted with the Debrief deadline moved by the same amount (NULL when the
     Class session has none), and the change recorded in the audit log. The caller has judged the
     target (`student_target`). Returns the Class session row with the Student's own deadlines, as
-    `effective_test_deadline` reads it. Nothing is logged."""
-    row = await repo.session_row(s, class_session_id, share=True)
+    `effective_test_deadline` reads it. The Class session's deletion date is stored again (Story
+    13.9) under its row lock, taken here. Nothing is logged."""
+    row = await repo.session_row(s, class_session_id, lock=True)
     if row is None:
         raise LookupError("no such Class session")
     await _writable(s, row["class_id"])
@@ -2412,6 +2712,8 @@ async def save_extension(
         updated_by=actor,
         updated_at=now,
     )
+    # Story 13.9: an extension past the latest one moves the deletion date, in this transaction.
+    await _store_deletion_date(s, class_session_id, class_test)
     await audit.record(
         s,
         actor,
@@ -2434,6 +2736,40 @@ async def save_extension(
     return await _student_row(s, row, user_id)
 
 
+# The deletion date (Story 13.9, FR-77, FR-57, AD-9).
+
+
+def retention_months() -> int:
+    """The retention period in calendar months (placeholder `RETENTION_MONTHS`, FR-77)."""
+    return get_settings().retention_months
+
+
+async def _store_deletion_date(
+    s: AsyncSession, class_session_id: uuid.UUID, test_deadline: datetime | None
+) -> date | None:
+    """Store the Class session's deletion date (Story 13.9, FR-77): `platform.retention` over its
+    latest effective Test deadline, `test_deadline` (the Class session's, as just saved) or the
+    latest Student extension where that is later, read in `s`. The one writer of the column;
+    every Test deadline save and every extension calls it in its own transaction, under the
+    Class session's row lock, so no Student's data can fall due before their own period has
+    run. Returns the date stored."""
+    latest = retention.latest_test_deadline(
+        test_deadline, await repo.extension_test_deadlines(s, class_session_id)
+    )
+    deletion = retention.deletion_date(latest, retention_months())
+    await repo.set_deletion_date(s, class_session_id, deletion)
+    return deletion
+
+
+async def refresh_deletion_date(s: AsyncSession, class_session_id: uuid.UUID) -> date | None:
+    """`_store_deletion_date` from the stored Test deadline, for a path that moved it outside the
+    Class session save (the local dev route of Story 13.7). The caller holds the row lock."""
+    row = await repo.session_row(s, class_session_id)
+    if row is None:
+        return None
+    return await _store_deletion_date(s, class_session_id, row["test_deadline"])
+
+
 async def own_test_deadlines(
     s: AsyncSession, class_session_id: uuid.UUID
 ) -> dict[uuid.UUID, datetime]:
@@ -2452,6 +2788,56 @@ async def class_staff_may(user: authz.Principal, class_session_id: uuid.UUID, ac
     if row is None:
         return False
     return await _class_for(user, row["class_id"], action) is not None
+
+
+async def staff_session_row(
+    user: authz.Principal, class_session_id: uuid.UUID, action: str
+) -> Mapping[str, Any] | None:
+    """The Class session's row when `user` may do the Class action `action` on its Class (Story
+    13.13: the ZIP of all Student reports, `reports.download`); None, one answer, for anything
+    else, a session that does not exist included (FR-5, AD-12)."""
+    if action not in authz.CLASS_STAFF_ROLES:
+        log.warning("staff_session_unknown_action", action=action)
+        return None
+    async with get_sessionmaker()() as s:
+        row = await repo.session_row(s, class_session_id)
+    if row is None or await _class_for(user, row["class_id"], action) is None:
+        return None
+    return row
+
+
+async def session_row(
+    session: AsyncSession, class_session_id: uuid.UUID
+) -> Mapping[str, Any] | None:
+    """The Class session's row in the caller's `session`, None for none: for a job that runs after
+    the policy allowed its request (Story 13.13 reads the deletion date again)."""
+    return await repo.session_row(session, class_session_id)
+
+
+REPORTS_ZIP_READY_NOTICE = "reports_zip_ready"
+"""The notice kind the staff member who asked for the ZIP of all Student reports gets once it is
+ready, `immediate` (Story 13.13, FR-59, AD-9). Its `ref` is the Class session."""
+
+
+async def reports_zip_mail_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    """The template variables of a `reports_zip_ready` notice, for `messaging` at send time: the
+    Class's name and the Class session's number. None, so the mail is left out, when the Class
+    session or its Class is gone. The mail holds no Student data and no link to the file: the
+    download asks the policy again (AD-12)."""
+    if ref is None:
+        return None
+    row = await repo.session_row(session, ref)
+    if row is None:
+        return None
+    label = await classes.label_of_class(session, row["class_id"])
+    if label is None:
+        return None
+    return {
+        "class_name": label.name,
+        "session_number": await repo.number_of(session, ref, row["class_id"]),
+    }
 
 
 @dataclass(frozen=True)
@@ -2618,8 +3004,9 @@ def _names_in(
 async def _student_card(
     s: AsyncSession, user_id: uuid.UUID, row: Mapping[str, Any], done: set[progress.Step]
 ) -> StudentGameOut | None:
-    """The Student's Class game in a locked Class session, through `games.service.student_game`
-    and `table_status` (Story 6.1, AD-3); None when they never held a Seat in it."""
+    """The Student's game in a locked Class session, through `games.service.student_game` and
+    `table_status` (Story 6.1, AD-3): their Class game, or their finished Oppfølgingsspill (Story
+    13.5); None with neither."""
     found = await games_service.student_game(s, user_id, row["id"])
     if found is None:
         return None
@@ -2676,6 +3063,7 @@ async def _game_out(
         role=found.role,
         test_game=found.test_game,
         replay=found.replay,
+        makeup=found.makeup,
         class_session_id=found.class_session_id,
         seats=_seats_out(table),
         # Story 6.2: the briefing comes first until the Starting task is done (AD-16), where
@@ -2695,9 +3083,26 @@ async def _game_out(
         pause=_pause_out(table),
         in_room=_in_room_out(table),
         played_out=play.played_out,
-        # Story 9.2: a Lecturer's test Game has no Debrief (Story 6.20), nor has a Replay (10.4).
-        debrief=None if found.test_game or found.replay else await _debrief_of(s, user_id, row),
+        # Story 9.2: a Lecturer's test Game has no Debrief (Story 6.20), nor has a Replay (10.4);
+        # an Oppfølgingsspill has the Student's once it is their game (Story 13.5).
+        debrief=(
+            await _debrief_of(s, user_id, row) if await _has_debrief(s, user_id, found) else None
+        ),
     )
+
+
+async def _has_debrief(
+    s: AsyncSession, user_id: uuid.UUID, found: games_service.StudentGame
+) -> bool:
+    """Whether a game card states the Student's Debrief: their Class game, or their
+    Oppfølgingsspill once it has become their game (`student_game`, Story 13.5); never a test
+    Game or a Replay."""
+    if found.test_game or found.replay:
+        return False
+    if not found.makeup:
+        return True
+    theirs = await games_service.student_game(s, user_id, found.class_session_id)
+    return theirs is not None and theirs.game_id == found.game_id
 
 
 async def _time_proposal_out(
@@ -3188,8 +3593,8 @@ async def propose_own_time(
     deadline. Returns the game as it now stands."""
     async with get_sessionmaker()() as s:
         own = await _own_locked_game(s, user, game_id)
-    # A test Game has no group to agree a time with (Story 6.20).
-    if own is None or own[0].test_game or own[0].replay:
+    # A test Game has no group to agree a time with (Story 6.20), nor has an own round.
+    if own is None or own[0].test_game or own[0].replay or own[0].makeup:
         return None
     found, row = own
     try:
@@ -3222,7 +3627,7 @@ async def accept_own_time(
     alike). An acceptance already stored counts as done. Returns the game as it now stands."""
     async with get_sessionmaker()() as s:
         own = await _own_locked_game(s, user, game_id)
-    if own is None or own[0].test_game or own[0].replay:
+    if own is None or own[0].test_game or own[0].replay or own[0].makeup:
         return None
     found, _ = own
     try:
@@ -5631,6 +6036,97 @@ async def deadline_reminder_mail_context(
     }
 
 
+# The deletion reminder (Story 13.9, FR-57, FR-77, AD-9).
+
+DELETION_REMINDER_NOTICE = "deletion_reminder"
+"""The notice kind each Student of a Class session gets once, `deletion_reminder_days` before its
+deletion date, `digest` (Story 13.9, AD-9): download the Student report before the data is
+deleted. Its `ref` is the Class session; the mail reads the date at send time."""
+
+
+def _deletion_key(class_session_id: uuid.UUID, deletion: date, user_id: uuid.UUID) -> str:
+    """Once per Student, Class session and date: a date that moves after the reminder (a later
+    extension) is told again in its own window."""
+    return f"{DELETION_REMINDER_NOTICE}:{class_session_id}:{deletion.isoformat()}:{user_id}"
+
+
+def _reminder_ahead() -> timedelta:
+    return timedelta(days=get_settings().deletion_reminder_days)
+
+
+async def due_deletion_reminders(now: datetime) -> list[uuid.UUID]:
+    """The sweep's `sessions.send_deletion_reminder` finder (Story 13.9, AD-9): the ids of the
+    Class sessions whose deletion date is after today and at most `deletion_reminder_days` away
+    on the Europe/Oslo calendar, whose Students were not reminded yet. An archived Class is
+    included: its data is kept until this date."""
+    async with get_sessionmaker()() as s:
+        return await repo.due_deletion_reminders(s, now.astimezone(OSLO).date(), _reminder_ahead())
+
+
+async def send_deletion_reminder_due(item: object, now: datetime) -> bool:
+    """The sweep's `sessions.send_deletion_reminder` action: one Class session per transaction,
+    with its id only."""
+    if not isinstance(item, uuid.UUID):
+        raise TypeError("a deletion reminder item is a Class session id")
+    return await send_deletion_reminder(item, now=now)
+
+
+async def send_deletion_reminder(class_session_id: uuid.UUID, *, now: datetime) -> bool:
+    """Remind each registered Student of the Class session's Class, once, that their data is
+    deleted on the deletion date (Story 13.9, FR-57): under the Class session's row lock, when the
+    date is set, after today and at most `deletion_reminder_days` away, and the Students were not
+    reminded, enqueue one `DELETION_REMINDER_NOTICE` per Student keyed by session and User, and
+    record the reminder on the session. Returns False, changing nothing, otherwise. Idempotent:
+    the key and the mark each keep a second run from telling anyone again."""
+    async with get_sessionmaker().begin() as s:
+        row = await repo.session_row(s, class_session_id, lock=True)
+        if row is None or row["deletion_date"] is None or row["deletion_reminded_at"] is not None:
+            return False
+        today = now.astimezone(OSLO).date()
+        deletion: date = row["deletion_date"]
+        if not today < deletion <= today + _reminder_ahead():
+            return False
+        students = sorted(await classes.registered_students(row["class_id"]))
+        for student in students:
+            await notify.enqueue(
+                s,
+                student,
+                DELETION_REMINDER_NOTICE,
+                _deletion_key(class_session_id, deletion, student),
+                ref=class_session_id,
+            )
+        await repo.mark_deletion_reminded(s, class_session_id, now)
+    log.info(
+        "deletion_reminder_sent",
+        class_session_id=str(class_session_id),
+        students=len(students),
+    )
+    return True
+
+
+async def deletion_reminder_mail_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    """The template variables of a `DELETION_REMINDER_NOTICE`, for `messaging` at send time (Story
+    13.9, AD-9): the Class's name and the deletion date as it stands now. None, so the notice is
+    left out, when the Class session or its date is gone, the date is today or has passed, the
+    Class is gone, or the User is no longer a registered Student of it. An archived Class is
+    still named: its data is kept until the date."""
+    if ref is None:
+        return None
+    row = await repo.session_row(session, ref)
+    if row is None or row["deletion_date"] is None:
+        return None
+    if row["deletion_date"] <= now.astimezone(OSLO).date():
+        return None
+    label = await classes.label_of_class(session, row["class_id"])
+    if label is None:
+        return None
+    if user_id not in await classes.registered_students(row["class_id"]):
+        return None
+    return {"class_name": label.name, "deletion_date": row["deletion_date"]}
+
+
 # Student choice (Story 5.17, FR-21, AD-2, AD-4, AD-8, AD-9, AD-17, UX-DR62).
 
 STUDENT_CHOICE_NOTICE = "student_choice_open"
@@ -6439,13 +6935,16 @@ class EvaluationSession:
     institution_name: str | None
     start_at: datetime | None
     test_deadline: datetime | None
+    deletion_date: date | None
+    """The stored deletion date (Story 13.9, `_store_deletion_date`): the one rule, which
+    retention (Story 15.3) deletes on."""
 
 
 async def evaluation_sessions(
     session: AsyncSession, ids: list[uuid.UUID] | None = None
 ) -> list[EvaluationSession]:
     """Every saved Class session, newest first, or the ones with these ids (Story 15.4): how
-    the Admin names them, with the dates the deletion date is computed from. No Student data."""
+    the Admin names them, with their dates and stored deletion date. No Student data."""
     rows = await repo.evaluation_rows(session, ids)
     facts = await classes.class_labels(session, list({row["class_id"] for row in rows}))
     found = []
@@ -6462,6 +6961,7 @@ async def evaluation_sessions(
                 institution_name=fact.institution_name,
                 start_at=row["start_at"],
                 test_deadline=row["test_deadline"],
+                deletion_date=row["deletion_date"],
             )
         )
     return found

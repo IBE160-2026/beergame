@@ -15,13 +15,16 @@ export function recipientLine(item: SentMessage, sessionNumber: number): string 
       return copy.sentList.to.classGame(item.game_number ?? null);
     case "class_session":
       return copy.sentList.to.classSession(sessionNumber);
+    case "requirement_not_met":
+      return copy.sentList.to.requirementNotMet(item.students);
     default:
       return copy.sentList.to.list(item.students);
   }
 }
 
 /** The Meldingsskjema for the same recipient, or null where there is none to write to again: a
- * list a calling module named, or a Student no longer in the Class. */
+ * list a calling module named, or a Student no longer in the Class. The Students who have not met
+ * the requirement (Story 13.6) are judged again when the form opens. */
 export function againTo(item: SentMessage): MessageTo | null {
   switch (item.kind) {
     case "student":
@@ -31,6 +34,8 @@ export function againTo(item: SentMessage): MessageTo | null {
       return item.game_id ? { game: item.game_id } : null;
     case "class_session":
       return {};
+    case "requirement_not_met":
+      return { requirement: true };
     default:
       return null;
   }

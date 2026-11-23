@@ -241,6 +241,8 @@ The Deferred item "Timing of Adapted items", closed here (`prepare.py`, `jobs.py
 - `service.parts_with_content(user_id, class_session_id)` tells Completion (Epic 13, FR-17) for
   each part among the attempt's items (`choice`, `interactive`, `long`, `adapted`) whether any
   item holds a saved answer with content; None without an attempt.
+- `service.attempt_status(user_id, class_session_id)` (Story 13.1): `open`, `submitted` or
+  `auto_submitted`, None without an attempt. Completion checks the parts of an auto-submitted one only.
 
 ## One timed sitting (Story 11.12)
 

@@ -119,6 +119,14 @@ SITTING_TABLES = {"test_sittings"}
 """The tables of revision 0129 (Story 11.12)."""
 EXTENSION_TABLES = {"student_deadline_extensions"}
 """The table of revision 0130 (Story 11.13)."""
+CORRECTION_TABLES = {"completion_corrections"}
+"""The table of revision 0301 (Story 13.3)."""
+MAKEUP_TABLES = {"makeup_games"}
+"""The table of revision 0302 (Story 13.4)."""
+REPORT_TABLES = {"report_requests", "report_snapshots"}
+"""The tables of revision 0304 (Story 13.7)."""
+REPORT_ZIP_TABLES = {"report_zips"}
+"""The table of revision 0308 (Story 13.13)."""
 AI_ASSESSMENT_TABLES = {"ai_assessments", "ai_item_scores"}
 """The tables of revision 0202 (Story 12.2)."""
 RECLAIM_TABLES = {"seat_reclaims"}
@@ -173,6 +181,10 @@ HEAD_TABLES = (
     | PREPARED_TABLES
     | SITTING_TABLES
     | EXTENSION_TABLES
+    | CORRECTION_TABLES
+    | MAKEUP_TABLES
+    | REPORT_TABLES
+    | REPORT_ZIP_TABLES
     | AI_ASSESSMENT_TABLES
     | RECLAIM_TABLES
     | ADJUSTMENT_TABLES
@@ -186,7 +198,10 @@ HEAD_TABLES = (
     | ERROR_EVENT_TABLES
     | CONNECTION_REPORT_TABLES
 )
-# 0065-0071 (Epic 15) follow 0209 since the merge of main;
+# 0065-0071 (Epic 15) follow 0308 since the merge of main's Epic 13;
+# 0301-0305 follow 0209: corrections (13.3), Oppfølgingsspill (13.4), Message kind (13.6),
+# Student report (13.7), deletion date (13.9); 0306 the report variants (13.11), 0307 the
+# staff's (13.12), 0308 the ZIP of all Student reports (13.13);
 # 0209 (12.10), 0208 (12.9), 0207 (12.8), 0206 (12.6), 0205 (12.5), 0204 (12.4), 0203 (12.3)
 # and 0202 (12.2) follow 0201 (12.7);
 # 0120-0130 follow 0064
@@ -323,6 +338,8 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     sent = constraints(url, "messages")
     assert "UNIQUE (key)" in sent["messages_key_key"]
     assert "'class_session'" in sent["ck_messages_recipient_kind"]
+    # 0303 (Story 13.6): and the Students who have not met the requirement.
+    assert "'requirement_not_met'" in sent["ck_messages_recipient_kind"]
 
     # 0071 (Story 15.12): an Institution's data processing agreement, all set or none, and back.
     assert (
@@ -422,8 +439,8 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
         url, "SELECT prosrc FROM pg_proc WHERE proname = 'debrief_summaries_immutable'"
     )
     assert "reflection" in summary
-    # Epic 15's revisions follow Epic 12's (0065's down_revision is 0209 since the merge of main).
-    command.downgrade(cfg, "0209")
+    # Epic 15's revisions follow Epic 13's (0065's down_revision is 0308 since the merge of main).
+    command.downgrade(cfg, "0308")
     assert "deleted_at" not in columns(url, "users")
     [(summary,)] = rows(
         url, "SELECT prosrc FROM pg_proc WHERE proname = 'debrief_summaries_immutable'"
@@ -484,6 +501,49 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     # 0111 (Story 9.12): presence, the Students who go on alone and the 48-hour fallback.
     assert "last_seen_at" in columns(url, "debrief_members")
     assert {"fallback_due_at", "fallback_at"} <= columns(url, "debrief_sessions")
+
+    # 0308 (Story 13.13): the ZIP of all Student reports; a snapshot has one of two owners.
+    assert {"class_session_id", "requested_by", "status", "object_path", "students"} <= columns(
+        url, "report_zips"
+    )
+    assert "zip_id" in columns(url, "report_snapshots")
+    assert "ck_report_snapshots_owner" in constraints(url, "report_snapshots")
+    command.downgrade(cfg, "0307")
+    assert REPORT_ZIP_TABLES.isdisjoint(tables(url))
+    assert "zip_id" not in columns(url, "report_snapshots")
+
+    # 0307 (Story 13.12): the staff's report variants; a downgrade drops their rows.
+    variants = constraints(url, "report_requests")["ck_report_requests_variant"]
+    assert "'staff'" in variants and "'staff_ai'" in variants
+    command.downgrade(cfg, "0306")
+    assert "'staff'" not in constraints(url, "report_requests")["ck_report_requests_variant"]
+
+    # 0306 (Story 13.11): the report variants with the AI assessment section.
+    variants = constraints(url, "report_requests")["ck_report_requests_variant"]
+    assert "'ai'" in variants and "'ai_letter'" in variants
+    command.downgrade(cfg, "0305")
+    assert "'ai'" not in constraints(url, "report_requests")["ck_report_requests_variant"]
+
+    # 0302 (Story 13.4): each Student's one Oppfølgingsspill in a Class session.
+    assert {"user_id", "class_session_id", "game_id", "given_by", "given_at"} <= columns(
+        url, "makeup_games"
+    )
+    assert "UNIQUE (user_id, class_session_id)" in definition(url, "uq_makeup_games_student")
+    command.downgrade(cfg, "0301")
+    assert MAKEUP_TABLES.isdisjoint(tables(url))
+
+    # 0301 (Story 13.3): a Lecturer's corrections of a Completion step, never changed.
+    assert {"step", "done", "reason", "actor_user_id", "at"} <= columns(
+        url, "completion_corrections"
+    )
+    assert (
+        "btrim(reason)"
+        in constraints(url, "completion_corrections")["ck_completion_corrections_reason"]
+    )
+    assert function_names(url, "completion_corrections_immutable")
+    command.downgrade(cfg, "0209")
+    assert CORRECTION_TABLES.isdisjoint(tables(url))
+    assert not function_names(url, "completion_corrections_immutable")
 
     # 0209 (Story 12.10): the Scoring guide checks, which never change.
     assert CHECK_TABLES <= tables(url)
@@ -1094,6 +1154,51 @@ def test_0036_backfills_80_keeps_the_share_in_range_and_its_downgrade_drops_it(
     assert current_version(migrations_database) == HEAD
 
 
+def test_0305_backfills_the_deletion_date_by_the_rule_of_platform_retention(migrations_database):
+    """0305 (Story 13.9): a Class session stored before gets the deletion date the rule gives
+    with the placeholder six months: the Oslo day of its Test deadline, a month's end clamped;
+    none without a Test deadline."""
+    from datetime import UTC, datetime
+
+    from app.platform.retention import deletion_date
+
+    reset_schema(migrations_database)
+    cfg = config(migrations_database)
+    command.upgrade(cfg, "0304")
+    deadlines = {
+        "00000000-0000-0000-0000-000000000301": datetime(2026, 8, 31, 22, 30, tzinfo=UTC),
+        "00000000-0000-0000-0000-000000000302": datetime(2026, 8, 30, 12, tzinfo=UTC),
+        "00000000-0000-0000-0000-000000000303": None,
+    }
+    with psycopg.connect(libpq_dsn(migrations_database), autocommit=True) as conn:
+        conn.execute(
+            "INSERT INTO institutions (id, name, created_at, updated_at) VALUES "
+            "('00000000-0000-0000-0000-000000000009', 'I', now(), now())"
+        )
+        conn.execute(
+            "INSERT INTO classes (id, name, institution_id, created_at) VALUES "
+            "('00000000-0000-0000-0000-000000000002', 'K', "
+            "'00000000-0000-0000-0000-000000000009', now())"
+        )
+        for session, test in deadlines.items():
+            conn.execute(
+                "INSERT INTO class_sessions (id, class_id, game_settings, ai_mode, debrief_mode, "
+                "inactivity_limit_hours, obligatory, required_share_percent, created_at, "
+                "test_deadline) VALUES (%s, '00000000-0000-0000-0000-000000000002', '{}', "
+                "'rule_based', 'group', 24, false, 80, now(), %s)",
+                (session, test),
+            )
+    command.upgrade(cfg, "0305")
+    found = dict(rows(migrations_database, "SELECT id::text, deletion_date FROM class_sessions"))
+    assert found == {session: deletion_date(test, 6) for session, test in deadlines.items()}
+    assert found["00000000-0000-0000-0000-000000000301"].isoformat() == "2027-03-01"
+    assert found["00000000-0000-0000-0000-000000000302"].isoformat() == "2027-02-28"
+    command.downgrade(cfg, "0304")
+    assert "deletion_date" not in columns(migrations_database, "class_sessions")
+    command.upgrade(cfg, "head")
+    assert current_version(migrations_database) == HEAD
+
+
 def test_the_procrastinate_schema_of_0008_is_the_one_the_installed_version_ships():
     """Revision 0008 keeps procrastinate 3.11.0's `schema.sql`. When procrastinate is upgraded
     this fails: add a revision with the upgrade's migration SQL and the new schema file."""
@@ -1140,6 +1245,7 @@ def test_the_check_constraints_list_exactly_the_enum_values(test_database):
 
     from app.ai import budget as ai_budget
     from app.ai import models as ai_models
+    from app.analysis.completion import COMPLETION_STEPS
     from app.modules.classes.schemas import StaffRole
     from app.modules.content.models import Kind
     from app.modules.games import schemas
@@ -1168,6 +1274,7 @@ def test_the_check_constraints_list_exactly_the_enum_values(test_database):
         "ck_mail_deliveries_delivery_state": set(mail_models.DELIVERY_STATES),
         "ck_mail_deliveries_bounce_class": set(mail_models.BOUNCE_CLASSES),
         "ck_progress_steps_step": {step.value for step in Step},
+        "ck_completion_corrections_step": set(COMPLETION_STEPS),
         "ck_content_records_kind": {kind.value for kind in Kind},
         "ck_starting_task_answers_kind": {c.value for c in Choice} | {PLAYED_BEFORE},
     }

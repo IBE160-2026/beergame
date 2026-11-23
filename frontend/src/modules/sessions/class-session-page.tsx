@@ -26,6 +26,7 @@ import {
 } from "@/modules/assessment/letter";
 import { AiAssessmentBlock } from "@/modules/assessment/switch-block";
 import { QuizExclusionsBlock } from "@/modules/debrief/quiz-exclusions";
+import { ExportBlock } from "@/modules/reports/export-block";
 import { QuestionSetBlock } from "@/modules/tests/question-set-block";
 import { ScoringGuideBlock } from "@/modules/tests/scoring-guide-block";
 import {
@@ -562,6 +563,8 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
       {/* Story 11.2: its own save, the Scoring guide belongs to the Individual test; locks at the Test deadline. */}
       <ScoringGuideBlock classSessionId={item.id} controlTest={item.kind === "control_test"} />
       <TestGameBlock item={item} />
+      {/* Story 13.13 (FR-59): «Eksport», the ZIP of all Student reports, for the staff of the Class. */}
+      <ExportBlock sessionId={item.id} />
     </>
   );
 }

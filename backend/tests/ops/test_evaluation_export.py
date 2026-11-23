@@ -20,7 +20,8 @@ from app.ai import calls as ai_calls
 from app.engine.settings import GameSettings
 from app.modules.games import commands as games_commands
 from app.modules.identity.schemas import AccountRole
-from app.modules.ops import evaluation, retention
+from app.modules.ops import evaluation
+from app.platform import retention
 from tests.classes.test_classes import LECTURER, as_user, make
 from tests.classes.test_invitation_counts import execute
 from tests.identity.helpers import CSRF, client
@@ -182,7 +183,7 @@ async def test_an_agreed_export_gives_each_student_one_pseudonym_and_no_name(
     assert recorded.status_code == 200, recorded.text
     body = recorded.json()
     assert body["agreement"]["agreed_by"] == AGREEMENT["agreed_by"]
-    assert body["deletion_date"] == retention.deletion_date(TEST).isoformat()
+    assert body["deletion_date"] == retention.deletion_date(TEST, 6).isoformat()
     [(targets, change)] = rows(
         "SELECT target_ids, change FROM audit_events WHERE action = 'evaluation_agreement.recorded'"
     )
@@ -241,7 +242,7 @@ async def test_an_agreed_export_gives_each_student_one_pseudonym_and_no_name(
     assert not {"letter", "ai_score", "feedback"} & set(answers[0])
     assert "key_fingerprint" not in found["manifest.json"]  # no help to guess the key offline
     assert found["manifest.json"]["class_sessions"] == [
-        {"id": session_id, "deletion_date": retention.deletion_date(TEST).isoformat()}
+        {"id": session_id, "deletion_date": retention.deletion_date(TEST, 6).isoformat()}
     ]
 
     # No name, address or user id of a Student in the ZIP; only the fingerprint is stored.
@@ -293,7 +294,7 @@ async def test_an_agreed_export_gives_each_student_one_pseudonym_and_no_name(
     assert listed[0]["actor_id"] == str(admin)
     [listed_session] = listed[0]["class_sessions"]
     assert listed_session["id"] == session_id
-    assert listed_session["deletion_date"] == retention.deletion_date(TEST).isoformat()
+    assert listed_session["deletion_date"] == retention.deletion_date(TEST, 6).isoformat()
 
 
 async def test_test_students_and_control_tests_are_left_out(klass, admin):

@@ -10,16 +10,18 @@ and other Students' Games still render with the Seat shown by Role (AD-15, AD-4)
 import, as they register revoke blockers:
 
 1. preparations (`register_erasure_preparation`) run first, each in its own transactions: `games`
-   hands every Seat the User holds in a running Game to an AI player (AD-2, AD-5);
+   hands every Seat the User holds in a running Game to an AI player (AD-2, AD-5); `reports`
+   deletes the PDFs of every Student report about the User and then their rows, and every
+   stored ZIP of the User's Class sessions (Epic 13), while the Roster still names them;
 2. aggregate writers (`register_aggregate_writer`) run first in the erasure's transaction. None is
    registered yet: `reports.service.write_aggregate` (Epic 14) is to register here;
 3. the identity tables are anonymised, then every registered erasure step
    (`register_erasure_step`) deletes what its module holds of the User: free text, the AI
    answers that quote it, the scrubbed bodies of the AI calls. Steps 2–3 and the audit row are one
    transaction, so a failure part-way leaves nothing half done;
-4. object erasers (`register_object_eraser`) run after the commit. None is registered yet: the
-   `reports` bucket of `platform/storage` (Epic 13) is to register the removal of the User's
-   report PDFs and every ZIP of their Class sessions here.
+4. object erasers (`register_object_eraser`) run after the commit. None is registered: the
+   `reports` bucket's objects go in the `reports` preparation above, objects before rows, so a
+   storage failure leaves the rows that name them for a repeat.
 
 Every part is idempotent: running the routine again on an erased User repeats each step with
 nothing left to do, and writes no second audit row. The personal-data registry

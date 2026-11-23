@@ -1,7 +1,7 @@
 """API shapes of `modules/sessions` (Stories 5.1 to 5.8)."""
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
 from typing import Any, Literal
@@ -734,6 +734,9 @@ class StudentGameOut(BaseModel):
     replay: bool = False
     """Story 10.4: the Student's Replay, with no number, its own rules (`rules`) and no Debrief,
     reached from Hjem's Replay block and Stegene."""
+    makeup: bool = False
+    """Story 13.4: the Student's Oppfølgingsspill, with no number, which a Lecturer gave them;
+    Hjem titles it «Oppfølgingsspill» and the play screen ends it like any game."""
     class_session_id: uuid.UUID
     seats: list[TableSeatOut]
     briefing_first: bool
@@ -850,6 +853,16 @@ class StepOut(BaseModel):
     Replay was closed at the Testfrist unfinished (the Replay's `end_reason` says so). Story
     11.11: also the current Individual test step after the Student's Test deadline: not handed
     in, so not done; a saved attempt turns done when the sweep hands it in."""
+    counts: bool | None = None
+    """Story 13.1 (FR-17): in an Obligatory class session where the Student has a game, whether
+    this step counts as done for the requirement (after the share of Weeks, the minimums and any
+    correction); None otherwise and for «Rapport». A `done` step can still not count."""
+    after_makeup: bool = False
+    """Story 13.5: the locked Debrief step of a Student with no Class game whose Oppfølgingsspill
+    is not finished yet; Stegene says the Debrief opens when it is."""
+    corrected: bool = False
+    """Story 13.3 (FR-17): a Lecturer's correction decided `counts`; Stegene marks the step
+    «rettet av faglærer». The reason is never served to the Student."""
 
 
 class ReplayGameOut(BaseModel):
@@ -924,6 +937,17 @@ class EnrolledSessionOut(BaseModel):
     """Story 8.9: the Student's own Tilrettelegging, None without one (FR-17)."""
     replay: StudentReplayOut | None = None
     """Story 10.3: the Replay, once the Student has passed the Debrief quiz; None before."""
+    makeup: StudentGameOut | None = None
+    """Story 13.4: the Oppfølgingsspill a Lecturer gave the Student, as a game card; None
+    without one."""
+    deletion_date: date | None = None
+    """Story 13.9 (FR-77, FR-57): the day the Class session's Student data is deleted (an
+    Europe/Oslo calendar day), which Hjem states under «Rapport»; None while it has no Test
+    deadline."""
+    requirement_met: bool | None = None
+    """Story 13.1 (FR-17): in an Obligatory class session where the Student has a game, whether
+    their Completion status meets the requirement (`reports.service.completion_status`); None
+    otherwise. Never a share or a number of Weeks (FR-14)."""
 
 
 class EnrolledSessionListOut(BaseModel):
@@ -1456,8 +1480,9 @@ class GameInsightOut(BaseModel):
     play_deadline: AwareDatetime | None = None
     """Story 8.7: the Class session's Spillfrist, the latest agreed time; None without one."""
     can_adjust: bool = False
-    """Story 8.9 (AD-12): the reader is a Lecturer of the Class, so each Student's name leads to
-    their Studentside with «Tilrettelegging». False for an Assistant lecturer."""
+    """Story 8.9 (AD-12): the reader is a Lecturer of the Class, who sees «Tilrettelegging» (each
+    Seat's extra time in Spillstyring). False for an Assistant lecturer. Since Story 13.2 every
+    staff member's Spillinnsikt links each Student's name to their Studentside."""
     can_start: bool = False
     """Story 8.10 (FR-22, AD-12): the reader is a Lecturer of the Class and the game may start now
     (not started, with its settings snapshot, in a locked Class session), so Spillstyring offers

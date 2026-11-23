@@ -1393,6 +1393,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/class-sessions/{session_id}/completion-export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download Completion Export
+         * @description «Last ned fullføringsliste (CSV eller Excel)» (Story 13.14, FR-60, FR-17, AD-14, AD-16):
+         *     one row per Student reports count, with the fixed columns `completion_export.COLUMNS` (name,
+         *     email, the date each step was done, the shares, the Oppfølgingsspill, the correction mark and
+         *     whether the requirement is met), every value from the one Completion assembler. Never an AI
+         *     score, AI feedback or Indicative letter. Built now and sent, never stored; recorded in the
+         *     audit log once the file is built. 409 `data_deleted` once the Student data is deleted; 403
+         *     `forbidden` for an Assistant lecturer, anyone else outside the Class's Lecturers and a Class
+         *     session that does not exist (FR-5, AD-12).
+         */
+        get: operations["downloadCompletionExport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/class-sessions/{session_id}/debrief-quiz": {
         parameters: {
             query?: never;
@@ -1674,6 +1701,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/class-sessions/{session_id}/reports/zip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Reports Zip
+         * @description The ZIP of all Student reports of the Class session (Story 13.13, FR-59), for the
+         *     Lecturers and Assistant lecturers of its Class: shared by them, the latest request's status
+         *     and when the ZIP to download was made. 403 `forbidden` for anyone else, an Admin without a
+         *     staff role in the Class included, and for a Class session that does not exist (FR-5).
+         */
+        get: operations["getReportsZip"];
+        put?: never;
+        /**
+         * Request Reports Zip
+         * @description «Last ned alle Studentrapporter (ZIP)» (Story 13.13, FR-59, AD-9, AD-18): records the
+         *     request and defers its job on `reports-bulk` with ids only, recorded in the audit log; the
+         *     job builds one report per Student reports count, never with the AI assessment, whatever the
+         *     request holds. While one is pending, a press answers it. The requester is told when it is
+         *     ready. 202 with the state; 409 `data_deleted` once the Student data is deleted, 409
+         *     `no_students` when reports count no Student; 403 `forbidden` as `getReportsZip`, with
+         *     nothing recorded.
+         */
+        post: operations["requestReportsZip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class-sessions/{session_id}/reports/zip/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download Reports Zip
+         * @description The Class session's latest ZIP (Story 13.13, NFR-7, AD-12): 303 to a signed URL that lives
+         *     `SIGNED_URL_TTL_SECONDS` (300), made only now that the policy allowed it, recorded in the
+         *     audit log. 409 `zip_not_ready`, `data_deleted`; 503 `storage_unavailable`; 403 `forbidden`
+         *     as `getReportsZip`.
+         */
+        get: operations["downloadReportsZip"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/class-sessions/{session_id}/scoring-guide": {
         parameters: {
             query?: never;
@@ -1875,6 +1958,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/class-sessions/{session_id}/students/{user_id}/corrections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Correct Completion
+         * @description «Lagre retting» (Story 13.3, FR-17, FR-3, AD-15, AD-16): a Lecturer of the Class sets one
+         *     step of the Student's Completion status to done or not done, with a required reason. A new
+         *     row every time; the latest per step applies. Recorded in the audit log; the Studentside and
+         *     the Student's Hjem read it again. It records no step event. Answers the Studentside's record.
+         *     422 `invalid_correction` with `fields.reason` `required` or `too_long`; 409 `not_obligatory`
+         *     for a Class session that is not obligatory, 409 `class_archived`; 403 `forbidden` for an
+         *     Assistant lecturer and anyone else as `getStudentRecord`.
+         */
+        post: operations["correctCompletion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/class-sessions/{session_id}/students/{user_id}/deadline": {
         parameters: {
             query?: never;
@@ -1894,6 +2003,117 @@ export interface paths {
          *     Class (an Assistant lecturer too) and for a User who is no Student of it.
          */
         put: operations["extendTestDeadline"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class-sessions/{session_id}/students/{user_id}/makeup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give Makeup
+         * @description «Gi oppfølgingsspill» (Story 13.4, FR-17, FR-20, FR-30, AD-13): a Lecturer of the Class
+         *     gives the Student a make-up game: a Class game of their own against three AI players on the
+         *     Class session's frozen snapshot, open until the Student's Test deadline. Recorded in the audit
+         *     log; the Student is told on Hjem and by mail. One per Student: a second press answers the
+         *     existing one and writes nothing. Answers the Studentside's record. 409 `not_counted` for a
+         *     Student reports leave out (a test student, a Control test Class session),
+         *     `session_not_locked` before the Class session's lock, `no_test_deadline`,
+         *     `test_deadline_passed`, `class_archived`; 403 `forbidden` for an Assistant lecturer and
+         *     anyone else as `getStudentRecord`.
+         */
+        post: operations["giveMakeup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class-sessions/{session_id}/students/{user_id}/record": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Student Record
+         * @description The Studentside's record (Story 13.2, FR-63, FR-17, UX-DR54, UX-DR55): one Student of the
+         *     Class session with the Completion status per step, the participation signals (information
+         *     only), the game, the Explanation, the Debrief summary, the Debrief quiz attempts, the Replay,
+         *     the Individual test and the AI assessment's state, for the Lecturers and Assistant lecturers
+         *     of its Class. 403 `forbidden` for anyone else, an Admin without a staff role in the Class
+         *     included, for a User who is no Student of the Class now and for a Class session that does not
+         *     exist (FR-5, AD-12).
+         */
+        get: operations["getStudentRecord"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class-sessions/{session_id}/students/{user_id}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Student Report
+         * @description One Student's report as the staff of the Class download it from the Studentside (Story
+         *     13.12, FR-59, FR-63): always open, shared by its Lecturers and Assistant lecturers, apart from
+         *     the Student's own. `ai_available` while the Student's AI assessment is ready and the reader may
+         *     read it (FR-55); with `ai` the state of the report with the AI section, never with the
+         *     Indicative letter (FR-56). 403 `forbidden` as `getStudentRecord`.
+         */
+        get: operations["getStudentReport"];
+        put?: never;
+        /**
+         * Request Student Report
+         * @description «Lag Studentrapport» on the Studentside (Story 13.12, FR-59, AD-9, AD-18): before or after
+         *     the Test deadline, the same request and `reports-single` job as the Student's own, recorded in
+         *     the audit log. 202 with the state; 409 `data_deleted` once the Student's data is deleted
+         *     (`deleted` in the state), 409 `not_counted` for a Student reports leave out, 409
+         *     `ai_assessment_unavailable` when `ai` asks for the section and it cannot be added. 403
+         *     `forbidden` as `getStudentRecord`, with nothing recorded.
+         */
+        post: operations["requestStudentReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class-sessions/{session_id}/students/{user_id}/report/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download Student Report
+         * @description The staff's latest PDF of the Student (Story 13.12, NFR-7, AD-12): 303 to a signed URL
+         *     made only now that the policy allowed it, recorded in the audit log. 409 `report_not_ready`,
+         *     `data_deleted`, `not_counted`,
+         *     `ai_assessment_unavailable`; 503 `storage_unavailable`; 403 `forbidden` as
+         *     `getStudentRecord`. Without `ai` never the PDF with the AI section.
+         */
+        get: operations["downloadStudentReport"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -3125,6 +3345,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/internal/report-snapshots/{snapshot_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Report Snapshot
+         * @description The print route's read of one report snapshot (Story 13.7, AD-18), with its render token in
+         *     `X-Render-Token`: the data once, while the token is unused and unexpired (5 minutes). A
+         *     used, expired or wrong token, and an unknown snapshot, all answer 404 `not_found` with no
+         *     data. The proxy refuses `/api/internal/*`: only the frontend server reaches it.
+         */
+        get: operations["readReportSnapshot"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/lecturer-home/class-sessions": {
         parameters: {
             query?: never;
@@ -3208,6 +3451,68 @@ export interface paths {
          *     Student's Test deadline, 403 `forbidden` for any session that is not theirs (FR-5).
          */
         post: operations["startMyReplay"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/class-sessions/{session_id}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Report
+         * @description The Student's own Student report in the Class session (Story 13.7, FR-57): when it opens
+         *     (their effective Test deadline), whether it is open, the latest request's status and when
+         *     the PDF to download was made. Story 13.11: `ai_available` while their AI assessment is ready;
+         *     with `ai` the state of the report with the AI section (`ai` true in the answer), or the
+         *     standard one's while it cannot be added. 403 `forbidden` for a Class session that is not the
+         *     Student's own (not enrolled, not listed on Hjem, not locked, no such session).
+         */
+        get: operations["getMyReport"];
+        put?: never;
+        /**
+         * Request My Report
+         * @description «Lag Studentrapport» (Story 13.7, FR-57, AD-9, AD-18): records the request and defers its
+         *     render on `reports-single` with ids only; the api builds no report content. While one is
+         *     pending, a press answers it and starts no second render. The finished job emits the
+         *     Student's `user` topic. 202 with the state; 409 `report_not_open` before the Student's
+         *     effective Test deadline or with none, 409 `not_counted` for a Student reports leave out;
+         *     Story 13.11: `ai` in the body adds the AI assessment section, a report of its own; 409
+         *     `ai_assessment_unavailable` while the Student's AI assessment is not ready. 403 `forbidden`
+         *     as `getMyReport`.
+         */
+        post: operations["requestMyReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/class-sessions/{session_id}/report/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download My Report
+         * @description The Student's latest PDF (Story 13.7, NFR-7, AD-12): 303 to a signed URL that lives
+         *     `SIGNED_URL_TTL_SECONDS` (300), made only now that the policy allowed it. 409
+         *     `report_not_ready` without a ready PDF, `report_not_open` before the deadline,
+         *     `not_counted` for a Student reports leave out; 503 `storage_unavailable`; 403
+         *     `forbidden` as `getMyReport`. Story 13.11: with `ai` the PDF with the AI section (409
+         *     `ai_assessment_unavailable` while the assessment is not ready); without it always the
+         *     standard PDF.
+         */
+        get: operations["downloadMyReport"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4420,6 +4725,30 @@ export interface components {
             user_id: string;
         };
         /**
+         * AssessmentSectionOut
+         * @description «KI-vurdering» (Story 13.11, FR-55, FR-56, FR-58): only when the Student added it. The
+         *     Student's own ready view: `checked` (a Control test checked the Scoring guide), the items, the
+         *     weighted total, and `letter` only where `assessment.letter_for` gives one for the report. No
+         *     flags. It counts toward nothing and is no grade.
+         */
+        AssessmentSectionOut: {
+            /** Checked */
+            checked: boolean;
+            /** Items */
+            items: components["schemas"]["ReportAssessedItemOut"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "assessment";
+            /** Letter */
+            letter: ("A" | "B" | "C" | "D" | "E" | "F") | null;
+            /** Total */
+            total: number;
+            /** Total Max */
+            total_max: number;
+        };
+        /**
          * AuditActor
          * @description An actor of the log for the filter: a User with their name, or the system (both null).
          */
@@ -5025,6 +5354,80 @@ export interface components {
             value: number;
         };
         /**
+         * CompletionOut
+         * @description The Student's Completion status as `reports.service.completion_status` gives it (FR-17).
+         *     `requirement_met` is None when the Class session is not obligatory. The shares are whole
+         *     percents rounded down, None without a Class game snapshot; `required_share` is the one that
+         *     applies to this Student, `adjusted` whether it is their own (Story 8.9).
+         */
+        CompletionOut: {
+            /** Adjusted */
+            adjusted: boolean;
+            /** Obligatory */
+            obligatory: boolean;
+            /** Ordered Share */
+            ordered_share: number | null;
+            /** Playout Share */
+            playout_share: number | null;
+            /** Required Share */
+            required_share: number;
+            /** Requirement Met */
+            requirement_met: boolean | null;
+            /** Share Game */
+            share_game?: ("class" | "makeup") | null;
+            /** Steps */
+            steps: components["schemas"]["CompletionStepOut"][];
+        };
+        /**
+         * CompletionSectionOut
+         * @description «Fullføring»: the Completion status per step and whether an obligatory requirement is met
+         *     (FR-17, FR-58). The shares are whole percents; `required_share` the one that applies to the
+         *     Student; `share_game` which game the shares come from when there is an Oppfølgingsspill.
+         */
+        CompletionSectionOut: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "completion";
+            /** Obligatory */
+            obligatory: boolean;
+            /** Ordered Share */
+            ordered_share: number | null;
+            /** Playout Share */
+            playout_share: number | null;
+            /** Required Share */
+            required_share: number;
+            /** Requirement Met */
+            requirement_met: boolean | null;
+            /** Share Game */
+            share_game: ("class" | "makeup") | null;
+            /** Steps */
+            steps: components["schemas"]["ReportStepOut"][];
+        };
+        /**
+         * CompletionStepOut
+         * @description One step of the «Fullføring» block: whether its step event is recorded and when, whether it
+         *     counts as done after the share, the minimums and any correction, and whether a correction
+         *     decided it (Story 13.1), with that correction (Story 13.3).
+         */
+        CompletionStepOut: {
+            /** Corrected */
+            corrected: boolean;
+            correction?: components["schemas"]["CorrectionOut"] | null;
+            /** Done */
+            done: boolean;
+            /** Recorded */
+            recorded: boolean;
+            /** Recorded At */
+            recorded_at: string | null;
+            /**
+             * Step
+             * @enum {string}
+             */
+            step: "class_game" | "debrief" | "quiz_passed" | "replay" | "test_submitted";
+        };
+        /**
          * ComputedCriterionOut
          * @description One coded criterion of an Interactive item as the computed rule scored it (FR-80): met or
          *     not, and the computed explanation in words.
@@ -5327,6 +5730,40 @@ export interface components {
             start_at: string | null;
         };
         /**
+         * CorrectionIn
+         * @description «Lagre retting» (Story 13.3, FR-17): the step, its new status and the required reason.
+         */
+        CorrectionIn: {
+            /** Done */
+            done: boolean;
+            /** Reason */
+            reason: string;
+            /**
+             * Step
+             * @enum {string}
+             */
+            step: "class_game" | "debrief" | "quiz_passed" | "replay" | "test_submitted";
+        };
+        /**
+         * CorrectionOut
+         * @description The correction of a step that applies, the latest (Story 13.3): the status it set, the
+         *     Lecturer's reason, when, and who made it by their name now (None when the name is no longer
+         *     known in the Class). For the staff of the Class only; never served to a Student.
+         */
+        CorrectionOut: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** By */
+            by: string | null;
+            /** Done */
+            done: boolean;
+            /** Reason */
+            reason: string;
+        };
+        /**
          * CostLine
          * @description One part of this Week's cost: units on the end-of-Week balance times the rate.
          */
@@ -5487,6 +5924,11 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /**
+             * Makeup
+             * @default false
+             */
+            makeup: boolean;
             role: components["schemas"]["Role"];
             /** Step */
             step: number;
@@ -5499,6 +5941,37 @@ export interface components {
          * @enum {string}
          */
         DebriefRelease: "open" | "hold";
+        /**
+         * DebriefSectionOut
+         * @description «Debrief» (Story 13.10, FR-58, FR-47): the Explanation as written (null: not sent); when
+         *     the Debrief was finished (null: not finished) and whether after the Debrief deadline; the
+         *     summary's key moments and the line that ties them together; the reflection answers on
+         *     evidence and structure; the quiz attempts up to the pass and whether it is passed.
+         */
+        DebriefSectionOut: {
+            /** Explanation */
+            explanation: string | null;
+            /** Explanation Saved At */
+            explanation_saved_at: string | null;
+            /** Finished At */
+            finished_at: string | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "debrief";
+            /** Late */
+            late: boolean;
+            /** Moments */
+            moments: components["schemas"]["ReportMomentOut"][];
+            narration: components["schemas"]["ReportTextOut"] | null;
+            /** Quiz Attempts */
+            quiz_attempts: number;
+            /** Quiz Passed */
+            quiz_passed: boolean;
+            /** Reflection */
+            reflection: components["schemas"]["ReportReflectionOut"][];
+        };
         /**
          * DebriefStepOut
          * @description A Debrief step after step 1, reached only with a saved Explanation (FR-41, FR-43). Step 2
@@ -5677,6 +6150,8 @@ export interface components {
             class_name: string;
             /** Debrief Deadline */
             debrief_deadline: string | null;
+            /** Deletion Date */
+            deletion_date?: string | null;
             drawn_seat?: components["schemas"]["SeatRef"] | null;
             game?: components["schemas"]["StudentGameOut"] | null;
             /**
@@ -5686,6 +6161,7 @@ export interface components {
             id: string;
             /** Lab Hours */
             lab_hours: components["schemas"]["EnrolledLabHourOut"][];
+            makeup?: components["schemas"]["StudentGameOut"] | null;
             next_deadline: components["schemas"]["NextDeadline"] | null;
             /** Number */
             number: number;
@@ -5694,6 +6170,8 @@ export interface components {
             /** Play Deadline */
             play_deadline: string | null;
             replay?: components["schemas"]["StudentReplayOut"] | null;
+            /** Requirement Met */
+            requirement_met?: boolean | null;
             /**
              * Seat Choice Open
              * @default false
@@ -6217,6 +6695,19 @@ export interface components {
             production_delay: number;
             /** Shipping Delay */
             shipping_delay: number;
+        };
+        /**
+         * GameSectionOut
+         * @description «Klassespill» or «Oppfølgingsspill» (Story 13.8): `game` null when the Student has no
+         *     game with an opened Week; the section then says so.
+         */
+        GameSectionOut: {
+            game: components["schemas"]["ReportGameOut"] | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "game";
         };
         /**
          * GameSettings
@@ -7124,9 +7615,14 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "student" | "class_game" | "class_session";
+            kind: "student" | "class_game" | "class_session" | "requirement_not_met";
             /** Max Length */
             max_length: number;
+            /**
+             * Not Met
+             * @default []
+             */
+            not_met: components["schemas"]["NotMetStudentOut"][];
             /** Sent Before */
             sent_before: number;
             /** Session Number */
@@ -7145,6 +7641,8 @@ export interface components {
              * Format: uuid
              */
             key: string;
+            /** Recipient */
+            recipient?: "requirement_not_met" | null;
             /** Student Id */
             student_id?: string | null;
             /** Text */
@@ -7536,6 +8034,28 @@ export interface components {
             on: boolean;
         };
         /**
+         * NotMetStudentOut
+         * @description One Student who has not met the requirement (Story 13.6, FR-17), from
+         *     `reports.service.completion_status`.
+         */
+        NotMetStudentOut: {
+            /** Name */
+            name: string | null;
+            /** Ordered Share */
+            ordered_share: number | null;
+            /** Playout Share */
+            playout_share: number | null;
+            /** Required Share */
+            required_share: number;
+            /** Share Game */
+            share_game: ("class" | "makeup") | null;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+        };
+        /**
          * OfferedEffortLevelOut
          * @description An Effort level the Class session may use (Story 5.5, FR-78), as the model config holds it
          *     and `ai.config.offered_effort_levels` offers it: nothing here is written by `sessions`.
@@ -7800,6 +8320,22 @@ export interface components {
              * Format: date-time
              */
             submitted_at: string;
+        };
+        /**
+         * ParticipationOut
+         * @description Participation signals, information only: they never change the Completion status (FR-17).
+         *     The seconds spent on the Student's own Orders, how many own Orders there are, and whether the
+         *     own Orders after the Guided Weeks were constant (None with fewer than two).
+         */
+        ParticipationOut: {
+            /** After Guided */
+            after_guided: number;
+            /** Constant */
+            constant: boolean | null;
+            /** Own Orders */
+            own_orders: number;
+            /** Seconds */
+            seconds: number;
         };
         /** PasswordResetIn */
         PasswordResetIn: {
@@ -8125,6 +8661,126 @@ export interface components {
             right_choice: string;
         };
         /**
+         * RecordDebriefOut
+         * @description The Explanation and the Debrief summary (`debrief.service.staff_summary`): the Explanation's
+         *     text and time, and when the Debrief was finished and whether after the Debrief deadline.
+         */
+        RecordDebriefOut: {
+            /** Explanation */
+            explanation: string | null;
+            /** Explanation Saved At */
+            explanation_saved_at: string | null;
+            /** Finished At */
+            finished_at: string | null;
+            /** Late */
+            late: boolean;
+            /** Moments */
+            moments: number;
+        };
+        /**
+         * RecordGameOut
+         * @description The Student's Class game (`games.service.student_game`): its id for the link to
+         *     Spillinnsikt, number, the Student's Role and where it stands (`ended`: closed without its last
+         *     Week, Story 10.6), with when it finished. `makeup`: it is the Student's finished
+         *     Oppfølgingsspill, which became their game (Story 13.5); it has no Spillinnsikt.
+         */
+        RecordGameOut: {
+            /** Finished At */
+            finished_at: string | null;
+            /**
+             * Game Id
+             * Format: uuid
+             */
+            game_id: string;
+            /**
+             * Makeup
+             * @default false
+             */
+            makeup: boolean;
+            /** Number */
+            number: number | null;
+            /** Played Out */
+            played_out: boolean;
+            /** Role */
+            role: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "not_ready" | "ready" | "running" | "finished" | "ended";
+        };
+        /**
+         * RecordMakeupOut
+         * @description The Student's Oppfølgingsspill (Story 13.4): its Game, when it was given, the Student's
+         *     effective Test deadline it is open until, and where it stands (`ended`: closed at that
+         *     deadline without its last Week).
+         */
+        RecordMakeupOut: {
+            /**
+             * Game Id
+             * Format: uuid
+             */
+            game_id: string;
+            /**
+             * Given At
+             * Format: date-time
+             */
+            given_at: string;
+            /** Open Until */
+            open_until: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "not_ready" | "ready" | "running" | "finished" | "ended";
+        };
+        /**
+         * RecordQuizAttemptOut
+         * @description A Debrief quiz attempt: its number, time and result; never the answers.
+         */
+        RecordQuizAttemptOut: {
+            /** Number */
+            number: number;
+            /** Passed */
+            passed: boolean;
+            /**
+             * Submitted At
+             * Format: date-time
+             */
+            submitted_at: string;
+        };
+        /**
+         * RecordReplayOut
+         * @description The Student's Replay Game (`replay.service.replay_game_of`) and when it finished.
+         */
+        RecordReplayOut: {
+            /** Finished At */
+            finished_at: string | null;
+            /**
+             * Game Id
+             * Format: uuid
+             */
+            game_id: string;
+        };
+        /**
+         * RecordTestOut
+         * @description The Student's Individual test attempt (`tests.service.attempt_summary`): its status, when it
+         *     was handed in and which parts hold content. Never an answer.
+         */
+        RecordTestOut: {
+            /** Parts */
+            parts: {
+                [key: string]: boolean;
+            };
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "open" | "submitted" | "auto_submitted";
+            /** Submitted At */
+            submitted_at: string | null;
+        };
+        /**
          * ReflectionAnswerIn
          * @description «Fortsett» on a reflection question: the answer as typed. It must hold more than white
          *     space and at most 2000 characters (422 `validation_error`).
@@ -8205,6 +8861,8 @@ export interface components {
              * @default false
              */
             test_student: boolean;
+            /** User Id */
+            user_id?: string | null;
         };
         /**
          * RegistrationStatus
@@ -8381,6 +9039,18 @@ export interface components {
             };
         };
         /**
+         * ReplaySectionOut
+         * @description «Replay» (Story 13.10): `replay` null when the Student has no Replay.
+         */
+        ReplaySectionOut: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "replay";
+            replay: components["schemas"]["ReportReplayOut"] | null;
+        };
+        /**
          * ReplayStartOut
          * @description The Student's Replay Game: the one this request made (201) or the one they had (200).
          */
@@ -8503,6 +9173,368 @@ export interface components {
              * @enum {string}
              */
             state: "pending" | "ready";
+        };
+        /**
+         * ReportAiScoreOut
+         * @description The AI's score of a long-answer or Adapted item (Story 12.2): its step on the Scoring
+         *     guide's scale with the label, its written feedback (`ai_generated`, quotes as «…») or that the
+         *     feedback was left out (`feedback_dropped`).
+         */
+        ReportAiScoreOut: {
+            /** Assessed */
+            assessed: boolean;
+            feedback: components["schemas"]["ReportTextOut"] | null;
+            /** Feedback Dropped */
+            feedback_dropped: boolean;
+            /** Label */
+            label: string | null;
+            /** Step */
+            step: number | null;
+            /** Top */
+            top: number;
+        };
+        /**
+         * ReportAssessedItemOut
+         * @description One item of the AI assessment in the test's order: its question, its points of its Item
+         *     weight, and either its computed result or the AI's score.
+         */
+        ReportAssessedItemOut: {
+            ai: components["schemas"]["ReportAiScoreOut"] | null;
+            /** Computed */
+            computed: ("right" | "partly" | "wrong" | "not_answered") | null;
+            /** Number */
+            number: number;
+            /** Points */
+            points: number | null;
+            title: components["schemas"]["ReportTextOut"];
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "choice" | "table" | "number" | "long" | "adapted";
+            /** Weight */
+            weight: number;
+        };
+        /**
+         * ReportDataOut
+         * @description A Student report's content, as the print route reads it from its snapshot (AD-18).
+         */
+        ReportDataOut: {
+            /** Class Name */
+            class_name: string;
+            dates: components["schemas"]["ReportDatesOut"];
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /**
+             * Schema Version
+             * @default 1
+             * @constant
+             */
+            schema_version: 1;
+            /** Sections */
+            sections: (components["schemas"]["CompletionSectionOut"] | components["schemas"]["GameSectionOut"] | components["schemas"]["DebriefSectionOut"] | components["schemas"]["ReplaySectionOut"] | components["schemas"]["TestSectionOut"] | components["schemas"]["AssessmentSectionOut"])[];
+            /** Session Number */
+            session_number: number;
+            /** Student Name */
+            student_name: string;
+        };
+        /**
+         * ReportDatesOut
+         * @description The Class session's dates, with the Student's own Debrief and Test deadlines.
+         */
+        ReportDatesOut: {
+            /** Debrief Deadline */
+            debrief_deadline: string | null;
+            /** Play Deadline */
+            play_deadline: string | null;
+            /** Start At */
+            start_at: string | null;
+            /** Test Deadline */
+            test_deadline: string | null;
+        };
+        /** ReportDemandWeekOut */
+        ReportDemandWeekOut: {
+            /** Demand */
+            demand: number;
+            /** Week */
+            week: number;
+        };
+        /**
+         * ReportGameOut
+         * @description The Student's game (`games.service.student_game`) as the report documents it (FR-58):
+         *     `seat` is the Student's Seat in the game's last opened Week (its `history` the earlier
+         *     Weeks), `last_order` that Week's Order; `roles` and `demand` the whole chain in chain order
+         *     (the Role serving the customer first), as Spillinnsikt reads it (FR-34, AD-15).
+         */
+        ReportGameOut: {
+            /** Demand */
+            demand: components["schemas"]["ReportDemandWeekOut"][];
+            /** Finished */
+            finished: boolean;
+            /** Game Number */
+            game_number: number | null;
+            /** Last Order */
+            last_order: number | null;
+            /** Makeup */
+            makeup: boolean;
+            role: components["schemas"]["Role"];
+            /** Roles */
+            roles: components["schemas"]["ReportGameRoleOut"][];
+            seat: components["schemas"]["SeatState"];
+            /** Total Cost */
+            total_cost: string;
+            /** Weeks Played */
+            weeks_played: number;
+            /** Weeks Total */
+            weeks_total: number | null;
+        };
+        /**
+         * ReportGameRoleOut
+         * @description One Role of the chain, by Role only (never a name, AD-14), its Weeks in order.
+         */
+        ReportGameRoleOut: {
+            /** First Large Order Week */
+            first_large_order_week: number | null;
+            role: components["schemas"]["Role"];
+            /** Weeks */
+            weeks: components["schemas"]["ReportGameWeekOut"][];
+        };
+        /**
+         * ReportGameWeekOut
+         * @description One Role in one opened Week of the chain (Spillinnsikt's read, Story 7.7): its placed
+         *     Order (null for none), stored inventory and backlog, who held the Seat (`student`, `ai`, or
+         *     `free`; never who) and the marks of the one AD-15 mapping (`games.service.seat_mark`).
+         */
+        ReportGameWeekOut: {
+            /** Backlog */
+            backlog: number;
+            /**
+             * Holder
+             * @enum {string}
+             */
+            holder: "student" | "ai" | "free";
+            /** Inventory */
+            inventory: number;
+            /** Marks */
+            marks: components["schemas"]["SeatMark"][];
+            /** Order */
+            order: number | null;
+            /** Week */
+            week: number;
+        };
+        /**
+         * ReportMomentOut
+         * @description A key moment of the Debrief summary (Story 9.8), as rendered from its facts set.
+         */
+        ReportMomentOut: {
+            heading: components["schemas"]["ReportTextOut"];
+            later: components["schemas"]["ReportTextOut"];
+            /** Patterns */
+            patterns: components["schemas"]["ReportTextOut"][];
+            reckoning: components["schemas"]["ReportTextOut"];
+            /** Week */
+            week: number;
+        };
+        /**
+         * ReportReflectionOut
+         * @description A reflection answer on evidence or structure, with its question (FR-58: never feelings).
+         */
+        ReportReflectionOut: {
+            /** Prompt */
+            prompt: string;
+            /** Text */
+            text: string;
+        };
+        /**
+         * ReportReplayOut
+         * @description The Student's Replay (FR-58, FR-50): `finished`, `closed` at the Test deadline, or `open`;
+         *     the Role, the scenario and the run; for a finished one the Class game it is set beside (null
+         *     when it was played mostly by AI players, `mostly_ai`, or cannot be read).
+         */
+        ReportReplayOut: {
+            class_game: components["schemas"]["ReportRunOut"] | null;
+            /** Class Game Number */
+            class_game_number: number | null;
+            /** Mostly Ai */
+            mostly_ai: boolean;
+            replay: components["schemas"]["ReportRunOut"];
+            role: components["schemas"]["Role"];
+            scenario: components["schemas"]["ReportScenarioOut"];
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "finished" | "closed" | "open";
+        };
+        /**
+         * ReportRequestIn
+         * @description «Lag Studentrapport» (Story 13.11): `ai` adds the AI assessment section; off by default.
+         */
+        ReportRequestIn: {
+            /**
+             * Ai
+             * @default false
+             */
+            ai: boolean;
+        };
+        /** ReportRunOut */
+        ReportRunOut: {
+            /** Total Cost */
+            total_cost: string;
+            /** Weeks */
+            weeks: components["schemas"]["ReportRunWeekOut"][];
+        };
+        /**
+         * ReportRunWeekOut
+         * @description One Uke of a run: Netto lager, the Order and «Kostnad så langt» (kroner).
+         */
+        ReportRunWeekOut: {
+            /** Net Inventory */
+            net_inventory: number;
+            /** Order */
+            order: number;
+            /** Total Cost */
+            total_cost: string;
+            /** Week */
+            week: number;
+        };
+        /**
+         * ReportScenarioOut
+         * @description The Replay's own Game settings: its Replay scenario as drawn for the Student (FR-49).
+         */
+        ReportScenarioOut: {
+            /** Backorder Cost */
+            backorder_cost: string;
+            /** Guided Weeks */
+            guided_weeks: number;
+            /** Holding Cost */
+            holding_cost: string;
+            /** Order Delay */
+            order_delay: number;
+            /** Production Delay */
+            production_delay: number;
+            /** Shipping Delay */
+            shipping_delay: number;
+            /** Starting Backlog */
+            starting_backlog: number;
+            /** Starting Inventory */
+            starting_inventory: number;
+            /** Weeks */
+            weeks: number;
+        };
+        /**
+         * ReportStateOut
+         * @description The Student's own Student report (Story 13.7, FR-57): when it opens (their effective Test
+         *     deadline; None while the Class session has none), whether it is open now, the latest
+         *     request's status, and when the PDF that can be downloaded was made (None without one).
+         *     `failed` covers a render that failed and one that never ended; a new press tries again.
+         *     Story 13.12: the staff's download of one Student's report answers the same shape, always
+         *     `open`, with `opens_at` None.
+         */
+        ReportStateOut: {
+            /**
+             * Ai
+             * @default false
+             */
+            ai: boolean;
+            /**
+             * Ai Available
+             * @default false
+             */
+            ai_available: boolean;
+            /**
+             * Deleted
+             * @default false
+             */
+            deleted: boolean;
+            /** Generated At */
+            generated_at: string | null;
+            /** Open */
+            open: boolean;
+            /** Opens At */
+            opens_at: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "none" | "pending" | "ready" | "failed";
+        };
+        /**
+         * ReportStepOut
+         * @description One step of the requirement: whether it counts as done, and whether a Lecturer's correction
+         *     decided it (never the reason).
+         */
+        ReportStepOut: {
+            /** Corrected */
+            corrected: boolean;
+            /** Done */
+            done: boolean;
+            /**
+             * Step
+             * @enum {string}
+             */
+            step: "class_game" | "debrief" | "quiz_passed" | "replay" | "test_submitted";
+        };
+        /**
+         * ReportTestItemOut
+         * @description One item in its frozen order (Story 13.10, FR-58): its question (an Adapted item's wording,
+         *     marked when an AI worded it), a choice item's option ids, a table or drawn item's value table
+         *     or a number item's column, the saved answer (null: not answered), the item's weight and the
+         *     stored computed score as points of it (null: no computed rule scores it, or not handed in).
+         *     No criterion, explanation, answer key or AI score (FR-54, C-2).
+         */
+        ReportTestItemOut: {
+            answer: components["schemas"]["JsonValue"] | null;
+            column: components["schemas"]["ColumnOut"] | null;
+            /** Number */
+            number: number;
+            /** Options */
+            options: string[];
+            /** Points */
+            points: string | null;
+            table: components["schemas"]["TableOut"] | null;
+            title: components["schemas"]["ReportTextOut"];
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "choice" | "table" | "number" | "long" | "drawn" | "adapted";
+            /** Weight */
+            weight: number;
+        };
+        /**
+         * ReportTestOut
+         * @description The Student's Individual test: its state, when it was handed in, every item, and the sum
+         *     of the computed scores over the items they score (`points` null when none is scored).
+         */
+        ReportTestOut: {
+            /** Items */
+            items: components["schemas"]["ReportTestItemOut"][];
+            /** Points */
+            points: string | null;
+            /** Points Of */
+            points_of: number;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "open" | "submitted" | "auto_submitted";
+            /** Submitted At */
+            submitted_at: string | null;
+        };
+        /**
+         * ReportTextOut
+         * @description Text as it is shown: `ai_generated` (only that) turns on «KI-generert, kan ta feil:» and
+         *     the machine-readable mark in the PDF (FR-34, UX-DR69). No LLM call id.
+         */
+        ReportTextOut: {
+            /** Ai Generated */
+            ai_generated: boolean;
+            /** Text */
+            text: string;
         };
         /**
          * ResetCheckOut
@@ -9195,7 +10227,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "student" | "class_game" | "class_session" | "list";
+            kind: "student" | "class_game" | "class_session" | "list" | "requirement_not_met";
             /** Sender Name */
             sender_name: string | null;
             /**
@@ -9697,6 +10729,11 @@ export interface components {
             game_id: string | null;
             /** Game Number */
             game_number: number | null;
+            /**
+             * Makeup
+             * @default false
+             */
+            makeup: boolean;
             /** Name */
             name: string | null;
             quiz: components["schemas"]["StaffQuizAttemptsOut"];
@@ -9799,10 +10836,22 @@ export interface components {
          */
         StepOut: {
             /**
+             * After Makeup
+             * @default false
+             */
+            after_makeup: boolean;
+            /**
              * Closed
              * @default false
              */
             closed: boolean;
+            /**
+             * Corrected
+             * @default false
+             */
+            corrected: boolean;
+            /** Counts */
+            counts?: boolean | null;
             /**
              * Group Open
              * @default false
@@ -9891,6 +10940,11 @@ export interface components {
              */
             id: string;
             in_room?: components["schemas"]["InRoomOut"] | null;
+            /**
+             * Makeup
+             * @default false
+             */
+            makeup: boolean;
             /** Number */
             number: number | null;
             /**
@@ -9964,6 +11018,61 @@ export interface components {
             name: string;
             /** Session Number */
             session_number: number;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+        };
+        /**
+         * StudentRecordOut
+         * @description The Studentside's record of one Student of a Class session (Story 13.2, FR-63, UX-DR55),
+         *     for the Lecturers and Assistant lecturers of its Class. `can_manage`: the reader is a Lecturer
+         *     of the Class, so the page also shows «Tilrettelegging» and «Frister» (`getStudentPage`).
+         *     `completion` is None for a Student the reports leave out (`reports.scope`). The Student report
+         *     the staff download (Story 13.12) is read from its own endpoint, `getStudentReport`.
+         */
+        StudentRecordOut: {
+            assessment: components["schemas"]["StaffAssessmentOut"] | null;
+            /**
+             * Can Correct
+             * @default false
+             */
+            can_correct: boolean;
+            /**
+             * Can Give Makeup
+             * @default false
+             */
+            can_give_makeup: boolean;
+            /** Can Manage */
+            can_manage: boolean;
+            /**
+             * Class Id
+             * Format: uuid
+             */
+            class_id: string;
+            /** Class Name */
+            class_name: string;
+            /**
+             * Class Session Id
+             * Format: uuid
+             */
+            class_session_id: string;
+            completion: components["schemas"]["CompletionOut"] | null;
+            debrief: components["schemas"]["RecordDebriefOut"];
+            game: components["schemas"]["RecordGameOut"] | null;
+            makeup?: components["schemas"]["RecordMakeupOut"] | null;
+            /** Name */
+            name: string;
+            participation: components["schemas"]["ParticipationOut"] | null;
+            /** Quiz */
+            quiz: components["schemas"]["RecordQuizAttemptOut"][];
+            replay: components["schemas"]["RecordReplayOut"] | null;
+            /** Session Number */
+            session_number: number;
+            test: components["schemas"]["RecordTestOut"] | null;
+            /** Test Deadline */
+            test_deadline?: string | null;
             /**
              * User Id
              * Format: uuid
@@ -10204,6 +11313,18 @@ export interface components {
              * @enum {string}
              */
             status: "not_ready" | "ready" | "running" | "finished";
+        };
+        /**
+         * TestSectionOut
+         * @description «Individuell test» (Story 13.10): `test` null when the Student never opened it.
+         */
+        TestSectionOut: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "test";
+            test: components["schemas"]["ReportTestOut"] | null;
         };
         /**
          * TestSittingIn
@@ -10639,6 +11760,35 @@ export interface components {
             llm_call_id: string | null;
             /** Text */
             text: string;
+        };
+        /**
+         * ZipStateOut
+         * @description The ZIP of all Student reports of the Class session (Story 13.13, FR-59): the latest
+         *     request's status (`failed` covers a job that failed and one that never ended; a new press
+         *     tries again), when the ZIP that can be downloaded was made and how many Student reports it
+         *     holds (None without one). `deleted` once the Class session's Student data is deleted. The ZIP
+         *     never holds the AI assessment.
+         */
+        ZipStateOut: {
+            /**
+             * Completion Export
+             * @default false
+             */
+            completion_export: boolean;
+            /**
+             * Deleted
+             * @default false
+             */
+            deleted: boolean;
+            /** Generated At */
+            generated_at: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "none" | "pending" | "ready" | "failed";
+            /** Students */
+            students: number | null;
         };
     };
     responses: never;
@@ -14169,6 +15319,68 @@ export interface operations {
             };
         };
     };
+    downloadCompletionExport: {
+        parameters: {
+            query?: {
+                /** @description `csv` (Norwegian Excel: UTF-8 with BOM, `;`) or `xlsx`. */
+                format?: "csv" | "xlsx";
+            };
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file, CSV or .xlsx */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": unknown;
+                    "text/csv": unknown;
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     getSessionDebriefQuiz: {
         parameters: {
             query?: never;
@@ -14627,6 +15839,7 @@ export interface operations {
             query?: {
                 game_id?: string | null;
                 student_id?: string | null;
+                recipient?: "requirement_not_met" | null;
             };
             header?: never;
             path: {
@@ -14959,6 +16172,180 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getReportsZip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ZipStateOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    requestReportsZip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ZipStateOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    downloadReportsZip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description To a signed URL */
+            303: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -15510,6 +16897,69 @@ export interface operations {
             };
         };
     };
+    correctCompletion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CorrectionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentRecordOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     extendTestDeadline: {
         parameters: {
             query?: never;
@@ -15564,6 +17014,302 @@ export interface operations {
             };
             /** @description Unprocessable Content */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    giveMakeup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentRecordOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getStudentRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentRecordOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getStudentReport: {
+        parameters: {
+            query?: {
+                /** @description Story 13.11: the report with the AI assessment section (off by default). */
+                ai?: boolean;
+            };
+            header?: never;
+            path: {
+                session_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportStateOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    requestStudentReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ReportRequestIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportStateOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    downloadStudentReport: {
+        parameters: {
+            query?: {
+                /** @description Story 13.11: the report with the AI assessment section (off by default). */
+                ai?: boolean;
+            };
+            header?: never;
+            path: {
+                session_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description To a signed URL */
+            303: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -18804,6 +20550,48 @@ export interface operations {
             };
         };
     };
+    readReportSnapshot: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-render-token"?: string;
+            };
+            path: {
+                snapshot_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportDataOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     lecturerHomeClassSessions: {
         parameters: {
             query?: never;
@@ -18983,6 +20771,190 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getMyReport: {
+        parameters: {
+            query?: {
+                /** @description Story 13.11: the report with the AI assessment section (off by default). */
+                ai?: boolean;
+            };
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportStateOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    requestMyReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ReportRequestIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportStateOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    downloadMyReport: {
+        parameters: {
+            query?: {
+                /** @description Story 13.11: the report with the AI assessment section (off by default). */
+                ai?: boolean;
+            };
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description To a signed URL */
+            303: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

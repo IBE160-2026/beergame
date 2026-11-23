@@ -200,6 +200,29 @@ async def student_seats(
     return list(result.mappings())
 
 
+async def finished_own_rounds(
+    session: AsyncSession,
+    class_session_id: uuid.UUID,
+    user_id: uuid.UUID,
+    purposes: Collection[str],
+) -> list[RowMapping]:
+    """The Games of `purposes` in the Class session that the Student has held a Seat in (joined
+    through `authz.own_seat`) and that finished by their last Week (`lifecycle = finished`, no
+    `end_reason`), newest first: game id, purpose (Story 13.5)."""
+    result = await session.execute(
+        select(games.c.id.label("game_id"), games.c.purpose)
+        .where(
+            games.c.class_session_id == class_session_id,
+            games.c.purpose.in_(list(purposes)),
+            games.c.lifecycle == "finished",
+            games.c.end_reason.is_(None),
+            games.c.id.in_(authz.own_seat(user_id)),
+        )
+        .order_by(games.c.id.desc())
+    )
+    return list(result.mappings())
+
+
 async def own_game(
     session: AsyncSession, user_id: uuid.UUID, game_id: uuid.UUID
 ) -> RowMapping | None:
@@ -1189,6 +1212,47 @@ async def student_orders_by_role(session: AsyncSession, game_id: uuid.UUID) -> d
         .group_by(seats.c.role)
     )
     return {role: count for role, count in result}
+
+
+async def seat_log(session: AsyncSession, game_id: uuid.UUID, role: str) -> list[RowMapping]:
+    """The Decision log rows of the Game's Seat of `role`, by Week: `week`, `decided_by` and the
+    occupancy `reason` (Story 13.1)."""
+    result = await session.execute(
+        select(seat_weeks.c.week, seat_weeks.c.decided_by, seat_weeks.c.reason)
+        .select_from(seat_weeks.join(seats, seats.c.id == seat_weeks.c.seat_id))
+        .where(seat_weeks.c.game_id == game_id, seats.c.role == role)
+        .order_by(seat_weeks.c.week)
+    )
+    return list(result.mappings())
+
+
+async def seat_timing(session: AsyncSession, game_id: uuid.UUID, role: str) -> list[RowMapping]:
+    """The Decision log rows of the Game's Seat of `role`, by Week, with the quantity and the
+    turn's `opened_at` and `ordered_at` (Story 13.2)."""
+    result = await session.execute(
+        select(
+            seat_weeks.c.week,
+            seat_weeks.c.decided_by,
+            seat_weeks.c.reason,
+            seat_weeks.c.order,
+            seat_weeks.c.opened_at,
+            seat_weeks.c.ordered_at,
+        )
+        .select_from(seat_weeks.join(seats, seats.c.id == seat_weeks.c.seat_id))
+        .where(seat_weeks.c.game_id == game_id, seats.c.role == role)
+        .order_by(seat_weeks.c.week)
+    )
+    return list(result.mappings())
+
+
+async def session_games(session: AsyncSession, class_session_id: uuid.UUID) -> list[RowMapping]:
+    """Every Game of the Class session with its purpose, number and `end_reason` (Story 13.1)."""
+    result = await session.execute(
+        select(games.c.id, games.c.purpose, games.c.game_number, games.c.end_reason)
+        .where(games.c.class_session_id == class_session_id)
+        .order_by(games.c.id)
+    )
+    return list(result.mappings())
 
 
 async def orders_by_decided_by(session: AsyncSession, game_id: uuid.UUID) -> dict[str, int]:

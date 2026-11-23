@@ -53,7 +53,7 @@
 import random
 import uuid
 from collections.abc import Collection, Sequence
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
@@ -170,6 +170,7 @@ __all__ = [
     "due_narrations",
     "narrate_due",
     "finish_mine",
+    "explanation_length",
     "judge_explanation",
     "mine",
     "open_mine",
@@ -178,6 +179,8 @@ __all__ = [
     "own_quiz",
     "own_reflection",
     "own_summary",
+    "ReportDebrief",
+    "report_debrief",
     "release_due",
     "require_debrief",
     "require_explanation",
@@ -281,6 +284,7 @@ async def _out(row: commands.DebriefRow, game: games.StudentGame, user_id: uuid.
         class_session_id=row.class_session_id,
         game_id=row.game_id,
         game_number=game.number,
+        makeup=game.makeup,
         role=game.role,
         step=row.step,
         group=await _group(row, user_id) if row.shared else None,
@@ -387,7 +391,12 @@ async def open_mine(user: authz.Principal, class_session_id: uuid.UUID) -> Debri
         return None
     _open_or_raise(found)
     shared, tell = False, []
-    if found.group_mode and not await _exists(found.game.game_id):
+    # Story 13.5: an Oppfølgingsspill's Debrief is always a Personal debrief (`games.policy`).
+    if (
+        found.group_mode
+        and not found.game.debrief_personal
+        and not await _exists(found.game.game_id)
+    ):
         # Only for the open that creates it: whether it is shared is fixed then.
         async with get_sessionmaker()() as s:
             students = await games.game_students(s, found.game.game_id)
@@ -530,6 +539,20 @@ async def _stored(user_id: uuid.UUID, class_session_id: uuid.UUID) -> Explanatio
     if row is None:
         return None
     return ExplanationOut(text=row["text"], length=row["length"], saved_at=row["saved_at"])
+
+
+async def explanation_length(user_id: uuid.UUID, class_session_id: uuid.UUID) -> int | None:
+    """The length in characters of the Student's saved Explanation in the Class session, without
+    leading and trailing white space; None before it is sent (Story 13.1: Completion's minimum,
+    FR-17). Never the text."""
+    async with get_sessionmaker()() as s:
+        text = await s.scalar(
+            select(debrief_explanations.c.text).where(
+                debrief_explanations.c.user_id == user_id,
+                debrief_explanations.c.class_session_id == class_session_id,
+            )
+        )
+    return None if text is None else len(text.strip())
 
 
 async def own_explanation(user: authz.Principal, debrief_id: uuid.UUID) -> MyExplanationOut | None:
@@ -692,7 +715,9 @@ async def _moments(
         mostly_ai=seat.sm_excluded,
         heading=text(rendered.heading) if rendered.heading else None,
         moments=shown,
-        narration=await _narration(user_id, row, stored) if shown else None,
+        narration=(
+            await _narration(user_id, row.class_session_id, row.game_id, stored) if shown else None
+        ),
     )
 
 
@@ -723,7 +748,10 @@ async def _ai_text(
 
 
 async def _narration(
-    user_id: uuid.UUID, row: commands.DebriefRow, stored: games.StoredFactSet
+    user_id: uuid.UUID,
+    class_session_id: uuid.UUID,
+    game_id: uuid.UUID,
+    stored: games.StoredFactSet,
 ) -> RenderedTextOut | None:
     """Step 4's narration (Story 9.14, FR-44, AD-7): the stored text (AI, or the code text a
     failed call stored) when it was stored before the Student's first view of the step, the time
@@ -733,14 +761,14 @@ async def _narration(
         first_view = await s.scalar(
             select(debrief_fact_sets.c.recorded_at).where(
                 debrief_fact_sets.c.user_id == user_id,
-                debrief_fact_sets.c.class_session_id == row.class_session_id,
+                debrief_fact_sets.c.class_session_id == class_session_id,
             )
         )
     if first_view is not None:
         found = await _ai_text(uuid.UUID(stored.id), narration.NARRATION, first_view)
         if found is not None:
             return found
-    game = await games.get_game(str(row.game_id))
+    game = await games.get_game(str(game_id))
     pins = game.session_runtime.pins if game and game.session_runtime else None
     _, templates = await content.narration_templates(
         content.pinned_version(pins, content.Kind.NARRATION_TEMPLATES)
@@ -1246,7 +1274,7 @@ async def staff_summary(
     if not await sessions.class_staff_may(user, class_session_id, "debrief_summaries.read"):
         return None
     async with get_sessionmaker()() as s:
-        game = await games.student_game(s, student_id, class_session_id)
+        game = await rules.debrief_game(s, student_id, class_session_id)
     explanation = await _stored(student_id, class_session_id)
     stored = await _summary_row(student_id, class_session_id)
     summary = (
@@ -1261,6 +1289,7 @@ async def staff_summary(
         name=await sessions.student_name(class_session_id, student_id),
         game_id=game.game_id if game else None,
         game_number=game.number if game else None,
+        makeup=game.makeup if game else False,
         role=Role(game.role) if game else None,
         explanation=explanation,
         summary=summary,
@@ -1273,6 +1302,65 @@ async def staff_summary(
             ],
             passed_at=passing.submitted_at if passing else None,
         ),
+    )
+
+
+REPORTED_REFLECTION = frozenset({"evidence", "structure"})
+"""The reflection kinds whose answers the Student report holds; never feelings (FR-58)."""
+
+
+@dataclass(frozen=True)
+class ReportDebrief:
+    """What the Student report documents of the Debrief (Story 13.10, FR-58, FR-47): the
+    Explanation as written; when the Debrief was finished (None while not finished) and whether
+    that was after the Debrief deadline; the summary's key moments and the step-4 line that ties
+    them together, each `{text, ai_generated}`; the reflection answers on evidence and structure
+    as `(prompt, text)` in the order asked (never an answer on feelings); and the quiz attempts as
+    the summary counts them (up to the pass) with whether it is passed."""
+
+    explanation: ExplanationOut | None
+    finished_at: datetime | None
+    late: bool
+    moments: list[SummaryMomentOut]
+    narration: RenderedTextOut | None
+    reflection: list[tuple[str, str]]
+    quiz_attempts: int
+    quiz_passed: bool
+
+
+async def report_debrief(user_id: uuid.UUID, class_session_id: uuid.UUID) -> ReportDebrief:
+    """The Student's Debrief for their Student report. Takes ids only: the `reports-single` job
+    calls it after the api's policy allowed the download (AD-12, AD-18). Reads the Student's own
+    rows only (FR-58: no other Student's Explanation or answer)."""
+    async with get_sessionmaker()() as s:
+        game = await rules.debrief_game(s, user_id, class_session_id)
+    explanation = await _stored(user_id, class_session_id)
+    stored = await _summary_row(user_id, class_session_id)
+    attempts = await _attempts(user_id, class_session_id)
+    passing = next((each for each in attempts if each.passed), None)
+    summary = line = None
+    reflection: list[tuple[str, str]] = []
+    if stored is not None and game is not None:
+        summary = await _summary(user_id, class_session_id, game.role, stored)
+        if summary.moments:
+            facts = await games.fact_set(str(stored.game_id), game.role)
+            line = await _narration(user_id, class_session_id, stored.game_id, facts)
+        _, questions = await _questions(stored.game_id)
+        kinds = {question.id: question.kind for question in questions.questions}
+        reflection = [
+            (answer.prompt, answer.text)
+            for answer in summary.reflection
+            if kinds.get(answer.question_id) in REPORTED_REFLECTION
+        ]
+    return ReportDebrief(
+        explanation=explanation,
+        finished_at=summary.finished_at if summary else None,
+        late=summary.late if summary else False,
+        moments=list(summary.moments) if summary else [],
+        narration=line,
+        reflection=reflection,
+        quiz_attempts=passing.number if passing else len(attempts),
+        quiz_passed=passing is not None,
     )
 
 

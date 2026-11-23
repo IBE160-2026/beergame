@@ -55,9 +55,9 @@ def test_the_document_and_the_code_hold_the_same_budget():
             line.listen == 0 and listen == "inside the procrastinate pool"
         ), row
         assert total == f"**{line.total}**", row
-    assert budget.budget_total() == 25
-    assert budget.overlap_total() == 50
-    assert budget.pooler_required() == 51
+    assert budget.budget_total() == 28
+    assert budget.overlap_total() == 56
+    assert budget.pooler_required() == 57
     assert f"= **{budget.budget_total()}**" in text
     assert f"× 2 = **{budget.overlap_total()}**" in text
     assert f"| **{budget.pooler_required()}** |" in text
@@ -66,18 +66,18 @@ def test_the_document_and_the_code_hold_the_same_budget():
 
 
 @pytest.mark.parametrize(
-    ("pooler", "status"), [(None, "not_checked"), (15, "failed"), (50, "failed"), (51, "passed")]
+    ("pooler", "status"), [(None, "not_checked"), (15, "failed"), (56, "failed"), (57, "passed")]
 )
 def test_the_pooler_check_compares_the_copied_size_with_the_overlap_need(pooler, status):
     check = service.check_connection_budget(settings(db_pooler_size=pooler))
     assert (check.status, check.pooler_size, check.required, check.budget_total) == (
         status,
         pooler,
-        51,
-        25,
+        57,
+        28,
     )
     message = check.message()
-    assert "51" in message
+    assert "57" in message
     if status == "failed":
         assert str(pooler) in message
     if status == "not_checked":
@@ -89,6 +89,10 @@ def test_each_process_counts_its_pool_procrastinate_and_listen():
     assert budget.configured("backend", settings()) == budget.Connections(10, 0, 1)
     assert budget.configured("worker-ai", tuned) == budget.Connections(5, 2, 0)
     assert budget.configured("worker-batch", tuned, concurrency=4) == budget.Connections(5, 5, 0)
+    # Story 13.7 and the close-out of Epic 13: `reports-single` (2) and `reports-bulk` (1) beside
+    # the other queues hold slots of their own, as the compose and Railway worker-batch runs.
+    batch = ["llm-batch", "mail", "reports-bulk", "reports-single"]
+    assert budget.configured("worker-batch", tuned, queues=batch) == budget.BUDGET["worker-batch"]
     assert budget.worker_process(["ai-orders"]) == "worker-ai"
     assert budget.worker_process(["llm-batch", "mail", "sweep"]) == "worker-batch"
 
@@ -157,7 +161,7 @@ async def test_the_api_reports_its_connections_and_the_pooler_check_at_start(log
     events = {e["event"]: e for e in lines(log_stream)}
     assert events["db_connections_configured"]["process"] == "backend"
     assert events["db_pooler_check"]["status"] == "not_checked"
-    assert events["db_pooler_check"]["pooler_required"] == 51
+    assert events["db_pooler_check"]["pooler_required"] == 57
     assert rows("SELECT process FROM db_connection_reports") == [("backend",)]
 
 
@@ -189,9 +193,9 @@ async def test_drift_reads_no_report_as_incomplete_and_not_checked(admin):
         "listen": 1,
         "total": 11,
     }
-    assert (body["budget_total"], body["overlap_total"], body["configured_total"]) == (25, 50, 0)
+    assert (body["budget_total"], body["overlap_total"], body["configured_total"]) == (28, 56, 0)
     assert body["running"] == "incomplete"
-    assert body["pooler"] == {"status": "not_checked", "pooler_size": None, "required": 51}
+    assert body["pooler"] == {"status": "not_checked", "pooler_size": None, "required": 57}
 
 
 async def test_drift_sums_the_latest_report_per_process(admin):
@@ -199,10 +203,10 @@ async def test_drift_sums_the_latest_report_per_process(admin):
     await budget.report_start("backend", budget.Connections(30, 0, 1), at=old)  # replaced
     await budget.report_start("backend", budget.Connections(10, 0, 1), at=NOW)
     await budget.report_start("worker-ai", budget.Connections(5, 2, 0), at=NOW)
-    await budget.report_start("worker-batch", budget.Connections(5, 2, 0), at=NOW)
+    await budget.report_start("worker-batch", budget.Connections(5, 5, 0), at=NOW)
     body = (await get()).json()
-    assert [p["configured"]["total"] for p in body["processes"]] == [11, 7, 7]
-    assert (body["configured_total"], body["running"]) == (25, "within")
+    assert [p["configured"]["total"] for p in body["processes"]] == [11, 7, 10]
+    assert (body["configured_total"], body["running"]) == (28, "within")
 
     await budget.report_start("worker-batch", budget.Connections(10, 2, 0), at=NOW)
     body = (await get()).json()
@@ -215,7 +219,7 @@ async def test_drift_shows_the_pooler_check_with_both_numbers(admin, monkeypatch
 
     monkeypatch.setattr(config.get_settings(), "db_pooler_size", 15)
     body = (await get()).json()
-    assert body["pooler"] == {"status": "failed", "pooler_size": 15, "required": 51}
+    assert body["pooler"] == {"status": "failed", "pooler_size": 15, "required": 57}
 
 
 async def test_only_the_admin_reads_the_budget(admin):

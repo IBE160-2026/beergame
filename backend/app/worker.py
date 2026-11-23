@@ -1,11 +1,13 @@
 """Worker entry point (`python -m app.worker --queues ai-orders`, AD-9, AD-24).
 
-`worker-ai` runs `--queues ai-orders` and `worker-batch` `--queues llm-batch,mail --sweeper`,
-both from the backend image. `--sweeper` makes the worker defer the per-minute `ops.sweep` and
-run its `sweep` queue (Story 3.5); exactly one process runs with it. A worker with `ai-orders`
-also runs the rescue loop every 5 seconds (Story 2.6), which places the fallback Order of an LLM
-player past its deadline. A worker needs no provider key: with none set, the AI mock answers in
-`local`, `test` and `ci` (AD-17). Queues are given comma-separated or with `--queues` repeated.
+`worker-ai` runs `--queues ai-orders` and `worker-batch` `--queues llm-batch,mail,reports-single
+--sweeper`, both from the backend image. `reports-single` beside other queues gets
+`REPORTS_SINGLE_RESERVED` slots of its own (Story 13.7). `--sweeper` makes the worker defer the
+per-minute `ops.sweep` and run its `sweep` queue (Story 3.5); exactly one process runs with it. A
+worker with `ai-orders` also runs the rescue loop every 5 seconds (Story 2.6), which places the
+fallback Order of an LLM player past its deadline. A worker needs no provider key: with none set,
+the AI mock answers in `local`, `test` and `ci` (AD-17). Queues are given comma-separated or with
+`--queues` repeated.
 """
 
 import argparse
@@ -99,7 +101,10 @@ async def _start(names: Sequence[str], *, concurrency: int) -> None:
     await seed.ensure_zero_config_logged()
     error_reporting.log_start(get_settings())  # Story 15.11: the tracker, or that none is set
     await ops_service.report_connections(
-        ops_service.worker_process(list(names)), get_settings(), concurrency=concurrency
+        ops_service.worker_process(list(names)),
+        get_settings(),
+        concurrency=concurrency,
+        queues=list(names),
     )
     await serve(names, concurrency=concurrency)
 

@@ -23,8 +23,9 @@ unfinished one neither (`replay_not_finished`). Only the Replay's own Student re
 
 import uuid
 from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import timedelta
-from typing import Any
+from typing import Any, Literal
 
 import structlog
 from sqlalchemy import select
@@ -38,7 +39,7 @@ from app.analysis import moments as moment_text
 from app.analysis import narration as narration_rules
 from app.analysis.facts import FactSet, Moment
 from app.analysis.sentences import format_money, format_number
-from app.engine import Role
+from app.engine import GameSettings, Role
 from app.modules.content import service as content
 from app.modules.games import service as games_service
 from app.modules.replay import repo
@@ -59,12 +60,14 @@ from app.platform.db import get_sessionmaker
 __all__ = [
     "NARRATE_TASK",
     "PURPOSE",
+    "ReplayReport",
     "Unavailable",
     "code_output",
     "code_text",
     "enabled_pin",
     "narrate",
     "narration_key",
+    "report",
     "shown_moments",
     "walkthrough",
 ]
@@ -501,3 +504,93 @@ async def _record(
             .on_conflict_do_nothing(index_elements=[replay_walkthroughs.c.replay_game_id])
         )
     return await _recorded(game_id)
+
+
+@dataclass(frozen=True)
+class ReplayReport:
+    """What the Student report documents of the Replay (Story 13.10, FR-58, FR-50, UX-DR70):
+    `finished` (played to its last Uke), `closed` (ended at the Test deadline, Story 10.6) or
+    `open`; the Student's Role and the Replay's own settings (its scenario as drawn for them); the
+    Uker played; the Replay's run with its Totalkostnad; and, for a finished Replay, the Class
+    game it is set beside as the walkthrough sets it (None when that game was played mostly by AI
+    players, `mostly_ai`, or cannot be read)."""
+
+    state: Literal["finished", "closed", "open"]
+    role: str
+    settings: GameSettings
+    replay: WalkthroughRunOut
+    class_game: WalkthroughClassGameOut | None
+    mostly_ai: bool
+
+
+def _total(weeks: list[WalkthroughWeekOut]) -> Any:
+    """The last Uke's «Kostnad så langt»: the run's Totalkostnad (0 before the first Order)."""
+    return weeks[-1].total_cost if weeks else 0
+
+
+async def _compared(
+    user_id: uuid.UUID, class_session_id: uuid.UUID, game_id: uuid.UUID, role: str
+) -> tuple[WalkthroughClassGameOut | None, bool]:
+    """The Class game the walkthrough sets the Replay beside: the one its record names, else
+    `games.service.student_game` (as `_record` would choose it); and whether it was played mostly
+    by AI players. (None, False) when there is none or it has no facts set yet."""
+    found = await _recorded(game_id)
+    if found is not None:
+        compared_id = found.compared_game_id
+    else:
+        async with get_sessionmaker()() as s:
+            own = await games_service.student_game(s, user_id, class_session_id)
+        if own is None:
+            return None, False
+        compared_id = own.game_id
+    try:
+        compared = await games_service.fact_set(str(compared_id), role)
+    except games_service.ViewError:
+        return None, False
+    if compared.facts.seat.sm_excluded:
+        return None, True
+    weeks = _run(await games_service.decision_log(str(compared_id)), role)
+    class_game = await games_service.get_game(str(compared_id))
+    return (
+        WalkthroughClassGameOut(
+            weeks=weeks,
+            total_cost=_total(weeks),
+            game_number=class_game.game_number if class_game else None,
+        ),
+        False,
+    )
+
+
+async def report(user_id: uuid.UUID, class_session_id: uuid.UUID) -> ReplayReport | None:
+    """The Student's Replay for their Student report, or None when they have none. Takes ids
+    only: the `reports-single` job calls it after the api's policy allowed the download (AD-12,
+    AD-18). Reads the Student's own Replay and own Class game only."""
+    async with get_sessionmaker()() as s:
+        game_id = await repo.replay_game(s, user_id, class_session_id)
+    if game_id is None:
+        return None
+    game = await games_service.get_game(str(game_id))
+    seat = _student_seat(game) if game is not None else None
+    if game is None or seat is None or game.settings is None:
+        return None
+    role = seat[1]
+    if game.end_reason is not None:
+        state: Literal["finished", "closed", "open"] = "closed"
+    elif game.lifecycle == "finished":
+        state = "finished"
+    else:
+        state = "open"
+    weeks = _run(await games_service.decision_log(str(game_id)), role)
+    class_game, mostly_ai = (
+        await _compared(user_id, class_session_id, game_id, role)
+        if state == "finished"
+        else (None, False)
+    )
+    return ReplayReport(
+        state=state,
+        role=role,
+        settings=game.settings,
+        replay=WalkthroughRunOut(weeks=weeks, total_cost=_total(weeks)),
+        class_game=class_game,
+        mostly_ai=mostly_ai,
+    )
