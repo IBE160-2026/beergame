@@ -796,7 +796,8 @@ test("a save refused once the test is handed in shows why and the stored answer"
   await standIn(page, { status: 200, json: { ...opened, items: [{ ...ITEMS[0], answer: stored }, ...ITEMS.slice(1)] } });
   const item = page.locator("[data-test-item=flervalg-1]");
   await expect(item.getByRole("radio", { name: copy.option("a") })).toBeChecked();
-  await item.getByRole("radio", { name: copy.option("b") }).check();
+  // A click, not `check()`: the refusal can put «a» back before `check()` reads the radio again.
+  await item.getByRole("radio", { name: copy.option("b") }).click();
   await expect(item.getByRole("status")).toHaveText(copy.saveErrors.attempt_submitted!);
   await expect(item.getByRole("radio", { name: copy.option("a") })).toBeChecked();
 });
