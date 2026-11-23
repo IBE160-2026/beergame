@@ -20,7 +20,7 @@ from app.modules.games import commands as games_commands
 from app.modules.games import service as games
 from app.modules.identity import service as identity
 from app.modules.messaging import service as messaging
-from app.modules.ops import cost_limit, spend_alert
+from app.modules.ops import cost_limit, retention, spend_alert
 from app.modules.ops import service as ops_service
 from app.modules.reports import snapshot as report_snapshots
 from app.modules.sessions import service as sessions
@@ -386,6 +386,15 @@ DUE_ACTIONS: tuple[DueAction, ...] = (
         "sessions.send_deletion_reminder",
         sessions.due_deletion_reminders,
         sessions.send_deletion_reminder_due,
+    ),
+    # Story 15.3: delete each Class session's Student data once its deletion date has come, one
+    # Student per transaction, aggregates first (FR-77, AD-14); then the Roster addresses an
+    # archived Class with no Class session keeps until its archive time plus the period.
+    DueAction("ops.retention", retention.due_sessions, retention.retain),
+    DueAction(
+        "ops.retention_archived_classes",
+        retention.archived_classes,
+        retention.purge_archived_class,
     ),
 )
 

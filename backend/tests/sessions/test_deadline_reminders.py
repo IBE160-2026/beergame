@@ -274,11 +274,15 @@ def test_the_delivery_table_names_the_reminder_as_digest():
     assert delivery.DEADLINE_REMINDER_KIND == service.DEADLINE_REMINDER_NOTICE
     assert delivery.KINDS[service.DEADLINE_REMINDER_NOTICE].mode == delivery.DIGEST
     # Story 11.13: each Student's own reminders come right after the Class session's (and the
-    # deletion reminder of Story 13.9 after both).
-    assert [a.name for a in sweep.DUE_ACTIONS][-3:] == [
+    # deletion reminder of Story 13.9 after both; Story 15.3's retention comes after them).
+    names = [a.name for a in sweep.DUE_ACTIONS]
+    first = names.index("sessions.send_deadline_reminder")
+    assert names[first : first + 5] == [
         "sessions.send_deadline_reminder",
         "sessions.send_own_deadline_reminder",
         "sessions.send_deletion_reminder",
+        "ops.retention",
+        "ops.retention_archived_classes",
     ]
 
 

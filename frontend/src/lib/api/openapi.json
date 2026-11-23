@@ -7022,6 +7022,22 @@
                 "type": "null"
               }
             ]
+          },
+          "retention_default_months": {
+            "default": 6,
+            "title": "Retention Default Months",
+            "type": "integer"
+          },
+          "retention_months": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Months"
           }
         },
         "required": [
@@ -13031,6 +13047,30 @@
           "name"
         ],
         "title": "ResultsScorerOut",
+        "type": "object"
+      },
+      "RetentionIn": {
+        "additionalProperties": false,
+        "description": "Story 15.3 (FR-77): the Institution's retention period in whole calendar months, or None to\ngo back to the configured placeholder.",
+        "properties": {
+          "months": {
+            "anyOf": [
+              {
+                "maximum": 120.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Months"
+          }
+        },
+        "required": [
+          "months"
+        ],
+        "title": "RetentionIn",
         "type": "object"
       },
       "RevealOut": {
@@ -20338,6 +20378,90 @@
         ]
       }
     },
+    "/api/admin/institutions/{institution_id}/retention": {
+      "put": {
+        "description": "The Institution's retention period (Story 15.3, FR-77, FR-3): whole calendar months, 1 to\n120, after the latest effective Test deadline of each Class session, or null for the\nconfigured placeholder. Every Class session of the Institution whose deletion date has not\ncome gets its date recomputed in the same transaction, and its Students see the new date on\nHjem. Audited as `institution.retention_changed`; the same value again writes nothing. An\nunknown id is `not_found`.",
+        "operationId": "setInstitutionRetention",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "institution_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Institution Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetentionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstitutionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Set Institution Retention",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/admin/invitations": {
       "get": {
         "description": "The newest Invitation to each address and role, newest first, with its status and whether\nthe recipient asked for a new one (FR-1, FR-3).",
@@ -24977,7 +25101,7 @@
     },
     "/api/class-sessions/{session_id}/students/{user_id}/record": {
       "get": {
-        "description": "The Studentside's record (Story 13.2, FR-63, FR-17, UX-DR54, UX-DR55): one Student of the\nClass session with the Completion status per step, the participation signals (information\nonly), the game, the Explanation, the Debrief summary, the Debrief quiz attempts, the Replay,\nthe Individual test and the AI assessment's state, for the Lecturers and Assistant lecturers\nof its Class. 403 `forbidden` for anyone else, an Admin without a staff role in the Class\nincluded, for a User who is no Student of the Class now and for a Class session that does not\nexist (FR-5, AD-12).",
+        "description": "The Studentside's record (Story 13.2, FR-63, FR-17, UX-DR54, UX-DR55): one Student of the\nClass session with the Completion status per step, the participation signals (information\nonly), the game, the Explanation, the Debrief summary, the Debrief quiz attempts, the Replay,\nthe Individual test and the AI assessment's state, for the Lecturers and Assistant lecturers\nof its Class. 403 `forbidden` for anyone else, an Admin without a staff role in the Class\nincluded, for a User who is no Student of the Class now and for a Class session that does not\nexist (FR-5, AD-12). 409 `data_deleted` for its staff once the Class session's Student data\nis deleted (Story 15.3, FR-77).",
         "operationId": "getStudentRecord",
         "parameters": [
           {
@@ -25029,6 +25153,16 @@
               }
             },
             "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {

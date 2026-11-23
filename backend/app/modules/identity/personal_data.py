@@ -56,21 +56,34 @@ _HANDLED: dict[str, Entry] = {
     ),
     "user_roles": _e("delete", "The User's account roles."),
     "password_resets": _e("delete", "The User's reset links."),
-    "invitations": _e("delete", "Every Invitation to the User's address; `invited_by` is an id."),
-    "roster_entries": _e("delete", "The User's Roster entries (address and User id)."),
+    "invitations": _e(
+        "delete",
+        "Every Invitation to the User's address; `invited_by` is an id. Retention (Story 15.3): "
+        "once every Class session of the Class is deleted (or an archived Class with none has "
+        "passed its archive time plus the period), its Student Invitations not accepted go, "
+        "through `classes.service.purge_unregistered_roster`.",
+    ),
+    "roster_entries": _e(
+        "delete",
+        "The User's Roster entries (address and User id). Retention (Story 15.3): the entries of "
+        "addresses that never registered (no User) go with the Class's retention, as above.",
+    ),
     "roster_uploads": _e("keep", "A staged upload's header; `uploaded_by` is a staff id."),
     "roster_upload_rows": _e("delete", "Staged rows holding the User's address (student number)."),
     "access_requests": _e("delete", "Requests for lecturer access from the User's address."),
     "institutions": _e(
         "keep",
-        "Institution names, and who signed its data processing agreement (Story 15.12): the "
-        "Admin's text about the Institution, no User's data.",
+        "Institution names, who signed its data processing agreement (Story 15.12) and its "
+        "retention period (Story 15.3): the Admin's text about the Institution, no User's data.",
     ),
     # classes
     "classes": _e("keep", "`created_by` is an id."),
     "class_staff": _e("delete", "The User's place on Class staff."),
     # sessions
-    "class_sessions": _e("keep", "`created_by` is an id."),
+    "class_sessions": _e(
+        "keep",
+        "`created_by` is an id; `deletion_date` and `data_deleted_at` (Story 15.3) are dates.",
+    ),
     "allocation_drafts": _e("keep", "Seat assignments by User id."),
     "lab_hours": _e("keep", "`created_by` is an id; the place is the Lecturer's text."),
     "student_adjustments": _e("delete", "The Student's Tilrettelegging."),

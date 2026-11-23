@@ -1143,6 +1143,8 @@ register_erasure_preparation = erasure.register_erasure_preparation
 register_aggregate_writer = erasure.register_aggregate_writer
 register_erasure_step = erasure.register_erasure_step
 register_object_eraser = erasure.register_object_eraser
+register_session_aggregate_writer = erasure.register_session_aggregate_writer
+write_session_aggregates = erasure.write_session_aggregates
 erase_user = erasure.erase_user
 DeleteRefused = erasure.DeleteRefused
 
@@ -1293,6 +1295,8 @@ def _institution_out(row) -> InstitutionOut:
         operator_owned=row["operator_owned"],
         no_letter=row["no_letter"],
         processing_agreement=agreement,
+        retention_months=row["retention_months"],
+        retention_default_months=get_settings().retention_months,
     )
 
 
@@ -1439,6 +1443,112 @@ async def record_processing_agreement(
         actor_user_id=str(actor),
     )
     return _institution_out(row)
+
+
+INSTITUTION_RETENTION = "institution.retention_changed"
+"""The audit action of the Admin setting an Institution's retention period (Story 15.3, FR-77,
+FR-3): ids and the months only."""
+
+RetentionListener = Callable[[AsyncSession, uuid.UUID, datetime], Awaitable[None]]
+"""`(session, institution_id, now)`: called in the transaction that changed the Institution's
+retention period, so the deletion dates it rules move with it (`sessions`, Story 13.9)."""
+
+_RETENTION_LISTENERS: dict[str, RetentionListener] = {}
+
+
+def register_retention_listener(name: str, listener: RetentionListener) -> None:
+    """Called at import by `sessions`, which stores each Class session's deletion date; `identity`
+    imports no feature module."""
+    _RETENTION_LISTENERS[name] = listener
+
+
+async def set_retention_months(
+    actor: uuid.UUID, institution_id: uuid.UUID, months: int | None, *, now: datetime
+) -> InstitutionOut | InstitutionRefused:
+    """The Institution's retention period (Story 15.3, FR-77, FR-3): whole calendar months after
+    the latest effective Test deadline, or None for the configured placeholder. One transaction
+    with one audit row (ids and the months); every registered listener recomputes the deletion
+    dates the period rules in it. The same value again writes nothing. Refused with
+    `not_found`."""
+    async with get_sessionmaker().begin() as s:
+        row = await repo.lock_institution(s, institution_id)
+        if row is None:
+            return InstitutionRefused("not_found")
+        previous = row["retention_months"]
+        if previous == months:
+            return _institution_out(row)
+        row = await repo.set_retention_months(s, institution_id, months, now)
+        await audit.record(
+            s,
+            actor,
+            INSTITUTION_RETENTION,
+            {"institution_id": institution_id},
+            {"months": months, "previous_months": previous},
+            now,
+        )
+        for listener in list(_RETENTION_LISTENERS.values()):
+            await listener(s, institution_id, now)
+    log.info(
+        "institution_retention_changed",
+        institution_id=str(institution_id),
+        actor_user_id=str(actor),
+        months=months,
+    )
+    return _institution_out(row)
+
+
+async def retention_months_of(
+    institution_id: uuid.UUID | None, session: AsyncSession | None = None
+) -> int:
+    """Story 15.3 (FR-77): the Institution's retention period in calendar months, its own or the
+    configured placeholder (`RETENTION_MONTHS`) while it has none; the placeholder for None or an
+    unknown id. In the caller's `session` when given."""
+    own = None
+    if institution_id is not None:
+        async with reading(session) as s:
+            own = await repo.retention_months_of(s, institution_id)
+    return own if own is not None else get_settings().retention_months
+
+
+async def roster_user_ids(session: AsyncSession, class_id: uuid.UUID) -> list[uuid.UUID]:
+    """Story 15.3 (retention): every User on the Class's Roster, removed ones too, by id."""
+    return await repo.roster_user_ids(session, class_id)
+
+
+async def roster_classes_of_user(
+    session: AsyncSession, user_id: uuid.UUID
+) -> list[tuple[uuid.UUID, bool]]:
+    """Story 15.3 (retention): `(class_id, removed)` of every Roster entry of the User."""
+    return [
+        (row["class_id"], row["removed_at"] is not None)
+        for row in await repo.roster_classes_of_user(session, user_id)
+    ]
+
+
+async def holds_account_role(session: AsyncSession, user_id: uuid.UUID) -> bool:
+    """Story 15.3 (retention): whether the User holds an account role (Admin, Lecturer); such a
+    User keeps the account when a Class session they were a Student in is deleted."""
+    return bool(await repo.roles_of(session, user_id))
+
+
+async def is_erased(session: AsyncSession, user_id: uuid.UUID) -> bool:
+    """Story 15.3: whether the User was erased (or never existed)."""
+    user = await repo.user_by_id(session, user_id)
+    return user is None or user["deleted_at"] is not None
+
+
+async def has_unregistered_roster(session: AsyncSession, class_id: uuid.UUID) -> bool:
+    """Story 15.3: whether the Class still holds a Roster address of someone who never registered
+    or a Student Invitation not accepted."""
+    return await repo.has_unregistered_roster(session, class_id)
+
+
+async def delete_unregistered_roster(session: AsyncSession, class_id: uuid.UUID) -> tuple[int, int]:
+    """Story 15.3 (FR-77, FR-6, AD-14): once a Class's retention has run, the Roster addresses of
+    people who never registered and the Student Invitations to it not accepted are personal data
+    with no User behind them: delete them, in the caller's transaction. Returns `(entries,
+    invitations)` deleted. Idempotent."""
+    return await repo.delete_unregistered_roster(session, class_id)
 
 
 async def has_processing_agreement(

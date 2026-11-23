@@ -780,6 +780,49 @@ async def class_facts(
     }
 
 
+async def class_ids_of_institution(
+    session: AsyncSession, institution_id: uuid.UUID
+) -> list[uuid.UUID]:
+    """Story 15.3: every Class of the Institution, archived ones included, by id (no User's
+    scope; for the deletion dates its retention period rules)."""
+    return await repo.class_ids_of_institution(session, institution_id)
+
+
+@dataclass(frozen=True)
+class ArchivedClass:
+    id: uuid.UUID
+    institution_id: uuid.UUID
+    archived_at: datetime
+
+
+async def archived_classes_before(session: AsyncSession, before: datetime) -> list[ArchivedClass]:
+    """Story 15.3: the Classes archived before `before` (no User's scope; for retention's finder of
+    archived Classes), with their archive time in `archived_at`."""
+    return [
+        ArchivedClass(row["id"], row["institution_id"], row["archived_at"])
+        for row in await repo.archived_classes_before(session, before)
+    ]
+
+
+async def is_staff_anywhere(session: AsyncSession, user_id: uuid.UUID) -> bool:
+    """Story 15.3 (retention): whether the User is a Lecturer or Assistant lecturer of any Class;
+    such a User keeps the account when a Class session they were a Student in is deleted."""
+    return await repo.is_staff_anywhere(session, user_id)
+
+
+async def has_unregistered_roster(session: AsyncSession, class_id: uuid.UUID) -> bool:
+    """Story 15.3: whether the Class's Roster still holds an address of someone who never
+    registered, or a Student Invitation not accepted."""
+    return await identity.has_unregistered_roster(session, class_id)
+
+
+async def purge_unregistered_roster(session: AsyncSession, class_id: uuid.UUID) -> tuple[int, int]:
+    """Story 15.3 (FR-77, FR-6): delete the Class's Roster addresses of people who never registered
+    and its Student Invitations not accepted, through `identity`, in the caller's transaction.
+    The Class row stays, with no personal data, as the owner of its aggregates."""
+    return await identity.delete_unregistered_roster(session, class_id)
+
+
 async def owners_of(session: AsyncSession, class_id: uuid.UUID) -> list[uuid.UUID]:
     """The ids of the Class's owners and co-owners (Story 5.11: who is told that a Class session
     cannot lock). Assistant lecturers are not among them."""

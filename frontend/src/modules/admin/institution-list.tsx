@@ -20,6 +20,7 @@ import {
   useRecordProcessingAgreement,
   useRenameInstitution,
   useSetNoLetter,
+  useSetRetention,
 } from "./api";
 import { formatDay, todayInOslo } from "./evaluation";
 import {
@@ -28,6 +29,7 @@ import {
   type ProcessingAgreementErrors,
   processingAgreementErrors,
   refusalForField,
+  retentionMonths,
   SIGNED_BY_MAX_LENGTH,
 } from "./institutions";
 import { formatDate } from "./invitations";
@@ -53,6 +55,8 @@ export function InstitutionList({ onStart, otherStarted = 0 }: { onStart?: () =>
   const [focusRow, setFocusRow] = useState<{ id: string; n: number }>();
   const [agreementOpen, setAgreementOpen] = useState<string>();
   const [focusAgreement, setFocusAgreement] = useState<{ id: string; n: number }>();
+  const [retentionOpen, setRetentionOpen] = useState<string>();
+  const [focusRetention, setFocusRetention] = useState<{ id: string; n: number }>();
   const items = institutions.data?.pages.flatMap((page) => page.items) ?? [];
   const markOperator = useMarkOperator();
   const noLetter = useSetNoLetter();
@@ -63,6 +67,9 @@ export function InstitutionList({ onStart, otherStarted = 0 }: { onStart?: () =>
   useEffect(() => {
     if (focusAgreement) document.getElementById(`agreement-${focusAgreement.id}`)?.focus();
   }, [focusAgreement]);
+  useEffect(() => {
+    if (focusRetention) document.getElementById(`retention-${focusRetention.id}`)?.focus();
+  }, [focusRetention]);
   useEffect(() => {
     if (otherStarted) setLine(undefined);
   }, [otherStarted]);
@@ -77,6 +84,12 @@ export function InstitutionList({ onStart, otherStarted = 0 }: { onStart?: () =>
     setAgreementOpen(undefined);
     if (saved) setLine({ key: institution.id, text: copy.processingAgreement.saved(institution.name), refused: false });
     setFocusAgreement((prev) => ({ id: institution.id, n: (prev?.n ?? 0) + 1 }));
+  }
+
+  function closeRetention(institution: Institution, saved: boolean) {
+    setRetentionOpen(undefined);
+    if (saved) setLine({ key: institution.id, text: copy.retention.saved(institution.name), refused: false });
+    setFocusRetention((prev) => ({ id: institution.id, n: (prev?.n ?? 0) + 1 }));
   }
 
   return (
@@ -109,6 +122,7 @@ export function InstitutionList({ onStart, otherStarted = 0 }: { onStart?: () =>
                     copy.operator.column,
                     copy.noLetter.column,
                     copy.processingAgreement.column,
+                    copy.retention.column,
                     copy.list.columns.actions,
                   ].map((heading) => (
                     <th
@@ -127,7 +141,9 @@ export function InstitutionList({ onStart, otherStarted = 0 }: { onStart?: () =>
                     <tr
                       className={cn(
                         "align-baseline @max-[60em]:block @max-[60em]:py-3",
-                        agreementOpen === institution.id ? "@max-[60em]:pb-0" : "border-b border-hairline",
+                        agreementOpen === institution.id || retentionOpen === institution.id
+                          ? "@max-[60em]:pb-0"
+                          : "border-b border-hairline",
                       )}
                     >
                       <Cell label={copy.list.columns.name}>
@@ -228,12 +244,38 @@ export function InstitutionList({ onStart, otherStarted = 0 }: { onStart?: () =>
                               setLine(undefined);
                               onStart?.();
                               setEditing(undefined);
+                              setRetentionOpen(undefined);
                               setAgreementOpen(institution.id);
                             }}
                           >
                             {institution.processing_agreement
                               ? copy.processingAgreement.change(institution.name)
                               : copy.processingAgreement.record(institution.name)}
+                          </Button>
+                        )}
+                      </Cell>
+                      <Cell label={copy.retention.column}>
+                        {/* Story 15.3 (FR-77): the Institution's own period or the placeholder;
+                          the button opens the form in a row of its own under this one. */}
+                        <span className="block [overflow-wrap:anywhere]">
+                          {copy.retention.months(
+                            institution.retention_months ?? institution.retention_default_months ?? 6,
+                            institution.retention_months == null,
+                          )}
+                        </span>
+                        {retentionOpen === institution.id ? null : (
+                          <Button
+                            id={`retention-${institution.id}`}
+                            className="mt-2 [overflow-wrap:anywhere] @max-[60em]:w-full @min-[60em]:px-3 @min-[60em]:text-left"
+                            onClick={() => {
+                              setLine(undefined);
+                              onStart?.();
+                              setEditing(undefined);
+                              setAgreementOpen(undefined);
+                              setRetentionOpen(institution.id);
+                            }}
+                          >
+                            {copy.retention.change(institution.name)}
                           </Button>
                         )}
                       </Cell>
@@ -248,6 +290,7 @@ export function InstitutionList({ onStart, otherStarted = 0 }: { onStart?: () =>
                               setLine(undefined);
                               onStart?.();
                               setAgreementOpen(undefined);
+                              setRetentionOpen(undefined);
                               setEditing(institution.id);
                             }}
                           >
@@ -262,10 +305,20 @@ export function InstitutionList({ onStart, otherStarted = 0 }: { onStart?: () =>
                     {agreementOpen === institution.id ? (
                       // The form takes the row's full width under it, not one column's.
                       <tr className="border-b border-hairline @max-[60em]:block">
-                        <td colSpan={6} className="pt-1 pb-6 @max-[60em]:block">
+                        <td colSpan={7} className="pt-1 pb-6 @max-[60em]:block">
                           <AgreementForm
                             institution={institution}
                             onDone={(saved) => closeAgreement(institution, saved)}
+                          />
+                        </td>
+                      </tr>
+                    ) : null}
+                    {retentionOpen === institution.id ? (
+                      <tr className="border-b border-hairline @max-[60em]:block">
+                        <td colSpan={7} className="pt-1 pb-6 @max-[60em]:block">
+                          <RetentionForm
+                            institution={institution}
+                            onDone={(saved) => closeRetention(institution, saved)}
                           />
                         </td>
                       </tr>
@@ -473,6 +526,83 @@ function AgreementForm({ institution, onDone }: { institution: Institution; onDo
           aria-disabled={record.isPending ? true : undefined}
           onClick={() => {
             if (!record.isPending) onDone(false);
+          }}
+          className="inline-flex min-h-tap-target-min min-w-tap-target-min cursor-pointer items-center text-label text-lager underline underline-offset-2 hover:decoration-2 active:text-ink"
+        >
+          {form.cancel}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/** The inline retention form of one Institution (Story 15.3, FR-77): the months after the latest
+ * Testfrist, empty for the placeholder, «Lagre oppbevaringstiden» and «Avbryt». */
+function RetentionForm({ institution, onDone }: { institution: Institution; onDone: (saved: boolean) => void }) {
+  const save = useSetRetention();
+  const form = copy.retention;
+  const standard = institution.retention_default_months ?? 6;
+  const [value, setValue] = useState(institution.retention_months == null ? "" : String(institution.retention_months));
+  const [error, setError] = useState<string>();
+  const [submitted, setSubmitted] = useState(false);
+  const fieldRef = useRef<HTMLInputElement>(null);
+  const fieldId = `retention-months-${institution.id}`;
+
+  useEffect(() => {
+    fieldRef.current?.focus();
+  }, []);
+
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (save.isPending) return;
+    const months = retentionMonths(value);
+    setSubmitted(true);
+    save.reset();
+    if (months === undefined) {
+      setError(form.invalid);
+      fieldRef.current?.focus();
+      return;
+    }
+    setError(undefined);
+    save.mutate({ id: institution.id, months }, { onSuccess: () => onDone(true) });
+  }
+
+  return (
+    <form
+      method="post"
+      noValidate
+      onSubmit={onSubmit}
+      aria-label={form.change(institution.name)}
+      className="flex max-w-xl flex-col items-start gap-4"
+    >
+      <TextField
+        ref={fieldRef}
+        id={fieldId}
+        inputMode="numeric"
+        autoComplete="off"
+        label={form.field}
+        hint={form.hint(standard)}
+        inputClassName="max-w-[8em] tabular-nums"
+        value={value}
+        error={error}
+        onChange={(event) => {
+          setValue(event.target.value);
+          if (submitted) setError(retentionMonths(event.target.value) === undefined ? form.invalid : undefined);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Escape" && !save.isPending) onDone(false);
+        }}
+      />
+      <ActionError message={save.isError ? form.failed : undefined} />
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <Button type="submit" unavailable={save.isPending} className="@max-[60em]:w-full">
+          {form.save}
+        </Button>
+        <button
+          type="button"
+          aria-disabled={save.isPending ? true : undefined}
+          onClick={() => {
+            if (!save.isPending) onDone(false);
           }}
           className="inline-flex min-h-tap-target-min min-w-tap-target-min cursor-pointer items-center text-label text-lager underline underline-offset-2 hover:decoration-2 active:text-ink"
         >

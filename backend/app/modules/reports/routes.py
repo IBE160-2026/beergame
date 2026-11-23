@@ -56,7 +56,7 @@ def _id(value: str) -> uuid.UUID:
 @router.get(
     "/class-sessions/{session_id}/students/{user_id}/record",
     response_model=StudentRecordOut,
-    responses=documented(401, 403),
+    responses=documented(401, 403, 409),
     operation_id="getStudentRecord",
 )
 async def get_student_record(
@@ -70,8 +70,14 @@ async def get_student_record(
     the Individual test and the AI assessment's state, for the Lecturers and Assistant lecturers
     of its Class. 403 `forbidden` for anyone else, an Admin without a staff role in the Class
     included, for a User who is no Student of the Class now and for a Class session that does not
-    exist (FR-5, AD-12)."""
-    found = await studentside.student_record(user, _id(session_id), _id(user_id))
+    exist (FR-5, AD-12). 409 `data_deleted` for its staff once the Class session's Student data
+    is deleted (Story 15.3, FR-77)."""
+    try:
+        found = await studentside.student_record(user, _id(session_id), _id(user_id))
+    except studentside.RecordDeleted:
+        return error_response(
+            409, "data_deleted", "The Student data of this Class session is deleted."
+        )
     if found is None:
         raise authz.Forbidden
     return JSONResponse(found.model_dump(mode="json"), headers=PERSONAL)

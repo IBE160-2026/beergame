@@ -414,6 +414,75 @@ async def erase_user_rows(session: AsyncSession, user_id: uuid.UUID, address: st
     )
 
 
+# Retention (Story 15.3, FR-77, AD-14).
+
+
+async def roster_user_ids(session: AsyncSession, class_id: uuid.UUID) -> list[uuid.UUID]:
+    """Every User on the Class's Roster, removed ones too (their data in its Class sessions is
+    still theirs), by id."""
+    result = await session.execute(
+        select(roster_entries.c.user_id)
+        .where(roster_entries.c.class_id == class_id, roster_entries.c.user_id.is_not(None))
+        .distinct()
+        .order_by(roster_entries.c.user_id)
+    )
+    return list(result.scalars())
+
+
+async def roster_classes_of_user(session: AsyncSession, user_id: uuid.UUID) -> list[RowMapping]:
+    """`class_id` and `removed_at` of every Roster entry of the User."""
+    result = await session.execute(
+        select(roster_entries.c.class_id, roster_entries.c.removed_at).where(
+            roster_entries.c.user_id == user_id
+        )
+    )
+    return list(result.mappings())
+
+
+async def has_unregistered_roster(session: AsyncSession, class_id: uuid.UUID) -> bool:
+    """Whether the Class has a Roster entry with no User or a Student Invitation not accepted."""
+    entry = await session.scalar(
+        select(roster_entries.c.id)
+        .where(roster_entries.c.class_id == class_id, roster_entries.c.user_id.is_(None))
+        .limit(1)
+    )
+    if entry is not None:
+        return True
+    invitation = await session.scalar(
+        select(invitations.c.id)
+        .where(
+            invitations.c.class_id == class_id,
+            invitations.c.kind == "student",
+            invitations.c.accepted_at.is_(None),
+        )
+        .limit(1)
+    )
+    return invitation is not None
+
+
+async def delete_unregistered_roster(session: AsyncSession, class_id: uuid.UUID) -> tuple[int, int]:
+    """Delete the Class's Roster entries of addresses that never registered (no User) and every
+    Student Invitation to the Class not accepted; returns `(entries, invitations)` deleted. The
+    Invitations of a deleted entry go with it (`roster_entry_id` cascades) and are counted with
+    the entries."""
+    entries = await session.execute(
+        delete(roster_entries)
+        .where(roster_entries.c.class_id == class_id, roster_entries.c.user_id.is_(None))
+        .returning(roster_entries.c.id)
+    )
+    gone = len(entries.scalars().all())
+    invited = await session.execute(
+        delete(invitations)
+        .where(
+            invitations.c.class_id == class_id,
+            invitations.c.kind == "student",
+            invitations.c.accepted_at.is_(None),
+        )
+        .returning(invitations.c.id)
+    )
+    return gone, len(invited.scalars().all())
+
+
 async def mark_erased(session: AsyncSession, user_id: uuid.UUID, now: datetime) -> None:
     """Set `deleted_at` once: a repeat keeps the first time. Times come from the api's clock."""
     await session.execute(
@@ -642,6 +711,27 @@ async def no_letter_of(session: AsyncSession, institution_id: uuid.UUID) -> bool
         select(institutions.c.no_letter).where(institutions.c.id == institution_id)
     )
     return bool(found)
+
+
+async def set_retention_months(
+    session: AsyncSession, institution_id: uuid.UUID, months: int | None, now: datetime
+) -> RowMapping:
+    """Story 15.3: set the Institution's retention period (None: the placeholder), in the
+    caller's transaction."""
+    result = await session.execute(
+        update(institutions)
+        .where(institutions.c.id == institution_id)
+        .values(retention_months=months, updated_at=now)
+        .returning(institutions)
+    )
+    return result.mappings().one()
+
+
+async def retention_months_of(session: AsyncSession, institution_id: uuid.UUID) -> int | None:
+    """Story 15.3: the Institution's own retention period; None when unset or unknown."""
+    return await session.scalar(
+        select(institutions.c.retention_months).where(institutions.c.id == institution_id)
+    )
 
 
 async def set_processing_agreement(

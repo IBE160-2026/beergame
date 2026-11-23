@@ -205,7 +205,7 @@ HEAD_TABLES = (
 # 0209 (12.10), 0208 (12.9), 0207 (12.8), 0206 (12.6), 0205 (12.5), 0204 (12.4), 0203 (12.3)
 # and 0202 (12.2) follow 0201 (12.7);
 # 0120-0130 follow 0064
-HEAD = "0071"  # 0071 records an Institution's data processing agreement (Story 15.12)
+HEAD = "0072"  # 0072 the Institution's retention period and retention's mark (Story 15.3)
 
 
 def reset_schema(url: str) -> None:
@@ -340,6 +340,16 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     assert "'class_session'" in sent["ck_messages_recipient_kind"]
     # 0303 (Story 13.6): and the Students who have not met the requirement.
     assert "'requirement_not_met'" in sent["ck_messages_recipient_kind"]
+
+    # 0072 (Story 15.3): the Institution's retention period (1-120 months or NULL) and when
+    # retention deleted a Class session's Student data, and back.
+    assert "retention_months <= 120" in (
+        constraints(url, "institutions")["ck_institutions_retention_months"]
+    )
+    assert "data_deleted_at" in columns(url, "class_sessions")
+    command.downgrade(cfg, "0071")
+    assert "retention_months" not in columns(url, "institutions")
+    assert "data_deleted_at" not in columns(url, "class_sessions")
 
     # 0071 (Story 15.12): an Institution's data processing agreement, all set or none, and back.
     assert (

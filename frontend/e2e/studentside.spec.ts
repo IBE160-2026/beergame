@@ -341,3 +341,28 @@ test("a Lecturer of another Class sees the permission-denied page, Student or no
   );
   expect(refused.status()).toBe(403);
 });
+
+test("once the Class session's data is deleted, the Studentside says so (Story 15.3)", async ({ page, browser }) => {
+  // The 409 the api answers after the deletion date (backend/tests/ops/test_retention.py), routed
+  // here: no run waits half a year.
+  const lecturer = await freshLecturer(page, browser);
+  const [session, student] = [crypto.randomUUID(), crypto.randomUUID()];
+  const recordPath = `**/api/class-sessions/${session}/students/${student}/record`;
+  await lecturer.route(recordPath, (route) =>
+    route.fulfill({
+      status: 409,
+      contentType: "application/json",
+      body: JSON.stringify({ error: { code: "data_deleted", message: "deleted", fields: {} } }),
+    }),
+  );
+  await lecturer.goto(`/klasseokter/${session}/studenter/${student}`);
+  await expect(lecturer.getByText(nb.reports.studentPage.deleted)).toBeVisible();
+  await expect(lecturer.getByRole("link", { name: nb.reports.studentPage.toSession })).toHaveAttribute(
+    "href",
+    `/klasseokter/${session}`,
+  );
+  await expectAccessible(lecturer, false);
+  await lecturer.setViewportSize({ width: 320, height: 640 });
+  await expectAccessible(lecturer, true);
+  await lecturer.unroute(recordPath);
+});

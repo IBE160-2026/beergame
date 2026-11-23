@@ -212,7 +212,14 @@ institutions = Table(
     Column("dpa_signed_by", Text, nullable=True),
     Column("dpa_signed_on", Date, nullable=True),
     Column("dpa_recorded_at", DateTime(timezone=True), nullable=True),
+    # Story 15.3 (FR-77, FR-3): the Institution's retention period in whole calendar months, set
+    # by the Admin and audited; NULL means the configured placeholder (`RETENTION_MONTHS`).
+    Column("retention_months", Integer, nullable=True),
     CheckConstraint("name <> ''", name="ck_institutions_name_not_empty"),
+    CheckConstraint(
+        "retention_months IS NULL OR (retention_months >= 1 AND retention_months <= 120)",
+        name="ck_institutions_retention_months",
+    ),
     CheckConstraint(
         "(dpa_signed_by IS NULL AND dpa_signed_on IS NULL AND dpa_recorded_at IS NULL) OR "
         "(dpa_signed_by IS NOT NULL AND btrim(dpa_signed_by) <> '' AND dpa_signed_on IS NOT NULL "

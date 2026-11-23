@@ -2316,6 +2316,9 @@ export const nb = {
         "user.reactivated": "Bruker aktivert igjen",
         // [ASSUMPTION] Story 15.2.
         "user.deleted": "Bruker slettet",
+        // [ASSUMPTION] Story 15.3.
+        "institution.retention_changed": "Oppbevaringstid endret",
+        "class_session.data_deleted": "Studentdata i Klasseøkt slettet",
         "institution.created": "Institusjon opprettet",
         "institution.renamed": "Institusjon fikk nytt navn",
         // Story 3.13.
@@ -2840,6 +2843,23 @@ export const nb = {
         tooLong: "Høyst 200 tegn.",
         inFuture: "Datoen kan ikke være etter i dag.",
         failed: "Avtalen ble ikke lagret. Prøv igjen.",
+      },
+      /** Story 15.3 (FR-77, FR-3): the Institution's retention period in whole months after the
+       * latest Testfrist of each Klasseøkt. [ASSUMPTION] draft copy. */
+      retention: {
+        column: "Oppbevaring",
+        /** «6 måneder etter Testfristen (standard)». */
+        months: (months: number, standard: boolean) =>
+          `${months} ${months === 1 ? "måned" : "måneder"} etter Testfristen${standard ? " (standard)" : ""}`,
+        change: (name: string) => `Endre oppbevaringstiden for ${name}`,
+        field: "Måneder etter siste Testfrist",
+        hint: (standard: number) =>
+          `Studentdataene i hver Klasseøkt slettes så mange måneder etter den siste Testfristen. Tomt felt gir standarden, ${standard} måneder.`,
+        save: "Lagre oppbevaringstiden",
+        cancel: "Avbryt",
+        saved: (name: string) => `Oppbevaringstiden for ${name} er lagret. Slettedatoene er regnet ut på nytt.`,
+        invalid: "Skriv et helt tall fra 1 til 120.",
+        failed: "Oppbevaringstiden ble ikke lagret. Prøv igjen.",
       },
       rename: {
         open: (name: string) => `Gi ${name} nytt navn`,
@@ -4854,6 +4874,10 @@ export const nb = {
       rosterLink: "Studentside",
       rosterLinkSession: (number: number) => `Studentside, økt ${number}`,
       rosterLinkLabel: (email: string, number: number) => `Studentside for ${email}, Klasseøkt ${number}`,
+      /** Story 15.3 (FR-77): the Class session's deletion date has come. [ASSUMPTION] */
+      deletedTitle: "Studentside",
+      deleted: "Studentdataene i denne Klasseøkten er slettet. Spillene vises fortsatt, med Rollene uten navn.",
+      toSession: "Til Klasseøkten",
     },
     /** The block «Fullføring» (Story 13.2, FR-17, UX-DR54, EXPERIENCE.md → Fullføringsretting):
      * the step names, «gjort» / «ikke gjort» and the two share lines are the spine's; the rest is

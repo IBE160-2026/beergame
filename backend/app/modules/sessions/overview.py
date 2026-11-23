@@ -59,6 +59,7 @@ from app.modules.sessions.schemas import (
 from app.modules.sessions.service import (
     _class_for,
     current_lab_hour,
+    data_deleted,
     funnel_of,
     is_locked,
     time_factors,
@@ -67,6 +68,16 @@ from app.platform import auth, authz
 from app.platform.db import get_sessionmaker
 
 log = structlog.get_logger(__name__)
+
+
+async def _student_names(s, row, user_ids: list[uuid.UUID]) -> dict[uuid.UUID, str]:
+    """The Roster names of these Students of the Class session's Class (AD-12), or none once the
+    Class session's Student data counts as deleted (Story 15.3, FR-77): its Games then show each
+    Seat by Role."""
+    if data_deleted(row, auth.utcnow()):
+        return {}
+    return await classes.student_names(row["class_id"], user_ids, session=s)
+
 
 BATCH_START_CONCURRENCY = 4
 """How many Games «Start 12 spill» starts at once (Story 8.10): below the pool size (10)."""
@@ -122,9 +133,7 @@ async def class_overview(user: authz.Principal, session_id: uuid.UUID) -> ClassO
             | {wait.user_id for game in games for wait in game.waiting_for if wait.user_id},
             key=str,
         )
-        names = (
-            await classes.student_names(row["class_id"], students, session=s) if students else {}
-        )
+        names = await _student_names(s, row, students) if students else {}
         by = await classes.actor_names(s, row["class_id"], _actors(games))
         now = await games_service.database_now(s)
         # The Start-date lock on the api clock, as the Klasseøkt reads it (`get_session`).
@@ -456,9 +465,7 @@ async def game_insight(user: authz.Principal, game_id: uuid.UUID) -> GameInsight
             | {w.user_id for r in insight.roles for w in r.weeks if w.user_id is not None},
             key=str,
         )
-        names = (
-            await classes.student_names(row["class_id"], students, session=s) if students else {}
-        )
+        names = await _student_names(s, row, students) if students else {}
         by = await classes.actor_names(
             s,
             row["class_id"],
@@ -492,10 +499,10 @@ async def game_insight(user: authz.Principal, game_id: uuid.UUID) -> GameInsight
             else ([], [])
         )
         waited_names = (
-            await classes.student_names(
-                row["class_id"],
+            await _student_names(
+                s,
+                row,
                 sorted({w.user_id for w in (*filled, *left) if w.user_id is not None}, key=str),
-                session=s,
             )
             if filled or left
             else {}
@@ -802,9 +809,7 @@ async def start_games_page(user: authz.Principal, session_id: uuid.UUID) -> Star
             {seat.user_id for game in games for seat in game.seats if seat.user_id is not None},
             key=str,
         )
-        names = (
-            await classes.student_names(row["class_id"], students, session=s) if students else {}
-        )
+        names = await _student_names(s, row, students) if students else {}
     return StartGamesOut(
         class_session_id=session_id,
         class_id=found.id,
@@ -906,9 +911,7 @@ async def waited_for_page(user: authz.Principal, session_id: uuid.UUID) -> Waite
         number = await repo.number_of(s, session_id, row["class_id"])
         filled, left = await _waited_split(s, session_id)
         students = sorted({w.user_id for w in (*filled, *left) if w.user_id is not None}, key=str)
-        names = (
-            await classes.student_names(row["class_id"], students, session=s) if students else {}
-        )
+        names = await _student_names(s, row, students) if students else {}
         now = await games_service.database_now(s)
     games: dict[uuid.UUID, WaitedGameOut] = {}
     for seat in filled:

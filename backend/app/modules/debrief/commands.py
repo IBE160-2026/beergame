@@ -29,7 +29,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 import structlog
-from sqlalchemy import delete, func, literal, select, update
+from sqlalchemy import and_, delete, func, literal, select, update
 from sqlalchemy.dialects.postgresql import JSONB, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -1315,22 +1315,28 @@ ERASED_TABLES = frozenset(
 """The Debrief tables whose text of a Student the erasure deletes (Story 15.2)."""
 
 
-async def erase_user_text(session: AsyncSession, user_id: uuid.UUID) -> None:
+async def erase_user_text(
+    session: AsyncSession, user_id: uuid.UUID, scope: uuid.UUID | None = None
+) -> None:
     """In the erasure's transaction (Story 15.2, FR-76, AD-14): delete the free text the Student
     wrote, their Forklaring, reflection answers and follow-up questions with the AI answers that
     quote them, and empty the reflection their Debrief summaries copied. Every count stays: the
-    summary row, the quiz attempts and the step marks keep the anonymous User's id. Idempotent."""
+    summary row, the quiz attempts and the step marks keep the anonymous User's id. Idempotent.
+    With `scope` (Story 15.3, retention), only what they wrote in that Class session."""
+
+    def mine(table):
+        found = table.c.user_id == user_id
+        return found if scope is None else and_(found, table.c.class_session_id == scope)
+
+    await session.execute(delete(debrief_explanations).where(mine(debrief_explanations)))
     await session.execute(
-        delete(debrief_explanations).where(debrief_explanations.c.user_id == user_id)
+        delete(debrief_reflection_answers).where(mine(debrief_reflection_answers))
     )
-    await session.execute(
-        delete(debrief_reflection_answers).where(debrief_reflection_answers.c.user_id == user_id)
-    )
-    await session.execute(delete(debrief_follow_ups).where(debrief_follow_ups.c.user_id == user_id))
+    await session.execute(delete(debrief_follow_ups).where(mine(debrief_follow_ups)))
     await session.execute(
         update(debrief_summaries)
         .where(
-            debrief_summaries.c.user_id == user_id,
+            mine(debrief_summaries),
             debrief_summaries.c.reflection != literal([], JSONB),
         )
         .values(reflection=literal([], JSONB))

@@ -3,7 +3,14 @@ import { describe, expect, it } from "vitest";
 import { nb } from "@/copy/nb";
 import { ApiRequestError } from "@/lib/api/client";
 
-import { cleanName, nameError, nameReason, processingAgreementErrors, refusalForField } from "./institutions";
+import {
+  cleanName,
+  nameError,
+  nameReason,
+  processingAgreementErrors,
+  refusalForField,
+  retentionMonths,
+} from "./institutions";
 
 const copy = nb.admin.institutions;
 
@@ -76,5 +83,26 @@ describe("the data processing agreement rule (Story 15.12)", () => {
       signedOn: form.inFuture,
     });
     expect(processingAgreementErrors({ signedBy: "ø".repeat(200), signedOn: "2026-01-01" }, today)).toEqual({});
+  });
+});
+
+describe("the retention period (Story 15.3)", () => {
+  it.each([
+    ["", null],
+    ["  ", null],
+    ["1", 1],
+    [" 12 ", 12],
+    ["120", 120],
+  ])("takes %j as %j", (value, months) => {
+    expect(retentionMonths(value)).toBe(months);
+  });
+
+  it.each(["0", "121", "2,5", "-3", "6 mnd", "1e2"])("refuses %j", (value) => {
+    expect(retentionMonths(value)).toBeUndefined();
+  });
+
+  it("names the months and whether the placeholder holds", () => {
+    expect(copy.retention.months(6, true)).toBe("6 måneder etter Testfristen (standard)");
+    expect(copy.retention.months(1, false)).toBe("1 måned etter Testfristen");
   });
 });

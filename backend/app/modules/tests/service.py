@@ -483,6 +483,7 @@ _ERASE_ANSWER_TEXT = text(
     FROM test_attempts AS t
     WHERE a.attempt_id = t.id
       AND t.user_id = :user_id
+      AND (CAST(:scope AS uuid) IS NULL OR t.class_session_id = CAST(:scope AS uuid))
       AND a.value IS DISTINCT FROM to_jsonb(''::text)
       AND EXISTS (
         SELECT 1 FROM jsonb_array_elements(t.items) AS item
@@ -492,14 +493,20 @@ _ERASE_ANSWER_TEXT = text(
 )
 
 
-async def _erase_test_data(s: AsyncSession, user_id: uuid.UUID) -> None:
+async def _erase_test_data(
+    s: AsyncSession, user_id: uuid.UUID, scope: uuid.UUID | None = None
+) -> None:
     """In the erasure's transaction (Story 15.2, FR-76, after Epics 11 and 12): the text of the
     Student's long and Adapted answers is emptied, as if they had cleared it; the answer rows, their
     computed scores and ids stay, so the AI and human scores that name them hold. Then the written
     feedback of their AI assessments and the bodies of the calls that assessed them
-    (`assessment.erase_feedback_of_user`). Idempotent."""
-    await s.execute(_ERASE_ANSWER_TEXT, {"user_id": user_id, "types": list(TEXT_ITEM_TYPES)})
-    await assessment.erase_feedback_of_user(s, user_id)
+    (`assessment.erase_feedback_of_user`). Idempotent. With `scope` (Story 15.3, retention), only
+    the answers and assessments of that Class session."""
+    await s.execute(
+        _ERASE_ANSWER_TEXT,
+        {"user_id": user_id, "types": list(TEXT_ITEM_TYPES), "scope": scope},
+    )
+    await assessment.erase_feedback_of_user(s, user_id, scope)
 
 
 identity.register_erasure_step(

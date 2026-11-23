@@ -1,7 +1,9 @@
 """Erasing a User (Story 15.2, FR-76, FR-2, FR-3, AD-14, AD-15).
 
 `erase_user` is the one shared routine: the Admin's deletion on the Institution's instruction
-(`delete_user`) runs it now, and retention (Story 15.3, `ops.retention`) is to run it too. The User
+(`delete_user`) runs it, and so does retention (Story 15.3, `ops.retention`): for a Student with no
+other Class session it erases the whole User; for one who keeps the account it runs the same
+parts scoped to the one Class session (`class_session_id`), with no anonymisation. The User
 is anonymised in place: the `users` row stays, under the same id, as the anonymous User every
 Seat, occupancy row, `seat_week` and Decision log row keeps pointing to, so no game row changes
 and other Students' Games still render with the Seat shown by Role (AD-15, AD-4).
@@ -14,7 +16,9 @@ import, as they register revoke blockers:
    deletes the PDFs of every Student report about the User and then their rows, and every
    stored ZIP of the User's Class sessions (Epic 13), while the Roster still names them;
 2. aggregate writers (`register_aggregate_writer`) run first in the erasure's transaction. None is
-   registered yet: `reports.service.write_aggregate` (Epic 14) is to register here;
+   registered yet. Retention's per-Class-session gate (`register_session_aggregate_writer`) is
+   where `reports.service.write_aggregate` (Story 14.3) registers: retention runs it, and must see
+   it succeed, before it erases any Student of the Class session;
 3. the identity tables are anonymised, then every registered erasure step
    (`register_erasure_step`) deletes what its module holds of the User: free text, the AI
    answers that quote it, the scrubbed bodies of the AI calls. Steps 2–3 and the audit row are one
@@ -50,16 +54,22 @@ log = structlog.get_logger(__name__)
 
 _WORD = re.compile(r"[^\W\d_]{3,}")
 
-ErasurePreparation = Callable[[uuid.UUID, datetime], Awaitable[None]]
-"""`(user_id, now)`: work that needs its own transactions before the erasure's (a Takeover)."""
+ErasurePreparation = Callable[[uuid.UUID, datetime, uuid.UUID | None], Awaitable[None]]
+"""`(user_id, now, scope)`: work that needs its own transactions before the erasure's (a
+Takeover). `scope` is None for the whole User, or the one Class session retention erases."""
 AggregateWriter = Callable[[AsyncSession, uuid.UUID], Awaitable[None]]
 """`(session, user_id)`: write the anonymised aggregates the User's data feeds, in the erasure's
 transaction, before anything is deleted."""
-ErasureStep = Callable[[AsyncSession, uuid.UUID], Awaitable[None]]
-"""`(session, user_id)`: delete or clear what the module holds of the User, in the erasure's
-transaction. Must be idempotent."""
-ObjectEraser = Callable[[uuid.UUID], Awaitable[None]]
-"""`(user_id)`: delete stored objects of the User after the commit. Must be idempotent."""
+ErasureStep = Callable[[AsyncSession, uuid.UUID, uuid.UUID | None], Awaitable[None]]
+"""`(session, user_id, scope)`: delete or clear what the module holds of the User (with `scope`,
+of that Class session only), in the erasure's transaction. Must be idempotent."""
+ObjectEraser = Callable[[uuid.UUID, uuid.UUID | None], Awaitable[None]]
+"""`(user_id, scope)`: delete stored objects of the User after the commit. Must be idempotent."""
+SessionAggregateWriter = Callable[[uuid.UUID], Awaitable[None]]
+"""`(class_session_id)`: write the anonymised aggregates of the Class session (Cross-class
+statistics, groups of 10 or more) in its own transaction; raises when it cannot. Story 15.3's
+retention runs every one before it erases a Student of the Class session, and stops for that
+Class session when one raises."""
 
 
 @dataclass(frozen=True)
@@ -74,6 +84,7 @@ _PREPARATIONS: dict[str, tuple[frozenset[str], ErasurePreparation]] = {}
 _AGGREGATES: dict[str, AggregateWriter] = {}
 _STEPS: dict[str, Step] = {}
 _OBJECTS: dict[str, ObjectEraser] = {}
+_SESSION_AGGREGATES: dict[str, SessionAggregateWriter] = {}
 
 
 def register_erasure_preparation(
@@ -87,6 +98,21 @@ def register_erasure_preparation(
 def register_aggregate_writer(name: str, writer: AggregateWriter) -> None:
     """Called at import by `reports` (Epic 14): it runs first in the erasure's transaction."""
     _AGGREGATES[name] = writer
+
+
+def register_session_aggregate_writer(name: str, writer: SessionAggregateWriter) -> None:
+    """Called at import by `reports` (Story 14.3, `write_aggregate`): retention (Story 15.3) runs
+    it for a Class session before it deletes anything of it."""
+    _SESSION_AGGREGATES[name] = writer
+
+
+async def write_session_aggregates(class_session_id: uuid.UUID) -> int:
+    """Story 15.3 (FR-65, AD-14): run every registered per-Class-session aggregate writer; raises
+    what the first failing one raises. Returns how many ran."""
+    writers = list(_SESSION_AGGREGATES.values())
+    for writer in writers:
+        await writer(class_session_id)
+    return len(writers)
 
 
 def register_erasure_step(name: str, tables: set[str] | frozenset[str], run: ErasureStep) -> None:
@@ -182,6 +208,7 @@ async def erase_user(
     actor: uuid.UUID | None = None,
     change: Mapping[str, Any] | None = None,
     guard: Guard | None = None,
+    class_session_id: uuid.UUID | None = None,
 ) -> Any:
     """The one shared erasure routine (see the module doc). Returns True when the User is erased
     (now or before), False when there is no such User, or the `guard`'s refusal. The first
@@ -192,8 +219,16 @@ async def erase_user(
     leaves the Seats the preparations handed to AI players as they are, and so does a failure
     of the erasure's transaction: a repeat finishes it. Raises `RuntimeError`, changing nothing,
     when a table the registry says is erased has no registered part (a process that did not
-    import every module)."""
+    import every module).
+
+    With `class_session_id` (Story 15.3, retention of a Student who keeps the account): the same
+    preparations, steps and object erasers run, each scoped to that Class session; the identity
+    tables are not touched, no guard is asked and no audit row is written (retention audits
+    the Class session once). Returns True, or False when there is no such User."""
     _check_complete()
+    scope = class_session_id
+    if scope is not None:
+        guard = None
     async with get_sessionmaker().begin() as s:
         user = await repo.user_by_id(s, user_id)
     if user is None:
@@ -204,7 +239,7 @@ async def erase_user(
         if refused is not None:
             return refused
     for _, preparation in list(_PREPARATIONS.values()):
-        await preparation(user_id, now)
+        await preparation(user_id, now, scope)
     try:
         async with get_sessionmaker().begin() as s:
             if guard is not None:
@@ -217,20 +252,27 @@ async def erase_user(
             first = user["deleted_at"] is None
             if guard is not None and first and (refused := await guard(s, user)) is not None:
                 raise _Refused(refused)
-            for writer in list(_AGGREGATES.values()):
-                await writer(s, user_id)
-            await _erase_identity(s, user_id)
+            if scope is None:
+                for writer in list(_AGGREGATES.values()):
+                    await writer(s, user_id)
+                await _erase_identity(s, user_id)
             for step in list(_STEPS.values()):
-                await step.run(s, user_id)
-            await repo.mark_erased(s, user_id, now)
-            if first:
-                await audit.record(s, actor, USER_DELETED, {"user_id": user_id}, change or {}, now)
+                await step.run(s, user_id, scope)
+            if scope is None:
+                await repo.mark_erased(s, user_id, now)
+                if first:
+                    await audit.record(
+                        s, actor, USER_DELETED, {"user_id": user_id}, change or {}, now
+                    )
             await events.emit(s, "user", str(user_id))
     except _Refused as refused:
         return refused.refusal
     for eraser in list(_OBJECTS.values()):
-        await eraser(user_id)
-    log.info("user_erased", user_id=str(user_id), action=USER_DELETED, repeat=not first)
+        await eraser(user_id, scope)
+    if scope is None:
+        log.info("user_erased", user_id=str(user_id), action=USER_DELETED, repeat=not first)
+    else:
+        log.info("user_erased_in_session", user_id=str(user_id), class_session_id=str(scope))
     return True
 
 

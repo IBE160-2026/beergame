@@ -46,6 +46,7 @@ from app.modules.identity.schemas import (
     ResetCheckOut,
     ResetEmailOut,
     ResetTokenIn,
+    RetentionIn,
     RoleIn,
     SessionOut,
     UserDeletedOut,
@@ -672,6 +673,29 @@ async def set_institution_no_letter(
     audited; the same value again writes nothing. An unknown id is `not_found`."""
     outcome = await service.set_institution_no_letter(
         user.id, institution_id, body.on, now=auth.utcnow()
+    )
+    return _institution_answer(outcome)
+
+
+@admin_router.put(
+    "/institutions/{institution_id}/retention",
+    response_model=InstitutionOut,
+    responses=documented(401, 403, 404, 422),
+    operation_id="setInstitutionRetention",
+)
+async def set_institution_retention(
+    institution_id: uuid.UUID,
+    body: RetentionIn,
+    user: Annotated[UserOut, Depends(authz.require("institutions.manage"))],
+) -> Response:
+    """The Institution's retention period (Story 15.3, FR-77, FR-3): whole calendar months, 1 to
+    120, after the latest effective Test deadline of each Class session, or null for the
+    configured placeholder. Every Class session of the Institution whose deletion date has not
+    come gets its date recomputed in the same transaction, and its Students see the new date on
+    Hjem. Audited as `institution.retention_changed`; the same value again writes nothing. An
+    unknown id is `not_found`."""
+    outcome = await service.set_retention_months(
+        user.id, institution_id, body.months, now=auth.utcnow()
     )
     return _institution_answer(outcome)
 

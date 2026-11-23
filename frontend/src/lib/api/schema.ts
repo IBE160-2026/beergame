@@ -645,6 +645,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/institutions/{institution_id}/retention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Institution Retention
+         * @description The Institution's retention period (Story 15.3, FR-77, FR-3): whole calendar months, 1 to
+         *     120, after the latest effective Test deadline of each Class session, or null for the
+         *     configured placeholder. Every Class session of the Institution whose deletion date has not
+         *     come gets its date recomputed in the same transaction, and its Students see the new date on
+         *     Hjem. Audited as `institution.retention_changed`; the same value again writes nothing. An
+         *     unknown id is `not_found`.
+         */
+        put: operations["setInstitutionRetention"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/invitations": {
         parameters: {
             query?: never;
@@ -2053,7 +2078,8 @@ export interface paths {
          *     the Individual test and the AI assessment's state, for the Lecturers and Assistant lecturers
          *     of its Class. 403 `forbidden` for anyone else, an Admin without a staff role in the Class
          *     included, for a User who is no Student of the Class now and for a Class session that does not
-         *     exist (FR-5, AD-12).
+         *     exist (FR-5, AD-12). 409 `data_deleted` for its staff once the Class session's Student data
+         *     is deleted (Story 15.3, FR-77).
          */
         get: operations["getStudentRecord"];
         put?: never;
@@ -7214,6 +7240,13 @@ export interface components {
              */
             operator_owned: boolean;
             processing_agreement?: components["schemas"]["ProcessingAgreementOut"] | null;
+            /**
+             * Retention Default Months
+             * @default 6
+             */
+            retention_default_months: number;
+            /** Retention Months */
+            retention_months?: number | null;
         };
         /**
          * IntRange
@@ -9699,6 +9732,15 @@ export interface components {
         ResultsScorerOut: {
             /** Name */
             name: string;
+        };
+        /**
+         * RetentionIn
+         * @description Story 15.3 (FR-77): the Institution's retention period in whole calendar months, or None to
+         *     go back to the configured placeholder.
+         */
+        RetentionIn: {
+            /** Months */
+            months: number | null;
         };
         /**
          * RevealOut
@@ -13651,6 +13693,68 @@ export interface operations {
             };
         };
     };
+    setInstitutionRetention: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                institution_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RetentionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstitutionOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     listInvitations: {
         parameters: {
             query?: {
@@ -17187,6 +17291,15 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

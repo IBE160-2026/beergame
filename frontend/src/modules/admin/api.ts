@@ -176,6 +176,26 @@ export function useSetNoLetter() {
   });
 }
 
+/** The Institution's retention period in whole months, or null for the placeholder (Story 15.3);
+ * the list reads again. */
+export function useSetRetention() {
+  const queryClient = useQueryClient();
+  return useMutation<Institution, unknown, { id: string; months: number | null }>({
+    mutationFn: ({ id, months }) =>
+      request(() =>
+        api.PUT("/api/admin/institutions/{institution_id}/retention", {
+          params: { path: { institution_id: id } },
+          body: { months },
+        }),
+      ),
+    networkMode: "always",
+    retry: false,
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: institutionsKey });
+    },
+  });
+}
+
 export type ProcessingAgreementInput = components["schemas"]["ProcessingAgreementIn"];
 
 /** Record or replace an Institution's data processing agreement (Story 15.12); the list reads

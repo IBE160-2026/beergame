@@ -62,3 +62,18 @@ export function processingAgreementErrors(values: ProcessingAgreementValues, tod
   else if (values.signedOn > today) errors.signedOn = form.inFuture;
   return errors;
 }
+
+/** The api's retention periods (`RETENTION_MONTHS_MIN`/`MAX` in `identity/schemas.py`). */
+export const RETENTION_MONTHS_MIN = 1;
+export const RETENTION_MONTHS_MAX = 120;
+
+/** Story 15.3: the months typed in the retention field, as the api takes them: null for an empty
+ * field (the placeholder), a whole number from 1 to 120, or undefined when the field holds
+ * anything else. */
+export function retentionMonths(value: string): number | null | undefined {
+  const text = value.trim();
+  if (!text) return null;
+  if (!/^\d+$/.test(text)) return undefined;
+  const months = Number(text);
+  return months >= RETENTION_MONTHS_MIN && months <= RETENTION_MONTHS_MAX ? months : undefined;
+}

@@ -11,7 +11,7 @@ from decimal import Decimal
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import ARRAY, Uuid, any_, func, literal, or_, select, update
+from sqlalchemy import ARRAY, Uuid, and_, any_, func, literal, or_, select, true, update
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -516,15 +516,24 @@ async def game_attempts(game_ids: Sequence[str]) -> list[GameAttempt]:
     return [GameAttempt(*row) for row in rows]
 
 
-async def clear_bodies_of_user(session: AsyncSession, user_id: uuid.UUID) -> int:
+async def clear_bodies_of_user(
+    session: AsyncSession, user_id: uuid.UUID, scope: uuid.UUID | None = None
+) -> int:
     """Story 15.2 (FR-76, AD-14): empty the scrubbed request and the response of every call made
     for the User, in the caller's transaction: those whose `caller_ref` names them (a Debrief
     follow-up question quotes the Student's own text). The row stays, with its cost, tokens and
-    outcome, so cost sums do not change. Idempotent; returns how many rows held a body."""
+    outcome, so cost sums do not change. Idempotent; returns how many rows held a body. With
+    `scope` (Story 15.3, retention), only the calls made in that Class session."""
+    in_scope = (
+        and_(llm_calls.c.scope_kind == "class_session", llm_calls.c.scope_id == scope)
+        if scope is not None
+        else true()
+    )
     result = await session.execute(
         update(llm_calls)
         .where(
             llm_calls.c.caller_ref["user_id"].astext == str(user_id),
+            in_scope,
             or_(llm_calls.c.request != EMPTY_REQUEST, llm_calls.c.response.is_not(None)),
         )
         .values(request=EMPTY_REQUEST, response=None)

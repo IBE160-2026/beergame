@@ -4,7 +4,7 @@ import uuid
 from collections.abc import Sequence
 from datetime import datetime
 
-from sqlalchemy import RowMapping, and_, any_, delete, or_, select, text, update
+from sqlalchemy import RowMapping, and_, any_, delete, or_, select, text, true, update
 from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -206,15 +206,37 @@ async def deliveries_for_refs(
     return {row["ref"]: row for row in result.mappings()}
 
 
-async def erase_user(session: AsyncSession, user_id: uuid.UUID) -> None:
+async def erase_user(
+    session: AsyncSession, user_id: uuid.UUID, scope: uuid.UUID | None = None
+) -> None:
     """Story 15.2 (FR-76, AD-14): delete the Messages written to the Student alone, their place
     among the recipients of the others, their notices and their mail deliveries. Messages to a
-    Class game or the whole session stay for the others. Idempotent."""
+    Class game or the whole session stay for the others. Idempotent.
+
+    Story 15.3 (retention): with `scope`, a Class session's id, only that Class session's
+    Messages to the Student, their places among its recipients and their notices about it go;
+    mail deliveries (ids, no text) stay with the account."""
+    in_scope = messages.c.class_session_id == scope if scope is not None else true()
     await session.execute(
         delete(messages).where(
-            messages.c.recipient_kind == "student", messages.c.recipient_user_id == user_id
+            messages.c.recipient_kind == "student",
+            messages.c.recipient_user_id == user_id,
+            in_scope,
         )
     )
-    await session.execute(delete(message_recipients).where(message_recipients.c.user_id == user_id))
+    recipients = message_recipients.c.user_id == user_id
+    if scope is not None:
+        recipients = and_(
+            recipients,
+            message_recipients.c.message_id.in_(
+                select(messages.c.id).where(messages.c.class_session_id == scope)
+            ),
+        )
+    await session.execute(delete(message_recipients).where(recipients))
+    if scope is not None:
+        await session.execute(
+            delete(notices).where(notices.c.user_id == user_id, notices.c.ref == scope)
+        )
+        return
     await session.execute(delete(notices).where(notices.c.user_id == user_id))
     await session.execute(delete(mail_deliveries).where(mail_deliveries.c.user_id == user_id))

@@ -1799,24 +1799,22 @@ async def scores_of(
     return found
 
 
-async def erase_feedback_of_user(s: AsyncSession, user_id: uuid.UUID) -> None:
+async def erase_feedback_of_user(
+    s: AsyncSession, user_id: uuid.UUID, scope: uuid.UUID | None = None
+) -> None:
     """Story 15.2 (FR-76, AD-14) after Epic 12, in the erasure's transaction: the written feedback
     of the User's AI assessments is emptied (it may quote their answer), and so are the bodies of
     the AI calls that assessed them (they hold the answer). The scores, the flags and the cost rows
-    stay, so every id still holds. Idempotent."""
-    attempts = list(
-        (
-            await s.execute(
-                select(ai_assessments.c.attempt_id).where(ai_assessments.c.user_id == user_id)
-            )
-        ).scalars()
-    )
+    stay, so every id still holds. Idempotent. With `scope` (Story 15.3, retention), only the
+    assessments in that Class session."""
+    mine = ai_assessments.c.user_id == user_id
+    if scope is not None:
+        mine = mine & (ai_assessments.c.class_session_id == scope)
+    attempts = list((await s.execute(select(ai_assessments.c.attempt_id).where(mine))).scalars())
     await s.execute(
         update(ai_item_scores)
         .where(
-            ai_item_scores.c.assessment_id.in_(
-                select(ai_assessments.c.id).where(ai_assessments.c.user_id == user_id)
-            ),
+            ai_item_scores.c.assessment_id.in_(select(ai_assessments.c.id).where(mine)),
             ai_item_scores.c.feedback.is_not(None),
         )
         .values(feedback=None)

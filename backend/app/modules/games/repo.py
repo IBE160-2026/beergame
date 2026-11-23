@@ -6,7 +6,7 @@ from collections.abc import Collection, Sequence
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Numeric, RowMapping, delete, func, select, text, tuple_, update
+from sqlalchemy import Numeric, RowMapping, delete, func, select, text, true, tuple_, update
 from sqlalchemy.dialects.postgresql import distinct_on, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -947,10 +947,12 @@ async def delete_reclaims_of(session: AsyncSession, game_id: uuid.UUID, user_id:
 
 
 async def erasure_seats_of(
-    session: AsyncSession, user_id: uuid.UUID
+    session: AsyncSession, user_id: uuid.UUID, scope: uuid.UUID | None = None
 ) -> list[tuple[uuid.UUID, uuid.UUID]]:
     """`(game_id, seat_id)`, by Game and Seat, of every Seat of a running Game that the Student
-    holds now (its latest occupancy row is theirs) or has a Reclaim of queued (Story 15.2)."""
+    holds now (its latest occupancy row is theirs) or has a Reclaim of queued (Story 15.2); with
+    `scope` (Story 15.3, retention), of the Games of that Class session only."""
+    in_scope = games.c.class_session_id == scope if scope is not None else true()
     latest = _latest_occupancy(
         seat_occupancy.c.seat_id.in_(
             select(seat_occupancy.c.seat_id).where(seat_occupancy.c.user_id == user_id)
@@ -967,13 +969,14 @@ async def erasure_seats_of(
             latest.c.user_id == user_id,
             latest.c.occupant_kind == "student",
             games.c.lifecycle == "running",
+            in_scope,
         )
     )
     found = {(row.game_id, row.id) for row in result}
     queued = await session.execute(
-        select(seat_reclaims.c.game_id, seat_reclaims.c.seat_id).where(
-            seat_reclaims.c.user_id == user_id
-        )
+        select(seat_reclaims.c.game_id, seat_reclaims.c.seat_id)
+        .join(games, games.c.id == seat_reclaims.c.game_id)
+        .where(seat_reclaims.c.user_id == user_id, in_scope)
     )
     found |= {(row.game_id, row.seat_id) for row in queued}
     return sorted(found)

@@ -144,6 +144,40 @@ for (const vp of VIEWPORTS) {
       await expectAccessible(page, vp.phone);
       await expect(page.locator("main button.bg-ink")).toHaveCount(1);
     });
+
+    test("the Admin sets an Institution's retention period (Story 15.3)", async ({ page }) => {
+      const form = copy.retention;
+      await loginByApi(page, "admin");
+      const name = `Oppbevaringshøgskolen ${tag()}`;
+      const created = await page.request.post("/api/admin/institutions", {
+        data: { name },
+        headers: { "X-Requested-With": "olspillet" },
+      });
+      expect(created.status()).toBe(201);
+      await page.goto("/admin/institusjoner");
+      const row = listSection(page).locator("tbody tr").filter({ hasText: name });
+      await expect(row.getByText(form.months(6, true))).toBeVisible();
+
+      await page.getByRole("button", { name: form.change(name) }).click();
+      const field = page.getByLabel(form.field, { exact: true });
+      await expect(field).toBeFocused();
+      await expect(field).toHaveValue("");
+      await field.fill("0");
+      await page.getByRole("button", { name: form.save }).click();
+      await expect(page.getByText(form.invalid)).toBeVisible();
+      await expect(field).toHaveAttribute("aria-invalid", "true");
+      await expectAccessible(page, vp.phone);
+
+      await field.fill("12");
+      const saved = page.waitForResponse((r) => r.url().endsWith("/retention") && r.request().method() === "PUT");
+      await page.getByRole("button", { name: form.save }).click();
+      expect((await saved).status()).toBe(200);
+      await expect(page.getByRole("button", { name: form.change(name) })).toBeFocused();
+      await expect(page.getByRole("status").filter({ hasText: form.saved(name) })).toBeVisible();
+      await expect(row.getByText(form.months(12, false))).toBeVisible();
+      await expectAccessible(page, vp.phone);
+      await expect(page.locator("main button.bg-ink")).toHaveCount(1);
+    });
   });
 }
 

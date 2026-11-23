@@ -193,21 +193,22 @@ sessions.register_reporting_students(scope.reporting_students)
 sessions.register_makeup_game(repo.makeup_game_of)
 
 
-async def _erase_reports(user_id: uuid.UUID, now: datetime) -> None:
+async def _erase_reports(user_id: uuid.UUID, now: datetime, scope: uuid.UUID | None = None) -> None:
     """The erasure of a Student (Story 15.2, FR-76, AD-14), before the erasure's transaction while
     the Roster still names their Classes: delete the PDFs of every report about them and then
     the rows (their snapshots go with them); delete every stored ZIP of their Class sessions,
     which holds their report, and clear its path. Objects go before rows, so a storage failure
-    leaves the rows for a repeat; every part is idempotent."""
+    leaves the rows for a repeat; every part is idempotent. With `scope` (Story 15.3, retention),
+    the reports about them in that Class session and every ZIP of it."""
     del now
     files = storage.get_storage()
     async with get_sessionmaker().begin() as s:
-        reports = await repo.report_paths_of(s, user_id)
-        zips = await repo.zip_paths_of(s, user_id)
+        reports = await repo.report_paths_of(s, user_id, scope)
+        zips = await repo.zip_paths_of(s, user_id, scope)
     for path in reports + zips:
         await files.delete(storage.REPORTS, path)
     async with get_sessionmaker().begin() as s:
-        await repo.delete_report_requests_of(s, user_id)
+        await repo.delete_report_requests_of(s, user_id, scope)
         await repo.clear_zip_paths(s, zips)
 
 

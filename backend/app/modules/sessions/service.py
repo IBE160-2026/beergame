@@ -2740,8 +2740,17 @@ async def save_extension(
 
 
 def retention_months() -> int:
-    """The retention period in calendar months (placeholder `RETENTION_MONTHS`, FR-77)."""
+    """The configured placeholder retention period in calendar months (`RETENTION_MONTHS`,
+    FR-77): what applies while an Institution has set none (Story 15.3)."""
     return get_settings().retention_months
+
+
+async def retention_months_of_class(s: AsyncSession, class_id: uuid.UUID) -> int:
+    """The retention period of the Class's Institution (Story 15.3, FR-77, AD-27): its own, set by
+    the Admin, or the placeholder. A Control test's Class belongs to the operator-owned
+    Institution, so it follows that Institution's period, never a course Institution's."""
+    facts = (await classes.class_facts(s, [class_id])).get(class_id)
+    return await identity.retention_months_of(facts.institution_id if facts else None, s)
 
 
 async def _store_deletion_date(
@@ -2749,16 +2758,90 @@ async def _store_deletion_date(
 ) -> date | None:
     """Store the Class session's deletion date (Story 13.9, FR-77): `platform.retention` over its
     latest effective Test deadline, `test_deadline` (the Class session's, as just saved) or the
-    latest Student extension where that is later, read in `s`. The one writer of the column;
-    every Test deadline save and every extension calls it in its own transaction, under the
+    latest Student extension where that is later, plus its Institution's retention period (Story
+    15.3), read in `s`. The one writer of the column; every Test deadline save, every extension
+    and every change of the Institution's period calls it in its own transaction, under the
     Class session's row lock, so no Student's data can fall due before their own period has
     run. Returns the date stored."""
     latest = retention.latest_test_deadline(
         test_deadline, await repo.extension_test_deadlines(s, class_session_id)
     )
-    deletion = retention.deletion_date(latest, retention_months())
+    row = await repo.session_row(s, class_session_id)
+    months = await retention_months_of_class(s, row["class_id"]) if row else retention_months()
+    deletion = retention.deletion_date(latest, months)
     await repo.set_deletion_date(s, class_session_id, deletion)
     return deletion
+
+
+async def _redate_institution(s: AsyncSession, institution_id: uuid.UUID, now: datetime) -> None:
+    """Story 15.3 (FR-77): in the transaction that changed the Institution's retention period,
+    recompute the deletion date of each of its Class sessions whose date has not come yet (or
+    that has none), under each row's lock. A Class session whose date has come keeps it: its
+    Student data counts as deleted already (`data_deleted`), and retention may be running."""
+    today = now.astimezone(OSLO).date()
+    class_ids = await classes.class_ids_of_institution(s, institution_id)
+    for class_session_id in await repo.session_ids_of_classes(s, class_ids):
+        row = await repo.session_row(s, class_session_id, lock=True)
+        if row is None or row["data_deleted_at"] is not None:
+            continue
+        if row["deletion_date"] is not None and row["deletion_date"] <= today:
+            continue
+        await _store_deletion_date(s, class_session_id, row["test_deadline"])
+        # Its Students' Hjem and the staff read the new date (Story 13.9's line).
+        await events.emit(s, "session", str(class_session_id))
+        for student in await classes.registered_students(row["class_id"]):
+            await events.emit(s, "user", str(student))
+
+
+identity.register_retention_listener("sessions", _redate_institution)
+
+
+# Retention (Story 15.3, FR-77, AD-9, AD-14): what `ops.retention` reads and marks of a Class
+# session. The deletion itself runs through `identity.erase_user`, the one shared routine.
+
+
+@dataclass(frozen=True)
+class RetentionTarget:
+    """A Class session as retention reads it: its Class, its stored deletion date and when its
+    Student data was deleted (None until retention finished)."""
+
+    id: uuid.UUID
+    class_id: uuid.UUID
+    deletion_date: date | None
+    data_deleted_at: datetime | None
+
+
+async def due_retention(now: datetime) -> list[uuid.UUID]:
+    """The Class sessions whose deletion date has come on the Oslo calendar and whose Student data
+    retention has not finished deleting, the earliest date first."""
+    async with get_sessionmaker()() as s:
+        return await repo.due_retention(s, now.astimezone(OSLO).date())
+
+
+async def retention_target(
+    s: AsyncSession, class_session_id: uuid.UUID, *, lock: bool = False
+) -> RetentionTarget | None:
+    """The Class session for retention, or None; with `lock` its row is locked."""
+    row = await repo.session_row(s, class_session_id, lock=lock)
+    if row is None:
+        return None
+    return RetentionTarget(row["id"], row["class_id"], row["deletion_date"], row["data_deleted_at"])
+
+
+async def retention_targets_of_classes(
+    s: AsyncSession, class_ids: list[uuid.UUID]
+) -> list[RetentionTarget]:
+    """Every Class session of these Classes, as retention reads them."""
+    return [
+        RetentionTarget(row["id"], row["class_id"], row["deletion_date"], row["data_deleted_at"])
+        for row in await repo.retention_rows_of_classes(s, class_ids)
+    ]
+
+
+async def mark_data_deleted(s: AsyncSession, class_session_id: uuid.UUID, now: datetime) -> None:
+    """Retention finished deleting the Class session's Student data (set once)."""
+    await repo.mark_data_deleted(s, class_session_id, now)
+    await events.emit(s, "session", str(class_session_id))
 
 
 async def refresh_deletion_date(s: AsyncSession, class_session_id: uuid.UUID) -> date | None:
@@ -6903,17 +6986,23 @@ async def _copy_notes(
 # Tilrettelegging it owns and the AI call bodies to the one erasure routine of `identity`.
 
 
-async def _hand_over_seats(user_id: uuid.UUID, now: datetime) -> None:
-    """Before the erasure's transaction: the User's running Seats go to AI players."""
-    await games_service.hand_over_seats_of(user_id)
+async def _hand_over_seats(
+    user_id: uuid.UUID, now: datetime, scope: uuid.UUID | None = None
+) -> None:
+    """Before the erasure's transaction: the User's running Seats go to AI players (with `scope`,
+    Story 15.3, those in that Class session's Games only)."""
+    await games_service.hand_over_seats_of(user_id, scope)
 
 
-async def _erase_session_data(s: AsyncSession, user_id: uuid.UUID) -> None:
+async def _erase_session_data(
+    s: AsyncSession, user_id: uuid.UUID, scope: uuid.UUID | None = None
+) -> None:
     """In the erasure's transaction: the Student's Tilrettelegging and own deadlines (Story 11.13),
-    and the bodies of the AI calls made for them (a follow-up question quotes their own text)."""
-    await repo.delete_adjustments_of(s, user_id)
-    await repo.delete_extensions_of(s, user_id)
-    await calls.clear_bodies_of_user(s, user_id)
+    and the bodies of the AI calls made for them (a follow-up question quotes their own text);
+    with `scope` (Story 15.3, retention), those of that Class session only."""
+    await repo.delete_adjustments_of(s, user_id, scope)
+    await repo.delete_extensions_of(s, user_id, scope)
+    await calls.clear_bodies_of_user(s, user_id, scope)
 
 
 identity.register_erasure_preparation("games", {"seat_reclaims"}, _hand_over_seats)

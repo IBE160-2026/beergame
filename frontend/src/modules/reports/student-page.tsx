@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { Link } from "@/components/link";
 import { nb } from "@/copy/nb";
 import { ApiRequestError } from "@/lib/api/client";
 import { usePageState } from "@/lib/page-state";
@@ -73,6 +74,19 @@ function StudentPageBody({
   const managed: StudentPage | undefined = data?.can_manage ? page.data : undefined;
   if (found.error instanceof ApiRequestError && found.error.code === "forbidden") {
     return <AccessDenied user={user} updatedAt={updatedAt} />;
+  }
+  if (found.error instanceof ApiRequestError && found.error.code === "data_deleted") {
+    // Story 15.3 (FR-77): the Class session's Student data is deleted; the page says so.
+    return (
+      <PageShell user={user} title={nb.reports.studentPage.deletedTitle} updatedAt={updatedAt}>
+        <div className="flex flex-col items-start gap-3">
+          <p className="max-w-prose text-body-phone text-ink lg:text-body">{nb.reports.studentPage.deleted}</p>
+          <Link href={classSessionPath(sessionId)} standalone>
+            {nb.reports.studentPage.toSession}
+          </Link>
+        </div>
+      </PageShell>
+    );
   }
   const crumbs = data
     ? ([

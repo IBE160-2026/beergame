@@ -414,20 +414,31 @@ _class_sessions = table("class_sessions", column("id"), column("class_id"))
 _roster_entries = table("roster_entries", column("class_id"), column("user_id"))
 
 
-async def report_paths_of(session: AsyncSession, user_id: uuid.UUID) -> list[str]:
-    """The object paths of every stored report about the Student, any variant, whoever asked."""
+def _requests_of(user_id: uuid.UUID, scope: uuid.UUID | None):
+    mine = report_requests.c.user_id == user_id
+    return mine if scope is None else mine & (report_requests.c.class_session_id == scope)
+
+
+async def report_paths_of(
+    session: AsyncSession, user_id: uuid.UUID, scope: uuid.UUID | None = None
+) -> list[str]:
+    """The object paths of every stored report about the Student, any variant, whoever asked;
+    with `scope` (Story 15.3), of that Class session only."""
     found = await session.execute(
         select(report_requests.c.object_path).where(
-            report_requests.c.user_id == user_id, report_requests.c.object_path.is_not(None)
+            _requests_of(user_id, scope), report_requests.c.object_path.is_not(None)
         )
     )
     return [path for path in found.scalars() if path]
 
 
-async def delete_report_requests_of(session: AsyncSession, user_id: uuid.UUID) -> None:
-    """Delete every report request about the Student; their snapshots go with them (CASCADE),
-    and a render still running finds no row and removes its own PDF (`render`)."""
-    await session.execute(delete(report_requests).where(report_requests.c.user_id == user_id))
+async def delete_report_requests_of(
+    session: AsyncSession, user_id: uuid.UUID, scope: uuid.UUID | None = None
+) -> None:
+    """Delete every report request about the Student (with `scope`, in that Class session); their
+    snapshots go with them (CASCADE), and a render still running finds no row and removes its own
+    PDF (`render`)."""
+    await session.execute(delete(report_requests).where(_requests_of(user_id, scope)))
 
 
 def _zips_of_student(user_id: uuid.UUID):
@@ -438,12 +449,14 @@ def _zips_of_student(user_id: uuid.UUID):
     return report_zips.c.class_session_id.in_(sessions)
 
 
-async def zip_paths_of(session: AsyncSession, user_id: uuid.UUID) -> list[str]:
-    """The object paths of the stored ZIPs that may hold the Student's report."""
+async def zip_paths_of(
+    session: AsyncSession, user_id: uuid.UUID, scope: uuid.UUID | None = None
+) -> list[str]:
+    """The object paths of the stored ZIPs that may hold the Student's report; with `scope`
+    (Story 15.3, retention), every stored ZIP of that Class session."""
+    which = _zips_of_student(user_id) if scope is None else report_zips.c.class_session_id == scope
     found = await session.execute(
-        select(report_zips.c.object_path).where(
-            _zips_of_student(user_id), report_zips.c.object_path.is_not(None)
-        )
+        select(report_zips.c.object_path).where(which, report_zips.c.object_path.is_not(None))
     )
     return [path for path in found.scalars() if path]
 

@@ -10,6 +10,7 @@ from pydantic import (
     ConfigDict,
     Field,
     StrictBool,
+    StrictInt,
     StringConstraints,
     field_validator,
 )
@@ -391,6 +392,26 @@ class InstitutionOut(BaseModel):
     """Story 15.12 (FR-8, PRD §6.1): the Institution's data processing agreement with the operator,
     or None while none is recorded. While `REQUIRE_DPA_FOR_INVITATIONS` is on, its Students are
     invited only once it is recorded (or it is the operator's own)."""
+    retention_months: int | None = None
+    """Story 15.3 (FR-77): the Institution's own retention period in calendar months after the
+    latest effective Test deadline, or None while the placeholder applies."""
+    retention_default_months: int = 6
+    """Story 15.3: the configured placeholder (`RETENTION_MONTHS`) that applies while
+    `retention_months` is None."""
+
+
+RETENTION_MONTHS_MIN = 1
+RETENTION_MONTHS_MAX = 120
+"""Story 15.3: the retention periods the Admin may set, in whole months (the column's check)."""
+
+
+class RetentionIn(BaseModel):
+    """Story 15.3 (FR-77): the Institution's retention period in whole calendar months, or None to
+    go back to the configured placeholder."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    months: StrictInt | None = Field(ge=RETENTION_MONTHS_MIN, le=RETENTION_MONTHS_MAX)
 
 
 class NoLetterIn(BaseModel):
