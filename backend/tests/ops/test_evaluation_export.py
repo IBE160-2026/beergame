@@ -150,6 +150,7 @@ def plant_test_answers(user_id: uuid.UUID, session_id: str) -> None:
         )
 
 
+@pytest.mark.long
 async def test_an_agreed_export_gives_each_student_one_pseudonym_and_no_name(
     klass, admin, caplog, capsys
 ):

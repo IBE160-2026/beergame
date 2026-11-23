@@ -1535,8 +1535,12 @@ async def save_session(
             # Story 11.3: open Individual test attempts keep their stored deadline in step.
             for mover in _test_deadline_movers:
                 await mover(s, session_id, changed["test_deadline"])
-            # Story 13.9: the deletion date follows, in this transaction.
-            await _store_deletion_date(s, session_id, changed["test_deadline"])
+        if changed:
+            # Story 13.9: the deletion date follows, in this transaction; without a Test deadline
+            # it counts from the latest other date (`retention.deletion_base`).
+            dated = await repo.session_row(s, session_id)
+            assert dated is not None
+            await _store_deletion_date(s, session_id, dated["test_deadline"])
         if timing and _test_sitting:
             await _test_sitting[0][1](s, session_id, sitting, user.id, now)
         if switching_assessment:
@@ -2148,7 +2152,7 @@ async def _replay_out(
     game_id = await _replay_game[0](s, user.id, row["id"]) if _replay_game else None
     if game_id is None:
         return StudentReplayOut(can_start=not test_deadline_passed(user, row, now), game=None)
-    table = await games_service.table_status(s, game_id, user.id, _names_in(row["class_id"], s))
+    table = await games_service.table_status(s, game_id, user.id, _names_in(row, s))
     play = await games_service.play_status(s, game_id)
     seats = _seats_out(table)
     role = next(seat.role for seat in seats if seat.mine)
@@ -2305,7 +2309,7 @@ async def student_names(
         row = await repo.session_row(s, class_session_id)
         if row is None:
             return {}
-        return await classes.student_names(row["class_id"], user_ids, session=s)
+        return await session_student_names(row, user_ids, session=s)
 
 
 def _held(card: StudentGameOut | None) -> bool:
@@ -2515,8 +2519,22 @@ def data_deleted(row: Mapping[str, Any], now: datetime) -> bool:
     """Whether the Class session's Student data counts as deleted (Story 13.12, FR-57, FR-77):
     its deletion date (Story 13.9) has come, on the Oslo calendar. The staff's report action says
     so and builds nothing."""
+    if row.get("data_deleted_at") is not None:  # retention ran (Story 15.3): for good
+        return True
     deletion = row.get("deletion_date")
     return deletion is not None and now.astimezone(OSLO).date() >= deletion
+
+
+async def session_student_names(
+    row: Mapping[str, Any], user_ids: list[uuid.UUID], session: AsyncSession | None = None
+) -> dict[uuid.UUID, str]:
+    """`classes.student_names` for the Class session `row`'s Class, or none once its Student data
+    counts as deleted (Story 15.3, FR-77): a Student who keeps the account (a later Class session
+    of the same Class) is then named nowhere in this Class session's views or mails, which show
+    each Seat by Role, as the staff game views of `overview` do."""
+    if not user_ids or data_deleted(row, auth.utcnow()):
+        return {}
+    return await classes.student_names(row["class_id"], user_ids, session=session)
 
 
 @dataclass(frozen=True)
@@ -2651,7 +2669,7 @@ async def session_students(class_session_id: uuid.UUID) -> dict[uuid.UUID, str]:
     if row is None:
         return {}
     students = await classes.registered_students(row["class_id"])
-    return await classes.student_names(row["class_id"], students)
+    return await session_student_names(row, students)
 
 
 async def deadlines_out(
@@ -2763,10 +2781,19 @@ async def _store_deletion_date(
     and every change of the Institution's period calls it in its own transaction, under the
     Class session's row lock, so no Student's data can fall due before their own period has
     run. Returns the date stored."""
+    row = await repo.session_row(s, class_session_id)
+    if row is not None and data_deleted(row, auth.utcnow()):
+        # Epic 15 close-out: once the date has come (or retention ran) it stays, so a date saved
+        # later cannot bring the names back or stop a retention run half-way.
+        return row["deletion_date"]
     latest = retention.latest_test_deadline(
         test_deadline, await repo.extension_test_deadlines(s, class_session_id)
     )
-    row = await repo.session_row(s, class_session_id)
+    if row is not None:
+        # Without a Test deadline the latest other date counts (`retention.deletion_base`).
+        latest = retention.deletion_base(
+            latest, [row["debrief_deadline"], row["play_deadline"], row["start_at"]]
+        )
     months = await retention_months_of_class(s, row["class_id"]) if row else retention_months()
     deletion = retention.deletion_date(latest, months)
     await repo.set_deletion_date(s, class_session_id, deletion)
@@ -3063,7 +3090,7 @@ async def student_name(class_session_id: uuid.UUID, user_id: uuid.UUID) -> str |
         row = await repo.session_row(s, class_session_id)
         if row is None:
             return None
-        names = await classes.student_names(row["class_id"], [user_id], session=s)
+        names = await session_student_names(row, [user_id], session=s)
     return names.get(user_id)
 
 
@@ -3073,13 +3100,14 @@ async def held_debrief_sessions(s: AsyncSession) -> list[uuid.UUID]:
 
 
 def _names_in(
-    class_id: uuid.UUID, s: AsyncSession
+    row: Mapping[str, Any], s: AsyncSession
 ) -> Callable[[list[uuid.UUID]], Awaitable[dict[uuid.UUID, str]]]:
-    """`classes.student_names` for one Class: the names `table_status` shows, read now, in the
-    caller's session `s` (one connection per request, `db.reading`)."""
+    """`session_student_names` for the Class session `row`: the names `table_status` shows, read
+    now, in the caller's session `s` (one connection per request, `db.reading`); none once its
+    Student data counts as deleted (Story 15.3)."""
 
     async def resolve(user_ids: list[uuid.UUID]) -> dict[uuid.UUID, str]:
-        return await classes.student_names(class_id, user_ids, session=s)
+        return await session_student_names(row, user_ids, session=s)
 
     return resolve
 
@@ -3131,7 +3159,7 @@ async def _game_out(
     # line Hjem shows as Spill does (Epic 8 close-out).
     own_factor = (await time_factors(s, found.class_session_id, [user_id])).get(user_id)
     table = await games_service.table_status(
-        s, found.game_id, user_id, _names_in(row["class_id"], s), factor=own_factor
+        s, found.game_id, user_id, _names_in(row, s), factor=own_factor
     )
     play = await games_service.play_status(s, found.game_id)
     state: games_service.SeatState | None = None
@@ -3159,7 +3187,7 @@ async def _game_out(
         server_now=await games_service.database_now(s),
         seat_state=state,
         turn=turn,
-        time_proposal=await _time_proposal_out(s, user_id, found.game_id, row["class_id"]),
+        time_proposal=await _time_proposal_out(s, user_id, found.game_id, row),
         # Story 8.2 (FR-17): a test Game counts toward no requirement.
         obligatory=bool(row.get("obligatory")) and not found.test_game,
         can_pause=table.can_pause,
@@ -3189,14 +3217,14 @@ async def _has_debrief(
 
 
 async def _time_proposal_out(
-    s: AsyncSession, user_id: uuid.UUID, game_id: uuid.UUID, class_id: uuid.UUID
+    s: AsyncSession, user_id: uuid.UUID, game_id: uuid.UUID, row: Mapping[str, Any]
 ) -> TimeProposalOut | None:
     """The game's open proposal of a time to play as the reader sees it (Story 6.19, FR-22):
     the names read now, never stored (AD-14)."""
     proposal = await games_service.open_time_proposal(s, game_id)
     if proposal is None:
         return None
-    names = await _names_in(class_id, s)([proposal.proposed_by, *proposal.accepted_by])
+    names = await _names_in(row, s)([proposal.proposed_by, *proposal.accepted_by])
 
     def person(other: uuid.UUID) -> ProposalPersonOut:
         return ProposalPersonOut(name=names.get(other), mine=other == user_id)
@@ -3357,7 +3385,7 @@ async def student_play_of(user: authz.Principal, game_id: str) -> PlayOut | None
         # Story 8.11: the reader's own Tilrettelegging factor gives their own «I rommet» minutes.
         own_factor = (await time_factors(s, found.class_session_id, [user.id])).get(user.id)
         table = await games_service.table_status(
-            s, found.game_id, user.id, _names_in(row["class_id"], s), factor=own_factor
+            s, found.game_id, user.id, _names_in(row, s), factor=own_factor
         )
         state, turn = await _own_week(s, found, play.week)
         now = await games_service.database_now(s)
@@ -3753,7 +3781,7 @@ async def time_proposal_mail_context(
         return None
     if user_id not in await classes.registered_students(row["class_id"]):
         return None
-    names = await classes.student_names(row["class_id"], [proposal.proposed_by])
+    names = await session_student_names(row, [proposal.proposed_by])
     return {
         "class_name": label.name,
         "game_number": number,
@@ -4134,7 +4162,7 @@ async def takeover_mail_context(
         return None
     own = info.student == user_id
     names = (
-        await classes.student_names(row["class_id"], [info.student])
+        await session_student_names(row, [info.student])
         if info.student is not None and not own
         else {}
     )
@@ -4365,6 +4393,11 @@ async def _out_for(
     else:
         out = await _allocation_out(row["class_id"], draft, opened)
         out.method = method
+    if out.draft is not None and data_deleted(row, auth.utcnow()):
+        # Story 15.3: once the Student data counts as deleted each Seat shows by Role.
+        for game in out.draft.games:
+            for seat in game.seats:
+                seat.name = None
     if row["kind"] == authz.CONTROL_TEST_KIND:  # Story 12.8
         registered = await classes.registered_students(row["class_id"])
         out.consent_missing = len(await _without_consent(row, registered))
@@ -4391,7 +4424,7 @@ async def allocation_of(user: authz.Principal, session_id: uuid.UUID) -> Allocat
     if row["locked_at"] is not None:
         # Story 5.13: who no Class game could seat, named for the Lecturer.
         without = await students_without_seat(session_id)
-        names = await classes.student_names(row["class_id"], without)
+        names = await session_student_names(row, without)
         # A Student removed between the two reads has no name now: no longer one to list.
         out.without_seat = [
             AllocationStudentOut(user_id=student, name=names[student])
@@ -6428,7 +6461,7 @@ async def _seat_choice_out(
         draft = await repo.draft_of(s, row["id"])
         number = await repo.number_of(s, row["id"], row["class_id"])
         label = await classes.label_of_class(s, row["class_id"])
-    names = await classes.student_names(row["class_id"], sorted(_seated(games)))
+    names = await session_student_names(row, sorted(_seated(games)))
     mine: SeatRef | None = None
     out: list[SeatChoiceGameOut] = []
     for game in games:

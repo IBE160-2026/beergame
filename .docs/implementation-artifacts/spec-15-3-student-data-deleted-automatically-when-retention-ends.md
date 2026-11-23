@@ -17,27 +17,6 @@ deferred:
     location: >-
       backend/app/modules/identity/erasure.py write_session_aggregates; backend/app/modules/ops/retention.py retain
     severity: medium
-  - summary: >-
-      Name readers outside the Oversikt/Spillinnsikt views still show a kept-account Student's name for a Class session whose deletion date has come.
-    evidence: |-
-      `_student_names` in sessions/overview.py gates the four staff game views. `sessions.service` allocation, Seat choice, time-proposal and takeover mail contexts, `messaging/messages.py` and `debrief/service.py:354` read `classes.student_names` by Class without the date. A Student erased whole is off the Roster and is named nowhere; only one who keeps the account (later Class session in the same Class) is affected.
-    location: >-
-      backend/app/modules/sessions/service.py, backend/app/modules/messaging/messages.py
-    severity: medium
-  - summary: >-
-      A Class session that never had a Test deadline has no deletion date and is never retained; its Class's unregistered Roster rows wait with it.
-    evidence: |-
-      Story 13.9's rule gives NULL without a Test deadline; `due_retention` needs a date and `_purge_class_if_done` needs every session marked. Needs a rule (e.g. creation or archive time plus the period) from the founder.
-    location: >-
-      backend/app/modules/sessions/repo.py due_retention
-    severity: medium
-  - summary: >-
-      Scoped erasure of Debrief text, test answers, AI feedback and call bodies, reports/ZIPs and running Seats has no test with a non-None scope.
-    evidence: |-
-      tests/ops/test_retention.py checks messages, completion corrections and Tilrettelegging per session; the other parts carry the same one-line class_session_id filter but a dropped filter would not fail a test. Settle with a two-session fixture per part (games, attempts, a storage fake).
-    location: >-
-      backend/tests/ops/test_retention.py
-    severity: medium
 ---
 
 <intent-contract>
@@ -190,3 +169,14 @@ Blocking condition: none
 **New personal-data tables.** None; `institutions.retention_months` and `class_sessions.data_deleted_at` hold no personal data (registry notes updated).
 
 **Residual risks.** The deferred items; the archived-Class finder scans every archived Class each sweep.
+
+## Epic 15 close-out (2026-11-23)
+
+Three deferred mediums settled, plus the follow-up review's three mediums:
+
+- A Class session with no Test deadline is dated from its latest other date (`platform.retention.deletion_base`; every date save re-stores it; migration 0073 backfills with the Institution's period or six months). A session with no date at all keeps an account only while its Class is current, and stops blocking the Roster purge once the Class is archived.
+- Names are hidden from the date on in every reader scoped to a Class session (`sessions.service.session_student_names`): allocation, Seat choice, the Student's own game table, time-proposal and takeover mails, the Debrief's joined Students, the Klasseøkt's Students. The staff views' actor names (who started, paused or filled a Seat) leave Students out too.
+- A date saved after the deletion date has come no longer moves it, and `data_deleted` honours `data_deleted_at`.
+- `tests/ops/test_retention_scope.py` plants one row of every scoped part in two Class sessions and checks the scoped run clears only the first (mutation-checked).
+
+Left (low): the messaging readers (`messages.py` `_resolve`, `_not_met_rows`, `sent_messages`) still name a kept Student after the date; the first sweep after 0073 deletes backfilled sessions whose date is past with no reminder; 0073 uses six months where an Institution has no period (as 0305 does); the window between `_keeps_account` and a whole erasure has no guard.

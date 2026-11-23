@@ -196,3 +196,67 @@ def test_the_category_lists_agree():
     from app.modules.reports.schemas import MyDataCategory
 
     assert get_args(MyDataCategory) == CATEGORIES
+
+
+async def test_every_shown_table_is_read_by_the_readers_of_mine_data(klass):
+    """Story 15.1 (FR-75, AD-14) close-out: each table the registry shows on «Mine data»
+    (`personal_data.SHOWN`) is read by some module's own-data reader when the page loads, so a
+    block dropped from a reader fails here, not only the registry's own bookkeeping."""
+    import re
+
+    from sqlalchemy import event
+
+    from app.modules.identity.personal_data import SHOWN
+    from app.platform.db import get_engine
+    from tests.sessions.test_dates import STUDENT, student_of
+
+    student = await student_of(klass)
+    # One Seat they hold, so the reader of the Orders has a span to read them in.
+    game, seat, session_id = uuid.uuid7(), uuid.uuid7(), await new_session(klass)
+    execute(
+        "INSERT INTO games (id, purpose, lifecycle, version, class_session_id, game_number) "
+        "VALUES (%s, 'class', 'running', 1, %s, 1)",
+        game,
+        session_id,
+    )
+    # A Debrief-quiz attempt: its answers are shown one by one, not only counted.
+    execute(
+        "INSERT INTO quiz_attempts (id, user_id, class_session_id, game_id, number, quiz_version, "
+        "answers, passed, submitted_at) VALUES (%s, %s, %s, %s, 1, 1, %s, false, now())",
+        uuid.uuid7(),
+        student,
+        session_id,
+        game,
+        '[{"question_id": "q1", "choice_id": "b", "correct": false}]',
+    )
+    execute(
+        "INSERT INTO seats (id, game_id, role, position) VALUES (%s, %s, 'retailer', 1)", seat, game
+    )
+    execute(
+        "INSERT INTO seat_occupancy (id, seat_id, from_week, occupant_kind, reason, user_id) "
+        "VALUES (%s, %s, 1, 'student', 'initial', %s)",
+        uuid.uuid7(),
+        seat,
+        student,
+    )
+    seen: list[str] = []
+
+    def hear(conn, cursor, statement, parameters, context, executemany) -> None:
+        seen.append(statement)
+
+    engine = get_engine().sync_engine
+    event.listen(engine, "before_cursor_execute", hear)
+    try:
+        response = await call(STUDENT, "GET", "/api/me/data")
+    finally:
+        event.remove(engine, "before_cursor_execute", hear)
+    assert response.status_code == 200, response.text
+    [quiz] = [c for c in response.json()["categories"] if c["key"] == "quiz"]
+    answers = [i for i in quiz["items"] if i["kind"] == "answer"]
+    assert [{f["key"]: f["value"] for f in i["fields"]} for i in answers] == [
+        {"number": "1", "question_id": "q1", "choice": "b", "correct": "false"}
+    ]
+    unread = sorted(
+        table for table in SHOWN if not any(re.search(rf"\b{table}\b", s) for s in seen)
+    )
+    assert unread == []

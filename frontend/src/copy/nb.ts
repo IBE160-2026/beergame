@@ -238,7 +238,7 @@ export const nb = {
       items: [
         "Ingen person har ennå gått gjennom sidene med skjermleser eller med tastatur alene. Til det er gjort, vet vi ikke sikkert om alt leses opp og virker riktig.",
         "Feilmeldinger etter innsending og bekreftelsessteg er bare delvis kontrollert.",
-        "Den individuelle testen, Studentrapporten som PDF, klasserapporten og «Mine data» er ikke med i denne versjonen og er ikke kontrollert.",
+        "Den individuelle testen, KI-vurderingen, Studentsiden med Fullføring og Oppfølgingsspill, Meldingsskjemaet, Studentrapporten og «Mine data» er kontrollert automatisk hver for seg, men ikke i den samlede kontrollen. Klasserapporten er ikke med i denne versjonen.",
       ],
     },
     tested: {
@@ -662,6 +662,9 @@ export const nb = {
        * review. */
       deletion: (day: string) =>
         `Dataene dine fra denne Klasseøkten slettes ${day}. Last ned Studentrapporten før det.`,
+      /** Story 15.3 (FR-77): the day has come; retention deletes, or has deleted, the data.
+       * [ASSUMPTION] draft copy for the founder's review. */
+      deleted: "Dataene dine fra denne Klasseøkten er slettet.",
       /** Story 10.4 (UX-DR64, EXPERIENCE.md → Replay in progress): the current Replay step while
        * the Replay runs; its link leads to the play screen. The spine's line. */
       replayResume: (week: number) => `Fortsett Replay, Uke ${week}.`,
@@ -2854,7 +2857,7 @@ export const nb = {
         change: (name: string) => `Endre oppbevaringstiden for ${name}`,
         field: "Måneder etter siste Testfrist",
         hint: (standard: number) =>
-          `Studentdataene i hver Klasseøkt slettes så mange måneder etter den siste Testfristen. Tomt felt gir standarden, ${standard} måneder.`,
+          `Studentdataene i hver Klasseøkt slettes så mange måneder etter den siste Testfristen, eller etter den siste datoen den har når den ikke har noen Testfrist. Tomt felt gir standarden, ${standard} måneder.`,
         save: "Lagre oppbevaringstiden",
         cancel: "Avbryt",
         saved: (name: string) => `Oppbevaringstiden for ${name} er lagret. Slettedatoene er regnet ut på nytt.`,

@@ -97,9 +97,9 @@ class_sessions = Table(
     # switch; Epic 11 adds the Scoring guide). Set once; NULL until then.
     Column("test_locked_at", DateTime(timezone=True), nullable=True),
     # The day its Student data is deleted (Story 13.9, FR-77): `platform.retention.deletion_date`
-    # over the latest effective Test deadline, on the Europe/Oslo calendar; NULL while there is no
-    # Test deadline. Written only by `service._store_deletion_date`, in the transaction of every
-    # Test deadline save and extension.
+    # over the latest effective Test deadline (without one, the latest other date), on the
+    # Europe/Oslo calendar; NULL while there is no date. Written only by
+    # `service._store_deletion_date`, in the transaction of every date save and extension.
     Column("deletion_date", Date, nullable=True),
     # When the sweep's `sessions.send_deletion_reminder` told its Students (Story 13.9); NULL
     # until then. The finder skips a session once set.

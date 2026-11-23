@@ -9,21 +9,7 @@ followup_review_recommended: true
 context:
   - '{project-root}/.docs/implementation-artifacts/epic-15-context.md'
 warnings: ['oversized']
-deferred:
-  - summary: >-
-      The registry test checks each table's declared category or reason, not that the module's reader actually reads that table into that category.
-    evidence: |-
-      test_every_table_with_personal_data_is_shown_on_mine_data_or_says_why_not checks SHOWN/NOT_SHOWN only; dropping a block from a reader (e.g. replay_walkthroughs) keeps it green. test_my_data seeds rows for account, explanation, reflection, orders, completion and messages only. Settle with one seeded row per SHOWN table and an api assertion per category.
-    location: >-
-      backend/tests/identity/test_personal_data_registry.py, backend/tests/reports/test_my_data.py
-    severity: medium
-  - summary: >-
-      The «Veiledende bokstav» row (tests.own_data via assessed._view) has no test with a ready assessment in both letter settings.
-    evidence: |-
-      The fixtures of test_my_data have no Individual test attempt, so the letter loop never runs. Settle by comparing the letter category with GET of the Student's own KI-vurdering for setting all and student_choice (chosen and not).
-    location: >-
-      backend/app/modules/tests/own_data.py
-    severity: medium (unverified)
+deferred: []
 ---
 
 <intent-contract>
@@ -170,3 +156,10 @@ Blocking condition: none
 
 **Residual risks.** The deferred items above; notices shown as a count (they hold only a kind).
 
+## Epic 15 close-out (2026-11-23)
+
+- `tests/reports/test_my_data.py::test_every_shown_table_is_read_by_the_readers_of_mine_data` records the SQL the page runs and fails for any `SHOWN` table no reader reads.
+- `tests/assessment/test_letter.py::test_mine_data_shows_the_letter_exactly_as_the_students_own_view` compares the letter row with the Student's own KI-vurdering for `student_choice` (off, then on) and `all`.
+- Follow-up review: each Debrief-quiz answer (question, choice, right or not) is now shown, not only counted; the `games` reason now names `started_by`/`paused_by` as not shown [ASSUMPTION].
+
+Left (design questions for the founder): a removed Student still sees their letter on «Mine data» though their own KI-vurdering no longer opens; kept rows (Orders, attempts) of a Class session whose data is deleted are still shown to a Student who keeps the account; the «Vis» buttons rely on `aria-describedby` for their name.

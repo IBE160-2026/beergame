@@ -205,7 +205,7 @@ HEAD_TABLES = (
 # 0209 (12.10), 0208 (12.9), 0207 (12.8), 0206 (12.6), 0205 (12.5), 0204 (12.4), 0203 (12.3)
 # and 0202 (12.2) follow 0201 (12.7);
 # 0120-0130 follow 0064
-HEAD = "0072"  # 0072 the Institution's retention period and retention's mark (Story 15.3)
+HEAD = "0073"  # 0073 the deletion date of a Class session without a Test deadline (Epic 15)
 
 
 def reset_schema(url: str) -> None:
@@ -343,8 +343,9 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
 
     # 0072 (Story 15.3): the Institution's retention period (1-120 months or NULL) and when
     # retention deleted a Class session's Student data, and back.
-    assert "retention_months <= 120" in (
-        constraints(url, "institutions")["ck_institutions_retention_months"]
+    assert (
+        "retention_months <= 120"
+        in (constraints(url, "institutions")["ck_institutions_retention_months"])
     )
     assert "data_deleted_at" in columns(url, "class_sessions")
     command.downgrade(cfg, "0071")
@@ -1205,6 +1206,53 @@ def test_0305_backfills_the_deletion_date_by_the_rule_of_platform_retention(migr
     assert found["00000000-0000-0000-0000-000000000302"].isoformat() == "2027-02-28"
     command.downgrade(cfg, "0304")
     assert "deletion_date" not in columns(migrations_database, "class_sessions")
+    command.upgrade(cfg, "head")
+    assert current_version(migrations_database) == HEAD
+
+
+def test_0073_dates_a_session_without_a_test_deadline_from_its_latest_other_date(
+    migrations_database,
+):
+    """0073 (Epic 15 close-out): a Class session with no Test deadline gets the deletion date of
+    `platform.retention.deletion_base`, its latest other date plus its Institution's period; one
+    with no date at all keeps none."""
+    from datetime import UTC, datetime
+
+    from app.platform.retention import deletion_base, deletion_date
+
+    reset_schema(migrations_database)
+    cfg = config(migrations_database)
+    command.upgrade(cfg, "0072")
+    debrief = datetime(2026, 8, 31, 22, 30, tzinfo=UTC)
+    with psycopg.connect(libpq_dsn(migrations_database), autocommit=True) as conn:
+        conn.execute(
+            "INSERT INTO institutions (id, name, created_at, updated_at, retention_months) VALUES "
+            "('00000000-0000-0000-0000-000000000009', 'I', now(), now(), 3)"
+        )
+        conn.execute(
+            "INSERT INTO classes (id, name, institution_id, created_at) VALUES "
+            "('00000000-0000-0000-0000-000000000002', 'K', "
+            "'00000000-0000-0000-0000-000000000009', now())"
+        )
+        for session, start, end in (
+            ("00000000-0000-0000-0000-000000000311", debrief.replace(day=1), debrief),
+            ("00000000-0000-0000-0000-000000000312", None, None),
+        ):
+            conn.execute(
+                "INSERT INTO class_sessions (id, class_id, game_settings, ai_mode, debrief_mode, "
+                "inactivity_limit_hours, obligatory, required_share_percent, created_at, "
+                "start_at, debrief_deadline) VALUES (%s, '00000000-0000-0000-0000-000000000002', "
+                "'{}', 'rule_based', 'group', 24, false, 80, now(), %s, %s)",
+                (session, start, end),
+            )
+    command.upgrade(cfg, "0073")
+    found = dict(rows(migrations_database, "SELECT id::text, deletion_date FROM class_sessions"))
+    expected = deletion_date(deletion_base(None, [debrief, debrief.replace(day=1)]), 3)
+    assert found == {
+        "00000000-0000-0000-0000-000000000311": expected,
+        "00000000-0000-0000-0000-000000000312": None,
+    }
+    assert expected.isoformat() == "2026-12-01"
     command.upgrade(cfg, "head")
     assert current_version(migrations_database) == HEAD
 

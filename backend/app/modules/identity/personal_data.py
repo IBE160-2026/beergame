@@ -312,7 +312,9 @@ NOT_SHOWN: dict[str, str] = {
     "allocation_drafts": "The Lecturer's draft of the Seats before the lock; the Seats the "
     "Student held are shown under the game.",
     "lab_hours": _STAFF,
-    "games": "The Game itself (settings, lifecycle); the Student's Seats and Orders are shown.",
+    "games": "The Game itself (settings, lifecycle); the Student's Seats and Orders are shown. "
+    "`started_by` and `paused_by` name who pressed Start or Pause (a Student, or staff), a "
+    "moment of the shared Game rather than the Student's own data; not shown [ASSUMPTION].",
     "game_summaries": "A cache of every Seat's occupant, rebuilt from `seat_occupancy`, which "
     "is shown.",
     "debrief_sessions": "The Debrief of a Game; the Student's membership and steps are shown.",
