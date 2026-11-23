@@ -259,11 +259,11 @@ development_status:
   14-5-students-see-all-class-games-side-by-side: done
   14-6-the-lecturer-shows-all-class-games-in-a-plenary: done
   14-7-the-admin-compares-across-institutions-cut-list: backlog
-  14-8-export-a-class-session-s-game-data-cut-list: backlog
+  14-8-export-a-class-session-s-game-data-cut-list: in-progress
   epic-14-retrospective: optional
 
   epic-15: in-progress
-  15-1-a-student-sees-their-own-data-in-mine-data: backlog
+  15-1-a-student-sees-their-own-data-in-mine-data: in-progress
   15-2-the-admin-deletes-a-user-on-the-institution-s-instruction: done
   15-3-student-data-is-deleted-automatically-when-retention-ends: backlog
   15-4-the-admin-exports-pseudonymised-data-for-evaluation: done
