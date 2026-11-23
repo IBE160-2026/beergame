@@ -33,7 +33,7 @@ const NUM = "text-right";
 
 /** A chart's table in its own sideways-scrolling region, named by its caption, so a wide table
  * never scrolls the page at 320 px. */
-function TableRegion({ caption, children }: { caption: string; children: ReactNode }) {
+export function TableRegion({ caption, children }: { caption: string; children: ReactNode }) {
   const id = useId();
   return (
     <ScrollRegion labelledBy={id}>
@@ -218,7 +218,7 @@ export function ErrorHoursTable({ hours }: { hours: readonly ErrorHour[] }) {
 const TRACK = "var(--color-hairline)";
 
 /** A horizontal bar: its track across the row, and one or more fills from the left. */
-function Bar({ parts }: { parts: readonly { width: string; colour: string }[] }) {
+export function Bar({ parts }: { parts: readonly { width: string; colour: string }[] }) {
   return (
     <span aria-hidden="true" className="relative block h-3 w-full">
       <Fill colour={TRACK} className="absolute inset-0 block size-full" />

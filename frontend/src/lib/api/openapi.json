@@ -1366,6 +1366,48 @@
         "title": "BouncedRegistration",
         "type": "string"
       },
+      "BudgetOut": {
+        "description": "A budget row as `ai.budget` holds it.",
+        "properties": {
+          "limit_usd": {
+            "title": "Limit Usd",
+            "type": "string"
+          },
+          "players_exhausted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Players Exhausted At"
+          },
+          "reserve_usd": {
+            "title": "Reserve Usd",
+            "type": "string"
+          },
+          "reserved_usd": {
+            "title": "Reserved Usd",
+            "type": "string"
+          },
+          "spent_usd": {
+            "title": "Spent Usd",
+            "type": "string"
+          }
+        },
+        "required": [
+          "limit_usd",
+          "reserve_usd",
+          "spent_usd",
+          "reserved_usd",
+          "players_exhausted_at"
+        ],
+        "title": "BudgetOut",
+        "type": "object"
+      },
       "ChainOut": {
         "description": "Step 3, the whole chain (Story 9.5, FR-44, UX-DR33, UX-DR34): all four Roles, Fabrikk\nfirst (upstream first, the order the Ordrestolper rows and the scrubber's reading take), each\nwith every logged Uke, oldest first. Every number is the api's (AD-10).",
         "properties": {
@@ -2014,6 +2056,18 @@
                 "type": "null"
               }
             ]
+          },
+          "cost_limit_reached_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Limit Reached At"
           },
           "created_at": {
             "format": "date-time",
@@ -3287,6 +3341,40 @@
         "title": "CostLine",
         "type": "object"
       },
+      "CostListOut": {
+        "properties": {
+          "evaluations": {
+            "items": {
+              "$ref": "#/components/schemas/EvaluationCostOut"
+            },
+            "title": "Evaluations",
+            "type": "array"
+          },
+          "game_target_usd": {
+            "title": "Game Target Usd",
+            "type": "string"
+          },
+          "sessions": {
+            "items": {
+              "$ref": "#/components/schemas/SessionCostOut"
+            },
+            "title": "Sessions",
+            "type": "array"
+          },
+          "student_target_usd": {
+            "title": "Student Target Usd",
+            "type": "string"
+          }
+        },
+        "required": [
+          "game_target_usd",
+          "student_target_usd",
+          "sessions",
+          "evaluations"
+        ],
+        "title": "CostListOut",
+        "type": "object"
+      },
       "CostSum": {
         "additionalProperties": false,
         "description": "Holding and backlog cost and their sum, in kroner (Story 6.18).",
@@ -3451,6 +3539,30 @@
           "test_deadline"
         ],
         "title": "DatesIn",
+        "type": "object"
+      },
+      "DayCostOut": {
+        "properties": {
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "day": {
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "usd": {
+            "title": "Usd",
+            "type": "string"
+          }
+        },
+        "required": [
+          "day",
+          "usd",
+          "calls"
+        ],
+        "title": "DayCostOut",
         "type": "object"
       },
       "DaySessionSpendOut": {
@@ -4224,6 +4336,30 @@
         "title": "EvaluationAgreementOut",
         "type": "object"
       },
+      "EvaluationCostOut": {
+        "description": "A model config's evaluation budget (simulation runs, AD-22), apart from Class sessions.",
+        "properties": {
+          "budget": {
+            "$ref": "#/components/schemas/BudgetOut"
+          },
+          "model_config_id": {
+            "format": "uuid",
+            "title": "Model Config Id",
+            "type": "string"
+          },
+          "model_name": {
+            "title": "Model Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "model_config_id",
+          "model_name",
+          "budget"
+        ],
+        "title": "EvaluationCostOut",
+        "type": "object"
+      },
       "EvaluationSessionListOut": {
         "properties": {
           "items": {
@@ -4981,6 +5117,54 @@
           "count"
         ],
         "title": "FunnelStageOut",
+        "type": "object"
+      },
+      "GameCostOut": {
+        "properties": {
+          "above": {
+            "title": "Above",
+            "type": "boolean"
+          },
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "game_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Id"
+          },
+          "number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number"
+          },
+          "usd": {
+            "title": "Usd",
+            "type": "string"
+          }
+        },
+        "required": [
+          "game_id",
+          "number",
+          "usd",
+          "calls",
+          "above"
+        ],
+        "title": "GameCostOut",
         "type": "object"
       },
       "GameInsightOut": {
@@ -7075,6 +7259,28 @@
         ],
         "title": "Lifecycle",
         "type": "string"
+      },
+      "LimitIn": {
+        "additionalProperties": false,
+        "properties": {
+          "limit_usd": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Limit Usd"
+          }
+        },
+        "required": [
+          "limit_usd"
+        ],
+        "title": "LimitIn",
+        "type": "object"
       },
       "LoginIn": {
         "properties": {
@@ -12158,6 +12364,249 @@
         "title": "SentMessagesOut",
         "type": "object"
       },
+      "SessionCostDetailOut": {
+        "description": "One Class session's cost per Game and per day, with its cost-limit state.",
+        "properties": {
+          "ai_mode": {
+            "title": "Ai Mode",
+            "type": "string"
+          },
+          "assessment_stopped_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assessment Stopped At"
+          },
+          "budget": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BudgetOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "can_stop": {
+            "title": "Can Stop",
+            "type": "boolean"
+          },
+          "class_session_id": {
+            "format": "uuid",
+            "title": "Class Session Id",
+            "type": "string"
+          },
+          "games": {
+            "title": "Games",
+            "type": "integer"
+          },
+          "institution_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Institution Name"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "per_day": {
+            "items": {
+              "$ref": "#/components/schemas/DayCostOut"
+            },
+            "title": "Per Day",
+            "type": "array"
+          },
+          "per_game": {
+            "items": {
+              "$ref": "#/components/schemas/GameCostOut"
+            },
+            "title": "Per Game",
+            "type": "array"
+          },
+          "per_game_above": {
+            "title": "Per Game Above",
+            "type": "boolean"
+          },
+          "per_game_usd": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Per Game Usd"
+          },
+          "per_student_above": {
+            "title": "Per Student Above",
+            "type": "boolean"
+          },
+          "per_student_usd": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Per Student Usd"
+          },
+          "reserve_used_up": {
+            "title": "Reserve Used Up",
+            "type": "boolean"
+          },
+          "students": {
+            "title": "Students",
+            "type": "integer"
+          },
+          "total_usd": {
+            "title": "Total Usd",
+            "type": "string"
+          }
+        },
+        "required": [
+          "class_session_id",
+          "label",
+          "institution_name",
+          "ai_mode",
+          "budget",
+          "total_usd",
+          "calls",
+          "games",
+          "students",
+          "per_game_usd",
+          "per_student_usd",
+          "per_game_above",
+          "per_student_above",
+          "per_game",
+          "per_day",
+          "reserve_used_up",
+          "assessment_stopped_at",
+          "can_stop"
+        ],
+        "title": "SessionCostDetailOut",
+        "type": "object"
+      },
+      "SessionCostOut": {
+        "description": "One saved Class session's AI cost against its budget.",
+        "properties": {
+          "ai_mode": {
+            "title": "Ai Mode",
+            "type": "string"
+          },
+          "budget": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BudgetOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "class_session_id": {
+            "format": "uuid",
+            "title": "Class Session Id",
+            "type": "string"
+          },
+          "games": {
+            "title": "Games",
+            "type": "integer"
+          },
+          "institution_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Institution Name"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "per_game_above": {
+            "title": "Per Game Above",
+            "type": "boolean"
+          },
+          "per_game_usd": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Per Game Usd"
+          },
+          "per_student_above": {
+            "title": "Per Student Above",
+            "type": "boolean"
+          },
+          "per_student_usd": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Per Student Usd"
+          },
+          "students": {
+            "title": "Students",
+            "type": "integer"
+          },
+          "total_usd": {
+            "title": "Total Usd",
+            "type": "string"
+          }
+        },
+        "required": [
+          "class_session_id",
+          "label",
+          "institution_name",
+          "ai_mode",
+          "budget",
+          "total_usd",
+          "calls",
+          "games",
+          "students",
+          "per_game_usd",
+          "per_student_usd",
+          "per_game_above",
+          "per_student_above"
+        ],
+        "title": "SessionCostOut",
+        "type": "object"
+      },
       "SessionOut": {
         "properties": {
           "user": {
@@ -15360,6 +15809,174 @@
         ]
       }
     },
+    "/api/admin/ai/class-sessions/{class_session_id}/assessment/stop": {
+      "post": {
+        "description": "Stop the Class session's AI assessment while its reserve is used up (Story 12.4's\n`stop_for_session`, audited): the retries end and Students see it switched off. Refused with\n409 `reserve_not_used_up`; 404 `not_found`.",
+        "operationId": "stopSessionAssessment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Class Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionCostDetailOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stop Assessment",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ai/class-sessions/{class_session_id}/budget": {
+      "put": {
+        "description": "Set the Class session's cost limit on its one budget row (FR-69), audited as\n`ai_budget.limit_set`; the reserve and the spend stay. A raise while the AI assessment waits\nfor the Admin also resumes it (Story 12.4). Refused with 422 `limit_below_spent` or\n`reserve_above_limit` (`fields.limit_usd`); 404 `not_found`.",
+        "operationId": "setSessionCostLimit",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Class Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LimitIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionCostDetailOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Set Limit",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/admin/ai/class-sessions/{class_session_id}/model-config": {
       "put": {
         "description": "Pin a model config for a Class session before its Start date (FR-68), audited as\n`model_config.pinned`. Refused with 409 `model_config_frozen` once the session is locked,\n`study_frozen` for another config in a frozen study, `no_measured_level` for a config with no\nmeasured Effort level here; 404 `config_not_found` or `not_found`. The answer warns\n`provider_key_missing` when its LLM players' provider has no key here (AD-17).",
@@ -15449,6 +16066,122 @@
           }
         },
         "summary": "Pin",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ai/costs": {
+      "get": {
+        "description": "Every saved Class session's AI cost against its budget (limit, reserve, spent), per Game\nand per Student against the targets, and the simulation budgets apart (Story 15.6, FR-69,\nAD-22).",
+        "operationId": "listSessionCosts",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CostListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "summary": "List Costs",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ai/costs/{class_session_id}": {
+      "get": {
+        "description": "One Class session's AI cost per Game and per Europe/Oslo day, its budget and cost-limit\nstate: the players' limit reached, the reserve used up, the AI assessment stopped.",
+        "operationId": "getSessionCost",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Class Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionCostDetailOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Session Cost",
         "tags": [
           "admin"
         ]

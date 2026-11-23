@@ -11,7 +11,7 @@ import { nb } from "@/copy/nb";
 import { formatNumber } from "@/lib/number-format";
 import { usePageState } from "@/lib/page-state";
 import { GuardedPage } from "@/modules/identity/home-page";
-import { ADMIN_AI_COST_PATH, HOME_PATH } from "@/modules/identity/homes";
+import { ADMIN_AI_COST_PATH, ADMIN_AI_COSTS_PATH, HOME_PATH } from "@/modules/identity/homes";
 import { PageShell } from "@/modules/identity/page-shell";
 
 import {
@@ -85,6 +85,13 @@ export function AiModelsPage({ day }: { day?: string }) {
       {(user, updatedAt) => (
         <PageShell user={user} title={copy.title} updatedAt={updatedAt} crumbs={CRUMBS}>
           <p className="mt-2 max-w-2xl text-body-phone text-ink-secondary lg:text-body">{copy.lead}</p>
+          {/* Story 15.6: the cost per Class session and its limit, a page of its own. */}
+          <p className="mt-4 max-w-2xl text-body-phone text-ink lg:text-body">
+            <Link href={ADMIN_AI_COSTS_PATH} standalone>
+              {copy.costs.link}
+            </Link>
+            <span className="block text-ink-secondary">{copy.costs.linkLead}</span>
+          </p>
           <DaySection day={day} />
           <Content />
         </PageShell>

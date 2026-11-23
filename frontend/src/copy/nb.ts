@@ -1455,6 +1455,9 @@ export const nb = {
       // [ASSUMPTION] Story 11.1 (issue #16): refused in production on a draft question set.
       refusedDraft:
         "Klasseøkten kan ikke starte: spørsmålene til den individuelle testen er et utkast som ikke er godkjent. En Admin må legge inn godkjente spørsmål. Låsen prøves igjen hvert minutt.",
+      // [ASSUMPTION] Story 15.6 (FR-69): the players' AI cost limit was reached; `when` as lockedAt.
+      costLimit: (when: string) =>
+        `Kostnadsgrensen for KI er nådd. LLM-spillerne er byttet til regelbaserte for resten av Klasseøkten. Nådd ${when}.`,
       open: "Frister som ikke er passert, og Labtimer, kan fortsatt endres.",
       /** Story 12.1: while KI-vurdering can still change too. [ASSUMPTION] */
       openWithAssessment: "Frister som ikke er passert, Labtimer og KI-vurdering kan fortsatt endres.",
@@ -2632,6 +2635,88 @@ export const nb = {
         } as Record<string, string>,
         failed: "Modellen ble ikke fryst. Prøv igjen.",
         liftFailed: "Frysingen ble ikke opphevet. Prøv igjen.",
+      },
+      /** The cost per Class session and its limit (Story 15.6, FR-69, C-3). [ASSUMPTION] Story 15.6. */
+      costs: {
+        link: "KI-kostnad per Klasseøkt",
+        linkLead: "Kostnad og kostnadsgrense for hver Klasseøkt.",
+        title: "KI-kostnad per Klasseøkt",
+        lead: "Hva hver Klasseøkt har brukt på KI, mot kostnadsgrensen. Kostnaden per spill vises mot målet på 0,10 USD og kostnaden per Student mot målet på 0,50 USD.",
+        empty: "Ingen lagrede Klasseøkter ennå.",
+        columns: {
+          session: "Klasseøkt",
+          total: "KI-kostnad",
+          limit: "Grense",
+          perGame: "Per spill",
+          perStudent: "Per Student",
+        },
+        noBudget: "Ingen grense ennå",
+        none: "–",
+        above: "Over målet",
+        reached: "Grensen er nådd",
+        evaluations: {
+          title: "Simuleringskjøringer",
+          lead: "Simuleringskjøringene har egne budsjetter og teller aldri mot en Klasseøkt.",
+          empty: "Ingen simuleringsbudsjetter.",
+          columns: { model: "Modell", limit: "Grense", spent: "Brukt" },
+        },
+        back: "Tilbake til KI-kostnad per Klasseøkt",
+      },
+      /** One Class session's cost and its limit (Story 15.6). [ASSUMPTION] Story 15.6. */
+      cost: {
+        lead: "KI-kostnaden for Klasseøkten per spill og per dag, med kostnadsgrensen.",
+        notFound: "Klasseøkten finnes ikke.",
+        budget: {
+          title: "Kostnadsgrense",
+          limit: "Grense",
+          reserve: "Reserve for Debrief og KI-vurdering",
+          spent: "Brukt",
+          held: "Holdt av for kall som pågår",
+          total: (usd: string, calls: string) => `${usd} for ${calls} KI-kall.`,
+          perGame: (usd: string) => `Per spill: ${usd}.`,
+          perStudent: (usd: string) => `Per Student: ${usd}.`,
+          none: "Klasseøkten har ingen kostnadsgrense ennå. Den får standardgrensen når den settes.",
+        },
+        reached: (label: string) => `Grensen er nådd for ${label}. LLM-spillerne er byttet til regelbaserte.`,
+        reachedAt: (time: string) => `Nådd ${time}.`,
+        reserveUsed:
+          "Reserven er også brukt opp. Debriefen lages nå bare fra koden, og KI-vurderingen venter på at du velger hva som skal skje.",
+        stoppedAt: (time: string) => `KI-vurderingen ble stoppet ${time}.`,
+        limitLabel: "Ny kostnadsgrense i USD",
+        limitHint: "Kan ikke være lavere enn det som er brukt.",
+        raiseConsequence:
+          "Når du hever grensen, starter KI-vurderingen igjen for alle Studenter som venter. LLM-spillerne forblir regelbaserte resten av Klasseøkten.",
+        save: "Lagre kostnadsgrensen",
+        saved: (usd: string) => `Kostnadsgrensen er ${usd}.`,
+        stopConsequence:
+          "Når du stopper KI-vurderingen, slutter nye forsøk, og Studentene ser at KI-vurderingen er slått av. Ferdige KI-vurderinger blir stående.",
+        stop: "Stopp KI-vurderingen for Klasseøkten",
+        refused: {
+          limit_below_spent: "Grensen kan ikke være lavere enn det som er brukt.",
+          reserve_above_limit: "Grensen kan ikke være lavere enn reserven.",
+          amount_invalid: "Skriv et beløp i USD med høyst åtte desimaler.",
+          reserve_not_used_up: "Reserven er ikke brukt opp. Last siden på nytt.",
+          not_found: "Klasseøkten finnes ikke lenger. Last siden på nytt.",
+        } as Record<string, string>,
+        failed: "Endringen ble ikke lagret. Prøv igjen.",
+        invalid: "Skriv et beløp i USD, for eksempel 20 eller 12,50.",
+        games: {
+          title: "KI-kostnad per spill",
+          lead: "Kall som ikke hører til et spill, som Debriefen og KI-vurderingen, står for seg.",
+          game: (number: number) => `Spill ${number}`,
+          otherGame: "Annet spill",
+          noGame: "Uten spill",
+          empty: "Ingen KI-kall ennå.",
+          columns: { game: "Spill", cost: "KI-kostnad", calls: "KI-kall" },
+          table: "KI-kostnad per spill som tabell",
+        },
+        days: {
+          title: "KI-kostnad per dag",
+          lead: "Dager etter norsk tid.",
+          empty: "Ingen KI-kall ennå.",
+          columns: { day: "Dag", cost: "KI-kostnad", calls: "KI-kall" },
+          table: "KI-kostnad per dag som tabell",
+        },
       },
     },
     /** «Institusjoner» (Story 3.11, FR-3): create and rename the Institutions Classes belong to.

@@ -295,6 +295,17 @@ async def _daily_spend_context(
     }
 
 
+COST_LIMIT_KIND = "ai_cost_limit"
+"""`ops.cost_limit.COST_LIMIT_NOTICE` (Story 15.6), named here because no module imports `ops`
+(a test keeps the two equal)."""
+
+
+async def _cost_limit_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    return await sessions.cost_limit_mail_context(session, user_id, ref, now)
+
+
 KINDS: Mapping[str, Delivery] = MappingProxyType(
     {
         **{
@@ -336,6 +347,8 @@ KINDS: Mapping[str, Delivery] = MappingProxyType(
         TAKEOVER_KIND: Delivery(IMMEDIATE, TAKEOVER_KIND, context=_takeover_context),
         # Immediate: a Message a staff member sent (Story 7.9, AD-9).
         MESSAGE_KIND: Delivery(IMMEDIATE, MESSAGE_KIND, context=_message_context),
+        # Digest (Story 15.6, FR-69): a Class session's players' cost limit was reached.
+        COST_LIMIT_KIND: Delivery(DIGEST, COST_LIMIT_KIND, context=_cost_limit_context),
         # Immediate (decided by Story 15.7, FR-69): today's AI spend passed `AI_DAILY_ALERT_USD`;
         # a runaway cost is noticed the same day, also between 22:00 and 07:00.
         DAILY_SPEND_KIND: Delivery(IMMEDIATE, DAILY_SPEND_KIND, context=_daily_spend_context),
@@ -361,8 +374,9 @@ notice (Story 5.7, digest), the allocation notice (Story 5.9, digest), the Stude
 quiz (Story 9.10, digest), the opened Group debrief (Story 9.11, immediate) and its 48-hour
 fallback to a Personal debrief (Story 9.12, digest), a staff member's Message (Story 7.9,
 immediate), the Takeover notice (Story 8.2, immediate), the turn reminder (Story 8.13,
-digest), the ready and failed AI assessment notices (Story 12.4, digest) and the daily AI spend
-alert to each Admin (Story 15.7, immediate)."""
+digest), the ready and failed AI assessment notices (Story 12.4, digest), the daily AI spend
+alert to each Admin (Story 15.7, immediate) and the cost-limit notice to the owners (Story 15.6,
+digest)."""
 
 TEST_KINDS: Mapping[str, Delivery] = MappingProxyType(
     {

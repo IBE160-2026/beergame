@@ -1,0 +1,9 @@
+{# A Class session's AI cost limit for players was reached (Story 15.6, FR-69): a digest kind sent
+   once per Class session to each owner of its Class. `class_name`, `session_number`, `reached_at`
+   (Europe/Oslo) and `session_path` come from `sessions.service.cost_limit_mail_context` at send
+   time. No Student data. [ASSUMPTION] Story 15.6 draft copy. #}
+{% import "kinds/_deadline.j2" as d %}
+{% set subject = "Kostnadsgrensen for KI er nådd" %}
+Kostnadsgrensen for KI i Klassen {{ class_name }}, Klasseøkt {{ session_number }}, ble nådd {{ d.when(reached_at) }}. LLM-spillerne er byttet til regelbaserte spillere for resten av Klasseøkten. Spillene fortsetter som før.
+
+Se Klasseøkten: {{ url(session_path) }}

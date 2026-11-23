@@ -3,6 +3,7 @@ sessions' model settings and the study freeze (Story 15.5, FR-68, FR-78, AD-19).
 
 import uuid
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -159,3 +160,99 @@ class DailySpendOut(BaseModel):
     sessions: list[DaySessionSpendOut]
     """The dearest Class sessions, dearest first, at most ten."""
     session_count: int
+
+
+# «KI-kostnad per Klasseøkt» (Story 15.6, FR-69, AD-6): decimal strings with eight places, summed
+# unrounded by `ai.calls`; the budget row read through `ai.budget`. No Student data.
+
+
+class BudgetOut(BaseModel):
+    """A budget row as `ai.budget` holds it."""
+
+    limit_usd: str
+    reserve_usd: str
+    spent_usd: str
+    reserved_usd: str
+    """The worst-case cost of the attempts under way."""
+    players_exhausted_at: datetime | None
+    """When the players' limit was reached and the LLM players switched to Rule-based players."""
+
+
+class SessionCostOut(BaseModel):
+    """One saved Class session's AI cost against its budget."""
+
+    class_session_id: uuid.UUID
+    label: str
+    """«class-of-1994 · Klasseøkt 2»."""
+    institution_name: str | None
+    ai_mode: str
+    budget: BudgetOut | None
+    """None: the Class session has no budget row yet (made when it is saved with LLM players or
+    pinned)."""
+    total_usd: str
+    calls: int
+    games: int
+    """Its Class games."""
+    students: int
+    """The Students who hold a Seat in its Class games."""
+    per_game_usd: str | None
+    """What the calls that name a Game cost per Class game; null without a Game."""
+    per_student_usd: str | None
+    """The total per Student; null without a Student."""
+    per_game_above: bool
+    """Above the USD 0.10 per Game target (C-3)."""
+    per_student_above: bool
+    """Above the USD 0.50 per Student target (C-3)."""
+
+
+class EvaluationCostOut(BaseModel):
+    """A model config's evaluation budget (simulation runs, AD-22), apart from Class sessions."""
+
+    model_config_id: uuid.UUID
+    model_name: str
+    budget: BudgetOut
+
+
+class CostListOut(BaseModel):
+    game_target_usd: str
+    student_target_usd: str
+    sessions: list[SessionCostOut]
+    """Every saved Class session, newest first."""
+    evaluations: list[EvaluationCostOut]
+
+
+class GameCostOut(BaseModel):
+    game_id: uuid.UUID | None
+    """Null: the calls that name no Game (the Debrief, follow-ups, the AI assessment)."""
+    number: int | None
+    """The Class game's number; null for a Game outside the Class games (a test Game) or none."""
+    usd: str
+    calls: int
+    above: bool
+    """A Game above the USD 0.10 target."""
+
+
+class DayCostOut(BaseModel):
+    day: date
+    usd: str
+    calls: int
+
+
+class SessionCostDetailOut(SessionCostOut):
+    """One Class session's cost per Game and per day, with its cost-limit state."""
+
+    per_game: list[GameCostOut]
+    per_day: list[DayCostOut]
+    reserve_used_up: bool
+    """The players' limit is reached and what is left cannot pay the next Debrief or assessment
+    call: the Debrief runs from code and the AI assessment waits for the Admin."""
+    assessment_stopped_at: datetime | None
+    """When the AI assessment of the Class session was stopped (Story 12.4)."""
+    can_stop: bool
+    """Whether «Stopp KI-vurderingen» is offered: the reserve is used up and it runs."""
+
+
+class LimitIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    limit_usd: Decimal = Field(ge=0, max_digits=18, decimal_places=8)

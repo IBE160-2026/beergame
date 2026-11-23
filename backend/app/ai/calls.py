@@ -8,6 +8,7 @@ from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
+from typing import Any
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import ARRAY, Uuid, any_, func, literal, or_, select, update
@@ -193,6 +194,135 @@ async def day_spend(day: date, *, top: int = 10, session: AsyncSession | None = 
         evaluation_usd=_usd(total.evaluation),
         sessions=[ScopeSpend(row.scope_id, _usd(row.usd), row.calls) for row in rows],
         session_count=total.sessions,
+    )
+
+
+@dataclass(frozen=True)
+class SessionCost:
+    """One Class session's AI cost (Story 15.6, FR-69): every call of its scope, and those that
+    name a Game."""
+
+    class_session_id: uuid.UUID
+    usd: Decimal
+    calls: int
+    games: dict[uuid.UUID, Decimal]
+    """Per Game its calls name (`game` or `game_id`), by Game id."""
+
+
+def _game_id(key: str | None) -> uuid.UUID | None:
+    """The Game id a caller reference names; None for none, or for a value that is no id."""
+    if key is None:
+        return None
+    try:
+        return uuid.UUID(key)
+    except ValueError:
+        return None
+
+
+def _game_key() -> Any:
+    """The Game a call names: `game` (players) or `game_id` (narrations, Adapted items)."""
+    return func.coalesce(
+        llm_calls.c.caller_ref["game"].astext, llm_calls.c.caller_ref["game_id"].astext
+    )
+
+
+async def session_costs(
+    ids: Collection[uuid.UUID] | None = None, *, session: AsyncSession | None = None
+) -> dict[uuid.UUID, SessionCost]:
+    """The AI cost of these Class sessions' scopes (every one with calls when None), summed
+    unrounded over every outcome, by id; a session with no call is left out. The one place a
+    Class session's total is summed for «KI-kostnad» (AD-6)."""
+    where = llm_calls.c.scope_kind == "class_session"
+    if ids is not None:
+        if not ids:
+            return {}
+        where = where & llm_calls.c.scope_id.in_(list(ids))
+    game = _game_key().label("game")
+    query = (
+        select(
+            llm_calls.c.scope_id,
+            game,
+            func.sum(llm_calls.c.cost_usd),
+            func.count(llm_calls.c.id),
+        )
+        .where(where)
+        .group_by(llm_calls.c.scope_id, game)
+    )
+    async with transaction(session) as s:
+        rows = (await s.execute(query)).all()
+    found: dict[uuid.UUID, SessionCost] = {}
+    for scope_id, key, usd, count in rows:
+        item = found.get(scope_id) or SessionCost(scope_id, Decimal(0), 0, {})
+        game_id = _game_id(key)
+        games = dict(item.games)
+        if game_id is not None:
+            games[game_id] = games.get(game_id, Decimal(0)) + _usd(usd)
+        found[scope_id] = SessionCost(scope_id, item.usd + _usd(usd), item.calls + count, games)
+    return found
+
+
+@dataclass(frozen=True)
+class GameCost:
+    game_id: uuid.UUID | None
+    """None: the calls that name no Game (the Debrief, follow-ups, the AI assessment)."""
+    usd: Decimal
+    calls: int
+
+
+@dataclass(frozen=True)
+class DayCost:
+    day: date
+    """The Europe/Oslo calendar day of `started_at`."""
+    usd: Decimal
+    calls: int
+
+
+@dataclass(frozen=True)
+class SessionBreakdown:
+    """One Class session's AI cost per Game and per day (Story 15.6, FR-69)."""
+
+    games: list[GameCost]
+    """Per Game in the calls' caller reference, by Game id; the calls naming none last."""
+    days: list[DayCost]
+    """Per Europe/Oslo day, oldest first."""
+    dearest_reserve_call: Decimal | None
+    """The largest cost of one attempt of a purpose other than the players' (what the reserve
+    pays for); None before any."""
+
+
+async def session_breakdown(
+    class_session_id: uuid.UUID, *, session: AsyncSession | None = None
+) -> SessionBreakdown:
+    """A Class session scope's AI cost per Game and per Europe/Oslo day, summed unrounded over
+    every outcome, and the dearest non-player attempt so far."""
+    where = (llm_calls.c.scope_kind == "class_session") & (llm_calls.c.scope_id == class_session_id)
+    usd = func.coalesce(func.sum(llm_calls.c.cost_usd), 0).label("usd")
+    calls = func.count(llm_calls.c.id).label("calls")
+    game = _game_key().label("game")
+    day = func.to_char(func.timezone(str(OSLO), llm_calls.c.started_at), "YYYY-MM-DD").label("day")
+    async with transaction(session) as s:
+        games = (await s.execute(select(game, usd, calls).where(where).group_by(game))).all()
+        days = (
+            await s.execute(select(day, usd, calls).where(where).group_by(day).order_by(day))
+        ).all()
+        dearest = (
+            await s.execute(
+                select(func.max(llm_calls.c.cost_usd)).where(
+                    where, llm_calls.c.purpose != PLAYER_PURPOSE
+                )
+            )
+        ).scalar_one()
+    merged: dict[uuid.UUID | None, tuple[Decimal, int]] = {}
+    for key, amount, count in games:
+        game_id = _game_id(key)
+        usd, calls_so_far = merged.get(game_id, (Decimal(0), 0))
+        merged[game_id] = (usd + _usd(amount), calls_so_far + count)
+    lines = [GameCost(game_id, usd, count) for game_id, (usd, count) in merged.items()]
+    lines.sort(key=lambda line: (line.game_id is None, str(line.game_id)))
+    return SessionBreakdown(
+        games=lines,
+        days=[DayCost(date.fromisoformat(key), _usd(amount), count) for key, amount, count in days],
+        dearest_reserve_call=None if dearest is None else _usd(dearest),
     )
 
 

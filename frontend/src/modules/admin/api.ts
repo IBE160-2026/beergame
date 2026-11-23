@@ -598,3 +598,72 @@ export function useLiftFreeze() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: aiCostKey }),
   });
 }
+
+// «KI-kostnad per Klasseøkt» (Story 15.6, FR-69): the cost against the budget, and the limit.
+
+export type CostList = components["schemas"]["CostListOut"];
+export type SessionCostItem = components["schemas"]["SessionCostOut"];
+export type SessionCost = components["schemas"]["SessionCostDetailOut"];
+export type EvaluationCost = components["schemas"]["EvaluationCostOut"];
+
+export const sessionCostsKey = [...aiCostKey, "costs"] as const;
+export const sessionCostKey = (id: string) => [...sessionCostsKey, id] as const;
+
+/** Read again every minute, as «KI-kostnad per dag» (Story 15.7). */
+export const SESSION_COST_REFETCH_MS = 60_000;
+
+/** Every saved Class session's AI cost against its budget, and the simulation budgets apart. */
+export function useSessionCosts() {
+  return useQuery({
+    queryKey: sessionCostsKey,
+    queryFn: () => request(() => api.GET("/api/admin/ai/costs")),
+    refetchInterval: SESSION_COST_REFETCH_MS,
+    retry: false,
+  });
+}
+
+/** One Class session's cost per Game and per day, with its cost-limit state. */
+export function useSessionCost(id: string) {
+  return useQuery({
+    queryKey: sessionCostKey(id),
+    queryFn: () =>
+      request(() => api.GET("/api/admin/ai/costs/{class_session_id}", { params: { path: { class_session_id: id } } })),
+    refetchInterval: SESSION_COST_REFETCH_MS,
+    retry: false,
+  });
+}
+
+/** Set a Class session's cost limit (a raise also restarts a waiting AI assessment). */
+export function useSetCostLimit(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation<SessionCost, unknown, string>({
+    mutationFn: (limit) =>
+      request(() =>
+        api.PUT("/api/admin/ai/class-sessions/{class_session_id}/budget", {
+          params: { path: { class_session_id: id } },
+          body: { limit_usd: limit },
+        }),
+      ),
+    networkMode: "always",
+    retry: false,
+    onSuccess: (found) => queryClient.setQueryData(sessionCostKey(id), found),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: sessionCostsKey }),
+  });
+}
+
+/** Stop a Class session's AI assessment while its reserve is used up. */
+export function useStopAssessment(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation<SessionCost, unknown, void>({
+    mutationFn: () =>
+      request(() =>
+        api.POST("/api/admin/ai/class-sessions/{class_session_id}/assessment/stop", {
+          params: { path: { class_session_id: id } },
+        }),
+      ),
+    networkMode: "always",
+    retry: false,
+    onSuccess: (found) => queryClient.setQueryData(sessionCostKey(id), found),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: sessionCostsKey }),
+  });
+}

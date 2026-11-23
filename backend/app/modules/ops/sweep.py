@@ -20,8 +20,8 @@ from app.modules.games import commands as games_commands
 from app.modules.games import service as games
 from app.modules.identity import service as identity
 from app.modules.messaging import service as messaging
+from app.modules.ops import cost_limit, spend_alert
 from app.modules.ops import service as ops_service
-from app.modules.ops import spend_alert
 from app.modules.sessions import service as sessions
 from app.modules.tests import commands as tests_commands
 from app.modules.tests import guide as _scoring_guide  # noqa: F401  (registers its Test pin)
@@ -347,6 +347,9 @@ DUE_ACTIONS: tuple[DueAction, ...] = (
     # every active Admin once that day, an immediate notice. Before the deadline reminders, which
     # stay last.
     DueAction("ops.daily_spend_alert", spend_alert.due_days, spend_alert.alert_due),
+    # Story 15.6 (FR-69, AD-9): once a Class session's players' limit is reached, tell every owner
+    # of its Class once that its LLM players switched to Rule-based players, a digest notice.
+    DueAction("ops.cost_limit_notice", cost_limit.due_sessions, cost_limit.notice_due),
     # Story 11.8 (AD-9): prepare the Adapted items of each Student through the Replay who has not
     # opened the Individual test, on `llm-batch`, so opening never waits on an LLM call.
     DueAction("tests.prepare_adapted", tests_prepare.due_prepares, tests_prepare.prepare_due),

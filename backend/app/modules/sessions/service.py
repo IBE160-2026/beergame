@@ -1080,6 +1080,11 @@ async def get_session(user: authz.Principal, session_id: uuid.UUID) -> ClassSess
         switch = await assessment.switch_of(s, session_id) if row else assessment.DEFAULT_SWITCH
         sitting = await _sitting_minutes(s, session_id) if row else None
         attempts = await _attempts_opened(s, session_id) if row else False
+        cost_state = (
+            await budget.state(budget.BudgetScope.class_session(session_id), session=s)
+            if row
+            else None
+        )
     if row is None:
         return None
     found = await _class_for(user, row["class_id"], "class_sessions.read")
@@ -1162,6 +1167,7 @@ async def get_session(user: authz.Principal, session_id: uuid.UUID) -> ClassSess
         ai_assessment=_ai_assessment_out(
             user, found, row, switch, now, forbids=forbids, attempts=attempts
         ),
+        cost_limit_reached_at=cost_state.players_exhausted_at if cost_state else None,
         test_sitting=TestSittingOut(
             minutes=sitting,
             min_minutes=get_settings().test_sitting_min_minutes,
@@ -5040,6 +5046,45 @@ async def lock_refused_mail_context(
         "class_name": label.name,
         "session_number": await repo.number_of(session, ref, row["class_id"]),
         "reason": row["lock_refused_reason"] or ProviderKeyMissing.code,
+    }
+
+
+# The cost-limit notice (Story 15.6, FR-69, AD-9): `ops.cost_limit` tells the Class's owners once
+# that the LLM players switched to Rule-based players; these read who and what.
+
+
+async def class_session_owners(
+    session: AsyncSession, class_session_id: uuid.UUID
+) -> list[uuid.UUID]:
+    """The owners and co-owners of the Class session's Class, by id; none when the Class session
+    is gone or its Class is archived (nothing there is told any more)."""
+    row = await repo.session_row(session, class_session_id)
+    if row is None or not await classes.is_writable(row["class_id"], session=session):
+        return []
+    return sorted(await classes.owners_of(session, row["class_id"]))
+
+
+async def cost_limit_mail_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    """The template variables of an `ai_cost_limit` notice, for `messaging` at send time: the
+    Class's name, the session's number, when the limit was reached and the Klasseøkt's path. None,
+    so no mail goes, when the session is gone, its Class archived, the recipient no longer an owner
+    or the limit not reached."""
+    if ref is None or user_id not in await class_session_owners(session, ref):
+        return None
+    state = await budget.state(budget.BudgetScope.class_session(ref), session=session)
+    if state is None or state.players_exhausted_at is None:
+        return None
+    row = await repo.session_row(session, ref)
+    label = await classes.label_of_class(session, row["class_id"]) if row else None
+    if row is None or label is None:
+        return None
+    return {
+        "class_name": label.name,
+        "session_number": await repo.number_of(session, ref, row["class_id"]),
+        "reached_at": state.players_exhausted_at.astimezone(calls.OSLO),
+        "session_path": f"/klasseokter/{ref}",
     }
 
 

@@ -66,6 +66,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/ai/class-sessions/{class_session_id}/assessment/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop Assessment
+         * @description Stop the Class session's AI assessment while its reserve is used up (Story 12.4's
+         *     `stop_for_session`, audited): the retries end and Students see it switched off. Refused with
+         *     409 `reserve_not_used_up`; 404 `not_found`.
+         */
+        post: operations["stopSessionAssessment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/ai/class-sessions/{class_session_id}/budget": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Limit
+         * @description Set the Class session's cost limit on its one budget row (FR-69), audited as
+         *     `ai_budget.limit_set`; the reserve and the spend stay. A raise while the AI assessment waits
+         *     for the Admin also resumes it (Story 12.4). Refused with 422 `limit_below_spent` or
+         *     `reserve_above_limit` (`fields.limit_usd`); 404 `not_found`.
+         */
+        put: operations["setSessionCostLimit"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/ai/class-sessions/{class_session_id}/model-config": {
         parameters: {
             query?: never;
@@ -83,6 +128,49 @@ export interface paths {
          *     `provider_key_missing` when its LLM players' provider has no key here (AD-17).
          */
         put: operations["pinModelConfig"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/ai/costs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Costs
+         * @description Every saved Class session's AI cost against its budget (limit, reserve, spent), per Game
+         *     and per Student against the targets, and the simulation budgets apart (Story 15.6, FR-69,
+         *     AD-22).
+         */
+        get: operations["listSessionCosts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/ai/costs/{class_session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Session Cost
+         * @description One Class session's AI cost per Game and per Europe/Oslo day, its budget and cost-limit
+         *     state: the players' limit reached, the reserve used up, the AI assessment stopped.
+         */
+        get: operations["getSessionCost"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -4435,6 +4523,22 @@ export interface components {
          */
         BouncedRegistration: "bounced";
         /**
+         * BudgetOut
+         * @description A budget row as `ai.budget` holds it.
+         */
+        BudgetOut: {
+            /** Limit Usd */
+            limit_usd: string;
+            /** Players Exhausted At */
+            players_exhausted_at: string | null;
+            /** Reserve Usd */
+            reserve_usd: string;
+            /** Reserved Usd */
+            reserved_usd: string;
+            /** Spent Usd */
+            spent_usd: string;
+        };
+        /**
          * ChainOut
          * @description Step 3, the whole chain (Story 9.5, FR-44, UX-DR33, UX-DR34): all four Roles, Fabrikk
          *     first (upstream first, the order the Ordrestolper rows and the scrubber's reading take), each
@@ -4720,6 +4824,8 @@ export interface components {
             /** Class Name */
             class_name: string;
             copied_from?: components["schemas"]["CopiedFromOut"] | null;
+            /** Cost Limit Reached At */
+            cost_limit_reached_at?: string | null;
             /**
              * Created At
              * Format: date-time
@@ -5208,6 +5314,17 @@ export interface components {
             /** Units */
             units: number;
         };
+        /** CostListOut */
+        CostListOut: {
+            /** Evaluations */
+            evaluations: components["schemas"]["EvaluationCostOut"][];
+            /** Game Target Usd */
+            game_target_usd: string;
+            /** Sessions */
+            sessions: components["schemas"]["SessionCostOut"][];
+            /** Student Target Usd */
+            student_target_usd: string;
+        };
         /**
          * CostSum
          * @description Holding and backlog cost and their sum, in kroner (Story 6.18).
@@ -5266,6 +5383,18 @@ export interface components {
             start_at: string | null;
             /** Test Deadline */
             test_deadline: string | null;
+        };
+        /** DayCostOut */
+        DayCostOut: {
+            /** Calls */
+            calls: number;
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /** Usd */
+            usd: string;
         };
         /**
          * DaySessionSpendOut
@@ -5609,6 +5738,20 @@ export interface components {
              */
             recorded_at: string;
         };
+        /**
+         * EvaluationCostOut
+         * @description A model config's evaluation budget (simulation runs, AD-22), apart from Class sessions.
+         */
+        EvaluationCostOut: {
+            budget: components["schemas"]["BudgetOut"];
+            /**
+             * Model Config Id
+             * Format: uuid
+             */
+            model_config_id: string;
+            /** Model Name */
+            model_name: string;
+        };
         /** EvaluationSessionListOut */
         EvaluationSessionListOut: {
             /** Items */
@@ -5908,6 +6051,19 @@ export interface components {
              * @enum {string}
              */
             stage: "registered" | "class_game" | "debrief" | "quiz_passed" | "replay" | "test_submitted" | "assessment_ready";
+        };
+        /** GameCostOut */
+        GameCostOut: {
+            /** Above */
+            above: boolean;
+            /** Calls */
+            calls: number;
+            /** Game Id */
+            game_id: string | null;
+            /** Number */
+            number: number | null;
+            /** Usd */
+            usd: string;
         };
         /**
          * GameInsightOut
@@ -6858,6 +7014,11 @@ export interface components {
          * @enum {string}
          */
         Lifecycle: "not_started" | "running" | "playing_out" | "finished";
+        /** LimitIn */
+        LimitIn: {
+            /** Limit Usd */
+            limit_usd: number | string;
+        };
         /** LoginIn */
         LoginIn: {
             /** Email */
@@ -9007,6 +9168,84 @@ export interface components {
             /** Session Number */
             session_number: number;
         };
+        /**
+         * SessionCostDetailOut
+         * @description One Class session's cost per Game and per day, with its cost-limit state.
+         */
+        SessionCostDetailOut: {
+            /** Ai Mode */
+            ai_mode: string;
+            /** Assessment Stopped At */
+            assessment_stopped_at: string | null;
+            budget: components["schemas"]["BudgetOut"] | null;
+            /** Calls */
+            calls: number;
+            /** Can Stop */
+            can_stop: boolean;
+            /**
+             * Class Session Id
+             * Format: uuid
+             */
+            class_session_id: string;
+            /** Games */
+            games: number;
+            /** Institution Name */
+            institution_name: string | null;
+            /** Label */
+            label: string;
+            /** Per Day */
+            per_day: components["schemas"]["DayCostOut"][];
+            /** Per Game */
+            per_game: components["schemas"]["GameCostOut"][];
+            /** Per Game Above */
+            per_game_above: boolean;
+            /** Per Game Usd */
+            per_game_usd: string | null;
+            /** Per Student Above */
+            per_student_above: boolean;
+            /** Per Student Usd */
+            per_student_usd: string | null;
+            /** Reserve Used Up */
+            reserve_used_up: boolean;
+            /** Students */
+            students: number;
+            /** Total Usd */
+            total_usd: string;
+        };
+        /**
+         * SessionCostOut
+         * @description One saved Class session's AI cost against its budget.
+         */
+        SessionCostOut: {
+            /** Ai Mode */
+            ai_mode: string;
+            budget: components["schemas"]["BudgetOut"] | null;
+            /** Calls */
+            calls: number;
+            /**
+             * Class Session Id
+             * Format: uuid
+             */
+            class_session_id: string;
+            /** Games */
+            games: number;
+            /** Institution Name */
+            institution_name: string | null;
+            /** Label */
+            label: string;
+            /** Per Game Above */
+            per_game_above: boolean;
+            /** Per Game Usd */
+            per_game_usd: string | null;
+            /** Per Student Above */
+            per_student_above: boolean;
+            /** Per Student Usd */
+            per_student_usd: string | null;
+            /** Students */
+            students: number;
+            /** Total Usd */
+            total_usd: string;
+        };
         /** SessionOut */
         SessionOut: {
             user: components["schemas"]["UserOut"];
@@ -10491,6 +10730,135 @@ export interface operations {
             };
         };
     };
+    stopSessionAssessment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionCostDetailOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    setSessionCostLimit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LimitIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionCostDetailOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     pinModelConfig: {
         parameters: {
             query?: never;
@@ -10558,6 +10926,102 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listSessionCosts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CostListOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getSessionCost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionCostDetailOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

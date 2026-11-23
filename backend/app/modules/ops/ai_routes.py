@@ -1,6 +1,7 @@
 """`/api/admin/ai`: «KI-kostnad» for the Admin, its first page (Story 15.5, FR-68, FR-78): the
 model configs with their measured Effort levels, each Class session's model setting, the pin and
-the study freeze; Story 15.7 adds the AI spend of a day and its alert."""
+the study freeze; Story 15.7 adds the AI spend of a day and its alert, Story 15.6 the cost per
+Class session, its limit and the stop of its AI assessment."""
 
 import uuid
 from datetime import date
@@ -9,15 +10,18 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse, Response
 
-from app.modules.ops import ai_models, spend_alert
+from app.modules.ops import ai_cost, ai_models, spend_alert
 from app.modules.ops.ai_schemas import (
+    CostListOut,
     DailySpendOut,
     FreezeIn,
     FreezeStateOut,
+    LimitIn,
     ModelConfigListOut,
     ModelSessionListOut,
     ModelSessionOut,
     PinIn,
+    SessionCostDetailOut,
 )
 from app.platform import auth, authz
 from app.platform.errors import documented, error_response
@@ -149,4 +153,71 @@ async def daily_spend(
         return error_response(
             422, "day_in_future", "The day has not come yet.", {"day": "day_in_future"}
         )
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.get(
+    "/costs",
+    response_model=CostListOut,
+    responses=documented(401, 403),
+    operation_id="listSessionCosts",
+)
+async def list_costs(_: Manager) -> Response:
+    """Every saved Class session's AI cost against its budget (limit, reserve, spent), per Game
+    and per Student against the targets, and the simulation budgets apart (Story 15.6, FR-69,
+    AD-22)."""
+    return JSONResponse((await ai_cost.list_costs(now=auth.utcnow())).model_dump(mode="json"))
+
+
+@router.get(
+    "/costs/{class_session_id}",
+    response_model=SessionCostDetailOut,
+    responses=documented(401, 403, 404),
+    operation_id="getSessionCost",
+)
+async def session_cost(class_session_id: uuid.UUID, _: Manager) -> Response:
+    """One Class session's AI cost per Game and per Europe/Oslo day, its budget and cost-limit
+    state: the players' limit reached, the reserve used up, the AI assessment stopped."""
+    found = await ai_cost.session_cost(class_session_id, now=auth.utcnow())
+    if found is None:
+        return error_response(404, "not_found", "No such Class session.")
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.put(
+    "/class-sessions/{class_session_id}/budget",
+    response_model=SessionCostDetailOut,
+    responses=documented(401, 403, 404, 422),
+    operation_id="setSessionCostLimit",
+)
+async def set_limit(class_session_id: uuid.UUID, body: LimitIn, user: Manager) -> Response:
+    """Set the Class session's cost limit on its one budget row (FR-69), audited as
+    `ai_budget.limit_set`; the reserve and the spend stay. A raise while the AI assessment waits
+    for the Admin also resumes it (Story 12.4). Refused with 422 `limit_below_spent` or
+    `reserve_above_limit` (`fields.limit_usd`); 404 `not_found`."""
+    try:
+        found = await ai_cost.set_limit(user, class_session_id, body.limit_usd, now=auth.utcnow())
+    except ai_models.Refused as refused:
+        return _refused(refused)
+    if found is None:
+        return error_response(404, "not_found", "No such Class session.")
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.post(
+    "/class-sessions/{class_session_id}/assessment/stop",
+    response_model=SessionCostDetailOut,
+    responses=documented(401, 403, 404, 409),
+    operation_id="stopSessionAssessment",
+)
+async def stop_assessment(class_session_id: uuid.UUID, user: Manager) -> Response:
+    """Stop the Class session's AI assessment while its reserve is used up (Story 12.4's
+    `stop_for_session`, audited): the retries end and Students see it switched off. Refused with
+    409 `reserve_not_used_up`; 404 `not_found`."""
+    try:
+        found = await ai_cost.stop_assessment(user, class_session_id, now=auth.utcnow())
+    except ai_models.Refused as refused:
+        return _refused(refused)
+    if found is None:
+        return error_response(404, "not_found", "No such Class session.")
     return JSONResponse(found.model_dump(mode="json"))

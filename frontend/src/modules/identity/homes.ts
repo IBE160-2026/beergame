@@ -35,6 +35,14 @@ export const ADMIN_EVALUATION_PATH = "/admin/evaluering";
 /** «KI-kostnad» in the Admin-område (Story 15.5; Stories 15.6 and 15.7 extend it). */
 export const ADMIN_AI_COST_PATH = "/admin/ki-kostnad";
 
+/** «KI-kostnad per Klasseøkt» (Story 15.6): every Class session's AI cost and limit. */
+export const ADMIN_AI_COSTS_PATH = `${ADMIN_AI_COST_PATH}/klasseokter`;
+
+/** One Class session's AI cost and its limit (Story 15.6). */
+export function adminAiCostPath(classSessionId: string): string {
+  return `${ADMIN_AI_COSTS_PATH}/${encodeURIComponent(classSessionId)}`;
+}
+
 /** «Drift» in the Admin-område (Story 15.8): the Class sessions, and per Class session its errors,
  * fallback, AI response times, Play guard share and AI cost. */
 export const ADMIN_OPERATIONS_PATH = "/admin/drift";
