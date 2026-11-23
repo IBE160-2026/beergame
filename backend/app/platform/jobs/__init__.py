@@ -58,6 +58,7 @@ TASK_MODULES = (
     "app.modules.replay.jobs",  # no task yet: its finish hook (Story 10.5)
     "app.modules.tests.jobs",
     "app.modules.assessment.jobs",
+    "app.modules.reports.class_report_jobs",  # the Klasserapport's facts sets (Story 14.1)
 )
 """The modules that register tasks on `app`; a worker imports them before it runs."""
 

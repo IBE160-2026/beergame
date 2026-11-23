@@ -177,6 +177,8 @@ async def class_overview(user: authz.Principal, session_id: uuid.UUID) -> ClassO
         class_id=found.id,
         class_name=found.name,
         session_number=number,
+        # Never for a Control test Class session, which no report counts (AD-27).
+        class_report=authz.can(user, "class_report.read", found) and not found.control_test,
     )
 
 

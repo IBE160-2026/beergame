@@ -17,6 +17,9 @@ export type CostDistributionProps = {
   title: string;
   /** Axis label text from the number formatter («1 000»). */
   formatTick: (value: number) => string;
+  /** A value the axis must reach as well (Story 14.1): small multiples pass their highest value,
+   * so every one shares one axis. */
+  highest?: number;
 };
 
 const STEPS = [1, 2, 2.5, 5];
@@ -67,12 +70,13 @@ export function CostDistribution({
   medianLabel,
   title,
   formatTick,
+  highest = 0,
 }: CostDistributionProps) {
   const pad = Math.ceil(fontSize * 0.5);
   const left = pad;
   const right = Math.max(left + 1, width - pad);
   const labelWidth = (value: number) => textWidth(formatTick(value), fontSize);
-  const ticks = distributionAxis(Math.max(upper, ...values), right - left, labelWidth);
+  const ticks = distributionAxis(Math.max(upper, highest, ...values), right - left, labelWidth);
   const top = ticks[ticks.length - 1]!;
   const x = (value: number) => left + (Math.max(0, Math.min(top, value)) / top) * (right - left);
   const labelLine = Math.ceil(fontSize * 1.3);

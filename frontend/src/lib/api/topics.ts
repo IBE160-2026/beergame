@@ -5,6 +5,7 @@ import { debriefsKey } from "@/modules/debrief/api";
 import { classOverviewKey, gameInsightKey, startGamesKey, waitedForSeatsKey } from "@/modules/games/api";
 import { meKey } from "@/modules/identity/api";
 import { myMessagesKey, sentMessagesKey } from "@/modules/messaging/api";
+import { classReportKey } from "@/modules/reports/class-report-api";
 import {
   allocationKey,
   classSessionKey,
@@ -59,6 +60,8 @@ export function topicKeys(event: ChangeEvent): QueryKey[] {
         startGamesKey(event.id),
         waitedForSeatsKey(event.id),
         sentMessagesKey(event.id),
+        // Story 14.1: the Klasserapport, as a Game finishes or a step is recorded.
+        classReportKey(event.id),
       ];
     // A Game: the Student's own game and what hangs under it (briefing, Starting task, the play
     // screen's envelope), Hjem, whose Setestatus shows who has ordered (Story 6.14), and the

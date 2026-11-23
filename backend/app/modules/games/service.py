@@ -20,6 +20,18 @@ from app.modules.games.checks import (
     rules_versions_without_package,
     verify_finished,
 )
+from app.modules.games.class_figures import (
+    ClassGameRow,
+    FactFigures,
+    OccupancyFigure,
+    SeatFigure,
+    fact_figures,
+    occupancy_figures,
+    rating_counts,
+    report_class_games,
+    seat_counts,
+    seat_figures,
+)
 from app.modules.games.insight import (
     GameInsight,
     InsightLink,
@@ -199,6 +211,17 @@ __all__ = [
     "announce",
     "open_takeover_due",
     "verify_finished",
+    # The Klasserapport's reads (Story 14.1, `class_figures`).
+    "ClassGameRow",
+    "FactFigures",
+    "OccupancyFigure",
+    "SeatFigure",
+    "fact_figures",
+    "report_class_games",
+    "occupancy_figures",
+    "rating_counts",
+    "seat_counts",
+    "seat_figures",
 ]
 
 

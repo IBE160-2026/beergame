@@ -19,6 +19,7 @@ import { AccessDenied, GuardedPage } from "@/modules/identity/home-page";
 import {
   classOverviewPath,
   classPath,
+  classReportPath,
   classSessionPath,
   gameInsightPath,
   HOME_PATH,
@@ -210,6 +211,12 @@ function OverviewHeader({ data, sessionId }: { data: ClassOverview; sessionId: s
       <Link href={sentMessagesPath(sessionId)} data-sent-messages-link="" standalone>
         {nb.messages.sentList.link}
       </Link>
+      {/* How the Class games went, for the Lecturers of the Class (Story 14.1). */}
+      {data.class_report ? (
+        <Link href={classReportPath(sessionId)} data-class-report-link="" standalone>
+          {nb.classReport.link}
+        </Link>
+      ) : null}
       {/* Every Class game not started, for a Lecturer (Story 8.10); not shown with a count of 0. */}
       {startLink ? (
         <Link href={startGamesPath(sessionId)} data-start-games-link="" standalone>

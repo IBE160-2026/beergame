@@ -913,6 +913,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/class-sessions/{session_id}/class-report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Class Report
+         * @description The Klasserapport (Story 14.1): the Trakt, Kjedekost and Kostnad per Rolle, Forsterkning per
+         *     Rolle, «Mønstre», the AI play and the plausibility ratings per AI mode over the Class session's
+         *     finished Class games, every figure computed here (AD-10).
+         */
+        get: operations["getClassReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/class-sessions/{session_id}/debrief-quiz": {
         parameters: {
             query?: never;
@@ -4248,6 +4270,11 @@ export interface components {
             class_id: string;
             /** Class Name */
             class_name: string;
+            /**
+             * Class Report
+             * @default false
+             */
+            class_report: boolean;
             cost: components["schemas"]["ClassCostOut"] | null;
             counts: components["schemas"]["OverviewCountsOut"];
             /**
@@ -4279,6 +4306,45 @@ export interface components {
              * @default 0
              */
             startable: number;
+        };
+        /**
+         * ClassReportOut
+         * @description The Klasserapport of a Class session (Story 14.1). `games` counts its Class games,
+         *     `finished` those finished, which every game figure is over, and `facts_games` those of them
+         *     whose every Seat has its stored facts set, which Forsterkning and Mønstre are over. `cost` is
+         *     None while no game has finished.
+         */
+        ClassReportOut: {
+            ai: components["schemas"]["ReportAiOut"];
+            /** Amplification */
+            amplification: components["schemas"]["RoleAmplificationOut"][];
+            /**
+             * Class Id
+             * Format: uuid
+             */
+            class_id: string;
+            /** Class Name */
+            class_name: string;
+            /**
+             * Class Session Id
+             * Format: uuid
+             */
+            class_session_id: string;
+            cost: components["schemas"]["ReportCostOut"] | null;
+            /** Facts Games */
+            facts_games: number;
+            /** Finished */
+            finished: number;
+            /** Funnel */
+            funnel: components["schemas"]["FunnelStageOut"][];
+            /** Games */
+            games: number;
+            /** Patterns */
+            patterns: components["schemas"]["PatternOut"][];
+            /** Ratings */
+            ratings: components["schemas"]["RatingModeOut"][];
+            /** Session Number */
+            session_number: number;
         };
         /** ClassSessionListItem */
         ClassSessionListItem: {
@@ -4967,6 +5033,22 @@ export interface components {
             week: number;
         };
         /**
+         * DistributionOut
+         * @description The values of a distribution (one per finished Class game, by game number, for the
+         *     Kostnadsfordeling's ticks) with their median and quartiles (the inclusive method of
+         *     `analysis.wall.quartiles`).
+         */
+        DistributionOut: {
+            /** Lower Quartile */
+            lower_quartile: string;
+            /** Median */
+            median: string;
+            /** Upper Quartile */
+            upper_quartile: string;
+            /** Values */
+            values: string[];
+        };
+        /**
          * EnrolledClassListOut
          * @description The Classes the User is a Student in, by name. No paging: a Student has a handful.
          */
@@ -5213,6 +5295,34 @@ export interface components {
              * @enum {string}
              */
             stage: "registered" | "class_game" | "debrief" | "quiz_passed" | "replay" | "test_submitted" | "assessment_ready";
+        };
+        /**
+         * GameAiOut
+         * @description One finished Class game's AI play (FR-68): its Orders outside Guided Weeks, those an LLM
+         *     player decided and their share in percent (None with no Order), and those the fallback
+         *     replaced (AD-15).
+         */
+        GameAiOut: {
+            /** Fallback */
+            fallback: number;
+            /** Llm */
+            llm: number;
+            /** Llm Percent */
+            llm_percent: string | null;
+            /** Number */
+            number: number | null;
+            /** Ordered */
+            ordered: number;
+        };
+        /**
+         * GameCostOut
+         * @description A finished Class game's chain Total cost, for «Vis som tabell».
+         */
+        GameCostOut: {
+            /** Chain Cost */
+            chain_cost: string;
+            /** Number */
+            number: number | null;
         };
         /**
          * GameInsightOut
@@ -6727,6 +6837,21 @@ export interface components {
             email: string;
         };
         /**
+         * PatternOut
+         * @description A Detected pattern across the covered Class games: the occurrences in Weeks a Student
+         *     decided, and in how many games at least one.
+         */
+        PatternOut: {
+            /** Games */
+            games: number;
+            /** Name */
+            name: string;
+            /** Occurrences */
+            occurrences: number;
+            /** Pattern */
+            pattern: string;
+        };
+        /**
          * PauseOut
          * @description The game's pause line (Story 8.6, FR-89, UX-DR62): `paused` while a Pause is in force,
          *     named by who set it («Pause, satt av Sara.»); `ended` from the Order that ended it until the
@@ -6976,6 +7101,31 @@ export interface components {
             question_id: string;
             /** Right Choice */
             right_choice: string;
+        };
+        /** RatingCountOut */
+        RatingCountOut: {
+            /** Count */
+            count: number;
+            /** Rating */
+            rating: number;
+        };
+        /**
+         * RatingModeOut
+         * @description The plausibility ratings of one AI mode (FR-70): the count of each value 1–5, their
+         *     number and median. Never a single rating or who gave it.
+         */
+        RatingModeOut: {
+            /**
+             * Ai Mode
+             * @enum {string}
+             */
+            ai_mode: "llm" | "rule_based";
+            /** Count */
+            count: number;
+            /** Median */
+            median: string;
+            /** Values */
+            values: components["schemas"]["RatingCountOut"][];
         };
         /**
          * ReflectionAnswerIn
@@ -7358,6 +7508,47 @@ export interface components {
             state: "pending" | "ready";
         };
         /**
+         * ReportAiOut
+         * @description The share of Seats played by AI players (FR-64), the Share of LLM Orders per game and the
+         *     switches (FR-68), and the share of LLM-held Seats the Play guard switched (FR-79).
+         */
+        ReportAiOut: {
+            /** Ai Percent */
+            ai_percent: string | null;
+            /** Ai Seats */
+            ai_seats: number;
+            /** Games */
+            games: components["schemas"]["GameAiOut"][];
+            /** Guard Percent */
+            guard_percent: string | null;
+            /** Guard Switched */
+            guard_switched: number;
+            /** Llm Seats */
+            llm_seats: number;
+            /** Seats */
+            seats: number;
+            /** Switches */
+            switches: components["schemas"]["SwitchOut"][];
+            /** Whole Game */
+            whole_game: number;
+        };
+        /**
+         * ReportCostOut
+         * @description Kjedekost and Kostnad per Rolle (FR-64, UX-DR72): the chain cost's distribution with the
+         *     chain's mean Lager and Restordre per game, and each Role in chain order (Detaljist first).
+         */
+        ReportCostOut: {
+            /** Backorder Cost */
+            backorder_cost: string;
+            chain: components["schemas"]["DistributionOut"];
+            /** Games */
+            games: components["schemas"]["GameCostOut"][];
+            /** Holding Cost */
+            holding_cost: string;
+            /** Roles */
+            roles: components["schemas"]["RoleCostDistributionOut"][];
+        };
+        /**
          * ResetCheckOut
          * @description A usable reset link: its address, and whether the account has no password yet (a manually
          *     registered Student, Story 4.8), so «Nytt passord» words it as a first password.
@@ -7473,6 +7664,17 @@ export interface components {
          */
         Role: "retailer" | "wholesaler" | "distributor" | "factory";
         /**
+         * RoleAmplificationOut
+         * @description One Role's Order amplification (`orders_std / demand_std`, the facts sets' chain part)
+         *     over the covered games where demand varied; None without one.
+         */
+        RoleAmplificationOut: {
+            distribution: components["schemas"]["DistributionOut"] | null;
+            /** Games */
+            games: number;
+            role: components["schemas"]["Role"];
+        };
+        /**
          * RoleCapacityOut
          * @description A capped Role (Story 6.22, FR-12): the most it ships per Week, a rule of the game.
          */
@@ -7488,6 +7690,21 @@ export interface components {
         RoleCost: {
             /** Backorder Cost */
             backorder_cost: string;
+            /** Holding Cost */
+            holding_cost: string;
+            role: components["schemas"]["Role"];
+            /** Total Cost */
+            total_cost: string;
+        };
+        /**
+         * RoleCostDistributionOut
+         * @description One Role's Total cost over the finished Class games: its distribution and its mean Lager
+         *     and Restordre per game (`total_cost` is their sum), in kroner rounded to the øre.
+         */
+        RoleCostDistributionOut: {
+            /** Backorder Cost */
+            backorder_cost: string;
+            distribution: components["schemas"]["DistributionOut"];
             /** Holding Cost */
             holding_cost: string;
             role: components["schemas"]["Role"];
@@ -8827,6 +9044,19 @@ export interface components {
              * @enum {string}
              */
             stage: "ordered" | "in_transit" | "in_production";
+        };
+        /**
+         * SwitchOut
+         * @description A switch by the cost limit or the Play guard: the game, the Seat's Role, the Week it took
+         *     effect and its mark from the one AD-15 mapping.
+         */
+        SwitchOut: {
+            mark: components["schemas"]["SeatMark"];
+            /** Number */
+            number: number | null;
+            role: components["schemas"]["Role"];
+            /** Week */
+            week: number;
         };
         /**
          * TableColumnOut
@@ -11672,6 +11902,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AssessmentListOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getClassReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassReportOut"];
                 };
             };
             /** @description Unauthorized */

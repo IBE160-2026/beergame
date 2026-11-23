@@ -1762,6 +1762,11 @@
             "title": "Class Name",
             "type": "string"
           },
+          "class_report": {
+            "default": false,
+            "title": "Class Report",
+            "type": "boolean"
+          },
           "cost": {
             "anyOf": [
               {
@@ -1873,6 +1878,99 @@
           "session_number"
         ],
         "title": "ClassOverviewOut",
+        "type": "object"
+      },
+      "ClassReportOut": {
+        "description": "The Klasserapport of a Class session (Story 14.1). `games` counts its Class games,\n`finished` those finished, which every game figure is over, and `facts_games` those of them\nwhose every Seat has its stored facts set, which Forsterkning and Mønstre are over. `cost` is\nNone while no game has finished.",
+        "properties": {
+          "ai": {
+            "$ref": "#/components/schemas/ReportAiOut"
+          },
+          "amplification": {
+            "items": {
+              "$ref": "#/components/schemas/RoleAmplificationOut"
+            },
+            "title": "Amplification",
+            "type": "array"
+          },
+          "class_id": {
+            "format": "uuid",
+            "title": "Class Id",
+            "type": "string"
+          },
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "class_session_id": {
+            "format": "uuid",
+            "title": "Class Session Id",
+            "type": "string"
+          },
+          "cost": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportCostOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "facts_games": {
+            "title": "Facts Games",
+            "type": "integer"
+          },
+          "finished": {
+            "title": "Finished",
+            "type": "integer"
+          },
+          "funnel": {
+            "items": {
+              "$ref": "#/components/schemas/FunnelStageOut"
+            },
+            "title": "Funnel",
+            "type": "array"
+          },
+          "games": {
+            "title": "Games",
+            "type": "integer"
+          },
+          "patterns": {
+            "items": {
+              "$ref": "#/components/schemas/PatternOut"
+            },
+            "title": "Patterns",
+            "type": "array"
+          },
+          "ratings": {
+            "items": {
+              "$ref": "#/components/schemas/RatingModeOut"
+            },
+            "title": "Ratings",
+            "type": "array"
+          },
+          "session_number": {
+            "title": "Session Number",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "class_session_id",
+          "class_id",
+          "class_name",
+          "session_number",
+          "games",
+          "finished",
+          "facts_games",
+          "funnel",
+          "cost",
+          "amplification",
+          "patterns",
+          "ai",
+          "ratings"
+        ],
+        "title": "ClassReportOut",
         "type": "object"
       },
       "ClassSessionListItem": {
@@ -3577,6 +3675,38 @@
         "title": "DemandWeekOut",
         "type": "object"
       },
+      "DistributionOut": {
+        "description": "The values of a distribution (one per finished Class game, by game number, for the\nKostnadsfordeling's ticks) with their median and quartiles (the inclusive method of\n`analysis.wall.quartiles`).",
+        "properties": {
+          "lower_quartile": {
+            "title": "Lower Quartile",
+            "type": "string"
+          },
+          "median": {
+            "title": "Median",
+            "type": "string"
+          },
+          "upper_quartile": {
+            "title": "Upper Quartile",
+            "type": "string"
+          },
+          "values": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Values",
+            "type": "array"
+          }
+        },
+        "required": [
+          "values",
+          "median",
+          "lower_quartile",
+          "upper_quartile"
+        ],
+        "title": "DistributionOut",
+        "type": "object"
+      },
       "EnrolledClassListOut": {
         "description": "The Classes the User is a Student in, by name. No paging: a Student has a handful.",
         "properties": {
@@ -4127,6 +4257,80 @@
           "count"
         ],
         "title": "FunnelStageOut",
+        "type": "object"
+      },
+      "GameAiOut": {
+        "description": "One finished Class game's AI play (FR-68): its Orders outside Guided Weeks, those an LLM\nplayer decided and their share in percent (None with no Order), and those the fallback\nreplaced (AD-15).",
+        "properties": {
+          "fallback": {
+            "title": "Fallback",
+            "type": "integer"
+          },
+          "llm": {
+            "title": "Llm",
+            "type": "integer"
+          },
+          "llm_percent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Llm Percent"
+          },
+          "number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number"
+          },
+          "ordered": {
+            "title": "Ordered",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "number",
+          "ordered",
+          "llm",
+          "llm_percent",
+          "fallback"
+        ],
+        "title": "GameAiOut",
+        "type": "object"
+      },
+      "GameCostOut": {
+        "description": "A finished Class game's chain Total cost, for «Vis som tabell».",
+        "properties": {
+          "chain_cost": {
+            "title": "Chain Cost",
+            "type": "string"
+          },
+          "number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number"
+          }
+        },
+        "required": [
+          "number",
+          "chain_cost"
+        ],
+        "title": "GameCostOut",
         "type": "object"
       },
       "GameInsightOut": {
@@ -7602,6 +7806,35 @@
         "title": "PasswordResetIn",
         "type": "object"
       },
+      "PatternOut": {
+        "description": "A Detected pattern across the covered Class games: the occurrences in Weeks a Student\ndecided, and in how many games at least one.",
+        "properties": {
+          "games": {
+            "title": "Games",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "occurrences": {
+            "title": "Occurrences",
+            "type": "integer"
+          },
+          "pattern": {
+            "title": "Pattern",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pattern",
+          "name",
+          "occurrences",
+          "games"
+        ],
+        "title": "PatternOut",
+        "type": "object"
+      },
       "PauseOut": {
         "description": "The game's pause line (Story 8.6, FR-89, UX-DR62): `paused` while a Pause is in force,\nnamed by who set it («Pause, satt av Sara.»); `ended` from the Order that ended it until the\nnext Uke opens, named by who ordered («Pausen er over. Sara har bestilt.»). Never a Week\ncount (FR-14).",
         "properties": {
@@ -8162,6 +8395,60 @@
           "explanation"
         ],
         "title": "QuizResultOut",
+        "type": "object"
+      },
+      "RatingCountOut": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "rating": {
+            "title": "Rating",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "rating",
+          "count"
+        ],
+        "title": "RatingCountOut",
+        "type": "object"
+      },
+      "RatingModeOut": {
+        "description": "The plausibility ratings of one AI mode (FR-70): the count of each value 1–5, their\nnumber and median. Never a single rating or who gave it.",
+        "properties": {
+          "ai_mode": {
+            "enum": [
+              "llm",
+              "rule_based"
+            ],
+            "title": "Ai Mode",
+            "type": "string"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "median": {
+            "title": "Median",
+            "type": "string"
+          },
+          "values": {
+            "items": {
+              "$ref": "#/components/schemas/RatingCountOut"
+            },
+            "title": "Values",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ai_mode",
+          "count",
+          "median",
+          "values"
+        ],
+        "title": "RatingModeOut",
         "type": "object"
       },
       "ReflectionAnswerIn": {
@@ -9018,6 +9305,119 @@
         "title": "ReplayWalkthroughOut",
         "type": "object"
       },
+      "ReportAiOut": {
+        "description": "The share of Seats played by AI players (FR-64), the Share of LLM Orders per game and the\nswitches (FR-68), and the share of LLM-held Seats the Play guard switched (FR-79).",
+        "properties": {
+          "ai_percent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ai Percent"
+          },
+          "ai_seats": {
+            "title": "Ai Seats",
+            "type": "integer"
+          },
+          "games": {
+            "items": {
+              "$ref": "#/components/schemas/GameAiOut"
+            },
+            "title": "Games",
+            "type": "array"
+          },
+          "guard_percent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guard Percent"
+          },
+          "guard_switched": {
+            "title": "Guard Switched",
+            "type": "integer"
+          },
+          "llm_seats": {
+            "title": "Llm Seats",
+            "type": "integer"
+          },
+          "seats": {
+            "title": "Seats",
+            "type": "integer"
+          },
+          "switches": {
+            "items": {
+              "$ref": "#/components/schemas/SwitchOut"
+            },
+            "title": "Switches",
+            "type": "array"
+          },
+          "whole_game": {
+            "title": "Whole Game",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "seats",
+          "ai_seats",
+          "whole_game",
+          "ai_percent",
+          "games",
+          "switches",
+          "llm_seats",
+          "guard_switched",
+          "guard_percent"
+        ],
+        "title": "ReportAiOut",
+        "type": "object"
+      },
+      "ReportCostOut": {
+        "description": "Kjedekost and Kostnad per Rolle (FR-64, UX-DR72): the chain cost's distribution with the\nchain's mean Lager and Restordre per game, and each Role in chain order (Detaljist first).",
+        "properties": {
+          "backorder_cost": {
+            "title": "Backorder Cost",
+            "type": "string"
+          },
+          "chain": {
+            "$ref": "#/components/schemas/DistributionOut"
+          },
+          "games": {
+            "items": {
+              "$ref": "#/components/schemas/GameCostOut"
+            },
+            "title": "Games",
+            "type": "array"
+          },
+          "holding_cost": {
+            "title": "Holding Cost",
+            "type": "string"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/RoleCostDistributionOut"
+            },
+            "title": "Roles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "chain",
+          "holding_cost",
+          "backorder_cost",
+          "roles",
+          "games"
+        ],
+        "title": "ReportCostOut",
+        "type": "object"
+      },
       "ResetCheckOut": {
         "description": "A usable reset link: its address, and whether the account has no password yet (a manually\nregistered Student, Story 4.8), so «Nytt passord» words it as a first password.",
         "properties": {
@@ -9258,6 +9658,35 @@
         "title": "Role",
         "type": "string"
       },
+      "RoleAmplificationOut": {
+        "description": "One Role's Order amplification (`orders_std / demand_std`, the facts sets' chain part)\nover the covered games where demand varied; None without one.",
+        "properties": {
+          "distribution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DistributionOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "games": {
+            "title": "Games",
+            "type": "integer"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          }
+        },
+        "required": [
+          "role",
+          "games",
+          "distribution"
+        ],
+        "title": "RoleAmplificationOut",
+        "type": "object"
+      },
       "RoleCapacityOut": {
         "description": "A capped Role (Story 6.22, FR-12): the most it ships per Week, a rule of the game.",
         "properties": {
@@ -9303,6 +9732,38 @@
           "role"
         ],
         "title": "RoleCost",
+        "type": "object"
+      },
+      "RoleCostDistributionOut": {
+        "description": "One Role's Total cost over the finished Class games: its distribution and its mean Lager\nand Restordre per game (`total_cost` is their sum), in kroner rounded to the øre.",
+        "properties": {
+          "backorder_cost": {
+            "title": "Backorder Cost",
+            "type": "string"
+          },
+          "distribution": {
+            "$ref": "#/components/schemas/DistributionOut"
+          },
+          "holding_cost": {
+            "title": "Holding Cost",
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "total_cost": {
+            "title": "Total Cost",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "distribution",
+          "holding_cost",
+          "backorder_cost",
+          "total_cost"
+        ],
+        "title": "RoleCostDistributionOut",
         "type": "object"
       },
       "RoleCostOut": {
@@ -12345,6 +12806,40 @@
           "arrival_week"
         ],
         "title": "SupplyLineSlot",
+        "type": "object"
+      },
+      "SwitchOut": {
+        "description": "A switch by the cost limit or the Play guard: the game, the Seat's Role, the Week it took\neffect and its mark from the one AD-15 mapping.",
+        "properties": {
+          "mark": {
+            "$ref": "#/components/schemas/SeatMark"
+          },
+          "number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "number",
+          "role",
+          "week",
+          "mark"
+        ],
+        "title": "SwitchOut",
         "type": "object"
       },
       "TableColumnOut": {
@@ -16662,6 +17157,69 @@
         "summary": "List Student Assessments",
         "tags": [
           "tests"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/class-report": {
+      "get": {
+        "description": "The Klasserapport (Story 14.1): the Trakt, Kjedekost and Kostnad per Rolle, Forsterkning per\nRolle, «Mønstre», the AI play and the plausibility ratings per AI mode over the Class session's\nfinished Class games, every figure computed here (AD-10).",
+        "operationId": "getClassReport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassReportOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Class Report",
+        "tags": [
+          "reports"
         ]
       }
     },

@@ -4340,6 +4340,124 @@ export const nb = {
     },
   },
 
+  /** The Klasserapport (Story 14.1, FR-64, FR-68, FR-70, FR-79, UX-DR55, EXPERIENCE.md → Klasserapport).
+   * The title, the empty and partial lines, «Mønstre» and «Vis som tabell» are the spine's; the rest
+   * is [ASSUMPTION] draft copy for the founder's review. Every number is the api's (AD-10). */
+  classReport: {
+    title: "Klasserapport",
+    crumb: "Klasserapport",
+    /** The Lenke on the Oversikt and on the Klasse's list of Klasseøkter. */
+    link: "Klasserapport",
+    /** [ASSUMPTION] the Lenke's name on the Klasse's list: «Klasserapport, Klasseøkt 2». */
+    linkLabel: (number: number) => `Klasserapport, Klasseøkt ${number}`,
+    session: (number: number, className: string) => `Klasseøkt ${number}, ${className}`,
+    /** FR-64: none finished, some finished; [ASSUMPTION] all finished. */
+    none: "Ingen spill er ferdige ennå.",
+    partial: (finished: number, games: number) =>
+      `Oppdateres etter hvert som studentene blir ferdige. ${finished} av ${games} spill er med.`,
+    all: (games: number) => `Alle ${games} spill er med.`,
+    /** [ASSUMPTION] the session has no Class game at all. */
+    noGames: "Klasseøkta har ingen klassespill.",
+    showTable: "Vis som tabell",
+    showChart: "Vis som graf",
+    gameColumn: "Spill",
+    roleColumn: "Rolle",
+    medianColumn: "Median",
+    middleColumn: "Midterste halvdel",
+    median: (value: string) => `Median ${value}`,
+    middle: (low: string, high: string) => `${low}–${high}`,
+    summary: (median: string, low: string, high: string) => `Median ${median}. Midterste halvdel ${low}–${high}.`,
+    funnel: {
+      title: "Trakt",
+      stageColumn: "Steg",
+      countColumn: "Studenter",
+      tableCaption: "Trakt: studenter som har nådd hvert steg",
+    },
+    chain: {
+      title: "Kjedekost",
+      intro: (games: number) => `Kjedens totalkostnad i ${games} ${games === 1 ? "ferdig spill" : "ferdige spill"}. Hvert merke er ett spill.`,
+      axis: "Kroner. Boksen er midterste halvdel.",
+      chartTitle: (games: number) => `Kjedekost i hvert ferdige spill, ${games} spill`,
+      /** «Snitt per spill: lager 949 kr, restordre 1 063 kr.» */
+      split: (holding: string, backorder: string) => `Snitt per spill: lager ${holding} kr, restordre ${backorder} kr.`,
+      tableCaption: "Kjedekost per ferdige spill, etter spillnummer",
+      costColumn: "Kjedekost, kr",
+    },
+    roles: {
+      title: "Kostnad per Rolle",
+      intro: "Rollens totalkostnad i hvert ferdige spill, på samme akse.",
+      chartTitle: (role: string) => `Totalkostnad for ${role} i hvert ferdige spill`,
+      /** Under each Role: «Median 412. Snitt: lager 210 kr, restordre 202 kr.» */
+      line: (median: string, holding: string, backorder: string) =>
+        `Median ${median}. Snitt: lager ${holding} kr, restordre ${backorder} kr.`,
+      tableCaption: "Totalkostnad per Rolle, kroner",
+      holdingColumn: "Lager, snitt",
+      backorderColumn: "Restordre, snitt",
+    },
+    amplification: {
+      title: "Forsterkning per Rolle",
+      intro: "Hvor mye ordrene svinger sammenlignet med kundenes etterspørsel. 1 betyr like mye.",
+      chartTitle: (role: string) => `Forsterkning for ${role} i hvert analyserte spill`,
+      value: (value: string) => `${value}×`,
+      none: "Ingen spill er analysert ennå.",
+      noValue: "Kundenes etterspørsel varierte ikke.",
+      tableCaption: "Forsterkning per Rolle",
+      gamesColumn: "Spill",
+    },
+    /** When the analysis of some finished games is not stored yet. */
+    covered: (covered: number, finished: number) =>
+      `Fra ${covered} av ${finished} ferdige spill. Resten kommer når analysen er klar.`,
+    patterns: {
+      title: "Mønstre",
+      intro: "Mønstre i ordrene studentene la inn, oftest først.",
+      none: "Ingen mønstre i studentenes ordrer.",
+      /** «Stor ordre mens mye allerede er på vei: 212» */
+      row: (name: string, count: string) => `${name}: ${count}`,
+      reads: (name: string, count: string, games: string) => `${name}: ${count} ganger i ${games} spill`,
+      tableCaption: "Mønstre i studentenes ordrer",
+      patternColumn: "Mønster",
+      occurrencesColumn: "Ganger",
+      gamesColumn: "Spill med mønsteret",
+    },
+    ai: {
+      title: "KI-spillere",
+      /** «KI-spillere spilte 14 av 240 seter (5,8 %): 9 hele spillet, 5 en del av det.» */
+      seats: (ai: number, seats: number, percent: string, whole: number) =>
+        ai === 0
+          ? `Ingen av ${seats} seter ble spilt av KI-spillere.`
+          : `KI-spillere spilte ${ai} av ${seats} seter (${percent} %): ${whole} hele spillet, ${ai - whole} en del av det.`,
+      /** FR-79: «Spillvakten byttet 2 av 30 seter med LLM-spiller (6,7 %).» */
+      guard: (switched: number, seats: number, percent: string) =>
+        `Spillvakten byttet ${switched} av ${seats} ${seats === 1 ? "sete" : "seter"} med LLM-spiller (${percent} %).`,
+      noLlm: "Ingen seter hadde LLM-spiller.",
+      switchesTitle: "Bytter til regelbasert KI-spiller",
+      noSwitches: "Ingen bytter.",
+      /** «Spill 4, Grossist, fra Uke 12: Byttet til regelbasert KI (spillvakt)» */
+      switchLine: (game: string, role: string, week: number, mark: string) => `${game}, ${role}, fra Uke ${week}: ${mark}`,
+      llmTitle: "Andel LLM-ordre per spill",
+      llmIntro: "Ordre utenom veiledede uker. Reserveordre er lagt inn av regelbasert KI fordi LLM-spilleren ikke svarte.",
+      tableCaption: "Andel LLM-ordre per spill, etter spillnummer",
+      orderedColumn: "Ordre",
+      llmColumn: "LLM-ordre",
+      shareColumn: "Andel",
+      fallbackColumn: "Reserveordre",
+      percent: (value: string) => `${value} %`,
+      noOrders: "–",
+    },
+    ratings: {
+      title: "Troverdighet",
+      intro: "Hvor troverdige studentene syntes KI-spillernes ordrer var, fra 1 til 5. Bare antall og median, ingen enkeltsvar.",
+      none: "Ingen svar ennå.",
+      modes: { llm: "LLM-spillere", rule_based: "Regelbaserte KI-spillere" } as Record<string, string>,
+      /** «LLM-spillere: 23 svar, median 4.» */
+      line: (mode: string, count: string, median: string) => `${mode}: ${count} svar, median ${median}.`,
+      reads: (rating: number, count: number) => `${rating}: ${count} svar`,
+      tableCaption: (mode: string) => `Svar per verdi, ${mode}`,
+      ratingColumn: "Verdi",
+      countColumn: "Svar",
+    },
+  },
+
   /** EXPERIENCE.md → State Patterns (UX-DR59). */
   access: {
     denied: "Du har ikke tilgang til denne siden.",

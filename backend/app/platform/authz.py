@@ -189,6 +189,9 @@ POLICIES: dict[str, frozenset[str]] = {
     # A Student's AI assessment and the Klasseøkt's list of them (Story 12.5, FR-55, AD-12): the
     # Class's owners and Assistant lecturers; never the Admin without a staff role in the Class.
     "ai_assessments.read": frozenset({LECTURER, ASSISTANT}),
+    # The Klasserapport of a Class session (Story 14.1, FR-64, FR-5, AD-12): only the Class's
+    # owners; never an Assistant lecturer, never an Admin without a staff role in the Class.
+    "class_report.read": frozenset({LECTURER}),
     # FR-5: no account role grants this. Epic 4+ adds the Class-scoped grants.
     "student_answers.read": frozenset(),
 }
@@ -223,6 +226,7 @@ CLASS_STAFF_ROLES: dict[str, frozenset[str]] = {
     "messages.read_sent": frozenset({OWNER, ASSISTANT_STAFF}),
     "student_pages.read": frozenset({OWNER, ASSISTANT_STAFF}),
     "ai_assessments.read": frozenset({OWNER, ASSISTANT_STAFF}),
+    "class_report.read": frozenset({OWNER}),
 }
 """Class action → the staff roles in the Class that may do it. Later stories add theirs."""
 

@@ -1276,6 +1276,9 @@ class ClassOverviewOut(BaseModel):
     class_id: uuid.UUID
     class_name: str
     session_number: int
+    class_report: bool = False
+    """Story 14.1 (FR-64, AD-12): the reader may open the Klasserapport (`class_report.read`, the
+    Class's owners), so the header links to it; False for an Assistant lecturer."""
 
 
 class WeekSeatOut(BaseModel):
