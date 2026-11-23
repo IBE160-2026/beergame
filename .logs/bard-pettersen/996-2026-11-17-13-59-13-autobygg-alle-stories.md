@@ -3956,3 +3956,75 @@ Avslutte Epic 12 på `epic-12`: hente inn `main`, visuell kontroll, norsk sorter
 ### Åpne punkter
 - Issue #241: utsatte punkter (blant annet en drept worker som kan la en vurdering stå fast).
 - Grunnleggeren: `assessment`-prompten i OpenRouter-konfigurasjonen, samtykketeksten (Issue #234) og kontroller med ekte modell.
+
+## Story 13.8: Studentrapporten viser spillet med grafene (spor 2)
+
+### Oppgave
+Bygge Story 13.8 på `epic-13` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-13-8-student-report-shows-the-game-with-its-charts.md`.
+- Commit: 7f90bd1.
+- Studentrapporten har fått seksjonen om spillet: fakta, studentens egen rolle som graf over tabell, hele kjeden og «Hvem spilte». PDF-en består veraPDF (PDF/UA-1).
+- Tester: backend 3778, Vitest 1217, tsc, `lint:colours`, `check:copy`, bygg, Playwright 90.
+- Gjennomgang: 27 funn, 7 rettet.
+- Status: done.
+
+### Åpne punkter
+- Issue #243: beslutninger.
+## Story 13.9: Studenten får vite når dataene slettes (spor 2)
+
+### Oppgave
+Bygge Story 13.9 på `epic-13` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-13-9-student-is-told-when-their-data-will-be-deleted.md`. Commit: 14d7198. Migrasjon 0305.
+- Slettedatoen (siste Testfrist + 6 måneder, plassholder) lagres på Klasseøkta og vises på Hjem. En påminnelse sendes 14 dager før. Regelen er én ren funksjon som Epic 15 kan bruke.
+- Tester: backend 3792 (én feil uten sammenheng), Vitest 1221, frontend-sjekkene, Playwright 62.
+- Status: done.
+
+### Åpne punkter
+- Issue #244: beslutninger og plassholdere.
+
+## Story 14.1: Klasserapport over spillene (spor 3)
+
+### Oppgave
+Bygge Story 14.1 på `epic-14` i spor 3, den første storyen i Epic 14, fra `main` med Epic 1–12.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-14-1-class-report-of-the-games.md`. Commit: c162b13. Epic-konteksten `epic-14-context.md` ble laget.
+- Siden «Klasserapport» viser trakt, kostnader per rolle, forsterkning, mønstre, KI-spillerne og vurderingene av hvor troverdige de var. Bygget slik at det kan slås sammen med `reports` fra Epic 13.
+- Tester: backend 3893, Vitest 1228, frontend-sjekkene, Playwright 49 med axe.
+- Gjennomgang: 24 funn, 6 rettet, 4 utsatt.
+- Status: done.
+
+### Åpne punkter
+- Issue #245: beslutninger og utsatte punkter.
+
+## Story 15.6: Admin ser KI-kostnad og setter kostnadsgrensen (spor 1), og merge av Epic 11 og 12 inn i Epic 15
+
+### Oppgave
+Hente inn `main` (Epic 11 og 12) i `epic-15`, dekke de nye tabellene i persondataregisteret, slettingen og eksporten, og bygge Story 15.6.
+
+### Plan
+Byggeagent: merge og sømmer først, så storyen med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Merge: cad578c (0065 etter 0209, én head). Sømmer: fa64504 (alle 15 nye tabeller i registeret, sletting av studenttekst, testsvar i eksporten, Kontrolltest og teststudenter utenfor rapportene).
+- Spec: `.docs/implementation-artifacts/spec-15-6-admin-sees-ai-cost-and-sets-cost-limit.md`. Commit: e4a750f.
+- Admin ser KI-kostnad per Klasseøkt og setter kostnadsgrensen; en heving gjenopptar vurderingen når det er plass.
+- Tester: backend 4006, Vitest 1265, frontend-sjekkene, Playwright med axe.
+- Gjennomgang: 42 funn, 13 rettet; oppfølgende gjennomgang anbefalt.
+- Status: done.
+
+### Åpne punkter
+- Issue #246: beslutninger for merge, sømmer og storyen.
