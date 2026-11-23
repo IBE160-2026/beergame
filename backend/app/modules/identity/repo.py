@@ -30,6 +30,7 @@ from app.modules.identity.models import (
     user_roles,
     users,
 )
+from app.platform.collation import nb_sort_sql
 
 
 async def user_by_email(session: AsyncSession, email: str) -> RowMapping | None:
@@ -287,10 +288,10 @@ async def list_users(
     after: uuid.UUID | None,
     limit: int,
 ) -> list[RowMapping] | None:
-    """Up to `limit` Users ordered by `(lower(name), id)`, after the User `after` when given (an
-    unknown `after` gives None), each with its roles (sorted). `search` (may be empty) matches
-    a substring of the e-mail or the name, case-insensitively."""
-    sort_name = func.lower(users.c.name)
+    """Up to `limit` Users ordered by name (Norwegian order), then id, after the User `after`
+    when given (an unknown `after` gives None), each with its roles (sorted). `search` (may be
+    empty) matches a substring of the e-mail or the name, case-insensitively."""
+    sort_name = nb_sort_sql(users.c.name)
     if after is not None:
         found = await session.execute(select(sort_name).where(users.c.id == after))
         after_name = found.scalar_one_or_none()
@@ -594,9 +595,9 @@ async def institution_by_id(session: AsyncSession, institution_id: uuid.UUID) ->
 
 
 async def all_institutions(session: AsyncSession) -> list[RowMapping]:
-    """Every Institution, by name (case-insensitively), then id."""
+    """Every Institution, by name (case-insensitively, Norwegian order), then id."""
     result = await session.execute(
-        select(institutions).order_by(func.lower(institutions.c.name), institutions.c.id)
+        select(institutions).order_by(nb_sort_sql(institutions.c.name), institutions.c.id)
     )
     return list(result.mappings())
 

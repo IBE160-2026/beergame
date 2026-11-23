@@ -68,6 +68,7 @@ from app.modules.tests.schemas import (
     WordingOut,
 )
 from app.platform import auth, authz
+from app.platform.collation import nb_sort_key
 from app.platform.db import get_sessionmaker
 
 __all__ = [
@@ -547,7 +548,7 @@ async def staff_list(
             )
         }
     rows: list[AssessmentRowOut] = []
-    for student_id, name in sorted(names.items(), key=lambda each: (each[1].casefold(), each[0])):
+    for student_id, name in sorted(names.items(), key=lambda each: (nb_sort_key(each[1]), each[0])):
         summary = summaries.get(student_id)
         if student_id not in attempts:
             state = "no_test"

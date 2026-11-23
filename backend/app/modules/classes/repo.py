@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.classes.models import class_staff, classes
 from app.modules.classes.schemas import StaffRole
 from app.platform import authz
+from app.platform.collation import nb_sort_sql
 
 
 async def insert_class(
@@ -63,10 +64,10 @@ def _visible(user: authz.Principal | uuid.UUID):
 
 
 async def classes_of(session: AsyncSession, user: authz.Principal) -> list[RowMapping]:
-    """The Classes the User is staff of, by name (case-insensitively), then id. A Control test
+    """The Classes the User is staff of, by name (Norwegian order), then id. A Control test
     Class is never among them (Story 12.7, AD-13): it is reached from the Admin-område only."""
     result = await session.execute(
-        _visible(user).where(~_control_test).order_by(func.lower(classes.c.name), classes.c.id)
+        _visible(user).where(~_control_test).order_by(nb_sort_sql(classes.c.name), classes.c.id)
     )
     return list(result.mappings())
 
@@ -137,9 +138,9 @@ def _enrolled(user: authz.Principal | uuid.UUID):
 
 
 async def enrolled_classes(session: AsyncSession, user: authz.Principal) -> list[RowMapping]:
-    """The Classes the User is a Student in, by name (case-insensitively), then id."""
+    """The Classes the User is a Student in, by name (Norwegian order), then id."""
     result = await session.execute(
-        _enrolled(user).order_by(func.lower(classes.c.name), classes.c.id)
+        _enrolled(user).order_by(nb_sort_sql(classes.c.name), classes.c.id)
     )
     return list(result.mappings())
 

@@ -16,6 +16,7 @@ from app.modules.admin.schemas import (
     AuditTarget,
 )
 from app.platform import audit
+from app.platform.collation import nb_sort_key
 from app.platform.db import get_sessionmaker
 
 OSLO = ZoneInfo("Europe/Oslo")
@@ -124,7 +125,7 @@ async def audit_actors() -> AuditActorsOut:
     users = await audit.labels(USER_KEY, ids)
     people = sorted(
         (AuditActor(id=actor, name=users.get(actor)) for actor in ids),
-        key=lambda a: ((a.name or "").casefold(), str(a.id)),
+        key=lambda a: (nb_sort_key(a.name), str(a.id)),
     )
     system = [AuditActor(id=None, name=None)] if None in found else []
     return AuditActorsOut(items=system + people)

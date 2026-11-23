@@ -51,6 +51,7 @@ from app.modules.classes.schemas import (
 from app.modules.identity import service as identity
 from app.modules.messaging import service as messaging
 from app.platform import audit, authz, events
+from app.platform.collation import nb_sort_key
 from app.platform.db import get_sessionmaker, reading
 
 log = structlog.get_logger(__name__)
@@ -813,7 +814,7 @@ def _checked(address: str) -> str:
 
 
 def _sort_key(name: str | None, email: str) -> tuple[str, str]:
-    return ((name or email).casefold(), email)
+    return (nb_sort_key(name or email), email)
 
 
 async def staff(user: authz.Principal, class_id: uuid.UUID, *, now: datetime) -> StaffOut | None:

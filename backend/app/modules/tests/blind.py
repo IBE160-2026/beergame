@@ -54,6 +54,7 @@ from app.modules.tests.schemas import (
     ScoringTestOut,
 )
 from app.platform import audit, authz
+from app.platform.collation import nb_sort_key
 from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker
 
@@ -274,7 +275,7 @@ async def my_tests(user: authz.Principal, now: datetime) -> MyScoringOut:
         named = list(await s.scalars(authz.control_tests_scored_by(user)))
         facts = await sessions.control_test_facts(s, named)
     tests = [_test_out(each, now) for each in facts.values()]
-    tests.sort(key=lambda each: (each.name.casefold(), str(each.id)))
+    tests.sort(key=lambda each: (nb_sort_key(each.name), str(each.id)))
     return MyScoringOut(tests=tests)
 
 
