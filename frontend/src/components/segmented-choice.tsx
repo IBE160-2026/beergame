@@ -18,7 +18,8 @@ export type SegmentedOption<T extends string> = {
  * a screen reader reads «1 av 2». Each radio covers its whole segment (transparent), so the tap
  * target is the segment (44 px at least); the focus ring is drawn on the segment. An unavailable
  * option keeps its focus (UX-DR8) but never becomes the choice. Four options stand 2 + 2 on a
- * phone, never 3 + 1. Segments that wrap onto a new line (long labels on a phone) keep a gap
+ * phone, never 3 + 1. Five (a scale of steps 0 to 4) stand in one row of equal segments from
+ * `sm` on, and one under the other on a phone, never 4 + 1. Segments that wrap onto a new line (long labels on a phone) keep a gap
  * between the lines instead of touching.
  */
 export function SegmentedChoice<T extends string>({
@@ -44,6 +45,7 @@ export function SegmentedChoice<T extends string>({
   inline?: boolean;
 }) {
   const quad = options.length === 4;
+  const five = !inline && options.length === 5;
   return (
     <fieldset className={cn("m-0 min-w-0 border-0 p-0", inline && "max-w-full flex-none", className)} aria-describedby={describedBy}>
       <legend
@@ -55,7 +57,7 @@ export function SegmentedChoice<T extends string>({
         {legend}
       </legend>
       {/* Inline segments wrap only when the line cannot hold them (a phone at 200 % text, Story 15.13). */}
-      <div className={cn(inline ? "inline-flex max-w-full flex-wrap gap-y-2" : "flex flex-wrap gap-y-2", quad && "max-sm:grid max-sm:grid-cols-2 max-sm:gap-y-0")}>
+      <div className={cn(inline ? "inline-flex max-w-full flex-wrap gap-y-2" : "flex flex-wrap gap-y-2", quad && "max-sm:grid max-sm:grid-cols-2 max-sm:gap-y-0", five && "max-sm:flex-col max-sm:gap-y-0 sm:grid sm:grid-cols-5")}>
         {options.map((option, i) => (
           <label
             key={option.value}
@@ -73,6 +75,10 @@ export function SegmentedChoice<T extends string>({
               quad && i === 1 && "max-sm:rounded-tr-sm",
               quad && i === 2 && "max-sm:-mt-px max-sm:ml-0 max-sm:rounded-bl-sm",
               quad && i === 3 && "max-sm:-mt-px max-sm:rounded-tr-none",
+              // One under the other on a phone: each overlaps the one above by its border.
+              five && i > 0 && "max-sm:-mt-px max-sm:ml-0",
+              five && i === 0 && "max-sm:rounded-tr-sm max-sm:rounded-bl-none",
+              five && i === 4 && "max-sm:rounded-tr-none max-sm:rounded-bl-sm",
             )}
           >
             <input

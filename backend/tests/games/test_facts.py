@@ -29,6 +29,7 @@ from app.analysis.simulated import simulate
 from app.engine import ROLES, RULES_VERSION, DemandFixed, GameSettings, demand_series
 from app.modules.content import service as content
 from app.modules.games import commands, facts
+from app.modules.games import service as games_service
 from app.modules.games.views import ViewError
 from app.sim import load_rule_based_params
 from tests.analysis.test_moments import TEMPLATES as MOMENT_TEMPLATES
@@ -300,10 +301,44 @@ async def test_the_reference_trace_golden_facts(games_db):
     assert all(r.total_cost == Decimal("48.00") for r in chain.by_role)  # 8 Weeks at 6.00
 
 
+def golden_rows(game_id: str) -> dict:
+    """The Game's Decision log as its raw `seat_weeks` rows, Week by Week in chain order: the
+    fixture the Lecturer's sample facts set is built from (Story 11.9). Each `state_seen` keeps
+    every field but `history`, emptied: it repeats the Seat's earlier rows of the same file."""
+    raw = raw_rows(game_id)
+    weeks = max(week for week, _ in raw)
+    return {
+        "roles": [role.value for role in ROLES],
+        "rows": [
+            {
+                "week": week,
+                "role": role.value,
+                "order": raw[(week, role.value)]["order"],
+                "decided_by": raw[(week, role.value)]["decided_by"],
+                "occupant_kind": raw[(week, role.value)]["occupant_kind"],
+                "state_seen": {**raw[(week, role.value)]["seen"], "history": []},
+            }
+            for week in range(1, weeks + 1)
+            for role in ROLES
+        ],
+    }
+
+
+def assert_golden_rows(name: str, game_id: str) -> None:
+    path = GOLDEN / f"{name}.json"
+    found = golden_rows(game_id)
+    if os.environ.get("UPDATE_GOLDEN") == "1":
+        text = json.dumps(found, indent=2, ensure_ascii=False) + "\n"
+        path.write_text(text, "utf-8", newline="\n")
+    assert found == json.loads(path.read_text(encoding="utf-8"))
+
+
 async def test_the_takeover_golden_facts(games_db):
     game_id = await takeover_game()
     sets = await stored_sets(game_id)
     assert_golden("takeover", sets)
+    # Story 11.9: the Game's rows are the fixture of the Lecturer's sample facts set.
+    assert_golden_rows("takeover-seat-weeks", game_id)
     assert_recomputed(game_id, sets)
     retailer = sets["retailer"].facts.seat
     assert retailer.student_orders == len(TAKEOVER_ORDERS) and not retailer.sm_excluded
@@ -373,6 +408,10 @@ async def test_a_set_is_stored_once_and_returned_as_stored(games_db):
     )
     third = await facts.get_or_create(game_id, str(seat_id))  # the Seat id works too
     assert first == again == third
+    # Story 12.2: read back by its id as stored, never built; an unknown or malformed id is None.
+    assert await games_service.fact_set_by_id(first.id) == first
+    assert await games_service.fact_set_by_id(str(uuid.uuid7())) is None
+    assert await games_service.fact_set_by_id("not-an-id") is None
     rows = query(
         TEST_DATABASE_URL,
         "SELECT id, analysis_version, payload FROM fact_sets WHERE game_id = %s",

@@ -150,6 +150,117 @@
         "title": "AccountRole",
         "type": "string"
       },
+      "AdaptedOut": {
+        "description": "The Adapted items' one line: their total weight in force and its default (30 % in the\nshipped set), and how many replacement Core items a Student with fewer than 10 own Orders\ngets in their place, with the same total weight (FR-53).",
+        "properties": {
+          "default_weight": {
+            "title": "Default Weight",
+            "type": "integer"
+          },
+          "replacements": {
+            "title": "Replacements",
+            "type": "integer"
+          },
+          "weight": {
+            "title": "Weight",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "weight",
+          "default_weight",
+          "replacements"
+        ],
+        "title": "AdaptedOut",
+        "type": "object"
+      },
+      "AdaptedPreviewItemOut": {
+        "description": "One Adapted item template filled for the sample Student (Story 11.9): its id, the Game it\nreads (`game`, the Class game, or `replay`), its fact kind, its weight (its share of the\nAdapted total) and the code-rendered text; `text` is None when the sample has no such fact.",
+        "properties": {
+          "fact": {
+            "enum": [
+              "moment",
+              "pattern",
+              "outcome"
+            ],
+            "title": "Fact",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "game",
+              "replay"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          },
+          "weight": {
+            "title": "Weight",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "source",
+          "fact",
+          "weight",
+          "text"
+        ],
+        "title": "AdaptedPreviewItemOut",
+        "type": "object"
+      },
+      "AdaptedPreviewOut": {
+        "description": "The Adapted item preview (Story 11.9, FR-53, UX-DR70): the template version the Class\nsession pins (pinned once locked, the latest before), whether it is a draft (issue #16),\nwhether the lock has pinned it, the Adapted total weight in force, and each template filled\nfrom the static sample facts set («Demodata»).",
+        "properties": {
+          "adapted_weight": {
+            "title": "Adapted Weight",
+            "type": "integer"
+          },
+          "draft": {
+            "title": "Draft",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AdaptedPreviewItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "pinned": {
+            "title": "Pinned",
+            "type": "boolean"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "draft",
+          "pinned",
+          "adapted_weight",
+          "items"
+        ],
+        "title": "AdaptedPreviewOut",
+        "type": "object"
+      },
       "AddressProblem": {
         "description": "Why a value is not an address (Story 4.3, FR-7). The web app words each one.",
         "enum": [
@@ -245,33 +356,114 @@
         "type": "object"
       },
       "AgreementOut": {
+        "description": "The FR-82 measures from `analysis.agreement`: shares 0 to 1, `offset` in steps (positive:\nthe AI scores higher), `compression` the AI's spread over the humans' (under 1: compressed;\nnull: the human steps do not vary).",
         "properties": {
-          "agreed_by": {
-            "title": "Agreed By",
-            "type": "string"
+          "by_length": {
+            "items": {
+              "$ref": "#/components/schemas/LengthBandOut"
+            },
+            "title": "By Length",
+            "type": "array"
           },
-          "agreed_on": {
-            "format": "date",
-            "title": "Agreed On",
-            "type": "string"
+          "compression": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Compression"
           },
-          "controller": {
-            "title": "Controller",
-            "type": "string"
+          "exact": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exact"
           },
-          "recorded_at": {
-            "format": "date-time",
-            "title": "Recorded At",
-            "type": "string"
+          "offset": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Offset"
+          },
+          "pairs": {
+            "title": "Pairs",
+            "type": "integer"
+          },
+          "within_one": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Within One"
           }
         },
         "required": [
-          "agreed_by",
-          "agreed_on",
-          "controller",
-          "recorded_at"
+          "pairs",
+          "exact",
+          "within_one",
+          "offset",
+          "compression",
+          "by_length"
         ],
         "title": "AgreementOut",
+        "type": "object"
+      },
+      "AiAssessmentOut": {
+        "description": "The «KI-vurdering» switch of a Class session (Story 12.1, FR-61), stored by\n`modules/assessment`.",
+        "properties": {
+          "can_change": {
+            "title": "Can Change",
+            "type": "boolean"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "letter": {
+            "$ref": "#/components/schemas/LetterSettingOut"
+          },
+          "open": {
+            "title": "Open",
+            "type": "boolean"
+          },
+          "pinned_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pinned At"
+          }
+        },
+        "required": [
+          "enabled",
+          "pinned_at",
+          "open",
+          "can_change",
+          "letter"
+        ],
+        "title": "AiAssessmentOut",
         "type": "object"
       },
       "AiDescriptionsOut": {
@@ -301,6 +493,95 @@
         ],
         "title": "AiMode",
         "type": "string"
+      },
+      "AiScoreOut": {
+        "description": "The AI's overall score of a long-answer or Adapted item (Story 12.2, FR-54): the step on\nthe Scoring guide's five-step scale and its label, or `assessed` false with no step. Story\n12.3: its written feedback when there is one, and `feedback_dropped` when the feedback was\nrejected twice and left out (the score stands).",
+        "properties": {
+          "assessed": {
+            "title": "Assessed",
+            "type": "boolean"
+          },
+          "feedback": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FeedbackOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "feedback_dropped": {
+            "default": false,
+            "title": "Feedback Dropped",
+            "type": "boolean"
+          },
+          "flagged": {
+            "default": false,
+            "title": "Flagged",
+            "type": "boolean"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "step": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step"
+          },
+          "top": {
+            "title": "Top",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "assessed",
+          "step",
+          "top",
+          "label"
+        ],
+        "title": "AiScoreOut",
+        "type": "object"
+      },
+      "AiStepOut": {
+        "description": "The AI's step for the item: only for a scorer who has submitted their own score of it.",
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "step": {
+            "title": "Step",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "step",
+          "label"
+        ],
+        "title": "AiStepOut",
+        "type": "object"
       },
       "AllocationConfirmIn": {
         "additionalProperties": false,
@@ -446,6 +727,11 @@
               }
             ],
             "title": "Confirmed At"
+          },
+          "consent_missing": {
+            "default": 0,
+            "title": "Consent Missing",
+            "type": "integer"
           },
           "draft": {
             "anyOf": [
@@ -613,6 +899,147 @@
           "answer"
         ],
         "title": "AnswerIn",
+        "type": "object"
+      },
+      "AssessedItemOut": {
+        "description": "One item of the Student's «KI-vurdering» in the test's order: its number, type and question\n(an Adapted item's frozen `wording`), its Item weight and its points (the weight times its\nshare, null while it has no score), and either its computed score or the AI's score.",
+        "properties": {
+          "ai": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AiScoreOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computed": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ComputedScoreOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "points": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Points"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "choice",
+              "table",
+              "number",
+              "long",
+              "adapted"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "weight": {
+            "title": "Weight",
+            "type": "integer"
+          },
+          "wording": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WordingOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "type",
+          "title",
+          "wording",
+          "weight",
+          "points",
+          "computed",
+          "ai"
+        ],
+        "title": "AssessedItemOut",
+        "type": "object"
+      },
+      "AssessmentListOut": {
+        "description": "The Students of the Class session with their AI assessment, by name (Story 12.5).",
+        "properties": {
+          "students": {
+            "items": {
+              "$ref": "#/components/schemas/AssessmentRowOut"
+            },
+            "title": "Students",
+            "type": "array"
+          }
+        },
+        "required": [
+          "students"
+        ],
+        "title": "AssessmentListOut",
+        "type": "object"
+      },
+      "AssessmentRowOut": {
+        "description": "One Student in the Klasseøkt's list of AI assessments (Story 12.5): their Roster name,\nthe state of their assessment as their own view reads it, and how many pieces of feedback they\nflagged.",
+        "properties": {
+          "flags": {
+            "title": "Flags",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "no_test",
+              "not_ready",
+              "switched_off",
+              "incomplete",
+              "failed",
+              "ready"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "name",
+          "state",
+          "flags"
+        ],
+        "title": "AssessmentRowOut",
         "type": "object"
       },
       "AuditActor": {
@@ -788,6 +1215,25 @@
           "label"
         ],
         "title": "AuditTarget",
+        "type": "object"
+      },
+      "AxisOut": {
+        "description": "A drawn item's value axis (Story 11.14): the range its graph's points are placed in.",
+        "properties": {
+          "max": {
+            "title": "Max",
+            "type": "integer"
+          },
+          "min": {
+            "title": "Min",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "min",
+          "max"
+        ],
+        "title": "AxisOut",
         "type": "object"
       },
       "Believability": {
@@ -1242,6 +1688,11 @@
             "title": "Can Manage",
             "type": "boolean"
           },
+          "control_test": {
+            "default": false,
+            "title": "Control Test",
+            "type": "boolean"
+          },
           "course_code": {
             "anyOf": [
               {
@@ -1516,6 +1967,9 @@
       "ClassSessionOut": {
         "description": "One Class session as its Class's staff read it.",
         "properties": {
+          "ai_assessment": {
+            "$ref": "#/components/schemas/AiAssessmentOut"
+          },
           "ai_descriptions": {
             "$ref": "#/components/schemas/AiDescriptionsOut"
           },
@@ -1636,6 +2090,15 @@
             "title": "Is Classic",
             "type": "boolean"
           },
+          "kind": {
+            "default": "course",
+            "enum": [
+              "course",
+              "control_test"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
           "lab_hours": {
             "items": {
               "$ref": "#/components/schemas/LabHourOut"
@@ -1664,6 +2127,17 @@
             "default": false,
             "title": "Lock Refused",
             "type": "boolean"
+          },
+          "lock_refused_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lock Refused Reason"
           },
           "locked": {
             "title": "Locked",
@@ -1804,6 +2278,9 @@
                 "type": "null"
               }
             ]
+          },
+          "test_sitting": {
+            "$ref": "#/components/schemas/TestSittingOut"
           }
         },
         "required": [
@@ -1843,7 +2320,9 @@
           "calibrated_settings",
           "lab_hours",
           "capacity_enabled",
-          "info_visibility_enabled"
+          "info_visibility_enabled",
+          "ai_assessment",
+          "test_sitting"
         ],
         "title": "ClassSessionOut",
         "type": "object"
@@ -1852,6 +2331,17 @@
         "additionalProperties": false,
         "description": "«Lagre Klasseøkt». The screen sends the AI mode, Effort level and Debrief mode as chosen\n(Story 5.5), the four dates (Story 5.2) and the Game settings (Story 5.3) with the Demand\npattern and its seed (Story 5.4), and the obligatory mark, its required share and the\nInactivity limit (Story 5.7); a field left out keeps its value. `game_settings` is laid over\nthe stored settings, so a setting left out keeps its value. With Rule-based players no Effort\nlevel is in force, and a sent one is ignored.",
         "properties": {
+          "ai_assessment": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ai Assessment"
+          },
           "ai_mode": {
             "$ref": "#/components/schemas/AiMode"
           },
@@ -1949,6 +2439,32 @@
             ],
             "title": "Inactivity Limit Hours"
           },
+          "letter_setting": {
+            "anyOf": [
+              {
+                "enum": [
+                  "all",
+                  "student_choice",
+                  "unavailable"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Letter Setting"
+          },
+          "letter_thresholds": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LetterThresholdsIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "obligatory": {
             "anyOf": [
               {
@@ -1999,12 +2515,147 @@
               }
             ],
             "title": "Required Share Percent"
+          },
+          "test_sitting": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TestSittingIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
           "ai_mode"
         ],
         "title": "ClassSessionSaveIn",
+        "type": "object"
+      },
+      "ColumnOut": {
+        "description": "A number item's column (Story 11.5): a Starting task item from the Class session's pinned\nStarting task (`starting_task`), or an Interactive number item's own column. Its prompt and\nhint, the column's heading, the given rows, the asked row's label and whether the answer may\nbe negative. No expected value and no result.",
+        "properties": {
+          "asked_label": {
+            "title": "Asked Label",
+            "type": "string"
+          },
+          "caption": {
+            "title": "Caption",
+            "type": "string"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "negative": {
+            "title": "Negative",
+            "type": "boolean"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/ColumnRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "starting_task": {
+            "title": "Starting Task",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "prompt",
+          "hint",
+          "caption",
+          "rows",
+          "asked_label",
+          "negative",
+          "starting_task"
+        ],
+        "title": "ColumnOut",
+        "type": "object"
+      },
+      "ColumnRowOut": {
+        "description": "A given row of a number item's column.",
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "label",
+          "value"
+        ],
+        "title": "ColumnRowOut",
+        "type": "object"
+      },
+      "ComputedCriterionOut": {
+        "description": "One coded criterion of an Interactive item as the computed rule scored it (FR-80): met or\nnot, and the computed explanation in words.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "explanation": {
+            "title": "Explanation",
+            "type": "string"
+          },
+          "met": {
+            "title": "Met",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "code",
+          "met",
+          "explanation"
+        ],
+        "title": "ComputedCriterionOut",
+        "type": "object"
+      },
+      "ComputedScoreOut": {
+        "description": "The computed score of an answer-key or Interactive item (Story 12.2, FR-80), as `tests`\nstored it at the hand-in: `result` is `right` (full credit), `partly` (some), `wrong` (none) or\n`not_answered`; an Interactive item carries each criterion. Never recomputed for the view.",
+        "properties": {
+          "criteria": {
+            "items": {
+              "$ref": "#/components/schemas/ComputedCriterionOut"
+            },
+            "title": "Criteria",
+            "type": "array"
+          },
+          "result": {
+            "enum": [
+              "right",
+              "partly",
+              "wrong",
+              "not_answered"
+            ],
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result",
+          "criteria"
+        ],
+        "title": "ComputedScoreOut",
         "type": "object"
       },
       "ConnectionBudgetOut": {
@@ -2086,6 +2737,407 @@
           "total"
         ],
         "title": "ConnectionCountsOut",
+        "type": "object"
+      },
+      "ConsentIn": {
+        "additionalProperties": false,
+        "description": "A test student's decision on the consent text they read (Story 12.8).",
+        "properties": {
+          "decision": {
+            "enum": [
+              "given",
+              "declined"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "text_version": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Text Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision",
+          "text_version"
+        ],
+        "title": "ConsentIn",
+        "type": "object"
+      },
+      "ConsentOut": {
+        "description": "The test student's decision on the current consent text: None until they take one.",
+        "properties": {
+          "decided_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "decision": {
+            "anyOf": [
+              {
+                "enum": [
+                  "given",
+                  "declined"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision"
+          },
+          "text_version": {
+            "title": "Text Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision",
+          "text_version",
+          "decided_at"
+        ],
+        "title": "ConsentOut",
+        "type": "object"
+      },
+      "ConsentStatus": {
+        "description": "A test student's consent as the Roster lists it: «Samtykket», «Takket nei», «Ikke svart»\n(Story 12.8).",
+        "enum": [
+          "given",
+          "declined",
+          "pending"
+        ],
+        "title": "ConsentStatus",
+        "type": "string"
+      },
+      "ControlResultsOut": {
+        "description": "`GET /api/admin/control-tests/{id}/results`. `missing`: human scores the named scorers\nstill owe; `ai_missing`: listed answers with no AI step; `open_attempts`: attempts not closed\nyet. `complete` when there is a named scorer, a listed answer, no open attempt and nothing\nmissing; otherwise the measures are preliminary. `checked`: the pinned guide version is checked\nfor the pinned model config. `withheld`: the reader is a named scorer with answers still to\nscore, so every AI step and the measures are left out (AD-27).",
+        "properties": {
+          "ai_config": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResultsConfigOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ai_missing": {
+            "title": "Ai Missing",
+            "type": "integer"
+          },
+          "checked": {
+            "title": "Checked",
+            "type": "boolean"
+          },
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "measures": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AgreementOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "missing": {
+            "title": "Missing",
+            "type": "integer"
+          },
+          "open_attempts": {
+            "title": "Open Attempts",
+            "type": "integer"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/ResultsRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "scorers": {
+            "items": {
+              "$ref": "#/components/schemas/ResultsScorerOut"
+            },
+            "title": "Scorers",
+            "type": "array"
+          },
+          "scoring_guide": {
+            "$ref": "#/components/schemas/ResultsGuideOut"
+          },
+          "test": {
+            "$ref": "#/components/schemas/ScoringTestOut"
+          },
+          "withheld": {
+            "title": "Withheld",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "test",
+          "scoring_guide",
+          "ai_config",
+          "scorers",
+          "rows",
+          "missing",
+          "ai_missing",
+          "open_attempts",
+          "complete",
+          "checked",
+          "withheld",
+          "measures"
+        ],
+        "title": "ControlResultsOut",
+        "type": "object"
+      },
+      "ControlTestConfigOut": {
+        "description": "A model config: its name and model version; `default` for the active default.",
+        "properties": {
+          "default": {
+            "title": "Default",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "model_version": {
+            "title": "Model Version",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "model_version",
+          "default"
+        ],
+        "title": "ControlTestConfigOut",
+        "type": "object"
+      },
+      "ControlTestGuideOut": {
+        "description": "A Scoring guide version: the latest default, or one a Lecturer edited (`edited`).",
+        "properties": {
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "draft": {
+            "title": "Draft",
+            "type": "boolean"
+          },
+          "edited": {
+            "title": "Edited",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "edited",
+          "draft"
+        ],
+        "title": "ControlTestGuideOut",
+        "type": "object"
+      },
+      "ControlTestIn": {
+        "description": "A new Control test: its Class's name, and the Scoring guide version and the model config\nunder test. The service checks every field and answers each refused one in `fields`.",
+        "properties": {
+          "model_config_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Config Id"
+          },
+          "name": {
+            "default": "",
+            "maxLength": 800,
+            "title": "Name",
+            "type": "string"
+          },
+          "scoring_guide_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scoring Guide Id"
+          }
+        },
+        "title": "ControlTestIn",
+        "type": "object"
+      },
+      "ControlTestInstitutionOut": {
+        "description": "The operator's own Institution, where a Control test is set up.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "ControlTestInstitutionOut",
+        "type": "object"
+      },
+      "ControlTestOut": {
+        "description": "One Control test: its Class and Class session, its Institution, when and with what it was\nset up. `can_open` when the asking Admin owns its Class (only the owner opens its screens).",
+        "properties": {
+          "ai_config": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ControlTestConfigOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "can_open": {
+            "title": "Can Open",
+            "type": "boolean"
+          },
+          "class_id": {
+            "format": "uuid",
+            "title": "Class Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "institution_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Institution Name"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "scoring_guide": {
+            "$ref": "#/components/schemas/ControlTestGuideOut"
+          }
+        },
+        "required": [
+          "id",
+          "class_id",
+          "name",
+          "institution_name",
+          "created_at",
+          "scoring_guide",
+          "ai_config",
+          "can_open"
+        ],
+        "title": "ControlTestOut",
+        "type": "object"
+      },
+      "ControlTestsOut": {
+        "description": "The Kontrolltest page: the operator's own Institution (None until one is marked), the\nchoices for a new Control test, and every Control test, newest first.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ControlTestOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "model_configs": {
+            "items": {
+              "$ref": "#/components/schemas/ControlTestConfigOut"
+            },
+            "title": "Model Configs",
+            "type": "array"
+          },
+          "operator_institution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ControlTestInstitutionOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "scoring_guides": {
+            "items": {
+              "$ref": "#/components/schemas/ControlTestGuideOut"
+            },
+            "title": "Scoring Guides",
+            "type": "array"
+          }
+        },
+        "required": [
+          "operator_institution",
+          "scoring_guides",
+          "model_configs",
+          "items"
+        ],
+        "title": "ControlTestsOut",
         "type": "object"
       },
       "CopiedFromOut": {
@@ -2441,6 +3493,22 @@
           "calls"
         ],
         "title": "DaySessionSpendOut",
+        "type": "object"
+      },
+      "DeadlineExtensionIn": {
+        "additionalProperties": false,
+        "description": "«Lagre frist» on the Studentside (Story 11.13, FR-18): the Student's own Test deadline,\nwith its time zone. There is no field for a reason.",
+        "properties": {
+          "test_deadline": {
+            "format": "date-time",
+            "title": "Test Deadline",
+            "type": "string"
+          }
+        },
+        "required": [
+          "test_deadline"
+        ],
+        "title": "DeadlineExtensionIn",
         "type": "object"
       },
       "DebriefMode": {
@@ -3126,6 +4194,36 @@
         "title": "ErrorHourOut",
         "type": "object"
       },
+      "EvaluationAgreementOut": {
+        "properties": {
+          "agreed_by": {
+            "title": "Agreed By",
+            "type": "string"
+          },
+          "agreed_on": {
+            "format": "date",
+            "title": "Agreed On",
+            "type": "string"
+          },
+          "controller": {
+            "title": "Controller",
+            "type": "string"
+          },
+          "recorded_at": {
+            "format": "date-time",
+            "title": "Recorded At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "agreed_by",
+          "agreed_on",
+          "controller",
+          "recorded_at"
+        ],
+        "title": "EvaluationAgreementOut",
+        "type": "object"
+      },
       "EvaluationSessionListOut": {
         "properties": {
           "items": {
@@ -3148,7 +4246,7 @@
           "agreement": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/AgreementOut"
+                "$ref": "#/components/schemas/EvaluationAgreementOut"
               },
               {
                 "type": "null"
@@ -3473,6 +4571,56 @@
           "share"
         ],
         "title": "FallbackOut",
+        "type": "object"
+      },
+      "FeedbackOut": {
+        "description": "An item's written feedback (Story 12.3, FR-54, AD-7): `ai_generated` marks it «KI-generert,\nkan ta feil:»; `text` is the whole with the quotes as «…», `parts` the same in pieces so the\nview sets each quote apart.",
+        "properties": {
+          "ai_generated": {
+            "title": "Ai Generated",
+            "type": "boolean"
+          },
+          "parts": {
+            "items": {
+              "$ref": "#/components/schemas/FeedbackPartOut"
+            },
+            "title": "Parts",
+            "type": "array"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ai_generated",
+          "text",
+          "parts"
+        ],
+        "title": "FeedbackOut",
+        "type": "object"
+      },
+      "FeedbackPartOut": {
+        "description": "A piece of an item's written feedback (Story 12.3): code-rendered `text`, or a `quote` of\nthe Student's own answer, cut from their original text by the stored span.",
+        "properties": {
+          "kind": {
+            "enum": [
+              "text",
+              "quote"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "text"
+        ],
+        "title": "FeedbackPartOut",
         "type": "object"
       },
       "FillSeatsIn": {
@@ -4488,6 +5636,81 @@
         "title": "GroupOut",
         "type": "object"
       },
+      "GuideCriterionOut": {
+        "description": "One coded criterion, read-only in v1: its code, its wording and its weight in %.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "weight": {
+            "title": "Weight",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "code",
+          "text",
+          "weight"
+        ],
+        "title": "GuideCriterionOut",
+        "type": "object"
+      },
+      "GuideQuestionOut": {
+        "description": "One question of the Scoring guide as the Lecturer reads it: a long-answer question or an\nAdapted item template, its title, its guide text in force, the default text it derives from,\nwhether the two differ («Endret», else «Standard») and its criteria.",
+        "properties": {
+          "changed": {
+            "title": "Changed",
+            "type": "boolean"
+          },
+          "criteria": {
+            "items": {
+              "$ref": "#/components/schemas/GuideCriterionOut"
+            },
+            "title": "Criteria",
+            "type": "array"
+          },
+          "guide": {
+            "title": "Guide",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "long",
+              "adapted"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "standard_guide": {
+            "title": "Standard Guide",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "title",
+          "guide",
+          "standard_guide",
+          "changed",
+          "criteria"
+        ],
+        "title": "GuideQuestionOut",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -4499,6 +5722,23 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HumanScoreIn": {
+        "additionalProperties": false,
+        "description": "A step on the five-step scale, submitted once.",
+        "properties": {
+          "score": {
+            "maximum": 4.0,
+            "minimum": 0.0,
+            "title": "Score",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "score"
+        ],
+        "title": "HumanScoreIn",
         "type": "object"
       },
       "InRoomIn": {
@@ -4541,6 +5781,95 @@
           "minutes"
         ],
         "title": "InRoomOut",
+        "type": "object"
+      },
+      "IndividualItemOut": {
+        "description": "One item of the Student's frozen Individual test (Story 11.3), in order: its number from 1,\nits type and its text; a choice item's option ids (Story 11.4, `[]` for other types), a table or\ndrawn item's value table (Story 11.14) or a number item's column (Story 11.5, null otherwise or\nwhen the item has none) and the Student's saved answer (null before the first save). An Adapted\nitem (Story 11.7) is answered as a long answer; its `title` is its frozen text, and `wording`\ncarries that text with whether an AI wrote it (null for every other type). No weight, no answer\nkey, no rule, no fact and no score are sent to the Student.",
+        "properties": {
+          "answer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StoredAnswerOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "column": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ColumnOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "options": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Options",
+            "type": "array"
+          },
+          "table": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TableOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "choice",
+              "table",
+              "number",
+              "long",
+              "drawn",
+              "adapted"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "wording": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WordingOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "type",
+          "title",
+          "options",
+          "table",
+          "column",
+          "wording",
+          "answer"
+        ],
+        "title": "IndividualItemOut",
         "type": "object"
       },
       "InfoVisibility": {
@@ -4976,6 +6305,16 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "no_letter": {
+            "default": false,
+            "title": "No Letter",
+            "type": "boolean"
+          },
+          "operator_owned": {
+            "default": false,
+            "title": "Operator Owned",
+            "type": "boolean"
           }
         },
         "required": [
@@ -5357,6 +6696,7 @@
         "title": "ItemResultOut",
         "type": "object"
       },
+      "JsonValue": {},
       "KeyIn": {
         "description": "The pseudonym key, typed by the key holder; never stored, logged or echoed.",
         "properties": {
@@ -5517,6 +6857,213 @@
           "next_date"
         ],
         "title": "LecturerOverviewOut",
+        "type": "object"
+      },
+      "LengthBandOut": {
+        "description": "Agreement over the pairs of one answer-length band (`max_words` null: no upper end).",
+        "properties": {
+          "band": {
+            "enum": [
+              "short",
+              "medium",
+              "long"
+            ],
+            "title": "Band",
+            "type": "string"
+          },
+          "exact": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exact"
+          },
+          "max_words": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Words"
+          },
+          "min_words": {
+            "title": "Min Words",
+            "type": "integer"
+          },
+          "pairs": {
+            "title": "Pairs",
+            "type": "integer"
+          },
+          "within_one": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Within One"
+          }
+        },
+        "required": [
+          "band",
+          "min_words",
+          "max_words",
+          "pairs",
+          "exact",
+          "within_one"
+        ],
+        "title": "LengthBandOut",
+        "type": "object"
+      },
+      "LetterChoiceIn": {
+        "additionalProperties": false,
+        "description": "Story 12.6: the Student's «Veiledende bokstav» Bryter for their own view, on or off.",
+        "properties": {
+          "on": {
+            "title": "On",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "on"
+        ],
+        "title": "LetterChoiceIn",
+        "type": "object"
+      },
+      "LetterSettingOut": {
+        "description": "The Indicative letter of a Class session (Story 12.6, FR-56), stored by\n`modules/assessment` with the «KI-vurdering» switch.",
+        "properties": {
+          "can_change": {
+            "title": "Can Change",
+            "type": "boolean"
+          },
+          "forced": {
+            "title": "Forced",
+            "type": "boolean"
+          },
+          "setting": {
+            "enum": [
+              "all",
+              "student_choice",
+              "unavailable"
+            ],
+            "title": "Setting",
+            "type": "string"
+          },
+          "stored": {
+            "enum": [
+              "all",
+              "student_choice",
+              "unavailable"
+            ],
+            "title": "Stored",
+            "type": "string"
+          },
+          "thresholds": {
+            "$ref": "#/components/schemas/LetterThresholdsOut"
+          },
+          "thresholds_open": {
+            "title": "Thresholds Open",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "setting",
+          "stored",
+          "forced",
+          "thresholds",
+          "thresholds_open",
+          "can_change"
+        ],
+        "title": "LetterSettingOut",
+        "type": "object"
+      },
+      "LetterThresholdsIn": {
+        "additionalProperties": false,
+        "description": "Story 12.6 (FR-56): the lower bounds of A to E as JSON integers; the service answers\n`out_of_range` outside 1 to 100 and `out_of_order` unless they fall strictly from A to E. The\nbounds here only keep each value an integer the database can hold.",
+        "properties": {
+          "A": {
+            "maximum": 1000.0,
+            "minimum": -1000.0,
+            "title": "A",
+            "type": "integer"
+          },
+          "B": {
+            "maximum": 1000.0,
+            "minimum": -1000.0,
+            "title": "B",
+            "type": "integer"
+          },
+          "C": {
+            "maximum": 1000.0,
+            "minimum": -1000.0,
+            "title": "C",
+            "type": "integer"
+          },
+          "D": {
+            "maximum": 1000.0,
+            "minimum": -1000.0,
+            "title": "D",
+            "type": "integer"
+          },
+          "E": {
+            "maximum": 1000.0,
+            "minimum": -1000.0,
+            "title": "E",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E"
+        ],
+        "title": "LetterThresholdsIn",
+        "type": "object"
+      },
+      "LetterThresholdsOut": {
+        "description": "Story 12.6 (FR-56): the lower bounds of the Indicative letters A to E in whole percent of\nthe total's maximum, strictly falling; F is what lies under E.",
+        "properties": {
+          "A": {
+            "title": "A",
+            "type": "integer"
+          },
+          "B": {
+            "title": "B",
+            "type": "integer"
+          },
+          "C": {
+            "title": "C",
+            "type": "integer"
+          },
+          "D": {
+            "title": "D",
+            "type": "integer"
+          },
+          "E": {
+            "title": "E",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E"
+        ],
+        "title": "LetterThresholdsOut",
         "type": "object"
       },
       "Lifecycle": {
@@ -6200,6 +7747,83 @@
         "title": "MomentsOut",
         "type": "object"
       },
+      "MyAssessmentOut": {
+        "description": "The Student's «KI-vurdering» of their Individual test (Story 12.2, FR-54, FR-55, FR-61):\n\n- `no_test`: they have no attempt in the Class session;\n- `not_ready`: the test is not closed yet, or no run of the assessment has finished;\n- `switched_off`: the Lecturer switched the AI assessment off for the Class session;\n- `incomplete`: some items have no AI score yet; `items` and `unassessed` (their numbers), no\n  total;\n- `failed`: no AI assessment could be made; no items, no total;\n- `ready`: every item scored, with `total` out of `total_max` from `analysis.total_score`.\n\nThere is no pass or fail. Story 12.6: `letter` where the Indicative letter is allowed. Every\nnumber is the api's; the web app adds nothing.",
+        "properties": {
+          "checked": {
+            "default": false,
+            "title": "Checked",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AssessedItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "letter": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MyLetterOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "state": {
+            "enum": [
+              "no_test",
+              "not_ready",
+              "switched_off",
+              "incomplete",
+              "failed",
+              "ready"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          },
+          "total_max": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Max"
+          },
+          "unassessed": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Unassessed",
+            "type": "array"
+          }
+        },
+        "required": [
+          "state",
+          "items",
+          "unassessed",
+          "total",
+          "total_max"
+        ],
+        "title": "MyAssessmentOut",
+        "type": "object"
+      },
       "MyExplanationOut": {
         "description": "The Student's own Explanation in this Debrief, or None before it is sent.",
         "properties": {
@@ -6218,6 +7842,49 @@
           "explanation"
         ],
         "title": "MyExplanationOut",
+        "type": "object"
+      },
+      "MyLetterOut": {
+        "description": "The Indicative letter on the Student's own ready «KI-vurdering» (Story 12.6, FR-56): an\nAI-generated indication from the total, never a grade. `setting` is `all` (the Lecturer shows it\nto everyone) or `student_choice` (the Student may turn it on for their own view: `chosen`);\n`value` is the letter when it is shown, else null. Absent (null `letter`) while the assessment\nis not ready or the letter is unavailable.",
+        "properties": {
+          "chosen": {
+            "title": "Chosen",
+            "type": "boolean"
+          },
+          "setting": {
+            "enum": [
+              "all",
+              "student_choice"
+            ],
+            "title": "Setting",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "enum": [
+                  "A",
+                  "B",
+                  "C",
+                  "D",
+                  "E",
+                  "F"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "setting",
+          "chosen",
+          "value"
+        ],
+        "title": "MyLetterOut",
         "type": "object"
       },
       "MyMessageOut": {
@@ -6285,6 +7952,23 @@
         "title": "MyMessagesOut",
         "type": "object"
       },
+      "MyScoringOut": {
+        "description": "`GET /api/scoring`: the Control tests the User is a named scorer of (none: no Lenke).",
+        "properties": {
+          "tests": {
+            "items": {
+              "$ref": "#/components/schemas/ScoringTestOut"
+            },
+            "title": "Tests",
+            "type": "array"
+          }
+        },
+        "required": [
+          "tests"
+        ],
+        "title": "MyScoringOut",
+        "type": "object"
+      },
       "MySummaryOut": {
         "description": "The Student's own Debrief summary, `summary` None until «Fullfør Debriefen».",
         "properties": {
@@ -6303,6 +7987,120 @@
           "summary"
         ],
         "title": "MySummaryOut",
+        "type": "object"
+      },
+      "MyTestOut": {
+        "description": "The Student's Individual test (Story 11.3, FR-51): `statement` until they accept the\nown-work statement (no item is served), `open` once they have (the items of their attempt in\norder; the statement is not asked again), `closed` when their Test deadline passed with no\nattempt. `test_deadline` is the Student's effective Test deadline (none set: null);\n`opened_at` when they accepted the statement. Once handed in (Story 11.10), `submitted` by\nthe Student or `auto_submitted` at the deadline (Story 11.11), with `submitted_at`: the items\nand saved answers stay readable, never with a score (FR-54).\n\nIn one timed sitting (Story 11.12): `time_limit_minutes` is the Student's own limit (their\ntime factor applied, whole minutes rounded up; null when the test is not timed),\n`sitting_ends_at` when their sitting ends once opened, `answering_ends_at` the earlier of that\nand the Test deadline, `server_now` the API's clock for the time left, and `sitting_ended`\nwhether the sweep handed the attempt in at the sitting's end.",
+        "properties": {
+          "answering_ends_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answering Ends At"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/IndividualItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "opened_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opened At"
+          },
+          "server_now": {
+            "format": "date-time",
+            "title": "Server Now",
+            "type": "string"
+          },
+          "sitting_ended": {
+            "default": false,
+            "title": "Sitting Ended",
+            "type": "boolean"
+          },
+          "sitting_ends_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sitting Ends At"
+          },
+          "state": {
+            "enum": [
+              "statement",
+              "open",
+              "closed",
+              "submitted",
+              "auto_submitted"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "submitted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted At"
+          },
+          "test_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test Deadline"
+          },
+          "time_limit_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Limit Minutes"
+          }
+        },
+        "required": [
+          "state",
+          "test_deadline",
+          "opened_at",
+          "submitted_at",
+          "items",
+          "server_now"
+        ],
+        "title": "MyTestOut",
         "type": "object"
       },
       "NeighbourNumber": {
@@ -6467,6 +8265,21 @@
           "at"
         ],
         "title": "NextDeadline",
+        "type": "object"
+      },
+      "NoLetterIn": {
+        "additionalProperties": false,
+        "description": "Story 12.6: the Institution's no-letter Bryter, on or off.",
+        "properties": {
+          "on": {
+            "title": "On",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "on"
+        ],
+        "title": "NoLetterIn",
         "type": "object"
       },
       "OfferedEffortLevelOut": {
@@ -7152,6 +8965,25 @@
         "title": "OwnAdjustmentOut",
         "type": "object"
       },
+      "OwnScoreOut": {
+        "properties": {
+          "score": {
+            "title": "Score",
+            "type": "integer"
+          },
+          "submitted_at": {
+            "format": "date-time",
+            "title": "Submitted At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "score",
+          "submitted_at"
+        ],
+        "title": "OwnScoreOut",
+        "type": "object"
+      },
       "PasswordResetIn": {
         "properties": {
           "email": {
@@ -7419,6 +9251,155 @@
           "mine"
         ],
         "title": "ProposalPersonOut",
+        "type": "object"
+      },
+      "QuestionItemOut": {
+        "description": "One Core item as the Lecturer reviews it: its type, its title (placeholder until issue\n#16), its weight in force and its default, whether it is taken out, and whether it measures\nquantities (taking it out warns, FR-52).",
+        "properties": {
+          "default_weight": {
+            "title": "Default Weight",
+            "type": "integer"
+          },
+          "excluded": {
+            "title": "Excluded",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "boolean"
+          },
+          "starting_task": {
+            "title": "Starting Task",
+            "type": "boolean"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "choice",
+              "table",
+              "number",
+              "long",
+              "drawn"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "weight": {
+            "title": "Weight",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "title",
+          "weight",
+          "default_weight",
+          "excluded",
+          "quantity",
+          "starting_task"
+        ],
+        "title": "QuestionItemOut",
+        "type": "object"
+      },
+      "QuestionSetIn": {
+        "additionalProperties": false,
+        "description": "«Lagre vekter»: every Core item's weight, the items taken out and the Adapted total weight.\nThe weights of the items left in plus the Adapted total must be 100.",
+        "properties": {
+          "adapted_weight": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Adapted Weight",
+            "type": "integer"
+          },
+          "excluded": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 60,
+            "title": "Excluded",
+            "type": "array"
+          },
+          "weights": {
+            "additionalProperties": {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "maxProperties": 60,
+            "title": "Weights",
+            "type": "object"
+          }
+        },
+        "required": [
+          "weights",
+          "excluded",
+          "adapted_weight"
+        ],
+        "title": "QuestionSetIn",
+        "type": "object"
+      },
+      "QuestionSetOut": {
+        "description": "The Class session's question set selection (Story 11.1): the version it uses, whether that\nversion is a draft (issue #16), whether a selection saved on an older version no longer\napplies (`outdated`: the latest version's defaults are shown, and pinned at the lock),\nwhether the lock has pinned it, whether it can still change (before the Start date), whether\nthe User may change it, the items and the Adapted line, and the sum of the weights in force.",
+        "properties": {
+          "adapted": {
+            "$ref": "#/components/schemas/AdaptedOut"
+          },
+          "can_change": {
+            "title": "Can Change",
+            "type": "boolean"
+          },
+          "draft": {
+            "title": "Draft",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/QuestionItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "open": {
+            "title": "Open",
+            "type": "boolean"
+          },
+          "outdated": {
+            "title": "Outdated",
+            "type": "boolean"
+          },
+          "pinned": {
+            "title": "Pinned",
+            "type": "boolean"
+          },
+          "sum": {
+            "title": "Sum",
+            "type": "integer"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "draft",
+          "outdated",
+          "pinned",
+          "open",
+          "can_change",
+          "items",
+          "adapted",
+          "sum"
+        ],
+        "title": "QuestionSetOut",
         "type": "object"
       },
       "QuizAnswerIn": {
@@ -7806,6 +9787,16 @@
               }
             ]
           },
+          "consent": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConsentStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "email": {
             "title": "Email",
             "type": "string"
@@ -7833,6 +9824,11 @@
           },
           "status": {
             "$ref": "#/components/schemas/RegistrationStatus"
+          },
+          "test_student": {
+            "default": false,
+            "title": "Test Student",
+            "type": "boolean"
           }
         },
         "required": [
@@ -8605,6 +10601,118 @@
         "title": "ResponseTimeOut",
         "type": "object"
       },
+      "ResultsConfigOut": {
+        "description": "The model config the Control test is pinned to.",
+        "properties": {
+          "model_version": {
+            "title": "Model Version",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "model_version"
+        ],
+        "title": "ResultsConfigOut",
+        "type": "object"
+      },
+      "ResultsGuideOut": {
+        "description": "The Scoring guide version the Control test is pinned to.",
+        "properties": {
+          "edited": {
+            "title": "Edited",
+            "type": "boolean"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "edited"
+        ],
+        "title": "ResultsGuideOut",
+        "type": "object"
+      },
+      "ResultsRowOut": {
+        "description": "One listed answer: «Svar N», its item type, question and word count, each named scorer's\nstep (null: not scored yet) in the order of `scorers`, and the AI's step (null: none stored,\nor withheld).",
+        "properties": {
+          "ai": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ai"
+          },
+          "human": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Human",
+            "type": "array"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "long",
+              "adapted"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "words": {
+            "title": "Words",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "number",
+          "type",
+          "question",
+          "words",
+          "human",
+          "ai"
+        ],
+        "title": "ResultsRowOut",
+        "type": "object"
+      },
+      "ResultsScorerOut": {
+        "description": "A named scorer, a column of the side-by-side table (in the order they were named).",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "ResultsScorerOut",
+        "type": "object"
+      },
       "RevealOut": {
         "description": "Step 2, the reveal of customer demand (Story 9.4, FR-44, UX-DR32): the heading rendered by\ncode from the demand series with the pinned sentence templates, and every logged Uke of the\nStudent's own Seat, oldest first. Every number is the api's (AD-10).",
         "properties": {
@@ -8849,7 +10957,9 @@
               {
                 "enum": [
                   "duplicate",
-                  "on_roster"
+                  "on_roster",
+                  "not_test_student",
+                  "address_unavailable"
                 ],
                 "type": "string"
               }
@@ -9086,6 +11196,472 @@
           "preview"
         ],
         "title": "RosterUploadOut",
+        "type": "object"
+      },
+      "SavedAnswerOut": {
+        "description": "The answer stored for the item after a save: the one just sent, or the one with a higher\nrevision stored already (then nothing changed, and it is no error).",
+        "properties": {
+          "item_id": {
+            "title": "Item Id",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "saved_at": {
+            "format": "date-time",
+            "title": "Saved At",
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/JsonValue"
+          }
+        },
+        "required": [
+          "value",
+          "revision",
+          "saved_at",
+          "item_id"
+        ],
+        "title": "SavedAnswerOut",
+        "type": "object"
+      },
+      "ScaleStepOut": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "step": {
+            "title": "Step",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "step",
+          "label"
+        ],
+        "title": "ScaleStepOut",
+        "type": "object"
+      },
+      "ScorerIn": {
+        "additionalProperties": false,
+        "properties": {
+          "email": {
+            "maxLength": 320,
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "ScorerIn",
+        "type": "object"
+      },
+      "ScorerOut": {
+        "description": "A named scorer as the Admin sees them, with how many answers they have scored.",
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "named_at": {
+            "format": "date-time",
+            "title": "Named At",
+            "type": "string"
+          },
+          "scored": {
+            "title": "Scored",
+            "type": "integer"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "name",
+          "email",
+          "named_at",
+          "scored"
+        ],
+        "title": "ScorerOut",
+        "type": "object"
+      },
+      "ScorersOut": {
+        "description": "`GET /api/admin/control-tests/{id}/scorers`: the Control test, its scorers and how many\nanswers there are to score.",
+        "properties": {
+          "answers": {
+            "title": "Answers",
+            "type": "integer"
+          },
+          "scorers": {
+            "items": {
+              "$ref": "#/components/schemas/ScorerOut"
+            },
+            "title": "Scorers",
+            "type": "array"
+          },
+          "test": {
+            "$ref": "#/components/schemas/ScoringTestOut"
+          }
+        },
+        "required": [
+          "test",
+          "answers",
+          "scorers"
+        ],
+        "title": "ScorersOut",
+        "type": "object"
+      },
+      "ScoringCriterionOut": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "weight": {
+            "title": "Weight",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "code",
+          "weight",
+          "text"
+        ],
+        "title": "ScoringCriterionOut",
+        "type": "object"
+      },
+      "ScoringEntryOut": {
+        "description": "One answer to score: «Svar N», the item's type and question, and whether the reader has\nscored it.",
+        "properties": {
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "ref": {
+            "title": "Ref",
+            "type": "string"
+          },
+          "scored": {
+            "title": "Scored",
+            "type": "boolean"
+          },
+          "type": {
+            "enum": [
+              "long",
+              "adapted"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ref",
+          "number",
+          "type",
+          "question",
+          "scored"
+        ],
+        "title": "ScoringEntryOut",
+        "type": "object"
+      },
+      "ScoringFactOut": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "value"
+        ],
+        "title": "ScoringFactOut",
+        "type": "object"
+      },
+      "ScoringGuideIn": {
+        "additionalProperties": false,
+        "description": "«Lagre sensorveiledning»: the guide text of each question the Lecturer changed, by question\nid. The criteria, the scale and the titles never change.",
+        "properties": {
+          "guides": {
+            "additionalProperties": {
+              "maxLength": 4000,
+              "type": "string"
+            },
+            "maxProperties": 40,
+            "minProperties": 1,
+            "propertyNames": {
+              "maxLength": 40,
+              "minLength": 1
+            },
+            "title": "Guides",
+            "type": "object"
+          }
+        },
+        "required": [
+          "guides"
+        ],
+        "title": "ScoringGuideIn",
+        "type": "object"
+      },
+      "ScoringGuideOut": {
+        "description": "The Class session's Scoring guide in force (Story 11.2): its version id and number,\nwhether it is a draft (issue #16), whether it is an edit made for a Class session, whether a\nnewer default was published after the edit (`outdated`: the edit stays in force), whether a\nControl test has checked it (`content.service.is_checked`), whether the Test-deadline lock has\npinned it, whether it can still change (before the original Test deadline), whether the User\nmay change it, the one five-step scale and the questions.",
+        "properties": {
+          "can_change": {
+            "title": "Can Change",
+            "type": "boolean"
+          },
+          "checked": {
+            "title": "Checked",
+            "type": "boolean"
+          },
+          "draft": {
+            "title": "Draft",
+            "type": "boolean"
+          },
+          "edited": {
+            "title": "Edited",
+            "type": "boolean"
+          },
+          "open": {
+            "title": "Open",
+            "type": "boolean"
+          },
+          "outdated": {
+            "title": "Outdated",
+            "type": "boolean"
+          },
+          "pinned": {
+            "title": "Pinned",
+            "type": "boolean"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/GuideQuestionOut"
+            },
+            "title": "Questions",
+            "type": "array"
+          },
+          "scale": {
+            "items": {
+              "$ref": "#/components/schemas/ScaleStepOut"
+            },
+            "title": "Scale",
+            "type": "array"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "version_id": {
+            "format": "uuid",
+            "title": "Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version_id",
+          "version",
+          "draft",
+          "edited",
+          "outdated",
+          "checked",
+          "pinned",
+          "open",
+          "can_change",
+          "scale",
+          "questions"
+        ],
+        "title": "ScoringGuideOut",
+        "type": "object"
+      },
+      "ScoringItemOut": {
+        "description": "One answer as its scorer reads it: the question, the original answer text, an Adapted\nitem's facts, and the pinned Scoring guide entry with its criteria and five-step scale. `ai`\nis null until the reader's own score of this answer is submitted (AD-27); AI feedback is never\nhere.",
+        "properties": {
+          "ai": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AiStepOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "answer": {
+            "title": "Answer",
+            "type": "string"
+          },
+          "can_score": {
+            "title": "Can Score",
+            "type": "boolean"
+          },
+          "criteria": {
+            "items": {
+              "$ref": "#/components/schemas/ScoringCriterionOut"
+            },
+            "title": "Criteria",
+            "type": "array"
+          },
+          "facts": {
+            "items": {
+              "$ref": "#/components/schemas/ScoringFactOut"
+            },
+            "title": "Facts",
+            "type": "array"
+          },
+          "guide_text": {
+            "title": "Guide Text",
+            "type": "string"
+          },
+          "guide_title": {
+            "title": "Guide Title",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "own_score": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OwnScoreOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "ref": {
+            "title": "Ref",
+            "type": "string"
+          },
+          "scale": {
+            "items": {
+              "$ref": "#/components/schemas/ScaleStepOut"
+            },
+            "title": "Scale",
+            "type": "array"
+          },
+          "test": {
+            "$ref": "#/components/schemas/ScoringTestOut"
+          },
+          "type": {
+            "enum": [
+              "long",
+              "adapted"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "test",
+          "ref",
+          "number",
+          "type",
+          "question",
+          "answer",
+          "facts",
+          "guide_title",
+          "guide_text",
+          "criteria",
+          "scale",
+          "can_score",
+          "own_score",
+          "ai"
+        ],
+        "title": "ScoringItemOut",
+        "type": "object"
+      },
+      "ScoringListOut": {
+        "description": "A Control test's answers to score. `can_score` is false for the Admin who reads them\nwithout being a named scorer; `entries` is empty until the Test deadline has passed.",
+        "properties": {
+          "can_score": {
+            "title": "Can Score",
+            "type": "boolean"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/ScoringEntryOut"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "test": {
+            "$ref": "#/components/schemas/ScoringTestOut"
+          }
+        },
+        "required": [
+          "test",
+          "can_score",
+          "entries"
+        ],
+        "title": "ScoringListOut",
+        "type": "object"
+      },
+      "ScoringTestOut": {
+        "description": "A Control test the reader is named to score: its name, its Test deadline and whether its\nanswers are open for scoring (the deadline has passed).",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "open": {
+            "title": "Open",
+            "type": "boolean"
+          },
+          "test_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test Deadline"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "test_deadline",
+          "open"
+        ],
+        "title": "ScoringTestOut",
         "type": "object"
       },
       "SeatChoiceGameOut": {
@@ -10011,6 +12587,92 @@
         "title": "SkippedSeatOut",
         "type": "object"
       },
+      "StaffAssessmentOut": {
+        "description": "A Student's «KI-vurdering» as the staff of their Class read it on the Studentside (Story\n12.5, FR-55, AD-12): the Student's own view field by field (same states, items, feedback,\nnotes, `flagged` and `checked`). Its own schema, so a field only the Student sees (Story\n12.6's letter choice) is never served here unless added on purpose.",
+        "properties": {
+          "checked": {
+            "default": false,
+            "title": "Checked",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AssessedItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "letter": {
+            "anyOf": [
+              {
+                "enum": [
+                  "A",
+                  "B",
+                  "C",
+                  "D",
+                  "E",
+                  "F"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Letter"
+          },
+          "state": {
+            "enum": [
+              "no_test",
+              "not_ready",
+              "switched_off",
+              "incomplete",
+              "failed",
+              "ready"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          },
+          "total_max": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Max"
+          },
+          "unassessed": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Unassessed",
+            "type": "array"
+          }
+        },
+        "required": [
+          "state",
+          "items",
+          "unassessed",
+          "total",
+          "total_max"
+        ],
+        "title": "StaffAssessmentOut",
+        "type": "object"
+      },
       "StaffAssistant": {
         "description": "An Assistant of the Class: `active` (staff, `user_id` set), or an Invitation not yet\naccepted (`invitation_id` set): `invited` with its last valid day, or `expired`.",
         "properties": {
@@ -10661,6 +13323,101 @@
         "title": "StepOut",
         "type": "object"
       },
+      "StoredAnswerOut": {
+        "description": "The Student's saved answer to one item (Story 11.4, AD-10): its value, its revision (the\nhighest saved) and when it was saved. No score and no right or wrong state (FR-54).",
+        "properties": {
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "saved_at": {
+            "format": "date-time",
+            "title": "Saved At",
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/JsonValue"
+          }
+        },
+        "required": [
+          "value",
+          "revision",
+          "saved_at"
+        ],
+        "title": "StoredAnswerOut",
+        "type": "object"
+      },
+      "StudentDeadlinesOut": {
+        "description": "The block «Frister» on the Studentside (Story 11.13, FR-18): the Student's Debrief and Test\ndeadlines beside the Class session's, for the Lecturers of its Class only.",
+        "properties": {
+          "class_debrief_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Class Debrief Deadline"
+          },
+          "class_test_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Class Test Deadline"
+          },
+          "debrief_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Debrief Deadline"
+          },
+          "extended": {
+            "title": "Extended",
+            "type": "boolean"
+          },
+          "submitted": {
+            "title": "Submitted",
+            "type": "boolean"
+          },
+          "test_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test Deadline"
+          }
+        },
+        "required": [
+          "class_debrief_deadline",
+          "class_test_deadline",
+          "debrief_deadline",
+          "test_deadline",
+          "extended",
+          "submitted"
+        ],
+        "title": "StudentDeadlinesOut",
+        "type": "object"
+      },
       "StudentGameOut": {
         "description": "The Student's Class game on Hjem (Story 6.1): «Spill 17 · Du er Grossist» and the four\nSeats, Fabrikk first (UX-DR73). Only from the Start date (`is_locked`).",
         "properties": {
@@ -10850,7 +13607,7 @@
         "type": "object"
       },
       "StudentPageOut": {
-        "description": "The Studentside of one Student of a Class session (Story 8.9, UX-DR53), for the Lecturers of\nits Class only: for now the block «Tilrettelegging»; Story 13.2 adds its own blocks.",
+        "description": "The Studentside of one Student of a Class session (Story 8.9, UX-DR53), for the staff of\nits Class: the blocks «Tilrettelegging» and «Frister» (Story 11.13) for its owners only\n(`can_manage`; Story 12.5 opens the page to Assistant lecturers, who get neither); the block\n«KI-vurdering» reads its own endpoint (Story 12.5); Story 13.2 adds its own blocks.",
         "properties": {
           "adjustment": {
             "anyOf": [
@@ -10861,6 +13618,10 @@
                 "type": "null"
               }
             ]
+          },
+          "can_manage": {
+            "title": "Can Manage",
+            "type": "boolean"
           },
           "class_id": {
             "format": "uuid",
@@ -10879,6 +13640,16 @@
           "class_share": {
             "title": "Class Share",
             "type": "integer"
+          },
+          "deadlines": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StudentDeadlinesOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "name": {
             "title": "Name",
@@ -10902,7 +13673,9 @@
           "user_id",
           "name",
           "class_share",
-          "adjustment"
+          "adjustment",
+          "deadlines",
+          "can_manage"
         ],
         "title": "StudentPageOut",
         "type": "object"
@@ -11110,6 +13883,95 @@
         "title": "SupplyLineSlot",
         "type": "object"
       },
+      "TableColumnOut": {
+        "description": "A given column of a value table: its heading and one number per row.",
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "values": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Values",
+            "type": "array"
+          }
+        },
+        "required": [
+          "label",
+          "values"
+        ],
+        "title": "TableColumnOut",
+        "type": "object"
+      },
+      "TableOut": {
+        "description": "A «Fyll inn kolonnen» item's value table (Story 11.5, FR-80, UX-DR38): its prompt and\nhint, the table's caption, one row label per Uke, the given columns, the asked column's label\n(one answer cell per Uke) and whether a value may be negative. A drawn item (Story 11.14) has\nthe same table and its graph's value `axis` (null for a table item). No expected value.",
+        "properties": {
+          "asked_label": {
+            "title": "Asked Label",
+            "type": "string"
+          },
+          "axis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AxisOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "caption": {
+            "title": "Caption",
+            "type": "string"
+          },
+          "columns": {
+            "items": {
+              "$ref": "#/components/schemas/TableColumnOut"
+            },
+            "title": "Columns",
+            "type": "array"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "negative": {
+            "title": "Negative",
+            "type": "boolean"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "prompt",
+          "hint",
+          "caption",
+          "rows",
+          "columns",
+          "asked_label",
+          "negative"
+        ],
+        "title": "TableOut",
+        "type": "object"
+      },
       "TableSeatOut": {
         "description": "A Seat of the Student's Class game (Story 6.1, FR-22, FR-34): its Role and who holds it,\na Student by name, any AI player as «KI-spiller» (`ai`, never which kind), or free.",
         "properties": {
@@ -11287,6 +14149,27 @@
         "title": "TableStatusOut",
         "type": "object"
       },
+      "TestAnswerIn": {
+        "additionalProperties": false,
+        "description": "One autosave of an item's answer (Story 11.4, AD-10): the value (a choice item: one of its\noption ids; a table or drawn item: one whole number or null per row; a number item: a whole\nnumber or null, Story 11.5; a long-answer item: its text as typed, Story 11.6; an Adapted item:\nthe same, Story 11.7) and the answer's revision, which rises by one per change on the Student's\ndevice.",
+        "properties": {
+          "revision": {
+            "maximum": 1000000.0,
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "value": {
+            "$ref": "#/components/schemas/JsonValue"
+          }
+        },
+        "required": [
+          "value",
+          "revision"
+        ],
+        "title": "TestAnswerIn",
+        "type": "object"
+      },
       "TestGameIn": {
         "additionalProperties": false,
         "description": "«Start testspill» (Story 6.20): the Role the Lecturer plays.",
@@ -11325,6 +14208,66 @@
           "status"
         ],
         "title": "TestGameRefOut",
+        "type": "object"
+      },
+      "TestSittingIn": {
+        "additionalProperties": false,
+        "description": "The one timed sitting as «Lagre Klasseøkt» sends it (Story 11.12): `minutes` the time limit\nin whole minutes, or null to switch it off.",
+        "properties": {
+          "minutes": {
+            "anyOf": [
+              {
+                "maximum": 100000.0,
+                "minimum": -100000.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minutes"
+          }
+        },
+        "required": [
+          "minutes"
+        ],
+        "title": "TestSittingIn",
+        "type": "object"
+      },
+      "TestSittingOut": {
+        "description": "The Individual test's one timed sitting of a Class session (Story 11.12, FR-51), stored by\n`modules/tests`.",
+        "properties": {
+          "can_change": {
+            "title": "Can Change",
+            "type": "boolean"
+          },
+          "max_minutes": {
+            "title": "Max Minutes",
+            "type": "integer"
+          },
+          "min_minutes": {
+            "title": "Min Minutes",
+            "type": "integer"
+          },
+          "minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minutes"
+          }
+        },
+        "required": [
+          "minutes",
+          "min_minutes",
+          "max_minutes",
+          "can_change"
+        ],
+        "title": "TestSittingOut",
         "type": "object"
       },
       "TimeProposalIn": {
@@ -11509,6 +14452,11 @@
             "format": "uuid",
             "title": "Id",
             "type": "string"
+          },
+          "is_test_student": {
+            "default": false,
+            "title": "Is Test Student",
+            "type": "boolean"
           },
           "name": {
             "title": "Name",
@@ -12179,6 +15127,37 @@
           "order"
         ],
         "title": "WeekValues",
+        "type": "object"
+      },
+      "WordingOut": {
+        "description": "An Adapted item's text as it travels (Story 11.7, AD-7): code-rendered text has\n`ai_generated` false and no `llm_call_id`; AI-worded text (Story 11.8) names its call.",
+        "properties": {
+          "ai_generated": {
+            "title": "Ai Generated",
+            "type": "boolean"
+          },
+          "llm_call_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Llm Call Id"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "ai_generated",
+          "llm_call_id"
+        ],
+        "title": "WordingOut",
         "type": "object"
       }
     }
@@ -12991,6 +15970,427 @@
         ]
       }
     },
+    "/api/admin/control-tests": {
+      "get": {
+        "description": "The Kontrolltest page (Story 12.7): the operator's own Institution (null until one is\nmarked), the Scoring guide versions and model configs a new Control test may pin, and every\nControl test, newest first, with what it pinned.",
+        "operationId": "listControlTests",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlTestsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "summary": "List Control Tests",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "description": "Set up a Control test (Story 12.7, FR-82, AD-27): one transaction makes a Class in the\noperator's own Institution with the Admin as its owner and in it a Class session of kind\n`control_test`, pinned to the Scoring guide version and the model config under test. 409\n`operator_institution_missing` while no Institution is marked; 422 `invalid_request` with\n`fields` `name` (the Class name rule's code), `scoring_guide_id` and `model_config_id`\n(`missing` or `unknown`).",
+        "operationId": "createControlTest",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ControlTestIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlTestOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Create Control Test",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/control-tests/{session_id}/results": {
+      "get": {
+        "description": "The Control test's results (Story 12.10, FR-82, AD-27): each listed answer's human and AI\nsteps side by side and the agreement measures, preliminary while scores are missing; the AI\nsteps and measures are withheld from an Admin who is a named scorer with answers still to\nscore. Admin only; each read is audited. 404 `not_found` for no such Control test.",
+        "operationId": "controlTestResults",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlResultsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Control Test Results",
+        "tags": [
+          "tests"
+        ]
+      }
+    },
+    "/api/admin/control-tests/{session_id}/scorers": {
+      "get": {
+        "description": "The Control test's named scorers and how many answers each has scored (Admin only). 404\n`not_found` for no such Control test.",
+        "operationId": "listScorers",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScorersOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Scorers",
+        "tags": [
+          "tests"
+        ]
+      },
+      "post": {
+        "description": "Name an existing User a scorer of the Control test, by e-mail address (audited; naming one\nalready named writes nothing). 422 `invalid_request` with `fields.email`: `unknown` (no active\nUser) or `test_student`; 404 `not_found` for no such Control test.",
+        "operationId": "nameScorer",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScorerIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScorersOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Name Scorer",
+        "tags": [
+          "tests"
+        ]
+      }
+    },
+    "/api/admin/control-tests/{session_id}/scorers/{user_id}": {
+      "delete": {
+        "description": "Take a scorer off the Control test (audited); their submitted scores stay. 404 `not_found`\nfor no such Control test or a scorer id that is no id.",
+        "operationId": "removeScorer",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScorersOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Scorer",
+        "tags": [
+          "tests"
+        ]
+      }
+    },
     "/api/admin/evaluation/class-sessions": {
       "get": {
         "description": "Every saved Class session, newest first, with its Institution agreement (or null) and the\nday its Student data is deleted (null while it has no Test deadline). No Student data.",
@@ -13574,6 +16974,164 @@
           }
         },
         "summary": "Rename Institution",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/institutions/{institution_id}/no-letter": {
+      "put": {
+        "description": "The Institution's no-letter Bryter (Story 12.6, FR-56, FR-3): on, its data protection\nofficer requires that no Indicative letter is shown, so every Class session of the\nInstitution can choose only «unavailable» and no letter is derived or shown. Each change is\naudited; the same value again writes nothing. An unknown id is `not_found`.",
+        "operationId": "setInstitutionNoLetter",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "institution_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Institution Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoLetterIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstitutionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Set Institution No Letter",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/institutions/{institution_id}/operator-owned": {
+      "put": {
+        "description": "Mark the Institution as the operator's own, where Control tests are set up (Story 12.7,\nFR-82, AD-27). The mark moves from the Institution that held it; at most one holds it. An\nunknown id is `not_found`.",
+        "operationId": "markOperatorInstitution",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "institution_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Institution Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstitutionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Mark Operator Institution",
         "tags": [
           "admin"
         ]
@@ -15207,7 +18765,7 @@
         ]
       },
       "put": {
-        "description": "«Lagre Klasseøkt»: saves the Class session as it stands. LLM players while no model config\nis pinned as the default answer 409 `llm_unavailable`, and nothing changes.\n\nWith `dates` the four dates are replaced (FR-18). `fields` names each date in question:\n422 `invalid_dates` (`past`, `order` for the later date of a pair out of order, `before` for\nthe earlier one when only it changed, `required` once locked), 409 `deadline_passed`\n(`passed`). Dates count to the whole minute.\n\n`effort_level`, `debrief_mode`, `debrief_release` and `debrief_ai_text` (FR-15, FR-16, FR-42,\nFR-78), left out, keep their values; a changed `debrief_release` or `debrief_ai_text` once\nlocked answers 409 `session_locked` too. With LLM\nplayers a changed Effort level the model config does not offer answers 422\n`invalid_effort_level` (`{\"effort_level\": \"not_offered\"}`); with Rule-based players no level\nis in force and a sent one is ignored. Once the Start date has passed, a changed AI mode,\nEffort level or Debrief mode answers 409 `session_locked`, `fields` naming each.\n\nWith `game_settings` (the editable settings, laid over the stored ones; `demand` and\n`demand_seed` too) the engine judges the settings (FR-12, FR-13): 422 `invalid_settings` with\n`fields` mapping each setting (`demand.<field>` inside the Demand pattern) to\n`{code, minimum, maximum, decimal_places}`. Once locked, changed settings answer 409\n`session_locked` (`{\"game_settings\": \"locked\"}`).\n\n`game_settings.capacity` (Story 5.15) is `{role: units}` or null: one Role or every Role\ncapped per Week, `capacity.<role>` from 1 to 100. While `FEATURE_CAPACITY` is off a\nnon-empty capacity answers 422 `feature_disabled` (`{\"capacity\": \"feature_disabled\"}`).\n\n`game_settings.info_visibility` (Story 5.16) is `{upstream, downstream}`, two booleans that\nlet each Seat see its neighbour's inventory and backlog; anything else is `info_visibility`\n`invalid`. While `FEATURE_INFO_VISIBILITY` is off a view switched on answers 422\n`feature_disabled` (`{\"info_visibility\": \"feature_disabled\"}`).\n\n`obligatory`, `required_share_percent` and `inactivity_limit_hours` (Story 5.7, FR-17,\nFR-36), left out, keep their values. A changed share outside 1 to 100 or Inactivity limit\nunder 20 hours answers 422 `invalid_session_values` (`out_of_range`, `below_minimum`); once\nlocked a changed one answers 409 `session_locked`. Switching the mark on tells each\nregistered Student through the day's digest mail.\n\n`allocation_method` (Story 5.17, FR-21), left out, keeps the method. `student_choice` creates\nempty Class games for the registered Students and tells each of them through the day's digest\nmail that they may choose a Class game and a Seat. A changed method answers 422\n`feature_disabled` (`{\"allocation_method\": \"feature_disabled\"}`) for Student choice while\n`FEATURE_STUDENT_CHOICE` is off, 409 `session_locked` once locked and 409\n`allocation_confirmed` (`{\"allocation_method\": \"confirmed\"}`) once an allocation is confirmed:\nStudent choice is final once saved.\n\n`replay_scenario` (Story 10.2, FR-49), left out, keeps the Replay scenario: `default`, or\n`own` with `replay_template`, the own scenario's editable fields (`starting_inventory`,\n`starting_backlog`, `supply_line`, the three delays, `weeks`, `guided_weeks`, `max_order` as\nwhole numbers or `{minimum, maximum}`; `holding_cost`, `backorder_cost`; `demand` as `step`\nwith a ranged `change_week`, `random` or `fixed`, each with a `spread`; `info_visibility`\nas in the Game settings, the Replay's own, Story 10.9), laid over the Class game's exact\nsettings (Information visibility: over a stored own template's). A template the engine\nrefuses answers 422 `invalid_replay_scenario` with `fields` as `invalid_settings`; while\n`FEATURE_INFO_VISIBILITY` is off a view switched on there names `info_visibility`\n`feature_disabled`; `own` with no template sent or stored names\n`replay_template` `required`. Once locked, a changed scenario answers 409 `session_locked`\n(`{\"replay_scenario\": \"locked\"}`).",
+        "description": "«Lagre Klasseøkt»: saves the Class session as it stands. LLM players while no model config\nis pinned as the default answer 409 `llm_unavailable`, and nothing changes.\n\nWith `dates` the four dates are replaced (FR-18). `fields` names each date in question:\n422 `invalid_dates` (`past`, `order` for the later date of a pair out of order, `before` for\nthe earlier one when only it changed, `required` once locked), 409 `deadline_passed`\n(`passed`). Dates count to the whole minute.\n\n`effort_level`, `debrief_mode`, `debrief_release` and `debrief_ai_text` (FR-15, FR-16, FR-42,\nFR-78), left out, keep their values; a changed `debrief_release` or `debrief_ai_text` once\nlocked answers 409 `session_locked` too. With LLM\nplayers a changed Effort level the model config does not offer answers 422\n`invalid_effort_level` (`{\"effort_level\": \"not_offered\"}`); with Rule-based players no level\nis in force and a sent one is ignored. Once the Start date has passed, a changed AI mode,\nEffort level or Debrief mode answers 409 `session_locked`, `fields` naming each.\n\nWith `game_settings` (the editable settings, laid over the stored ones; `demand` and\n`demand_seed` too) the engine judges the settings (FR-12, FR-13): 422 `invalid_settings` with\n`fields` mapping each setting (`demand.<field>` inside the Demand pattern) to\n`{code, minimum, maximum, decimal_places}`. Once locked, changed settings answer 409\n`session_locked` (`{\"game_settings\": \"locked\"}`).\n\n`game_settings.capacity` (Story 5.15) is `{role: units}` or null: one Role or every Role\ncapped per Week, `capacity.<role>` from 1 to 100. While `FEATURE_CAPACITY` is off a\nnon-empty capacity answers 422 `feature_disabled` (`{\"capacity\": \"feature_disabled\"}`).\n\n`game_settings.info_visibility` (Story 5.16) is `{upstream, downstream}`, two booleans that\nlet each Seat see its neighbour's inventory and backlog; anything else is `info_visibility`\n`invalid`. While `FEATURE_INFO_VISIBILITY` is off a view switched on answers 422\n`feature_disabled` (`{\"info_visibility\": \"feature_disabled\"}`).\n\n`obligatory`, `required_share_percent` and `inactivity_limit_hours` (Story 5.7, FR-17,\nFR-36), left out, keep their values. A changed share outside 1 to 100 or Inactivity limit\nunder 20 hours answers 422 `invalid_session_values` (`out_of_range`, `below_minimum`); once\nlocked a changed one answers 409 `session_locked`. Switching the mark on tells each\nregistered Student through the day's digest mail.\n\n`allocation_method` (Story 5.17, FR-21), left out, keeps the method. `student_choice` creates\nempty Class games for the registered Students and tells each of them through the day's digest\nmail that they may choose a Class game and a Seat. A changed method answers 422\n`feature_disabled` (`{\"allocation_method\": \"feature_disabled\"}`) for Student choice while\n`FEATURE_STUDENT_CHOICE` is off, 409 `session_locked` once locked and 409\n`allocation_confirmed` (`{\"allocation_method\": \"confirmed\"}`) once an allocation is confirmed:\nStudent choice is final once saved.\n\n`replay_scenario` (Story 10.2, FR-49), left out, keeps the Replay scenario: `default`, or\n`own` with `replay_template`, the own scenario's editable fields (`starting_inventory`,\n`starting_backlog`, `supply_line`, the three delays, `weeks`, `guided_weeks`, `max_order` as\nwhole numbers or `{minimum, maximum}`; `holding_cost`, `backorder_cost`; `demand` as `step`\nwith a ranged `change_week`, `random` or `fixed`, each with a `spread`; `info_visibility`\nas in the Game settings, the Replay's own, Story 10.9), laid over the Class game's exact\nsettings (Information visibility: over a stored own template's). A template the engine\nrefuses answers 422 `invalid_replay_scenario` with `fields` as `invalid_settings`; while\n`FEATURE_INFO_VISIBILITY` is off a view switched on there names `info_visibility`\n`feature_disabled`; `own` with no template sent or stored names\n`replay_template` `required`. Once locked, a changed scenario answers 409 `session_locked`\n(`{\"replay_scenario\": \"locked\"}`).\n\n`ai_assessment` (Story 12.1, FR-61), left out, keeps the «KI-vurdering» switch. It can change\nafter the Start date too; once the original Test deadline has passed (and the Test-deadline\nlock has pinned it) a changed value answers 409 `ai_assessment_pinned`\n(`{\"ai_assessment\": \"pinned\"}`). Only the Class's owners change it (`ai_assessment.change`).\n\n`letter_setting` and `letter_thresholds` (Story 12.6, FR-56), left out, keep the Indicative\nletter's setting (`all`, `student_choice`, `unavailable`) and the lower bounds of A to E.\nThey change while the «KI-vurdering» switch can (else 409 `ai_assessment_pinned` naming the\nfield), only by the Class's owners. While the Institution forbids the letter, a setting other\nthan `unavailable` answers 409 `letter_unavailable` (`{\"letter_setting\": \"institution\"}`).\nBounds outside 1 to 100 or not strictly falling answer 422 `invalid_session_values`\n(`{\"letter_thresholds\": \"out_of_range\" | \"out_of_order\"}`); once a Test attempt exists a\nchange answers 409 `letter_thresholds_locked`. A value equal to the one in force is no\nchange.\n\n`test_sitting` (Story 11.12, FR-51), left out, keeps the Individual test's one timed sitting:\n`{\"minutes\": n}` sets the time limit in whole minutes, `{\"minutes\": null}` switches it off. A\nlimit outside the configured range answers 422 `invalid_session_values`\n(`{\"test_sitting_minutes\": \"out_of_range\"}`); once locked a change answers 409\n`session_locked` (`{\"test_sitting\": \"locked\"}`).",
         "operationId": "saveClassSession",
         "parameters": [
           {
@@ -15288,6 +18846,69 @@
         ]
       }
     },
+    "/api/class-sessions/{session_id}/adapted-preview": {
+      "get": {
+        "description": "The Adapted item preview (Story 11.9, FR-53, UX-DR70): each template of the version the\nClass session pins, filled by code from the static sample facts set («Demodata»), with its\nweight of the Adapted total in force. No Game, no stored facts set, no LLM call.",
+        "operationId": "getAdaptedPreview",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdaptedPreviewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Adapted Preview",
+        "tags": [
+          "tests"
+        ]
+      }
+    },
     "/api/class-sessions/{session_id}/allocation": {
       "get": {
         "description": "The «Fordeling» block (Story 5.8, FR-20): the registered Students, those not in the draft,\nand the stored draft (None until one is drawn) with the Students' names read now. For the\nClass's staff, Assistant lecturers too.",
@@ -15351,7 +18972,7 @@
         ]
       },
       "post": {
-        "description": "Opening «Fordeling»: the stored draft unchanged, or, when none is stored, a draft drawn at\nrandom from the registered Students in groups of four with a random Role each. With no\nregistered Student nothing is stored. No Game or Seat is created and no Student is told.\nOnce the Start date has passed a stored draft is still returned, and a draw answers 409\n`session_locked` (`{\"allocation\": \"locked\"}`). An archived Class answers 409\n`class_archived`.",
+        "description": "Opening «Fordeling»: the stored draft unchanged, or, when none is stored, a draft drawn at\nrandom from the registered Students in groups of four with a random Role each. With no\nregistered Student nothing is stored. No Game or Seat is created and no Student is told.\nOnce the Start date has passed a stored draft is still returned, and a draw answers 409\n`session_locked` (`{\"allocation\": \"locked\"}`). An archived Class answers 409\n`class_archived`. A Control test draws nothing while N registered test students have not\nconsented: 409 `consent_missing` (`{\"allocation\": \"consent_missing\", \"missing\": \"<N>\"}`,\nStory 12.8).",
         "operationId": "openAllocation",
         "parameters": [
           {
@@ -15424,7 +19045,7 @@
     },
     "/api/class-sessions/{session_id}/allocation/confirm": {
       "post": {
-        "description": "«Bekreft fordeling» (Story 5.9, FR-20): commits the draft named by `draft_id` and\n`revision`, and nothing else: one Class game per group and one Seat per Student, and each\nStudent is told through the day's digest mail. Pressing it again changes nothing.\n\n409 `allocation_changed` commits no Game: `{\"draft\": \"changed\"}` when the draft is no longer\nthe current one (drawn again or changed), `{\"draft\": \"students_removed\"}` when Students in it\nhave left the Roster, whose Seats the draft now leaves free under a raised revision. 409\n`session_locked` (`{\"allocation\": \"locked\"}`) once the Start date has passed; 409\n`class_archived` for an archived Class.",
+        "description": "«Bekreft fordeling» (Story 5.9, FR-20): commits the draft named by `draft_id` and\n`revision`, and nothing else: one Class game per group and one Seat per Student, and each\nStudent is told through the day's digest mail. Pressing it again changes nothing.\n\n409 `allocation_changed` commits no Game: `{\"draft\": \"changed\"}` when the draft is no longer\nthe current one (drawn again or changed), `{\"draft\": \"students_removed\"}` when Students in it\nhave left the Roster, whose Seats the draft now leaves free under a raised revision. 409\n`session_locked` (`{\"allocation\": \"locked\"}`) once the Start date has passed; 409\n`class_archived` for an archived Class. A Control test answers 409 `consent_missing`\n(`{\"allocation\": \"consent_missing\", \"missing\": \"<N>\"}`) while N registered test students have\nnot consented (Story 12.8).",
         "operationId": "confirmAllocation",
         "parameters": [
           {
@@ -15668,6 +19289,69 @@
         "summary": "Redraw Allocation",
         "tags": [
           "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/assessments": {
+      "get": {
+        "description": "The Klasseøkt's list of AI assessments (Story 12.5): each Student of the Class by name,\nthe state of their assessment and how many pieces of feedback they flagged. 403 `forbidden`\nas `getStudentAssessment`.",
+        "operationId": "listStudentAssessments",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssessmentListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Student Assessments",
+        "tags": [
+          "tests"
         ]
       }
     },
@@ -16528,6 +20212,150 @@
         ]
       }
     },
+    "/api/class-sessions/{session_id}/question-set": {
+      "get": {
+        "description": "The Klasseøkt's «Spørsmål og vekter» block (Story 11.1, FR-52, FR-53): every Core item of\nthe question set with its type, weight in force and whether it is taken out, the Adapted\nitems' total weight, the sum, whether the set is a draft and whether it can still change\n(before the Start date). Once locked, the selection the lock pinned.",
+        "operationId": "getSessionQuestionSet",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionSetOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Session Question Set",
+        "tags": [
+          "tests"
+        ]
+      },
+      "put": {
+        "description": "«Lagre vekter» (Story 11.1, FR-52, AD-15): the whole selection, stored on the latest\nquestion set version and recorded in the audit log. 422 `weights_not_100` when the weights\nof the items left in plus the Adapted total are not 100, `validation_error` for an unknown\nitem, a missing weight or every item taken out; 409 `session_locked` from the Start date,\n`class_archived` for an archived Class; 403 `forbidden` for an Assistant lecturer and every\nother caller.",
+        "operationId": "setSessionQuestionSet",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuestionSetIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionSetOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Set Session Question Set",
+        "tags": [
+          "tests"
+        ]
+      }
+    },
     "/api/class-sessions/{session_id}/replay-scenario-check": {
       "post": {
         "description": "The engine's errors on a draft of an own Replay scenario and the warnings of changes that\nprobably make the Replay easier than the Class game (`replay_*` codes), as the Lecturer\nleaves a field (Story 10.2, FR-12, FR-49). Stores nothing. Once locked it answers 409\n`session_locked`.",
@@ -16608,6 +20436,150 @@
         "summary": "Check Replay Scenario",
         "tags": [
           "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/scoring-guide": {
+      "get": {
+        "description": "The Klasseøkt's «Sensorveiledning» block (Story 11.2, FR-81): the Scoring guide in force,\neach question's guide text marked «Standard» or «Endret», its coded criteria (read-only), the\none five-step scale, whether a Control test has checked the version, and whether it can still\nchange (before the original Test deadline). Once pinned, the version pinned.",
+        "operationId": "getSessionScoringGuide",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScoringGuideOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Session Scoring Guide",
+        "tags": [
+          "tests"
+        ]
+      },
+      "put": {
+        "description": "«Lagre sensorveiledning» (Story 11.2, FR-81, AD-23): the changed guide texts, stored as a\nnew Scoring guide version made for the Class session and recorded in the audit log; the\nearlier version is unchanged. 422 `validation_error` for a question the guide does not have\nor a text the record refuses (`fields` by question id); 409 `scoring_guide_locked` from the\noriginal Test deadline, `class_archived` for an archived Class; 403 `forbidden` for an\nAssistant lecturer and every other caller.",
+        "operationId": "setSessionScoringGuide",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScoringGuideIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScoringGuideOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Set Session Scoring Guide",
+        "tags": [
+          "tests"
         ]
       }
     },
@@ -16984,7 +20956,7 @@
     },
     "/api/class-sessions/{session_id}/students/{user_id}": {
       "get": {
-        "description": "The Studentside (Story 8.9, UX-DR53): one Student of the Class session with the block\n«Tilrettelegging», for the Lecturers of its Class only. 403 `forbidden` for an Assistant\nlecturer, anyone outside the Class, a User who is not a Student of the Class now and a Class\nsession that does not exist (FR-5, AD-12).",
+        "description": "The Studentside (Story 8.9, UX-DR53): one Student of the Class session, for the staff of\nits Class (Story 12.5: Assistant lecturers too). «Tilrettelegging» and «Frister» only for its\nowners (`can_manage`); null for an Assistant lecturer. 403 `forbidden` for anyone outside the\nClass, a User who is not a Student of the Class now and a Class session that does not exist\n(FR-5, AD-12).",
         "operationId": "getStudentPage",
         "parameters": [
           {
@@ -17143,6 +21115,170 @@
         "summary": "Save Adjustment",
         "tags": [
           "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/students/{user_id}/assessment": {
+      "get": {
+        "description": "A Student's «KI-vurdering» for the staff of the Class (Story 12.5, FR-55, AD-12): the block\non the Studentside. What the Student reads (states, scores, feedback, the notes, `checked`)\nand which pieces they flagged; never a choice only the Student sees. 403 `forbidden` for\nanyone but the owners and Assistant lecturers of the Class (the Admin too), a User who is no\nStudent of it now and an unknown Class session (FR-5).",
+        "operationId": "getStudentAssessment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffAssessmentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Student Assessment",
+        "tags": [
+          "tests"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/students/{user_id}/deadline": {
+      "put": {
+        "description": "«Lagre frist» on the Studentside (Story 11.13, FR-18, AD-9): the Student's own Test\ndeadline, later than the Class session's, and their Debrief deadline moved by the same amount;\nan open Individual test attempt takes it at once (a timed sitting keeps its end). Recorded in\nthe audit log. Answers the block «Frister». 422 `invalid_extension` with `fields.test_deadline`\n(`not_later`, `passed`, `no_test_deadline`); 409 `attempt_submitted` when the Student has\nhanded the test in; 409 `class_archived`; 403 `forbidden` for anyone but a Lecturer of the\nClass (an Assistant lecturer too) and for a User who is no Student of it.",
+        "operationId": "extendTestDeadline",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeadlineExtensionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentDeadlinesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Extend Test Deadline",
+        "tags": [
+          "tests"
         ]
       }
     },
@@ -17375,7 +21511,7 @@
     },
     "/api/classes": {
       "get": {
-        "description": "The Classes the User is staff of, by name: «Klassene dine» on the Lærerhjem.",
+        "description": "The Classes the User is staff of, by name: «Klassene dine» on the Lærerhjem; a Control\ntest Class is never among them (Story 12.7), and the Lærerhjem's policy holds it, so the Admin\nrole alone, which reads a Control test Class it owns, does not reach this list.",
         "operationId": "listClasses",
         "responses": {
           "200": {
@@ -19002,6 +23138,16 @@
             },
             "description": "Forbidden"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -19149,6 +23295,16 @@
               }
             },
             "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {
@@ -21282,7 +25438,7 @@
     },
     "/api/lecturer-home/class-sessions": {
       "get": {
-        "description": "The Lærerhjem's «Venter» and «Neste frist» over the User's Classes that are not archived\n(UX-DR56).",
+        "description": "The Lærerhjem's «Venter» and «Neste frist» over the User's Classes that are not archived\n(UX-DR56). The Lærerhjem's policy holds it: the Admin role alone, which reads a Control test\nClass it owns (Story 12.7), does not reach it, and a Control test is never among them.",
         "operationId": "lecturerHomeClassSessions",
         "responses": {
           "200": {
@@ -21563,7 +25719,7 @@
         ]
       },
       "put": {
-        "description": "«Ta setet Grossist i Spill 17» (Story 5.17, FR-21): the Student takes the free Seat, or\nmoves to it from the Seat they hold, in one request; their own Seat again changes nothing.\n409 `seat_taken` (`{\"seat\": \"taken\"}`) when another occupant holds it, 422 `invalid_seat`\n(`{\"seat\": \"unknown\"}`) for a game or Role the session does not have, 409 `session_locked`\n(`{\"seat\": \"locked\"}`) once locked, 409 `class_archived` for an archived Class; nothing changes\nthen. Not found as the read.",
+        "description": "«Ta setet Grossist i Spill 17» (Story 5.17, FR-21): the Student takes the free Seat, or\nmoves to it from the Seat they hold, in one request; their own Seat again changes nothing.\n409 `seat_taken` (`{\"seat\": \"taken\"}`) when another occupant holds it, 422 `invalid_seat`\n(`{\"seat\": \"unknown\"}`) for a game or Role the session does not have, 409 `session_locked`\n(`{\"seat\": \"locked\"}`) once locked, 409 `class_archived` for an archived Class, 409\n`consent_missing` (`{\"seat\": \"consent_missing\"}`) for a test student of a Control test who has\nnot consented (Story 12.8); nothing changes then. Not found as the read.",
         "operationId": "takeSeat",
         "parameters": [
           {
@@ -21641,6 +25797,623 @@
         "summary": "Take Seat",
         "tags": [
           "sessions"
+        ]
+      }
+    },
+    "/api/me/class-sessions/{session_id}/test": {
+      "get": {
+        "description": "The Student's Individual test (Story 11.3, FR-51): `statement` until they accept the\nown-work statement, with no item; `open` with their items in order once they have; `closed`\nwhen their Test deadline passed with no attempt. 403 `replay_required` before the Replay is\ncompleted, `forbidden` for any session that is not theirs.",
+        "operationId": "getMyTest",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyTestOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get My Test",
+        "tags": [
+          "tests"
+        ]
+      },
+      "post": {
+        "description": "Accept the own-work statement and open the Individual test (Story 11.3, FR-51): 201 with\nthe attempt this request made, 200 with the one the Student has (also when two opens run at\nonce). 403 `replay_required` before the Replay is completed, 409 `test_deadline_passed` after\nthe Student's Test deadline with no attempt, 403 `forbidden` for any session that is not\ntheirs.",
+        "operationId": "openMyTest",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyTestOut"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyTestOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open My Test",
+        "tags": [
+          "tests"
+        ]
+      }
+    },
+    "/api/me/class-sessions/{session_id}/test/answers/{item_id}": {
+      "put": {
+        "description": "Autosave the Student's answer to one item (Story 11.4, FR-51, AD-10): the answer stored\nafter the save. It is replaced only when `revision` is above the stored one; otherwise the\nstored answer comes back unchanged, without an error. 409 `attempt_submitted` once the test is\nhanded in, 409 `test_deadline_passed` after the Student's Test deadline, 409 `sitting_ended`\nonce their timed sitting has ended (Story 11.12), 422 `unknown_item`\nfor an item the attempt does not have, 422 `invalid_answer` for a value that does not answer\nthe item, 403 `forbidden` for any session that is not theirs or a test not yet opened.",
+        "operationId": "saveMyTestAnswer",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TestAnswerIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedAnswerOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Save My Test Answer",
+        "tags": [
+          "tests"
+        ]
+      }
+    },
+    "/api/me/class-sessions/{session_id}/test/assessment": {
+      "get": {
+        "description": "The Student's «KI-vurdering» of their Individual test (Story 12.2, FR-54, FR-55, FR-61):\n`no_test`, `not_ready`, `switched_off`, `incomplete` (items, the unassessed item numbers, no\ntotal), `failed`, or `ready` (items and the weighted total). Counts toward nothing; no pass\nor fail. Story 12.6: `letter` where the Indicative letter is allowed (the setting, the\nStudent's own choice and the letter when shown). `forbidden` for any session that is not\ntheirs.",
+        "operationId": "getMyAssessment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyAssessmentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get My Assessment",
+        "tags": [
+          "tests"
+        ]
+      }
+    },
+    "/api/me/class-sessions/{session_id}/test/assessment/items/{item_id}/flag": {
+      "delete": {
+        "description": "«Angre» (Story 12.5, FR-55): the Student takes their flag on one item's feedback back.\nIdempotent; answers and refuses as `flagFeedback`.",
+        "operationId": "unflagFeedback",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyAssessmentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Unflag Feedback",
+        "tags": [
+          "tests"
+        ]
+      },
+      "put": {
+        "description": "«Marker som feil» (Story 12.5, FR-55): the Student marks the written feedback of one item of\ntheir own «KI-vurdering» as wrong, stored at once; the staff of the Class see it. Idempotent.\nAnswers the view as it now stands. 409 `feedback_not_flaggable` when the view shows no written\nfeedback for that item; `forbidden` for any session that is not theirs.",
+        "operationId": "flagFeedback",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyAssessmentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Flag Feedback",
+        "tags": [
+          "tests"
+        ]
+      }
+    },
+    "/api/me/class-sessions/{session_id}/test/assessment/letter": {
+      "put": {
+        "description": "«Veiledende bokstav» (Story 12.6, FR-56): the Student turns the Indicative letter on or off\nfor their own ready «KI-vurdering» where the Lecturer leaves it to each Student. Stored on\ntheir own assessment, never served to staff or the Admin; idempotent. Answers the view as it\nnow stands. 409 `letter_not_available` when the view offers no such choice (not ready, the\nletter unavailable or shown to everyone); `forbidden` for any session that is not theirs.",
+        "operationId": "setMyLetterChoice",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LetterChoiceIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyAssessmentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Set My Letter Choice",
+        "tags": [
+          "tests"
+        ]
+      }
+    },
+    "/api/me/class-sessions/{session_id}/test/submit": {
+      "post": {
+        "description": "«Lever testen» (Story 11.10, FR-51, AD-9, AD-16): the Student hands in their Individual\ntest once; their saved answers are scored and stored and `test_submitted` is recorded. 200\nwith the test as handed in (state `submitted`). 409 `attempt_submitted` when it was handed in\nalready (nothing changes), 409 `test_deadline_passed` after the Student's Test deadline, 409\n`sitting_ended` once their timed sitting has ended (Story 11.12), 403\n`forbidden` for any session that is not theirs or a test not yet opened.",
+        "operationId": "submitMyTest",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyTestOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Submit My Test",
+        "tags": [
+          "tests"
         ]
       }
     },
@@ -23115,6 +27888,395 @@
         "summary": "List My Messages",
         "tags": [
           "messaging"
+        ]
+      }
+    },
+    "/api/me/test-student-consent": {
+      "get": {
+        "description": "A test student's decision on the current consent text (Story 12.8, FR-82, AD-27): None\nuntil they take one. 403 for a User who is no test student.",
+        "operationId": "getTestStudentConsent",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "summary": "Get Test Student Consent",
+        "tags": [
+          "auth"
+        ]
+      },
+      "put": {
+        "description": "«Jeg samtykker» or «Nei takk» on Hjem (Story 12.8): one row with the User, the time and the\ntext version read. The decision held already changes nothing. 409 `consent_text_changed` when\n`text_version` is not the current text (`fields.text_version`), 409 `consent_given` for a\ndecline after consent (`fields.decision`). 403 for a User who is no test student.",
+        "operationId": "decideTestStudentConsent",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsentIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Decide Test Student Consent",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/scoring": {
+      "get": {
+        "description": "The Control tests the User is a named scorer of (Story 12.9): what their home's Lenke\n«Sensur av Kontrolltest» shows; empty for everyone else.",
+        "operationId": "getMyScoring",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyScoringOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "summary": "Get My Scoring",
+        "tags": [
+          "tests"
+        ]
+      }
+    },
+    "/api/scoring/{session_id}": {
+      "get": {
+        "description": "A Control test's answers to score, «Svar 1» on, each scored or not by the reader, with no\nname or e-mail address; empty before its Test deadline. Its named scorers and the Admin only\n(an Admin's read is audited); 403 `forbidden` for everyone else and for no such Control\ntest.",
+        "operationId": "listScoringAnswers",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScoringListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Scoring Answers",
+        "tags": [
+          "tests"
+        ]
+      }
+    },
+    "/api/scoring/{session_id}/answers/{ref}": {
+      "get": {
+        "description": "One answer to score: the question, the original text, an Adapted item's facts and the\npinned Scoring guide entry with its scale. The AI's step is there only once the reader's own\nscore of it is submitted (AD-27); AI feedback never. 404 `not_found` for an answer the list\ndoes not hold; 403 `forbidden` as the list.",
+        "operationId": "getScoringAnswer",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "ref",
+            "required": true,
+            "schema": {
+              "title": "Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScoringItemOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Scoring Answer",
+        "tags": [
+          "tests"
+        ]
+      },
+      "post": {
+        "description": "«Lagre vurdering»: the scorer's step on the five-step scale, stored once; 201 with the\nanswer, now with the AI's step. 409 `human_score_exists` for a second score of the same\nanswer (nothing changes; there is no way to change a score); 404 `not_found` as the answer;\n403 `forbidden` for everyone but the Control test's named scorers (an Admin too, unless\nnamed).",
+        "operationId": "submitHumanScore",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "ref",
+            "required": true,
+            "schema": {
+              "title": "Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HumanScoreIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScoringItemOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Submit Human Score",
+        "tags": [
+          "tests"
         ]
       }
     }

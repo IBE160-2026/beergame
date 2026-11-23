@@ -105,6 +105,22 @@ WALKTHROUGH_TABLES = {"replay_narrations", "replay_walkthroughs"}
 """The tables of revision 0118 (Story 10.7)."""
 RATING_TABLES = {"believability_ratings", "replay_another_round"}
 """The tables of revision 0119 (Story 10.8)."""
+ASSESSMENT_SWITCH_TABLES = {"assessment_switches"}
+"""The tables of revision 0120 (Story 12.1)."""
+QUESTION_SET_TABLES = {"test_selections"}
+"""The tables of revision 0121 (Story 11.1)."""
+SCORING_GUIDE_TABLES = {"test_scoring_guides"}
+"""The tables of revision 0122 (Story 11.2)."""
+ATTEMPT_TABLES = {"test_attempts", "test_answers"}
+"""The tables of revision 0123 (Story 11.3)."""
+PREPARED_TABLES = {"test_prepared_items"}
+"""The tables of revision 0126 (Story 11.8)."""
+SITTING_TABLES = {"test_sittings"}
+"""The tables of revision 0129 (Story 11.12)."""
+EXTENSION_TABLES = {"student_deadline_extensions"}
+"""The table of revision 0130 (Story 11.13)."""
+AI_ASSESSMENT_TABLES = {"ai_assessments", "ai_item_scores"}
+"""The tables of revision 0202 (Story 12.2)."""
 RECLAIM_TABLES = {"seat_reclaims"}
 """The table of revision 0055 (Story 8.4)."""
 ADJUSTMENT_TABLES = {"student_adjustments"}
@@ -119,6 +135,14 @@ ERROR_EVENT_TABLES = {"error_events"}
 """The table of revision 0069 (Story 15.8)."""
 CONNECTION_REPORT_TABLES = {"db_connection_reports"}
 """The table of revision 0070 (Story 15.9)."""
+FLAG_TABLES = {"ai_feedback_flags"}
+"""The table of revision 0205 (Story 12.5)."""
+CONSENT_TABLES = {"test_student_consents"}
+"""The table of revision 0207 (Story 12.8)."""
+SCORING_TABLES = {"control_test_scorers", "human_scores"}
+"""The tables of revision 0208 (Story 12.9)."""
+CHECK_TABLES = {"scoring_guide_checks"}
+"""The table of revision 0209 (Story 12.10)."""
 HEAD_TABLES = (
     PRE_SESSION_TABLES
     | SESSION_TABLES
@@ -142,14 +166,30 @@ HEAD_TABLES = (
     | REPLAY_TABLES
     | WALKTHROUGH_TABLES
     | RATING_TABLES
+    | ASSESSMENT_SWITCH_TABLES
+    | QUESTION_SET_TABLES
+    | SCORING_GUIDE_TABLES
+    | ATTEMPT_TABLES
+    | PREPARED_TABLES
+    | SITTING_TABLES
+    | EXTENSION_TABLES
+    | AI_ASSESSMENT_TABLES
     | RECLAIM_TABLES
     | ADJUSTMENT_TABLES
+    | FLAG_TABLES
+    | CONSENT_TABLES
+    | SCORING_TABLES
+    | CHECK_TABLES
     | EVALUATION_TABLES
     | FREEZE_TABLES
     | SPEND_ALERT_TABLES
     | ERROR_EVENT_TABLES
     | CONNECTION_REPORT_TABLES
 )
+# 0065-0070 (Epic 15) follow 0209 since the merge of main;
+# 0209 (12.10), 0208 (12.9), 0207 (12.8), 0206 (12.6), 0205 (12.5), 0204 (12.4), 0203 (12.3)
+# and 0202 (12.2) follow 0201 (12.7);
+# 0120-0130 follow 0064
 HEAD = "0070"  # 0070 records each process's database connections (Story 15.9)
 
 
@@ -253,7 +293,7 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     assert "'student_choice'" in sessions["ck_class_sessions_allocation_method"]
     reminders = constraints(url, "deadline_reminders")
     assert "'test_deadline'" in reminders["ck_deadline_reminders_deadline"]
-    assert "deadline, deadline_at)" in reminders["uq_deadline_reminders_deadline"]
+    assert "deadline, deadline_at, user_id)" in reminders["uq_deadline_reminders_deadline"]
     assert "ON DELETE SET NULL" in definition(url, "fk_class_sessions_copied_from")
     steps = constraints(url, "progress_steps")
     assert "UNIQUE (user_id, class_session_id, step)" in steps["uq_progress_steps_step"]
@@ -369,25 +409,13 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
         url, "SELECT prosrc FROM pg_proc WHERE proname = 'debrief_summaries_immutable'"
     )
     assert "reflection" in summary
-    command.downgrade(cfg, "0064")
+    # Epic 15's revisions follow Epic 12's (0065's down_revision is 0209 since the merge of main).
+    command.downgrade(cfg, "0209")
     assert "deleted_at" not in columns(url, "users")
     [(summary,)] = rows(
         url, "SELECT prosrc FROM pg_proc WHERE proname = 'debrief_summaries_immutable'"
     )
     assert "reflection" not in summary
-
-    # 0064 (Story 8.7, Epic 8 close-out): the agreed Pause time on the summaries.
-    assert "resume_at" in columns(url, "game_summaries")
-    command.downgrade(cfg, "0063")
-    assert "resume_at" not in columns(url, "game_summaries")
-    # 0055 (Story 8.4): at most one queued Reclaim per Seat.
-    assert definition(url, "seat_reclaims_pkey") == "PRIMARY KEY (seat_id)"
-    command.downgrade(cfg, "0054")
-    assert RECLAIM_TABLES.isdisjoint(tables(url))
-    # Epic 8's revisions follow Epics 9 and 10 (0053's down_revision is 0119 since the merges of
-    # main).
-    command.downgrade(cfg, "0119")
-    assert "takeover_due_at" not in columns(url, "seat_turns")
 
     # 0101 (Story 9.1): version 1 of the Detected patterns; a facts set is never changed.
     [(patterns,)] = rows(url, "SELECT body FROM content_records WHERE kind = 'detected_patterns'")
@@ -443,6 +471,178 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     # 0111 (Story 9.12): presence, the Students who go on alone and the 48-hour fallback.
     assert "last_seen_at" in columns(url, "debrief_members")
     assert {"fallback_due_at", "fallback_at"} <= columns(url, "debrief_sessions")
+
+    # 0209 (Story 12.10): the Scoring guide checks, which never change.
+    assert CHECK_TABLES <= tables(url)
+    assert function_names(url, "scoring_guide_checks_immutable")
+    command.downgrade(cfg, "0208")
+    assert CHECK_TABLES.isdisjoint(tables(url))
+
+    # 0208 (Story 12.9): the named scorers and the human scores, which never change.
+    assert SCORING_TABLES <= tables(url)
+    assert function_names(url, "human_scores_immutable")
+    command.downgrade(cfg, "0207")
+    assert SCORING_TABLES.isdisjoint(tables(url))
+
+    # 0207 (Story 12.8): the test student mark and the consent decisions.
+    assert "is_test_student" in columns(url, "users")
+    assert CONSENT_TABLES <= tables(url)
+    command.downgrade(cfg, "0206")
+    assert "is_test_student" not in columns(url, "users")
+    assert CONSENT_TABLES.isdisjoint(tables(url))
+
+    # 0206 (Story 12.6): the Indicative letter's setting and bounds, the Student's own choice and
+    # the Institution's no-letter mark; the pin trigger also covers the letter columns.
+    assert {"letter_setting", "letter_thresholds"} <= columns(url, "assessment_switches")
+    assert "letter_chosen" in columns(url, "ai_assessments")
+    assert "no_letter" in columns(url, "institutions")
+    command.downgrade(cfg, "0205")
+    assert "letter_setting" not in columns(url, "assessment_switches")
+    assert "letter_chosen" not in columns(url, "ai_assessments")
+    assert "no_letter" not in columns(url, "institutions")
+
+    # 0205 (Story 12.5): the Student's flags on pieces of written feedback.
+    assert FLAG_TABLES <= tables(url)
+    command.downgrade(cfg, "0204")
+    assert FLAG_TABLES.isdisjoint(tables(url))
+
+    # 0204 (Story 12.4): the stop mark on the switch, and the due and overdue times of an
+    # assessment.
+    assert {"stopped_at", "stopped_by"} <= columns(url, "assessment_switches")
+    assert {"due_at", "overdue_at"} <= columns(url, "ai_assessments")
+    command.downgrade(cfg, "0203")
+    assert "stopped_at" not in columns(url, "assessment_switches")
+    assert "due_at" not in columns(url, "ai_assessments")
+
+    # 0203 (Story 12.3): an item's written feedback, or the note that it was left out.
+    assert {"feedback", "feedback_note"} <= columns(url, "ai_item_scores")
+    command.downgrade(cfg, "0202")
+    assert "feedback" not in columns(url, "ai_item_scores")
+
+    # 0202 (Story 12.2): the AI assessment per Test attempt, its item scores, and the model config
+    # the Test-deadline lock pins with the switch.
+    assert AI_ASSESSMENT_TABLES <= tables(url)
+    assert {"model_config_id", "effort_level"} <= columns(url, "assessment_switches")
+    command.downgrade(cfg, "0201")
+    assert AI_ASSESSMENT_TABLES.isdisjoint(tables(url))
+    assert "model_config_id" not in columns(url, "assessment_switches")
+
+    # 0201 (Story 12.7): the operator's own Institution, the kind of a Class session, and the
+    # trigger that keeps a Control test's kind and model config.
+    assert "operator_owned" in columns(url, "institutions")
+    assert "kind" in columns(url, "class_sessions")
+    assert function_names(url, "class_sessions_kind_fixed")
+    command.downgrade(cfg, "0130")
+    assert "operator_owned" not in columns(url, "institutions")
+    assert "kind" not in columns(url, "class_sessions")
+    assert not function_names(url, "class_sessions_kind_fixed")
+
+    # 0130 (Story 11.13): one Student's own Test deadline, and a reminder row may name a Student.
+    assert {"test_deadline", "debrief_deadline", "updated_by"} <= columns(
+        url, "student_deadline_extensions"
+    )
+    assert "NULLS NOT DISTINCT" in definition(url, "uq_deadline_reminders_deadline")
+    command.downgrade(cfg, "0129")
+    assert EXTENSION_TABLES.isdisjoint(tables(url))
+    assert "user_id" not in columns(url, "deadline_reminders")
+    assert "deadline, deadline_at)" in definition(url, "uq_deadline_reminders_deadline")
+
+    # 0129 (Story 11.12): a Class session's one timed sitting.
+    assert {"minutes", "updated_by", "updated_at"} <= columns(url, "test_sittings")
+    command.downgrade(cfg, "0128")
+    assert "test_sittings" not in tables(url)
+
+    # 0128 (Story 11.11): when the Test-deadline close ran for an attempt.
+    assert "closed_at" in columns(url, "test_attempts")
+    command.downgrade(cfg, "0127")
+    assert "closed_at" not in columns(url, "test_attempts")
+
+    # 0127 (Story 11.10): the computed score of each test answer and its question set version.
+    assert {"score", "scored_version"} <= columns(url, "test_answers")
+    command.downgrade(cfg, "0126")
+    assert {"score", "scored_version"}.isdisjoint(columns(url, "test_answers"))
+
+    # 0126 (Story 11.8): version 2 of the Adapted item templates, with their wordings, and the
+    # prepared sets.
+    templates = (
+        "SELECT version, body->>'status' FROM content_records WHERE kind = 'adapted_templates' "
+        "ORDER BY version"
+    )
+    assert rows(url, templates) == [(1, "draft"), (2, "draft")]
+    assert {"items", "adapted_weight"} <= columns(url, "test_prepared_items")
+    command.downgrade(cfg, "0125")
+    assert PREPARED_TABLES.isdisjoint(tables(url))
+
+    # 0125 (Story 11.7): version 1 of the Adapted item templates, a kind of its own.
+    assert rows(url, templates) == [(1, "draft")]
+    command.downgrade(cfg, "0124")
+    assert rows(url, templates) == []
+
+    # 0124 (Story 11.5): version 2 of the question set, its Interactive items with their tables.
+    sets = "SELECT version, body FROM content_records WHERE kind = 'question_set' ORDER BY version"
+    [(v1, first), (v2, second)] = rows(url, sets)
+    assert (v1, v2) == (1, 2)
+    assert "interactive" not in first["items"][5] and second["items"][5]["interactive"]
+    command.downgrade(cfg, "0123")
+    assert [version for version, _ in rows(url, sets)] == [1]
+
+    # 0123 (Story 11.3): the Individual test's attempts, one per Student and Class session, and
+    # their answers.
+    assert {"question_set_version", "selection", "items", "effective_deadline", "status"} <= (
+        columns(url, "test_attempts")
+    )
+    assert {"attempt_id", "item_id", "value", "revision"} <= columns(url, "test_answers")
+    command.downgrade(cfg, "0122")
+    assert ATTEMPT_TABLES.isdisjoint(tables(url))
+
+    # 0122 (Story 11.2): the Scoring guide kind with its draft version 1, the Class session an
+    # edited version was made for, and each Class session's guide in force, frozen once pinned.
+    assert "scoring_guide" in definition(url, "ck_content_records_kind")
+    assert "class_session_id" in columns(url, "content_records")
+    assert {"scoring_guide_id", "base_id", "pinned_at"} <= columns(url, "test_scoring_guides")
+    assert function_names(url, "test_scoring_guides_pinned")
+    command.downgrade(cfg, "0121")
+    assert SCORING_GUIDE_TABLES.isdisjoint(tables(url))
+    assert "scoring_guide" not in definition(url, "ck_content_records_kind")
+    assert "class_session_id" not in columns(url, "content_records")
+    assert not function_names(url, "test_scoring_guides_pinned")
+
+    # 0121 (Story 11.1): the question set kind with its draft version 1, a Class session's
+    # selection of it, and why the lock was refused.
+    assert "question_set" in definition(url, "ck_content_records_kind")
+    assert {"question_set_version", "excluded", "weights", "adapted_weight"} <= columns(
+        url, "test_selections"
+    )
+    assert "lock_refused_reason" in columns(url, "class_sessions")
+    command.downgrade(cfg, "0120")
+    assert QUESTION_SET_TABLES.isdisjoint(tables(url))
+    assert "question_set" not in definition(url, "ck_content_records_kind")
+    assert "lock_refused_reason" not in columns(url, "class_sessions")
+    assert not rows(url, "SELECT 1 FROM content_records WHERE kind = 'question_set'")
+
+    # 0120 (Story 12.1): the «KI-vurdering» switch per Class session, unchangeable once pinned,
+    # and when the Test-deadline lock ran.
+    assert {"enabled", "pinned_at"} <= columns(url, "assessment_switches")
+    assert "test_locked_at" in columns(url, "class_sessions")
+    assert function_names(url, "assessment_switches_pinned")
+    # Epic 11's revisions follow Epic 8's (0120's down_revision is 0064 since the merge of main).
+    command.downgrade(cfg, "0064")
+    assert ASSESSMENT_SWITCH_TABLES.isdisjoint(tables(url))
+    assert "test_locked_at" not in columns(url, "class_sessions")
+    assert not function_names(url, "assessment_switches_pinned")
+
+    # 0064 (Story 8.7, Epic 8 close-out): the agreed Pause time on the summaries.
+    assert "resume_at" in columns(url, "game_summaries")
+    command.downgrade(cfg, "0063")
+    assert "resume_at" not in columns(url, "game_summaries")
+    # 0055 (Story 8.4): at most one queued Reclaim per Seat.
+    assert definition(url, "seat_reclaims_pkey") == "PRIMARY KEY (seat_id)"
+    command.downgrade(cfg, "0054")
+    assert RECLAIM_TABLES.isdisjoint(tables(url))
+    # Epic 8's revisions follow Epics 9 and 10 (0053's down_revision is 0119 since the merges of
+    # main).
+    command.downgrade(cfg, "0119")
+    assert "takeover_due_at" not in columns(url, "seat_turns")
 
     # 0119 (Story 10.8): a believability answer per Student and Game (1 to 5), an another-round
     # answer per Student and Class session, each stored once.

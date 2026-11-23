@@ -55,10 +55,11 @@ export function Stegene({ title, items, titleId }: { title: string; items: Stege
             ) : (
               <span className="flex flex-1 flex-wrap justify-between gap-x-4 text-body-phone lg:text-body">
                 {item.href ? (
-                  // A Lenke (DESIGN.md → Controls): `lager`, weight 600, underlined.
+                  // A Lenke (DESIGN.md → Controls): `lager`, weight 600, underlined. Padding taken
+                  // back by a negative margin gives it a 44 px tap target without moving the row.
                   <NextLink
                     href={item.href}
-                    className="font-semibold text-lager underline underline-offset-2 hover:decoration-2 active:text-ink"
+                    className="-my-3.5 inline-block py-3.5 font-semibold text-lager underline underline-offset-2 hover:decoration-2 active:text-ink"
                   >
                     {item.name}
                   </NextLink>

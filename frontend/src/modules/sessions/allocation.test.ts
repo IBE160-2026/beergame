@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { nb } from "@/copy/nb";
+import { ApiRequestError } from "@/lib/api/client";
 
 import {
+  consentRefusal,
   changedReason,
   gameLabel,
   gameLine,
@@ -115,6 +117,7 @@ describe("Students without a Seat after the lock (Story 5.13)", () => {
   const base: Allocation = {
     registered_count: 6,
     missing_count: 0,
+    consent_missing: 0,
     draft: null,
     confirmed: true,
     confirmed_at: null,
@@ -137,5 +140,15 @@ describe("Students without a Seat after the lock (Story 5.13)", () => {
         ],
       }),
     ).toBe("2 registrerte studenter har ikke sete: Ida Hansen, Sara Berg.");
+  });
+});
+
+describe("A Control test's allocation waits for consent (Story 12.8)", () => {
+  it("names how many test students have not consented, from the api's count", () => {
+    const refused = new ApiRequestError(409, "consent_missing", { allocation: "consent_missing", missing: "3" });
+    expect(consentRefusal(refused)).toBe(nb.sessions.allocation.consentMissing(3));
+    expect(consentRefusal(refused)).toContain("3 teststudenter har ikke samtykket");
+    expect(consentRefusal(new ApiRequestError(409, "session_locked"))).toBeNull();
+    expect(consentRefusal(new Error("x"))).toBeNull();
   });
 });

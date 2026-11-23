@@ -1,0 +1,192 @@
+{
+  "status": "draft",
+  "scale": [
+    {
+      "step": 0,
+      "label": "Utkast: mangler"
+    },
+    {
+      "step": 1,
+      "label": "Utkast: svakt"
+    },
+    {
+      "step": 2,
+      "label": "Utkast: delvis"
+    },
+    {
+      "step": 3,
+      "label": "Utkast: godt"
+    },
+    {
+      "step": 4,
+      "label": "Utkast: svært godt"
+    }
+  ],
+  "questions": [
+    {
+      "id": "guide-langsvar-forsinkelse",
+      "kind": "long",
+      "title": "Utkast: langsvar om forsinkelse",
+      "guide": "Utkast: hva oppgaven spør etter.\nEt sterkt svar: utkast.\nEt svakt svar: utkast.",
+      "criteria": [
+        {
+          "code": "F1",
+          "text": "Utkast: kriterium 1",
+          "weight": 20
+        },
+        {
+          "code": "F2",
+          "text": "Utkast: kriterium 2",
+          "weight": 20
+        },
+        {
+          "code": "F3",
+          "text": "Utkast: kriterium 3",
+          "weight": 20
+        },
+        {
+          "code": "F4",
+          "text": "Utkast: kriterium 4",
+          "weight": 20
+        },
+        {
+          "code": "F5",
+          "text": "Utkast: kriterium 5",
+          "weight": 20
+        }
+      ]
+    },
+    {
+      "id": "guide-langsvar-informasjon",
+      "kind": "long",
+      "title": "Utkast: langsvar om informasjon i kjeden",
+      "guide": "Utkast: hva oppgaven spør etter.\nEt sterkt svar: utkast.\nEt svakt svar: utkast.",
+      "criteria": [
+        {
+          "code": "I1",
+          "text": "Utkast: kriterium 1",
+          "weight": 20
+        },
+        {
+          "code": "I2",
+          "text": "Utkast: kriterium 2",
+          "weight": 20
+        },
+        {
+          "code": "I3",
+          "text": "Utkast: kriterium 3",
+          "weight": 20
+        },
+        {
+          "code": "I4",
+          "text": "Utkast: kriterium 4",
+          "weight": 20
+        },
+        {
+          "code": "I5",
+          "text": "Utkast: kriterium 5",
+          "weight": 20
+        }
+      ]
+    },
+    {
+      "id": "guide-erstatning-langsvar",
+      "kind": "long",
+      "title": "Utkast: erstatningsoppgave, langsvar",
+      "guide": "Utkast: hva oppgaven spør etter.\nEt sterkt svar: utkast.\nEt svakt svar: utkast.",
+      "criteria": [
+        {
+          "code": "E1",
+          "text": "Utkast: kriterium 1",
+          "weight": 20
+        },
+        {
+          "code": "E2",
+          "text": "Utkast: kriterium 2",
+          "weight": 20
+        },
+        {
+          "code": "E3",
+          "text": "Utkast: kriterium 3",
+          "weight": 20
+        },
+        {
+          "code": "E4",
+          "text": "Utkast: kriterium 4",
+          "weight": 20
+        },
+        {
+          "code": "E5",
+          "text": "Utkast: kriterium 5",
+          "weight": 20
+        }
+      ]
+    },
+    {
+      "id": "tilpasset-eget-spill",
+      "kind": "adapted",
+      "title": "Utkast: tilpasset oppgave om eget spill",
+      "guide": "Utkast: hva oppgaven spør etter.\nEt sterkt svar: utkast.\nEt svakt svar: utkast.",
+      "criteria": [
+        {
+          "code": "S1",
+          "text": "Utkast: kriterium 1",
+          "weight": 20
+        },
+        {
+          "code": "S2",
+          "text": "Utkast: kriterium 2",
+          "weight": 20
+        },
+        {
+          "code": "S3",
+          "text": "Utkast: kriterium 3",
+          "weight": 20
+        },
+        {
+          "code": "S4",
+          "text": "Utkast: kriterium 4",
+          "weight": 20
+        },
+        {
+          "code": "S5",
+          "text": "Utkast: kriterium 5",
+          "weight": 20
+        }
+      ]
+    },
+    {
+      "id": "tilpasset-replay",
+      "kind": "adapted",
+      "title": "Utkast: tilpasset oppgave om Replay",
+      "guide": "Utkast: hva oppgaven spør etter.\nEt sterkt svar: utkast.\nEt svakt svar: utkast.",
+      "criteria": [
+        {
+          "code": "R1",
+          "text": "Utkast: kriterium 1",
+          "weight": 20
+        },
+        {
+          "code": "R2",
+          "text": "Utkast: kriterium 2",
+          "weight": 20
+        },
+        {
+          "code": "R3",
+          "text": "Utkast: kriterium 3",
+          "weight": 20
+        },
+        {
+          "code": "R4",
+          "text": "Utkast: kriterium 4",
+          "weight": 20
+        },
+        {
+          "code": "R5",
+          "text": "Utkast: kriterium 5",
+          "weight": 20
+        }
+      ]
+    }
+  ]
+}

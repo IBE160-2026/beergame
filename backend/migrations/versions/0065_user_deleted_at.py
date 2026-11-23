@@ -9,7 +9,7 @@ trigger now lets one update through, the erasure's, which empties `reflection` a
 nothing else, so the finished Debrief still counts.
 
 Revision ID: 0065
-Revises: 0064
+Revises: 0209
 Create Date: 2026-11-22
 """
 
@@ -19,7 +19,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0065"
-down_revision: str | None = "0064"
+down_revision: str | None = "0209"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

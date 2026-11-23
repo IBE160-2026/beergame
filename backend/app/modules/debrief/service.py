@@ -1104,11 +1104,14 @@ async def ask_follow_up_mine(
     )
 
 
-async def close_follow_up(user_id: uuid.UUID, class_session_id: uuid.UUID) -> bool:
+async def close_follow_up(
+    user_id: uuid.UUID, class_session_id: uuid.UUID, *, within: AsyncSession | None = None
+) -> bool:
     """Close the Student's follow-up questions in the Class session (Story 9.15, FR-45): the one
-    entry point another slice uses (Epic 11, when the Student's Individual test opens). Returns
-    whether this call closed it; closed already is no error."""
-    return await commands.close_follow_up(user_id, class_session_id)
+    entry point another slice uses (Epic 11, when the Student's Individual test opens, in its
+    transaction `within`, Story 11.3). Returns whether this call closed it; closed already is no
+    error."""
+    return await commands.close_follow_up(user_id, class_session_id, within=within)
 
 
 async def staff_explanation(

@@ -44,7 +44,10 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
 - A save that changes a date emits `user:<id>` for each registered Student of the Class.
 - `service.is_locked(class_session)` is the one lock predicate: the Start date has passed.
   `effective_debrief_deadline` and `effective_test_deadline` are the only way another module
-  reads a Student's deadline (Epic 11 adds per-Student values inside them).
+  reads a Student's deadline: the Class session's, or the Student's own extension where later
+  (Story 11.13). A Mapping row must come through a per-Student reader (`_with_own_deadlines`:
+  Hjem, `replay_session_of`, `individual_test_session_of`, `student_deadlines`, the Test-deadline
+  reader `games` judges the Replay by); one without the Student's keys raises.
 - `play_time_warning` needs `MIN_PLAY_MINUTES_PER_WEEK` (unset until SM-11), and is false
   while it is unset.
 - `GET /api/me/class-sessions`: a Student's sessions with dates and `next_deadline`, scoped by
@@ -134,6 +137,31 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
   `replay_neighbour_visible` (`{"view": side}`), only while the flag is on. A copy takes it only
   while the flag is on. The Replay's snapshot carries it; `seat_state`, the LLM prompt and the
   Decision log read it as for any Game, behind the same flag at read (AD-17).
+
+## The Test-deadline lock and «KI-vurdering» (Story 12.1)
+
+- `class_sessions.test_locked_at` (migration 0120): when `service.lock_test` ran. The sweep's due
+  action `sessions.lock_test` (after `games.close_at_test_deadline`) finds the sessions whose
+  original Test deadline has passed and that have no `test_locked_at` (`due_test_locks`), and runs
+  `lock_test_due` on each, one per transaction with its id. Under the row lock `lock_test` pins
+  the «KI-vurdering» switch (`assessment.pin_switch`), sets `test_locked_at` and emits
+  `session:<id>`, once; a second call changes nothing. This is the seam of Epic 11's
+  `sessions.lock_test`: Story 11.2 adds the Scoring guide pin to it (`register_test_pinner`), and
+  Story 11.11 runs the due action `tests.close_attempt` right after it; `test_locked_session` and
+  `test_locked_ids` let `tests` close only the attempts of a session the lock has run for. The
+  local dev route `POST /api/dev/class-sessions/{id}/lock-test`
+  runs it at once.
+- The Individual test's one timed sitting (Story 11.12): «Lagre Klasseøkt» takes
+  `test_sitting: {minutes}` (null: off), judged against the configured range and frozen at the
+  Start date like the choices (`session_locked`, `test_sitting`); `tests` stores it through the
+  pair it registers with `register_test_sitting`, since `sessions` never imports `tests`.
+  `test_session` gives `tests.end_sitting` the share-locked row and pins with ids only.
+- «Lagre Klasseøkt» takes `ai_assessment`; left out it is kept. A change is stored through
+  `assessment.set_switch` in the same transaction, also after the Start-date lock, and needs
+  `ai_assessment.change` (owners); once the original Test deadline has passed or the switch is
+  pinned it answers 409 `ai_assessment_pinned` (`{"ai_assessment": "pinned"}`). The read carries
+  `ai_assessment` (`enabled`, `pinned_at`, `open`, `can_change`). «Lag kopi» copies the value,
+  not the pin.
 
 ## AI mode, Effort level and Debrief mode (Story 5.5)
 
@@ -315,7 +343,9 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
 ## Deadline reminders (Story 5.14)
 
 - `deadline_reminders` (migration 0041): one row per deadline time the Students were reminded
-  of, unique on `(class_session_id, deadline, deadline_at)`. Ids and times only.
+  of, unique on `(class_session_id, deadline, deadline_at, user_id)` NULLS NOT DISTINCT; `user_id`
+  (migration 0130) is NULL for the Class session's reminder and a Student's id for their own
+  (Story 11.13). Ids and times only.
 - The sweep's last due action, `sessions.send_deadline_reminder`
   (`service.due_deadline_reminders` → `send_deadline_reminder(class_session_id, deadline, now=)`),
   takes `(class_session_id, deadline)` for each Play, Debrief or Test deadline at most 24 hours
@@ -324,9 +354,16 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
   notice per Student of `reminder_recipients`, keyed
   `deadline_reminder:{session}:{play|debrief|test}:{deadline time}:{user}` with the row as `ref`.
   A second sweep finds nothing. A moved deadline has a new time, so it is reminded again.
-- `service.reminder_recipients(class_session_id, deadline)`: every registered Student of the
-  Class, sorted. The one place recipients are chosen; Epic 11 (extensions) and Epic 13
-  (`progress.has_step`) narrow it without changing the sweep.
+- `service.reminder_recipients(class_session_id, deadline, user_id=None)`: every registered Student
+  of the Class, sorted, less those who handed in (Test) and those with their own extension (Debrief
+  and Test, Story 11.13); with `user_id` that Student alone. Epic 13 (`progress.has_step`)
+  narrows it without changing the sweep.
+- Story 11.13: `sessions.send_own_deadline_reminder` (after the Class one) finds each extension's
+  own Debrief or Test deadline (the later of it and the Class's) at most 24 hours ahead with no row
+  of that Student at that time (`repo.due_own_deadlines`) and calls
+  `send_deadline_reminder(…, user_id=)`: same `digest` notice and key shape. The mail context keeps
+  a Student's row only for them at their own date, and drops a Class row for a Student with an
+  extension.
 - The kind is `digest` in `messaging.delivery`; `deadline_reminder_mail_context` reads at send
   time the Class's name, the deadline, its Europe/Oslo time and the obligatory mark, and drops the
   notice when the deadline moved from the reminded time or has passed, the Class is archived or
@@ -434,3 +471,36 @@ mine}` (names read now) and `can_accept` for a seated Student who neither propos
 - Each other seated Student gets a `time_proposed` notice (`digest`, one per proposal), whose
   mail `time_proposal_mail_context` reads at send time; a replaced or passed proposal sends none.
 - The proposal is never an input of `games.rules.turn_times` (AD-20).
+
+## One Student's own Test deadline (Story 11.13, FR-18)
+
+- `student_deadline_extensions` (migration 0130): per Class session and Student, `test_deadline`
+  (later than the Class session's when saved), `debrief_deadline` (the Class's moved by the same
+  amount, NULL without one), `updated_by`, `updated_at`. No reason. Personal data (`user_id`).
+- Written only by `tests.commands.extend_deadline` through `service.save_extension` (share lock on
+  the Class session, `ClassArchived`, `InvalidExtension`, row lock, upsert, audit
+  `deadline_extension.saved`). `service.student_target` is the Studentside's reach (also Story 8.9's).
+- The Studentside (`StudentPageOut.deadlines`, `service.deadlines_out`) shows the block «Frister».
+
+## The Control test (Story 12.7, FR-82, AD-27, AD-13)
+
+- `class_sessions.kind`: `course` (default) or `control_test`, set at creation; a trigger
+  (`class_sessions_kind_fixed`, migration 0201) refuses changing it, and changing a Control test's
+  `model_config_id`. `service.kind_of` and `service.control_test_session_ids()` are what Epic 13's
+  `reports.scope` reads.
+- `control_tests.py` (routes `GET/POST /api/admin/control-tests`, policy `control_tests.manage`,
+  Admin only): one transaction makes the Class (`classes.create_class_in`, the Admin its owner) in
+  the operator's own Institution (`identity.operator_institution`) and the `control_test` session
+  with the model config under test (`config.mark_referenced`), its own budget row, the Scoring
+  guide version under test pinned through `tests.guide.pin_for_control_test` (registered with
+  `register_control_test_guide`), audit `control_test.created`. Refusals: 409
+  `operator_institution_missing`, 422 `invalid_request` with `fields`.
+- A Control test Class takes no other Class session: `create_session` and `copy_from` (into or out
+  of it) raise `classes.ControlTestClass` (409 `control_test_class`, mapped in `main.py`).
+- The Admin works it on the ordinary Epic 4/5 routes as its owner (`authz.CONTROL_TEST_ACTIONS`).
+- Consent before a Seat (Story 12.8): opening, drawing again and confirming a Control test's
+  allocation raise `ConsentMissing` (409 `consent_missing`, `fields.missing` the count) while a
+  registered test student has no `given` decision (`identity.consented_users`); the lock's random
+  allocation, the Student-choice draw at the lock, the late-registrant finder and command and «Ta
+  setet» leave such a Student unseated (`_seatable`). `AllocationOut.consent_missing` carries the
+  count. A course session is never asked.

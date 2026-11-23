@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-17-2026 12:28
-last_updated: 11-23-2026 03:02
+last_updated: 11-23-2026 03:26
 project: beergame
 project_key: NOKEY
 tracking_system: file-system
@@ -221,7 +221,7 @@ development_status:
   11-14-answer-drawn-interactive-items-in-a-graph-after-the-rehearsa: done
   epic-11-retrospective: optional
 
-  epic-12: in-progress
+  epic-12: done
   12-1-switch-the-ai-assessment-off-for-a-class-session: done
   12-2-get-an-ai-assessment-with-scores-and-a-weighted-total: done
   12-3-read-written-feedback-that-quotes-my-answer-and-matches-my-g: done
@@ -268,7 +268,7 @@ development_status:
   15-3-student-data-is-deleted-automatically-when-retention-ends: backlog
   15-4-the-admin-exports-pseudonymised-data-for-evaluation: done
   15-5-the-admin-pins-and-freezes-a-model-for-class-sessions: done
-  15-6-the-admin-sees-ai-cost-and-sets-the-cost-limit: backlog
+  15-6-the-admin-sees-ai-cost-and-sets-the-cost-limit: in-progress
   15-7-the-admin-is-alerted-when-daily-ai-spend-is-high: done
   15-8-the-admin-sees-errors-fallback-and-response-times-per-class: done
   15-9-the-database-connection-budget-is-written-and-checked: done

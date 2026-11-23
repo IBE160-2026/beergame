@@ -84,6 +84,7 @@ for (const vp of VIEWPORTS) {
                   nb.admin.sections.evaluation,
                   nb.admin.sections.aiCost,
                   nb.admin.sections.operations,
+                  nb.admin.sections.controlTests,
                 ]
               : [];
           await expect(mainLinks).toHaveText(links);

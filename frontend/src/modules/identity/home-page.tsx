@@ -9,15 +9,18 @@ import { usePageState } from "@/lib/page-state";
 import { loginPath } from "@/lib/return-path";
 import { useDailySpend } from "@/modules/admin/api";
 import { dailySpendPath, dayUsdText } from "@/modules/admin/daily-spend";
+import { ScoringLink } from "@/modules/assessment/scoring-link";
 
 import { meKey, type SessionUser, useMe } from "./api";
 import {
   ADMIN_AI_COST_PATH,
   ADMIN_AUDIT_PATH,
+  ADMIN_CONTROL_TESTS_PATH,
   ADMIN_EVALUATION_PATH,
   ADMIN_INSTITUTIONS_PATH,
   ADMIN_OPERATIONS_PATH,
   ADMIN_USERS_PATH,
+  canOpenClasses,
   canView,
   HOME_LINK,
   HOME_PATH,
@@ -42,7 +45,8 @@ const CROSS_LINK: Partial<Record<Home, Home>> = { lecturerHome: "adminArea", adm
  * line (Story 3.4). The Lærerhjem's content comes from `classes` as `children` (Story 4.1), and so
  * does Hjem's: the Student's Classes (Story 4.5) until Epic 6 fills it. The Admin-område lists its
  * pages, «Brukere og
- * roller» first (Story 3.7).
+ * roller» first (Story 3.7). Every home carries «Sensur av Kontrolltest» while its User is a named
+ * scorer of a Control test (Story 12.9).
  */
 export function HomePage({ page, children }: { page: Home; children?: ReactNode }) {
   return (
@@ -52,6 +56,7 @@ export function HomePage({ page, children }: { page: Home; children?: ReactNode 
         return (
           <PageShell user={user} title={TITLE[page]} updatedAt={updatedAt}>
             {other && canView(other, user) ? <PageLink href={HOME_PATH[other]}>{HOME_LINK[other]}</PageLink> : null}
+            <ScoringLink />
             {page === "adminArea" ? <AdminSections /> : null}
             {children}
           </PageShell>
@@ -97,6 +102,11 @@ function AdminSections() {
           {nb.admin.sections.operations}
         </Link>
       </li>
+      <li className="border-b border-hairline">
+        <Link href={ADMIN_CONTROL_TESTS_PATH} standalone>
+          {nb.admin.sections.controlTests}
+        </Link>
+      </li>
     </ul>
   );
 }
@@ -133,7 +143,8 @@ export function GuardedPage({
   page,
   children,
 }: {
-  page: Home | "any";
+  /** `classes`: a Class page and its Klasseøkt, for the staff and the Admin (`canOpenClasses`). */
+  page: Home | "any" | "classes";
   children: (user: SessionUser, updatedAt: number) => ReactNode;
 }) {
   const router = useRouter();
@@ -148,7 +159,8 @@ export function GuardedPage({
   }, [user, router, pathname]);
 
   if (!user) return <PageShell phase={phase === "ready" ? "loading" : phase} onRetry={retry} />;
-  if (page !== "any" && !canView(page, user)) return <AccessDenied user={user} updatedAt={me.dataUpdatedAt} />;
+  const allowed = page === "any" || (page === "classes" ? canOpenClasses(user) : canView(page, user));
+  if (!allowed) return <AccessDenied user={user} updatedAt={me.dataUpdatedAt} />;
   return <>{children(user, me.dataUpdatedAt)}</>;
 }
 

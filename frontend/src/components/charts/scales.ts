@@ -83,3 +83,32 @@ export function spreadLabels(wanted: readonly number[], gap: number, top: number
   });
   return result;
 }
+
+/**
+ * The labelled ticks of a value axis with no fixed step (a drawn item's graph, Story 11.14):
+ * multiples of 1, 2 or 5 × 10ⁿ inside the domain, the smallest such step that keeps two labels at
+ * least 1.4 lines apart, so labels never overlap at any text size.
+ */
+export function niceTicks(domain: readonly [number, number], plotHeight: number, fontSize: number): number[] {
+  const [low, high] = domain;
+  if (!(high > low) || !(plotHeight > 0) || !(fontSize > 0)) return [low];
+  const perUnit = plotHeight / (high - low);
+  let step = 1;
+  for (let decade = 1; step * perUnit < 1.4 * fontSize && step < high - low; decade *= 10) {
+    for (const k of [1, 2, 5]) {
+      step = k * decade;
+      if (step * perUnit >= 1.4 * fontSize) break;
+    }
+  }
+  const ticks: number[] = [];
+  for (let value = Math.ceil(low / step) * step; value <= high; value += step) ticks.push(value === 0 ? 0 : value);
+  // A range too small for its step: label its ends.
+  return ticks.length > 0 ? ticks : [low, high];
+}
+
+/** The y of `value` on a value axis drawn from `top` (the domain's high end) to `bottom` (its low
+ * end); the bottom when the domain has no extent. */
+export function scaleY(domain: readonly [number, number], top: number, bottom: number): (value: number) => number {
+  const [low, high] = domain;
+  return (value) => (high === low ? bottom : bottom - ((value - low) / (high - low)) * (bottom - top));
+}

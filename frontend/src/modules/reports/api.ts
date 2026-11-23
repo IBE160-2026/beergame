@@ -6,8 +6,12 @@ import { api } from "@/lib/api/client";
 import { request } from "@/lib/api/mutation";
 import type { components } from "@/lib/api/schema";
 
-/** The Studentside of one Student (Story 8.9): for now the block «Tilrettelegging». */
+/** The Studentside of one Student (Story 8.9): «Tilrettelegging» and «Frister» for its owners
+ * (`can_manage`); the «KI-vurdering» block reads its own endpoint (Story 12.5). */
 export type StudentPage = components["schemas"]["StudentPageOut"];
+/** The Studentside as its owners read it (Story 12.5): «Frister» is there. An Assistant lecturer's
+ * page has `can_manage` false and neither «Tilrettelegging» nor «Frister». */
+export type ManagedStudentPage = StudentPage & { deadlines: components["schemas"]["StudentDeadlinesOut"] };
 export type Adjustment = components["schemas"]["AdjustmentOut"];
 export type AdjustmentIn = components["schemas"]["AdjustmentIn"];
 
@@ -29,6 +33,18 @@ export function useStudentPage(sessionId: string, userId: string) {
       ),
     retry: false,
   });
+}
+
+/** «Lagre frist» (Story 11.13): answers the block «Frister» as it now stands; 422
+ * `invalid_extension` names the reason in `fields.test_deadline`, 409 `attempt_submitted` once the
+ * Student has handed the test in. */
+export function extendTestDeadline(sessionId: string, userId: string, testDeadline: string) {
+  return request(() =>
+    api.PUT("/api/class-sessions/{session_id}/students/{user_id}/deadline", {
+      params: { path: { session_id: sessionId, user_id: userId } },
+      body: { test_deadline: testDeadline },
+    }),
+  );
 }
 
 /** «Lagre tilrettelegging» (Story 8.9): answers the Studentside as it now stands; 422

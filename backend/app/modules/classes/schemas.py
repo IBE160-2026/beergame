@@ -107,6 +107,9 @@ class ClassOut(BaseModel):
     """Archived (Story 4.10): read-only, kept until the retention period ends."""
     roster_count: int
     """Addresses on the Class's Roster (Story 4.4)."""
+    control_test: bool = False
+    """A Control test Class (Story 12.7, AD-27): it never counts in a Class session; it takes no
+    other staff and no other Class session. `authz.can` reads it."""
 
 
 class EnrolledClassOut(BaseModel):
@@ -237,6 +240,15 @@ class RegistrationStatus(StrEnum):
     not_invited = "not_invited"
 
 
+class ConsentStatus(StrEnum):
+    """A test student's consent as the Roster lists it: «Samtykket», «Takket nei», «Ikke svart»
+    (Story 12.8)."""
+
+    given = "given"
+    declined = "declined"
+    pending = "pending"
+
+
 class RegistrationOut(BaseModel):
     """One address on the Roster with its status. `id` names the Roster entry for a reminder to
     it alone; `remindable` is whether a reminder would go to it (not registered, not a hard
@@ -248,6 +260,11 @@ class RegistrationOut(BaseModel):
     last_valid_day: date | None = None
     bounce_class: BounceClass | None = None
     remindable: bool
+    test_student: bool = False
+    """The address's User is a test student of a Control test, listed «Teststudent» (Story
+    12.8)."""
+    consent: ConsentStatus | None = None
+    """A test student's consent on the current text; None for anyone else."""
 
 
 class RegistrationTotals(BaseModel):

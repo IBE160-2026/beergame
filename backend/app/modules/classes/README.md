@@ -227,3 +227,20 @@ layouts of a Canvas people export and a Canvas grade-book export
 (`frontend/e2e/fixtures/roster/`). Checking real Canvas exports is not part of Story 4.2. Before
 the pilot, the founder supplies anonymised real exports (people and grade book), and they are
 added as fixtures to the api tests in `backend/tests/classes/test_roster_upload.py`.
+
+## Control test Classes (Story 12.7, AD-27, AD-13)
+
+A Class is a Control test Class when it holds a `control_test` Class session
+(`authz.control_test_classes()`). `ClassOut.control_test` and the `authz` resource carry it: the
+Admin role grants the Epic 4/5 Class actions on such a Class only (`authz.CONTROL_TEST_ACTIONS`).
+It is never listed (`repo.classes_of`, so neither the Lærerhjem nor its session list nor the copy
+sources show it), never counted by the Lecturer revoke blocker, and takes no other staff
+(`add_lecturer`/`invite_assistant` raise `ControlTestClass`, 409 `control_test_class`).
+`create_class_in` makes one in the caller's transaction; `class_facts` reads Classes with no
+User's scope for the Kontrolltest list.
+
+Test students (Story 12.8): `label_of_class` tells `identity` whether a Class is a Control test
+(`ClassLabel.control_test`). `identity` then makes a User created from its Roster a test student
+and refuses, on every Roster path, an address whose User is of the other kind (`not_test_student`
+on a Control test, `test_student` on an ordinary Class). «Status etter utsending» carries
+`test_student` and `consent` per row.

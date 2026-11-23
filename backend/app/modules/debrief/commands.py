@@ -1268,27 +1268,39 @@ async def store_follow_up(
     return follow_up_of(saved)
 
 
-async def close_follow_up(user_id: uuid.UUID, class_session_id: uuid.UUID) -> bool:
+async def close_follow_up(
+    user_id: uuid.UUID, class_session_id: uuid.UUID, *, within: AsyncSession | None = None
+) -> bool:
     """Close the Student's follow-up questions in the Class session for good (Story 9.15, FR-45):
-    Epic 11 calls it, through `debrief.service.close_follow_up`, when their Individual test opens.
-    Idempotent: returns whether this call closed it. Emits `user:<id>`, so an open Debrief page
-    replaces the field with the line that says it is closed."""
+    Epic 11 calls it, through `debrief.service.close_follow_up`, when their Individual test opens,
+    in its own transaction (`within`, Story 11.3). Idempotent: returns whether this call closed
+    it. Emits `user:<id>`, so an open Debrief page replaces the field with the line that says it
+    is closed."""
+    if within is not None:
+        return await _close_follow_up(within, user_id, class_session_id)
     async with get_sessionmaker().begin() as session:
-        closed = await session.scalar(
-            insert(debrief_follow_up_closures)
-            .values(user_id=user_id, class_session_id=class_session_id, closed_at=func.now())
-            .on_conflict_do_nothing(
-                index_elements=[
-                    debrief_follow_up_closures.c.user_id,
-                    debrief_follow_up_closures.c.class_session_id,
-                ]
-            )
-            .returning(debrief_follow_up_closures.c.user_id)
-        )
-        if closed is not None:
-            await events.emit(session, "user", str(user_id))
-    if closed is not None:
+        closed = await _close_follow_up(session, user_id, class_session_id)
+    if closed:  # logged once committed; within a caller's transaction, the caller logs
         log.info("debrief_follow_up_closed", class_session_id=str(class_session_id))
+    return closed
+
+
+async def _close_follow_up(
+    session: AsyncSession, user_id: uuid.UUID, class_session_id: uuid.UUID
+) -> bool:
+    closed = await session.scalar(
+        insert(debrief_follow_up_closures)
+        .values(user_id=user_id, class_session_id=class_session_id, closed_at=func.now())
+        .on_conflict_do_nothing(
+            index_elements=[
+                debrief_follow_up_closures.c.user_id,
+                debrief_follow_up_closures.c.class_session_id,
+            ]
+        )
+        .returning(debrief_follow_up_closures.c.user_id)
+    )
+    if closed is not None:
+        await events.emit(session, "user", str(user_id))
     return closed is not None
 
 

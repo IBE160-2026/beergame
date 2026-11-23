@@ -86,17 +86,25 @@ POLICIES: dict[str, frozenset[str]] = {
     "users.manage": frozenset({ADMIN}),
     "institutions.manage": frozenset({ADMIN}),
     "audit.read": frozenset({ADMIN}),
+    # Admin-område → «Kontrolltest» (Story 12.7, FR-82, AD-27): only the Admin sets one up.
+    "control_tests.manage": frozenset({ADMIN}),
+    # A Control test's answers (Story 12.9, FR-82, AD-27): only the Admin and the Users the Admin
+    # named its scorers read them (`control_tests_scored_by`, or `control_tests.manage`), and only
+    # the named scorers score them. No Admin role is needed to be a scorer.
+    "control_test_answers.read": frozenset({ANY_USER}),
+    "control_test_answers.score": frozenset({ANY_USER}),
     # The Lærerhjem and the Classes on it (Story 4.1). The Class actions are also held to the
     # User's staff role in the Class (`CLASS_STAFF_ROLES`). An Assistant lecturer reads the
-    # Classes they are staff of and nothing else (Story 4.9).
+    # Classes they are staff of and nothing else (Story 4.9). The Admin holds the Class actions of
+    # Epics 4 and 5 only on a Control test Class they own (`CONTROL_TEST_ACTIONS`, Story 12.7).
     "lecturer_home.view": frozenset({LECTURER, ASSISTANT}),
     "classes.create": frozenset({LECTURER}),
-    "classes.read": frozenset({LECTURER, ASSISTANT}),
-    "classes.manage": frozenset({LECTURER}),
+    "classes.read": frozenset({LECTURER, ASSISTANT, ADMIN}),
+    "classes.manage": frozenset({LECTURER, ADMIN}),
     # A Class's sessions (Story 5.1): its owners create and save them, its Assistant lecturers
     # read them. Held to the User's staff role in the Class (`CLASS_STAFF_ROLES`).
-    "class_sessions.read": frozenset({LECTURER, ASSISTANT}),
-    "class_sessions.manage": frozenset({LECTURER}),
+    "class_sessions.read": frozenset({LECTURER, ASSISTANT, ADMIN}),
+    "class_sessions.manage": frozenset({LECTURER, ADMIN}),
     # The Oversikt of a Class session (Story 7.1, FR-39): its Class's staff, held to the User's
     # staff role in the Class like the actions above.
     "class_sessions.overview": frozenset({LECTURER, ASSISTANT}),
@@ -144,6 +152,9 @@ POLICIES: dict[str, frozenset[str]] = {
     # The Starting task in the Student's own Class game (Story 6.3): any User, held to
     # `own_seat` like the game itself.
     "starting_task.answer_own": frozenset({ANY_USER}),
+    # The Student's own Individual test (Story 11.3, FR-51): any User, held to their own locked
+    # Class session (`sessions.individual_test_session_of`); every other session is refused alike.
+    "tests.take_own": frozenset({ANY_USER}),
     # The Student's own Debrief (Story 9.2): any User, held to `own_seat` through
     # `games.service.student_game`; the service refuses every other Debrief alike.
     "debriefs.own": frozenset({ANY_USER}),
@@ -156,6 +167,17 @@ POLICIES: dict[str, frozenset[str]] = {
     # AD-12): its owners and Assistant lecturers read it; only its owners take questions out.
     "debrief_quiz.read": frozenset({LECTURER, ASSISTANT}),
     "debrief_quiz.exclude": frozenset({LECTURER}),
+    # The «KI-vurdering» switch of a Class session (Story 12.1, FR-61, AD-12): its Class's staff
+    # read it with the Class session (`class_sessions.read`); only its owners change it.
+    "ai_assessment.change": frozenset({LECTURER}),
+    # The question set selection of a Class session, «Spørsmål og vekter» (Story 11.1, FR-52,
+    # AD-12): its Class's staff read it with the Class session (`class_sessions.read`); only its
+    # owners change it.
+    "question_set.change": frozenset({LECTURER}),
+    # The Scoring guide of a Class session, «Sensorveiledning» (Story 11.2, FR-81, AD-12): its
+    # Class's staff read it with the Class session (`class_sessions.read`); only its owners edit
+    # it.
+    "scoring_guide.change": frozenset({LECTURER}),
     # The own session.
     "session.read": frozenset({ANY_USER}),
     # The live event stream (Story 6.4, AD-8): any User; the scope decides which topics it sends.
@@ -175,9 +197,15 @@ POLICIES: dict[str, frozenset[str]] = {
     # A deliberate error for one Class session (Story 15.11, NFR-4): the Admin checks that an
     # error reaches the error tracker and «Drift». It records the error and changes nothing else.
     "operations.test_error": frozenset({ADMIN}),
-    # FR-5: no account role grants these. Epic 4+ adds the Class-scoped grants.
+    # The Studentside (Story 8.9; Story 12.5 opens it to Assistant lecturers): the Class's owners
+    # and Assistant lecturers read it; its «Tilrettelegging» and «Frister» stay the owners'
+    # (`class_sessions.manage`).
+    "student_pages.read": frozenset({LECTURER, ASSISTANT}),
+    # A Student's AI assessment and the Klasseøkt's list of them (Story 12.5, FR-55, AD-12): the
+    # Class's owners and Assistant lecturers; never the Admin without a staff role in the Class.
+    "ai_assessments.read": frozenset({LECTURER, ASSISTANT}),
+    # FR-5: no account role grants this. Epic 4+ adds the Class-scoped grants.
     "student_answers.read": frozenset(),
-    "ai_assessments.read": frozenset(),
 }
 """Action → the account roles that may do it. Closed: an unknown action is a KeyError."""
 
@@ -196,6 +224,9 @@ CLASS_STAFF_ROLES: dict[str, frozenset[str]] = {
     "debrief_summaries.read": frozenset({OWNER, ASSISTANT_STAFF}),
     "debrief_quiz.read": frozenset({OWNER, ASSISTANT_STAFF}),
     "debrief_quiz.exclude": frozenset({OWNER}),
+    "ai_assessment.change": frozenset({OWNER}),
+    "question_set.change": frozenset({OWNER}),
+    "scoring_guide.change": frozenset({OWNER}),
     "class_sessions.overview": frozenset({OWNER, ASSISTANT_STAFF}),
     "games.insight": frozenset({OWNER, ASSISTANT_STAFF}),
     "games.takeover": frozenset({OWNER, ASSISTANT_STAFF}),
@@ -205,12 +236,23 @@ CLASS_STAFF_ROLES: dict[str, frozenset[str]] = {
     "games.fill_seats": frozenset({OWNER}),
     "messages.send": frozenset({OWNER, ASSISTANT_STAFF}),
     "messages.read_sent": frozenset({OWNER, ASSISTANT_STAFF}),
+    "student_pages.read": frozenset({OWNER, ASSISTANT_STAFF}),
+    "ai_assessments.read": frozenset({OWNER, ASSISTANT_STAFF}),
 }
 """Class action → the staff roles in the Class that may do it. Later stories add theirs."""
 
 
+CONTROL_TEST_ACTIONS = frozenset(
+    {"classes.read", "classes.manage", "class_sessions.read", "class_sessions.manage"}
+)
+"""The Class actions of Epics 4 and 5 that the Admin role grants on a Control test Class only
+(Story 12.7, AD-12, AD-27): the Admin sets its dates, Roster, Invitations and allocation as its
+owner on the ordinary screens. On any other Class the Admin role grants none of them."""
+
+
 class ClassResource(Protocol):
-    """A Class as `can` sees it: the asking User's staff role in it."""
+    """A Class as `can` sees it: the asking User's staff role in it, and whether it is a Control
+    test Class (`control_test`, Story 12.7; a resource without it is not one)."""
 
     staff_role: str
 
@@ -234,12 +276,17 @@ def can(user: Principal, action: str, resource: Any = None) -> bool:
     """Whether `user` may do `action`. A Class action on a `resource` also needs a staff role in
     that Class the action allows, and an action in `RESOURCE_CONDITIONS` its condition; with no
     resource only the account roles are checked (the route's policy, before anything is
-    loaded)."""
+    loaded). When the Admin role is the only one that grants a Class action
+    (`CONTROL_TEST_ACTIONS`), the resource must be a Control test Class."""
     allowed = POLICIES[action]
-    if not (ANY_USER in allowed or not allowed.isdisjoint(user.roles)):
+    granted = allowed.intersection(user.roles)
+    if not (ANY_USER in allowed or granted):
         return False
     if resource is not None and action in CLASS_STAFF_ROLES:
-        return getattr(resource, "staff_role", None) in CLASS_STAFF_ROLES[action]
+        if getattr(resource, "staff_role", None) not in CLASS_STAFF_ROLES[action]:
+            return False
+        if granted == {ADMIN} and action in CONTROL_TEST_ACTIONS:
+            return getattr(resource, "control_test", False) is True
     if resource is not None and action in RESOURCE_CONDITIONS:
         return RESOURCE_CONDITIONS[action](resource)
     return True
@@ -331,6 +378,38 @@ def class_games_staffed_by(user: Principal | uuid.UUID) -> Select:
     """The ids of the Class games of those Class sessions (Story 6.4, AD-8): with `own_seat`, the
     `game:<id>` topics a User's event stream forwards."""
     return select(_games.c.id).where(_games.c.class_session_id.in_(class_sessions_staffed_by(user)))
+
+
+_kinded_sessions = table("class_sessions", column("class_id"), column("kind"))
+"""`sessions.class_sessions` with its kind, by name only, for the Control test scope."""
+
+CONTROL_TEST_KIND = "control_test"
+
+
+def control_test_classes() -> Select:
+    """The ids of the Control test Classes (Story 12.7, AD-27): the Classes of the Class sessions
+    of kind `control_test`. A subquery for `classes.id IN (...)`: what tells `classes` that a
+    Class is a Control test (`ClassResource.control_test`), and what its staff lists leave out."""
+    return select(_kinded_sessions.c.class_id).where(_kinded_sessions.c.kind == CONTROL_TEST_KIND)
+
+
+_scorers = table("control_test_scorers", column("class_session_id"), column("user_id"))
+"""`assessment.control_test_scorers` by name only, for the scorer scope."""
+
+
+def control_tests_scored_by(user: Principal | uuid.UUID) -> Select:
+    """The ids of the Control test Class sessions `user` is a named scorer of (Story 12.9, FR-82,
+    AD-27): with `control_tests.manage` (the Admin), the scope of `control_test_answers.read`, and
+    alone the scope of `control_test_answers.score`. A subquery for `class_sessions.id IN (...)`;
+    any other Control test reads as one that does not exist."""
+    user_id = user if isinstance(user, uuid.UUID) else user.id
+    return select(_scorers.c.class_session_id).where(_scorers.c.user_id == user_id)
+
+
+def reads_control_test_answers(user: Principal, scorer: bool) -> bool:
+    """Whether `user` may read a Control test's answers (Story 12.9): a named scorer of it
+    (`scorer`, from `control_tests_scored_by`), or the Admin (`control_tests.manage`)."""
+    return scorer or can(user, "control_tests.manage")
 
 
 _debrief_sessions = table("debrief_sessions", column("id"), column("game_id"))

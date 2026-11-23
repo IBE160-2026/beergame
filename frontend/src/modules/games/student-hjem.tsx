@@ -12,7 +12,9 @@ import { nb } from "@/copy/nb";
 import { formatNumber } from "@/lib/number-format";
 import { usePageState } from "@/lib/page-state";
 import { enrolledClassesKey, useEnrolledClasses } from "@/modules/classes/api";
-import { gamePath, rulesPath, seatChoicePath } from "@/modules/identity/homes";
+import { useMe } from "@/modules/identity/api";
+import { ASSESSMENT_PATH, gamePath, rulesPath, seatChoicePath } from "@/modules/identity/homes";
+import { TestStudentConsent } from "@/modules/identity/test-student-consent";
 import { MyMessages } from "@/modules/messaging/my-messages";
 import { type EnrolledSession, enrolledSessionsKey, useEnrolledSessions } from "@/modules/sessions/api";
 import { ownLines } from "@/modules/reports/adjustment";
@@ -22,6 +24,7 @@ import { homeLine } from "@/modules/sessions/seat-choice";
 
 import { GameAction } from "./game-action";
 import {
+  assessmentReady,
   cardState,
   deadlineText,
   gameTitle,
@@ -30,6 +33,7 @@ import {
   netSentence,
   nextAction,
   stepItems,
+  testHandedIn,
   toWeekText,
 } from "./home";
 import { InRoomLine } from "./in-room-view";
@@ -69,6 +73,8 @@ const copy = nb.homes.student;
  * shows the page-error line with «Prøv igjen» (Story 3.4).
  */
 export function StudentHjem() {
+  // Story 12.8: a test student is asked for consent first, above their Classes.
+  const testStudent = useMe().data?.is_test_student ?? false;
   const classes = useEnrolledClasses();
   const sessions = useEnrolledSessions();
   const classState = usePageState(classes, enrolledClassesKey);
@@ -117,6 +123,7 @@ export function StudentHjem() {
     primaryGame === null ? (listed.find((session) => wantsReplayPrimary(session.replay))?.id ?? null) : null;
   return (
     <>
+      {testStudent ? <TestStudentConsent /> : null}
       <ul className="mt-8 flex max-w-md flex-col border-t border-hairline">
         {items.map((item) => {
           const own = all.filter((session) => session.class_id === item.id);
@@ -192,6 +199,22 @@ function SessionBlock({
       {/* Story 10.3: the Replay, once the Debrief quiz is passed. */}
       {session.replay ? <ReplayBlock replay={session.replay} sessionId={session.id} primary={replayPrimary} /> : null}
       <Stegene title={copy.steps} titleId={`steps-${session.id}`} items={stepItems(session.steps, session.id, session.replay)} />
+      {/* Story 12.2: the «KI-vurdering» once the test is handed in; the page says whether it is ready.
+          Story 12.4: once it is ready Hjem says so, live through `user:<id>`. */}
+      {testHandedIn(session.steps) ? (
+        <p
+          className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1"
+          aria-live="polite"
+          data-assessment-ready={assessmentReady(session.steps) ? "" : undefined}
+        >
+          {assessmentReady(session.steps) ? (
+            <span className="text-body-phone text-ink lg:text-body">{nb.assessment.student.readyOnHjem}</span>
+          ) : null}
+          <Link href={ASSESSMENT_PATH(session.id)} standalone>
+            {nb.assessment.student.link}
+          </Link>
+        </p>
+      ) : null}
       {/* The Student's own Tilrettelegging (Story 8.9): only they read it. */}
       {ownLines(session.adjustment).length > 0 ? (
         <div className="mt-3 flex flex-col gap-1 text-body-phone text-ink-secondary lg:text-body" data-own-adjustment="">

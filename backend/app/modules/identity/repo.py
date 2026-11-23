@@ -26,9 +26,11 @@ from app.modules.identity.models import (
     roster_entries,
     roster_upload_rows,
     roster_uploads,
+    test_student_consents,
     user_roles,
     users,
 )
+from app.platform.collation import nb_sort_sql
 
 
 async def user_by_email(session: AsyncSession, email: str) -> RowMapping | None:
@@ -68,10 +70,16 @@ async def insert_user(
     password_hash: str | None,
     is_active: bool,
     roles: list[str],
+    is_test_student: bool = False,
 ) -> None:
     await session.execute(
         users.insert().values(
-            id=user_id, email=email, name=name, password_hash=password_hash, is_active=is_active
+            id=user_id,
+            email=email,
+            name=name,
+            password_hash=password_hash,
+            is_active=is_active,
+            is_test_student=is_test_student,
         )
     )
     if roles:
@@ -280,10 +288,10 @@ async def list_users(
     after: uuid.UUID | None,
     limit: int,
 ) -> list[RowMapping] | None:
-    """Up to `limit` Users ordered by `(lower(name), id)`, after the User `after` when given (an
-    unknown `after` gives None), each with its roles (sorted). `search` (may be empty) matches
-    a substring of the e-mail or the name, case-insensitively."""
-    sort_name = func.lower(users.c.name)
+    """Up to `limit` Users ordered by name (Norwegian order), then id, after the User `after`
+    when given (an unknown `after` gives None), each with its roles (sorted). `search` (may be
+    empty) matches a substring of the e-mail or the name, case-insensitively."""
+    sort_name = nb_sort_sql(users.c.name)
     if after is not None:
         found = await session.execute(select(sort_name).where(users.c.id == after))
         after_name = found.scalar_one_or_none()
@@ -590,15 +598,61 @@ async def rename_institution(
     return result.mappings().one()
 
 
+async def operator_institution(session: AsyncSession) -> RowMapping | None:
+    """The Institution marked as the operator's own (Story 12.7), or None."""
+    result = await session.execute(select(institutions).where(institutions.c.operator_owned))
+    return result.mappings().one_or_none()
+
+
+async def set_operator_owned(
+    session: AsyncSession, institution_id: uuid.UUID, now: datetime
+) -> RowMapping:
+    """Clear the mark from every other Institution, then mark this one, in the caller's
+    transaction (the partial unique index allows one marked row at a time)."""
+    await session.execute(
+        update(institutions)
+        .where(institutions.c.operator_owned, institutions.c.id != institution_id)
+        .values(operator_owned=False, updated_at=now)
+    )
+    result = await session.execute(
+        update(institutions)
+        .where(institutions.c.id == institution_id)
+        .values(operator_owned=True, updated_at=now)
+        .returning(institutions)
+    )
+    return result.mappings().one()
+
+
+async def set_no_letter(
+    session: AsyncSession, institution_id: uuid.UUID, on: bool, now: datetime
+) -> RowMapping:
+    """Story 12.6: set the Institution's no-letter mark, in the caller's transaction."""
+    result = await session.execute(
+        update(institutions)
+        .where(institutions.c.id == institution_id)
+        .values(no_letter=on, updated_at=now)
+        .returning(institutions)
+    )
+    return result.mappings().one()
+
+
+async def no_letter_of(session: AsyncSession, institution_id: uuid.UUID) -> bool:
+    """Story 12.6: the Institution's no-letter mark; False for an unknown id."""
+    found = await session.scalar(
+        select(institutions.c.no_letter).where(institutions.c.id == institution_id)
+    )
+    return bool(found)
+
+
 async def institution_by_id(session: AsyncSession, institution_id: uuid.UUID) -> RowMapping | None:
     result = await session.execute(select(institutions).where(institutions.c.id == institution_id))
     return result.mappings().one_or_none()
 
 
 async def all_institutions(session: AsyncSession) -> list[RowMapping]:
-    """Every Institution, by name (case-insensitively), then id."""
+    """Every Institution, by name (case-insensitively, Norwegian order), then id."""
     result = await session.execute(
-        select(institutions).order_by(func.lower(institutions.c.name), institutions.c.id)
+        select(institutions).order_by(nb_sort_sql(institutions.c.name), institutions.c.id)
     )
     return list(result.mappings())
 
@@ -1015,9 +1069,12 @@ async def class_roster_facts(session: AsyncSession, class_id: uuid.UUID) -> list
             newest.c.accepted_at,
             newest.c.voided_at,
             asked.c.roster_entry_id.is_not(None).label("renewal_requested"),
+            roster_entries.c.user_id,
+            func.coalesce(users.c.is_test_student, False).label("test_student"),
         )
         .outerjoin(newest, newest.c.roster_entry_id == roster_entries.c.id)
         .outerjoin(asked, asked.c.roster_entry_id == roster_entries.c.id)
+        .outerjoin(users, users.c.id == roster_entries.c.user_id)
         .where(roster_entries.c.class_id == class_id, roster_entries.c.removed_at.is_(None))
         .order_by(roster_entries.c.email)
     )
@@ -1329,3 +1386,73 @@ async def erased_among(session: AsyncSession, user_ids: list[uuid.UUID]) -> set[
         select(users.c.id).where(users.c.id.in_(user_ids), users.c.deleted_at.is_not(None))
     )
     return set(result.scalars())
+
+
+# Test students and their consent (Story 12.8, FR-82, AD-27).
+
+
+async def addresses_of_kind(
+    session: AsyncSession, addresses: list[str], test_student: bool
+) -> set[str]:
+    """Those of the normalised `addresses` that belong to a User whose test student mark is
+    `test_student`."""
+    if not addresses:
+        return set()
+    result = await session.execute(
+        select(users.c.email).where(
+            users.c.email.in_(sorted(set(addresses))),
+            users.c.is_test_student.is_(test_student),
+        )
+    )
+    return set(result.scalars())
+
+
+async def test_student_ids(session: AsyncSession, user_ids: list[uuid.UUID]) -> set[uuid.UUID]:
+    if not user_ids:
+        return set()
+    result = await session.execute(
+        select(users.c.id).where(users.c.id.in_(set(user_ids)), users.c.is_test_student.is_(True))
+    )
+    return set(result.scalars())
+
+
+async def latest_decisions(
+    session: AsyncSession, user_ids: list[uuid.UUID], text_version: str
+) -> dict[uuid.UUID, RowMapping]:
+    """Each User's newest consent decision on `text_version` (by `decided_at`, then id, a
+    UUIDv7), by User id; a User with none is left out."""
+    if not user_ids:
+        return {}
+    result = await session.execute(
+        select(test_student_consents)
+        .where(
+            test_student_consents.c.user_id.in_(set(user_ids)),
+            test_student_consents.c.text_version == text_version,
+        )
+        .ext(distinct_on(test_student_consents.c.user_id))
+        .order_by(
+            test_student_consents.c.user_id,
+            test_student_consents.c.decided_at.desc(),
+            test_student_consents.c.id.desc(),
+        )
+    )
+    return {row["user_id"]: row for row in result.mappings()}
+
+
+async def insert_decision(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    decision: str,
+    text_version: str,
+    decided_at: datetime,
+) -> None:
+    await session.execute(
+        test_student_consents.insert().values(
+            id=uuid.uuid7(),
+            user_id=user_id,
+            decision=decision,
+            text_version=text_version,
+            decided_at=decided_at,
+        )
+    )

@@ -154,6 +154,18 @@ def _stored(row: Mapping[str, Any]) -> StoredFactSet:
     )
 
 
+async def by_id(fact_set_id: str) -> StoredFactSet | None:
+    """The stored facts set with this id, as stored (never rebuilt, AD-7); None when there is
+    none or the id is no id."""
+    try:
+        key = uuid.UUID(str(fact_set_id))
+    except ValueError:
+        return None
+    async with get_sessionmaker()() as session:
+        found = await repo.fact_set_by_id(session, key)
+    return None if found is None else _stored(found)
+
+
 async def compute(game_id: str, seat: str) -> tuple[int, analysis.FactSet]:
     """The facts set of the Seat (its Role or id) of the finished Game and the Detected pattern
     version it used, built now and not stored."""

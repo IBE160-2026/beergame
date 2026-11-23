@@ -27,6 +27,7 @@ __all__ = [
     "has_step",
     "record_step",
     "steps_of",
+    "steps_since",
     "users_with_step",
 ]
 
@@ -96,6 +97,19 @@ async def users_with_step(
         .order_by(progress_steps.c.user_id)
     )
     return list(result)
+
+
+async def steps_since(
+    session: AsyncSession, step: Step | str, since: datetime
+) -> list[tuple[uuid.UUID, uuid.UUID]]:
+    """`(user_id, class_session_id)` of every `step` done at or after `since`, oldest first, read
+    in the caller's session (Story 11.8: the Students whose Adapted items the sweep prepares)."""
+    result = await session.execute(
+        select(progress_steps.c.user_id, progress_steps.c.class_session_id)
+        .where(progress_steps.c.step == Step(step).value, progress_steps.c.at >= since)
+        .order_by(progress_steps.c.at, progress_steps.c.id)
+    )
+    return [(user_id, session_id) for user_id, session_id in result.all()]
 
 
 async def steps_of(

@@ -9,6 +9,7 @@ from typing import Any
 from sqlalchemy import (
     Integer,
     RowMapping,
+    Select,
     Text,
     and_,
     delete,
@@ -31,6 +32,7 @@ from app.modules.sessions.models import (
     deadline_reminders,
     lab_hours,
     student_adjustments,
+    student_deadline_extensions,
 )
 from app.platform import authz
 
@@ -46,6 +48,27 @@ _numbered = select(class_sessions, _number).subquery()
 
 async def insert_session(session: AsyncSession, **values: Any) -> None:
     await session.execute(insert(class_sessions).values(**values))
+
+
+def control_test_ids() -> Select[tuple[uuid.UUID]]:
+    """The ids of the Control test Class sessions (Story 12.7, AD-27), as a subquery."""
+    return select(class_sessions.c.id).where(class_sessions.c.kind == "control_test")
+
+
+async def control_test_rows(session: AsyncSession) -> list[RowMapping]:
+    """Every Control test Class session with its Class's id and creation, newest first."""
+    result = await session.execute(
+        select(
+            class_sessions.c.id,
+            class_sessions.c.class_id,
+            class_sessions.c.model_config_id,
+            class_sessions.c.created_by,
+            class_sessions.c.created_at,
+        )
+        .where(class_sessions.c.kind == "control_test")
+        .order_by(class_sessions.c.id.desc())
+    )
+    return list(result.mappings())
 
 
 async def session_row(
@@ -371,6 +394,17 @@ async def due_locks(session: AsyncSession, now: datetime) -> list[RowMapping]:
     return list(result.mappings())
 
 
+async def due_test_locks(session: AsyncSession, now: datetime) -> list[uuid.UUID]:
+    """The Class sessions whose original Test deadline has passed and that the Test-deadline lock
+    has not run for (Story 12.1), by id."""
+    result = await session.execute(
+        select(class_sessions.c.id)
+        .where(class_sessions.c.test_deadline <= now, class_sessions.c.test_locked_at.is_(None))
+        .order_by(class_sessions.c.id)
+    )
+    return list(result.scalars())
+
+
 async def passed_play_deadlines(
     session: AsyncSession, now: datetime, among: Collection[uuid.UUID]
 ) -> list[uuid.UUID]:
@@ -386,9 +420,32 @@ async def passed_play_deadlines(
     return list(result.scalars())
 
 
-async def set_lock_refused(session: AsyncSession, session_id: uuid.UUID, at: datetime) -> bool:
+def test_locked_ids() -> Select[tuple[uuid.UUID]]:
+    """The ids of the Class sessions the Test-deadline lock has run for, as a query another
+    query can filter by (Story 11.11)."""
+    return select(class_sessions.c.id).where(class_sessions.c.test_locked_at.is_not(None))
+
+
+async def set_test_locked(session: AsyncSession, session_id: uuid.UUID, at: datetime) -> bool:
+    """Mark the Test-deadline lock done (Story 12.1), once. True when this call marked it."""
+    result = await session.execute(
+        update(class_sessions)
+        .where(class_sessions.c.id == session_id, class_sessions.c.test_locked_at.is_(None))
+        .values(test_locked_at=at)
+    )
+    return bool(result.rowcount)
+
+
+async def set_lock_refused(
+    session: AsyncSession, session_id: uuid.UUID, at: datetime, reason: str
+) -> bool:
     """Mark the first refusal of an unlocked session's lock (GitHub issue 109); a later refusal
-    keeps the first time. True when this call marked it."""
+    keeps the first time but stores its reason (Story 11.1). True when this call marked it."""
+    await session.execute(
+        update(class_sessions)
+        .where(class_sessions.c.id == session_id, class_sessions.c.locked_at.is_(None))
+        .values(lock_refused_reason=reason)
+    )
     result = await session.execute(
         update(class_sessions)
         .where(
@@ -422,6 +479,7 @@ async def confirmed_sessions(session: AsyncSession) -> list[RowMapping]:
             class_sessions.c.locked_at,
             class_sessions.c.snapshot,
             class_sessions.c.allocation_method,
+            class_sessions.c.kind,
         )
         .join(allocation_drafts, allocation_drafts.c.class_session_id == class_sessions.c.id)
         .where(allocation_drafts.c.confirmed_at.is_not(None))
@@ -514,6 +572,7 @@ async def due_deadlines(session: AsyncSession, now: datetime, until: datetime) -
             deadline_reminders.c.class_session_id == class_sessions.c.id,
             deadline_reminders.c.deadline == name,
             deadline_reminders.c.deadline_at == column,
+            deadline_reminders.c.user_id.is_(None),
         )
         parts.append(
             select(
@@ -537,9 +596,11 @@ async def insert_reminder(
     deadline: str,
     deadline_at: datetime,
     now: datetime,
+    user_id: uuid.UUID | None = None,
 ) -> uuid.UUID | None:
     """Records the reminder of `deadline` at `deadline_at` and returns its id, or None when that
-    deadline time was reminded before (Story 5.14)."""
+    deadline time was reminded before (Story 5.14); with `user_id`, one Student's reminder of their
+    own deadline (Story 11.13)."""
     result = await session.execute(
         pg_insert(deadline_reminders)
         .values(
@@ -548,6 +609,7 @@ async def insert_reminder(
             deadline=deadline,
             deadline_at=deadline_at,
             created_at=now,
+            user_id=user_id,
         )
         .on_conflict_do_nothing(constraint="uq_deadline_reminders_deadline")
         .returning(deadline_reminders.c.id)
@@ -561,6 +623,117 @@ async def reminder_row(session: AsyncSession, reminder_id: uuid.UUID) -> RowMapp
         select(deadline_reminders).where(deadline_reminders.c.id == reminder_id)
     )
     return result.mappings().one_or_none()
+
+
+# Story 11.13: one Student's own Test deadline and the Debrief deadline moved with it.
+
+EXTENDED_DEADLINES = ("debrief_deadline", "test_deadline")
+"""The deadlines an extension moves, as `class_sessions` and `student_deadline_extensions` name
+them."""
+
+
+async def extension_row(
+    session: AsyncSession, class_session_id: uuid.UUID, user_id: uuid.UUID, *, lock: bool = False
+) -> RowMapping | None:
+    """The Student's extension in the Class session, or None; with `lock` its row is locked until
+    the transaction ends."""
+    query = select(student_deadline_extensions).where(
+        student_deadline_extensions.c.class_session_id == class_session_id,
+        student_deadline_extensions.c.user_id == user_id,
+    )
+    if lock:
+        query = query.with_for_update()
+    return (await session.execute(query)).mappings().one_or_none()
+
+
+async def extensions_of_user(
+    session: AsyncSession, user_id: uuid.UUID, class_session_ids: Collection[uuid.UUID]
+) -> dict[uuid.UUID, RowMapping]:
+    """The Student's extensions in these Class sessions, by session id, in one read."""
+    if not class_session_ids:
+        return {}
+    result = await session.execute(
+        select(student_deadline_extensions).where(
+            student_deadline_extensions.c.user_id == user_id,
+            student_deadline_extensions.c.class_session_id.in_(list(class_session_ids)),
+        )
+    )
+    return {row["class_session_id"]: row for row in result.mappings()}
+
+
+async def extensions_of_session(
+    session: AsyncSession, class_session_id: uuid.UUID
+) -> dict[uuid.UUID, RowMapping]:
+    """Every extension in the Class session, by Student."""
+    result = await session.execute(
+        select(student_deadline_extensions).where(
+            student_deadline_extensions.c.class_session_id == class_session_id
+        )
+    )
+    return {row["user_id"]: row for row in result.mappings()}
+
+
+async def save_extension(session: AsyncSession, **values: Any) -> None:
+    """Insert or replace the Student's extension: one row per Class session and Student."""
+    statement = pg_insert(student_deadline_extensions).values(**values)
+    await session.execute(
+        statement.on_conflict_do_update(
+            index_elements=[
+                student_deadline_extensions.c.class_session_id,
+                student_deadline_extensions.c.user_id,
+            ],
+            set_={
+                "test_deadline": statement.excluded.test_deadline,
+                "debrief_deadline": statement.excluded.debrief_deadline,
+                "updated_by": statement.excluded.updated_by,
+                "updated_at": statement.excluded.updated_at,
+            },
+        )
+    )
+
+
+async def due_own_deadlines(
+    session: AsyncSession, now: datetime, until: datetime
+) -> list[RowMapping]:
+    """Each Student's own Debrief or Test deadline in `(now, until]` with no reminder of theirs at
+    that time (Story 11.13): `class_session_id`, `class_id`, `user_id`, `deadline` (the column
+    name) and `at`. The own deadline is the later of the extension's and the Class session's, and
+    only where the Class session has that deadline. Oldest session first."""
+    parts = []
+    for order, name in enumerate(EXTENDED_DEADLINES):
+        own = func.greatest(student_deadline_extensions.c[name], class_sessions.c[name])
+        reminded = exists().where(
+            deadline_reminders.c.class_session_id == class_sessions.c.id,
+            deadline_reminders.c.deadline == name,
+            deadline_reminders.c.deadline_at == own,
+            deadline_reminders.c.user_id == student_deadline_extensions.c.user_id,
+        )
+        parts.append(
+            select(
+                class_sessions.c.id.label("class_session_id"),
+                class_sessions.c.class_id,
+                student_deadline_extensions.c.user_id,
+                literal(name, Text).label("deadline"),
+                own.label("at"),
+                literal(order, Integer).label("place"),
+            )
+            .join(
+                student_deadline_extensions,
+                student_deadline_extensions.c.class_session_id == class_sessions.c.id,
+            )
+            .where(class_sessions.c[name].is_not(None), own > now, own <= until, ~reminded)
+        )
+    query = union_all(*parts).subquery()
+    result = await session.execute(
+        select(
+            query.c.class_session_id,
+            query.c.class_id,
+            query.c.user_id,
+            query.c.deadline,
+            query.c.at,
+        ).order_by(query.c.class_session_id, query.c.user_id, query.c.place)
+    )
+    return list(result.mappings())
 
 
 _with_class_share = select(

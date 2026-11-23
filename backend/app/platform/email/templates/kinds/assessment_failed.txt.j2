@@ -1,0 +1,5 @@
+{# An AI assessment of a Class session ended `failed` (Story 12.4, NFR-8), a digest kind sent once
+   per Admin and Class session. `class_name` and `session_number` come from
+   `sessions.service.assessment_failed_mail_context` at send time. Draft copy. #}
+{% set subject = "En KI-vurdering kunne ikke lages" %}
+Minst én KI-vurdering i Klassen {{ class_name }}, Klasseøkt {{ session_number }}, kunne ikke lages etter siste forsøk. Studentene ser de automatisk rettede poengene i Studentrapporten.

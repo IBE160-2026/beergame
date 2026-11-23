@@ -88,9 +88,11 @@ from zoneinfo import ZoneInfo
 
 import structlog
 from pydantic import ValidationError
+from sqlalchemy import Select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai import budget, calls, config
+from app.analysis.letter import judge_thresholds
 from app.engine import (
     RULES_VERSION,
     GameSettings,
@@ -115,6 +117,7 @@ from app.engine.settings import (
     validate,
     warnings,
 )
+from app.modules.assessment import service as assessment
 from app.modules.classes import service as classes
 from app.modules.content import service as content
 from app.modules.games import commands as games_commands
@@ -133,6 +136,7 @@ from app.modules.sessions.models import (
 )
 from app.modules.sessions.schemas import (
     AdjustmentOut,
+    AiAssessmentOut,
     AiDescriptionsOut,
     AiMode,
     AllocationConfirmIn,
@@ -166,6 +170,8 @@ from app.modules.sessions.schemas import (
     LabHourIn,
     LabHourOut,
     LecturerOverviewOut,
+    LetterSettingOut,
+    LetterThresholdsOut,
     LlmUnavailable,
     NextDate,
     NextDeadline,
@@ -188,18 +194,21 @@ from app.modules.sessions.schemas import (
     SettingsCheckOut,
     SettingWarning,
     StepOut,
+    StudentDeadlinesOut,
     StudentGameOut,
     StudentReplayOut,
     TableSeatOut,
     TableStatusOut,
     TestGameRefOut,
+    TestSittingIn,
+    TestSittingOut,
     TimeProposalOut,
     WaitingClass,
     WaitingReason,
 )
-from app.platform import auth, authz, events, notify
+from app.platform import audit, auth, authz, events, notify
 from app.platform.config import get_settings
-from app.platform.db import get_sessionmaker
+from app.platform.db import get_sessionmaker, reading
 
 log = structlog.get_logger(__name__)
 
@@ -262,6 +271,14 @@ class AllocationConfirmed(_FieldsError):
     code = "allocation_confirmed"
 
 
+class ConsentMissing(_FieldsError):
+    """A Control test's allocation while registered test students have not consented (409
+    `consent_missing`, Story 12.8): `{"allocation": "consent_missing", "missing": "<N>"}`, or
+    `{"seat": "consent_missing", "missing": "1"}` for the Student's own «Ta setet»."""
+
+    code = "consent_missing"
+
+
 class InvalidMove(_FieldsError):
     """A move or swap that the draft cannot take (422 `invalid_move`, Story 5.10): `{"to":
     "same"}`, `{"from"|"to": "unknown"}` (no such game in the draft), `{"from": "empty"}` (no
@@ -278,6 +295,36 @@ class SeatCommandRefused(_FieldsError):
         super().__init__({"allocation": code})
         self.code = code
         self.status = status
+
+
+class AiAssessmentPinned(_FieldsError):
+    """The «KI-vurdering» switch was changed once the original Test deadline has passed or the
+    Test-deadline lock has pinned it (409 `ai_assessment_pinned`, `{"ai_assessment": "pinned"}`,
+    Story 12.1)."""
+
+    code = "ai_assessment_pinned"
+
+
+class LetterUnavailable(_FieldsError):
+    """Story 12.6 (FR-56): the Institution forbids the Indicative letter, so only `unavailable`
+    can be chosen (409 `letter_unavailable`, `{"letter_setting": "institution"}`)."""
+
+    code = "letter_unavailable"
+
+
+class LetterThresholdsLocked(_FieldsError):
+    """Story 12.6 (FR-56): the letter bounds changed once a Test attempt of the Class session has
+    been opened (409 `letter_thresholds_locked`, `{"letter_thresholds": "locked"}`)."""
+
+    code = "letter_thresholds_locked"
+
+
+class ScoringGuideLocked(_FieldsError):
+    """The Scoring guide was edited once the original Test deadline has passed or the
+    Test-deadline lock has pinned it (409 `scoring_guide_locked`, `{"scoring_guide": "locked"}`,
+    Story 11.2, FR-18)."""
+
+    code = "scoring_guide_locked"
 
 
 class DeadlinePassed(_FieldsError):
@@ -652,20 +699,61 @@ def adjustment_out(adjustment: Adjustment | None) -> AdjustmentOut | None:
     )
 
 
+OWN_DEADLINE_KEYS = {
+    "debrief_deadline": "own_debrief_deadline",
+    "test_deadline": "own_test_deadline",
+}
+"""Story 11.13: the keys a per-Student row carries the Student's own deadlines under
+(`_with_own_deadlines`), None where they have no extension."""
+
+
+def _with_own_deadlines(row: Mapping[str, Any], extension: Mapping[str, Any] | None) -> dict:
+    """The Class session row with the Student's own Debrief and Test deadlines (Story 11.13), as
+    every per-Student reader passes it to `effective_debrief_deadline`/`effective_test_deadline`."""
+    return dict(row) | {
+        own: None if extension is None else extension[name]
+        for name, own in OWN_DEADLINE_KEYS.items()
+    }
+
+
+async def _student_row(
+    s: AsyncSession, row: Mapping[str, Any], user_id: uuid.UUID
+) -> dict[str, Any]:
+    """`row` with the Student's own deadlines, read in `s`."""
+    return _with_own_deadlines(row, await repo.extension_row(s, row["id"], user_id))
+
+
+def _effective(class_session: ClassSessionLike, name: str) -> datetime | None:
+    """The Student's deadline `name` (Story 11.13, FR-18): the Class session's, or the Student's
+    own where it is later; None while the Class session has none. A row must come through a
+    per-Student reader (`_with_own_deadlines`), so no Student path reads the Class date silently;
+    a `ClassSessionOut` has no Student and reads the Class session's."""
+    if isinstance(class_session, ClassSessionOut):
+        return getattr(class_session, name)
+    own_key = OWN_DEADLINE_KEYS[name]
+    if own_key not in class_session:
+        raise KeyError(f"{own_key}: read the Class session through a per-Student reader")
+    at: datetime | None = class_session[name]
+    own: datetime | None = class_session[own_key]
+    if at is None or own is None:
+        return at
+    return max(at, own)
+
+
 def effective_debrief_deadline(
     user: authz.Principal | uuid.UUID, class_session: ClassSessionLike
 ) -> datetime | None:
-    """The Student's Debrief deadline, the only way another module reads it. For now the Class
-    session's own; Epic 11 adds a per-Student extension here without changing callers."""
-    return _value(class_session, "debrief_deadline")
+    """The Student's Debrief deadline, the only way another module reads it: the Class session's,
+    or the one their Test deadline extension moved (Story 11.13) where that is later."""
+    return _effective(class_session, "debrief_deadline")
 
 
 def effective_test_deadline(
     user: authz.Principal | uuid.UUID, class_session: ClassSessionLike
 ) -> datetime | None:
-    """The Student's Test deadline, the only way another module reads it. For now the Class
-    session's own; Epic 11 adds a per-Student extension here without changing callers."""
-    return _value(class_session, "test_deadline")
+    """The Student's Test deadline, the only way another module reads it: the Class session's, or
+    their own extension (Story 11.13) where that is later."""
+    return _effective(class_session, "test_deadline")
 
 
 def _passed(row: Mapping[str, Any], now: datetime) -> list[DateName]:
@@ -747,6 +835,104 @@ async def _class_for(
     return found
 
 
+def _refuse_control_test(found: classes.ClassOut) -> None:
+    """A Control test Class holds its one Class session (Story 12.7, AD-27): no other is made in
+    it, and none is copied into or out of it. Raises `classes.ControlTestClass`."""
+    if found.control_test:
+        log.info("class_session_refused", class_id=str(found.id), error_code="control_test_class")
+        raise classes.ControlTestClass
+
+
+CONTROL_TEST = "control_test"
+COURSE = "course"
+"""The kinds of a Class session (Story 12.7, AD-27): `course`, or a Control test."""
+
+
+async def kind_of(
+    class_session_id: uuid.UUID, *, session: AsyncSession | None = None
+) -> str | None:
+    """The kind of a Class session, `course` or `control_test` (Story 12.7, FR-82, AD-13); None
+    for no such session. In the caller's `session` when given. What other modules ask to leave a
+    Control test out (Epic 13's `reports.scope`)."""
+    async with reading(session) as s:
+        row = await repo.session_row(s, class_session_id)
+    return None if row is None else row["kind"]
+
+
+def control_test_session_ids() -> Select[tuple[uuid.UUID]]:
+    """The ids of every Control test Class session, as a subquery for `NOT IN (...)` (Story 12.7,
+    AD-13): what reports, statistics and exports leave out."""
+    return repo.control_test_ids()
+
+
+@dataclass(frozen=True)
+class ControlTestFacts:
+    """A Control test as its scorers see it (Story 12.9): the Class's name and the Class
+    session's Test deadline, after which its answers are scored; and (Story 12.10) the model
+    config under test, pinned at creation."""
+
+    id: uuid.UUID
+    name: str
+    test_deadline: datetime | None  # None until the Admin sets the dates
+    model_config_id: uuid.UUID | None = None
+
+    def is_open(self, now: datetime) -> bool:
+        """Whether the answers are open for scoring: the Test deadline is set and has passed."""
+        return self.test_deadline is not None and now >= self.test_deadline
+
+
+async def control_test_facts(
+    s: AsyncSession, class_session_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, ControlTestFacts]:
+    """These Class sessions by id when they are Control tests (Story 12.9, FR-82): with no User's
+    scope; the caller judges access (`authz.control_tests_scored_by`, `control_tests.manage`).
+    Any other id is left out."""
+    found: dict[uuid.UUID, ControlTestFacts] = {}
+    rows = [await repo.session_row(s, each) for each in dict.fromkeys(class_session_ids)]
+    kept = [row for row in rows if row is not None and row["kind"] == CONTROL_TEST]
+    names = await classes.class_facts(s, [row["class_id"] for row in kept])
+    for row in kept:
+        fact = names.get(row["class_id"])
+        if fact is not None:
+            found[row["id"]] = ControlTestFacts(
+                row["id"], fact.name, row["test_deadline"], row["model_config_id"]
+            )
+    return found
+
+
+ControlTestGuidePinner = Callable[[AsyncSession, uuid.UUID, uuid.UUID, datetime], Awaitable[Any]]
+"""`(session, class_session_id, scoring_guide_id, now)`: pins the Scoring guide version under test
+for a new Control test, in its creation's transaction (Story 12.7). `tests` registers it; it
+raises `LookupError` (`content.ContentNotFound`) for an id that is no Scoring guide version."""
+ControlTestGuideReader = Callable[[AsyncSession, uuid.UUID], Awaitable[Any]]
+"""`(session, class_session_id)`: the Scoring guide record in force
+(`content.ScoringGuideRecord`)."""
+
+
+@dataclass(frozen=True)
+class ControlTestGuide:
+    """What `tests` lends `sessions` for a Control test's Scoring guide (Story 12.7)."""
+
+    pin: ControlTestGuidePinner
+    read: ControlTestGuideReader
+
+
+_control_test_guide: list[ControlTestGuide] = []
+
+
+def register_control_test_guide(pin: ControlTestGuidePinner, read: ControlTestGuideReader) -> None:
+    """Called at import by `tests.guide`, which `sessions` may not import; once."""
+    if not _control_test_guide:
+        _control_test_guide.append(ControlTestGuide(pin, read))
+
+
+def control_test_guide() -> ControlTestGuide:
+    """The registered Scoring guide hooks; `RuntimeError` when `tests` was never imported."""
+    if not _control_test_guide:  # pragma: no cover - the app and the tests import `tests.guide`
+        raise RuntimeError("no Control test guide registered")
+    return _control_test_guide[0]
+
+
 @dataclass(frozen=True)
 class StaffedSession:
     """A Class session as a module acting for its staff sees it (Story 7.9): its Class and its
@@ -803,8 +989,10 @@ async def create_session(
     """«Lag Klasseøkt»: one transaction stores the Class session with its defaults, its model
     config and budget row when a default is active, and emits `session:<id>`. None when the User
     may not manage the Class; raises `ClassArchived`."""
-    if await _class_for(user, class_id, "class_sessions.manage") is None:
+    found = await _class_for(user, class_id, "class_sessions.manage")
+    if found is None:
         return None
+    _refuse_control_test(found)
     session_id = uuid.uuid7()
     settings = classic_settings()
     async with get_sessionmaker().begin() as s:
@@ -889,11 +1077,15 @@ async def get_session(user: authz.Principal, session_id: uuid.UUID) -> ClassSess
         row = await repo.session_row(s, session_id)
         number = await repo.number_of(s, session_id, row["class_id"]) if row else 0
         labs = await repo.lab_hours_of(s, [session_id]) if row else []
+        switch = await assessment.switch_of(s, session_id) if row else assessment.DEFAULT_SWITCH
+        sitting = await _sitting_minutes(s, session_id) if row else None
+        attempts = await _attempts_opened(s, session_id) if row else False
     if row is None:
         return None
     found = await _class_for(user, row["class_id"], "class_sessions.read")
     if found is None:
         return None
+    forbids = await identity.institution_forbids_letter(found.institution_id)
     test_game = await _latest_test_game(user, session_id) if lecturer_test_enabled() else None
     unavailable = None
     config_id = row["model_config_id"]
@@ -914,6 +1106,7 @@ async def get_session(user: authz.Principal, session_id: uuid.UUID) -> ClassSess
         class_id=row["class_id"],
         class_name=found.name,
         number=number,
+        kind=row["kind"],
         game_settings=settings,
         is_classic=is_classic(settings),
         ai_mode=AiMode(row["ai_mode"]),
@@ -946,6 +1139,11 @@ async def get_session(user: authz.Principal, session_id: uuid.UUID) -> ClassSess
         locked=is_locked(row, now=now),
         locked_at=row["locked_at"],
         lock_refused=row["locked_at"] is None and row["lock_refused_at"] is not None,
+        lock_refused_reason=(
+            row["lock_refused_reason"]
+            if row["locked_at"] is None and row["lock_refused_at"] is not None
+            else None
+        ),
         passed_dates=_passed(row, now),
         play_time_warning=_play_time_warning(row, settings),
         settings_warnings=[
@@ -961,7 +1159,93 @@ async def get_session(user: authz.Principal, session_id: uuid.UUID) -> ClassSess
         effort_level_replaced=effort_level_replaced,
         lecturer_test_enabled=lecturer_test_enabled(),
         test_game=test_game,
+        ai_assessment=_ai_assessment_out(
+            user, found, row, switch, now, forbids=forbids, attempts=attempts
+        ),
+        test_sitting=TestSittingOut(
+            minutes=sitting,
+            min_minutes=get_settings().test_sitting_min_minutes,
+            max_minutes=get_settings().test_sitting_max_minutes,
+            can_change=authz.can(user, "class_sessions.manage", found)
+            and not found.archived
+            and not is_locked(row, now=now),
+        ),
     )
+
+
+def _ai_assessment_open(row: Mapping[str, Any], switch: assessment.Switch, now: datetime) -> bool:
+    """Whether the «KI-vurdering» switch can still change (Story 12.1): not pinned, and the
+    original Test deadline has not passed, also before the sweep has run `lock_test`."""
+    deadline = row["test_deadline"]
+    return not switch.pinned and (deadline is None or deadline > now)
+
+
+def _ai_assessment_out(
+    user: authz.Principal,
+    found: classes.ClassOut,
+    row: Mapping[str, Any],
+    switch: assessment.Switch,
+    now: datetime,
+    *,
+    forbids: bool,
+    attempts: bool,
+) -> AiAssessmentOut:
+    is_open = _ai_assessment_open(row, switch, now)
+    can_change = is_open and not found.archived and authz.can(user, "ai_assessment.change", found)
+    rules = assessment.letter_rules(switch, institution_forbids=forbids)
+    return AiAssessmentOut(
+        enabled=switch.enabled,
+        pinned_at=switch.pinned_at,
+        open=is_open,
+        can_change=can_change,
+        letter=LetterSettingOut(
+            setting=rules.setting,
+            stored=switch.letter_setting,
+            forced=rules.forced,
+            thresholds=LetterThresholdsOut.model_validate(rules.thresholds),
+            thresholds_open=can_change and not attempts,
+            can_change=can_change,
+        ),
+    )
+
+
+AttemptsOpened = Callable[[AsyncSession, uuid.UUID], Awaitable[bool]]
+"""`(session, class_session_id)`: whether any Test attempt of the Class session has been opened
+(Story 12.6: the letter bounds are read-only from then on). `tests` registers it."""
+
+_attempts_readers: list[AttemptsOpened] = []
+
+
+def register_attempts_opened(reader: AttemptsOpened) -> None:
+    """Story 12.6: `tests` registers the reader of whether a Test attempt exists, for `sessions`
+    may not import it. The same one again changes nothing."""
+    if reader not in _attempts_readers:
+        _attempts_readers.append(reader)
+
+
+async def _attempts_opened(s: AsyncSession, class_session_id: uuid.UUID) -> bool:
+    for reader in _attempts_readers:
+        if await reader(s, class_session_id):
+            return True
+    return False
+
+
+async def letter_rules(
+    s: AsyncSession, class_session_id: uuid.UUID
+) -> assessment.LetterRules | None:
+    """Story 12.6 (FR-56): the Indicative letter rules in force for the Class session, read in
+    `s`: the switch row's setting and bounds, and `unavailable` when the Class's Institution
+    forbids the letter (`identity.service`). None for an unknown Class session. For `tests`,
+    whose views hand the letter out through `assessment.letter_for`."""
+    row = await repo.session_row(s, class_session_id)
+    if row is None:
+        return None
+    facts = (await classes.class_facts(s, [row["class_id"]])).get(row["class_id"])
+    forbids = facts is not None and await identity.institution_forbids_letter(
+        facts.institution_id, session=s
+    )
+    switch = await assessment.switch_of(s, class_session_id)
+    return assessment.letter_rules(switch, institution_forbids=forbids)
 
 
 async def _latest_test_game(user: authz.Principal, session_id: uuid.UUID) -> TestGameRefOut | None:
@@ -1010,6 +1294,10 @@ async def save_session(
     allocation_method: AllocationMethod | None = None,
     replay_scenario: str | None = None,
     replay_template: Mapping[str, Any] | None = None,
+    ai_assessment: bool | None = None,
+    test_sitting: TestSittingIn | None = None,
+    letter_setting: assessment.LetterSetting | None = None,
+    letter_thresholds: Mapping[str, int] | None = None,
 ) -> ClassSessionOut | None:
     """«Lagre Klasseøkt»: saves the Class session as it stands and emits `session:<id>`. LLM
     players on a Class session with no model config take the active default and its budget row
@@ -1030,10 +1318,27 @@ async def save_session(
     (`_open_student_choice`). `replay_scenario` (Story 10.2), None, keeps the Replay scenario;
     `own` with `replay_template` stores the own template judged by `judge_replay_template` for
     the Game settings as saved, or raises `InvalidReplayScenario` (`_replay_to_store`).
-    None when the User may not manage the Class; raises `ClassArchived`."""
+    `ai_assessment` (Story 12.1), None, keeps the «KI-vurdering» switch; a change is stored
+    through `assessment.set_switch` in the same transaction, also after the Start date, and
+    raises `AiAssessmentPinned` once the original Test deadline has passed or the switch is
+    pinned. `test_sitting` (Story 11.12), None, keeps the Individual test's one timed sitting; a
+    changed limit is judged by `_judge_sitting` and stored through the registered `tests` writer
+    in the same transaction, and raises `SessionLocked` once locked. `letter_setting` and
+    `letter_thresholds` (Story 12.6), None, keep the Indicative letter's setting and bounds; a
+    change is stored through `assessment.set_letter` in the same transaction while the switch can
+    change (`AiAssessmentPinned` after), only by the switch's owners; a setting other than
+    `unavailable` raises `LetterUnavailable` while the Institution forbids the letter, bounds
+    that break `analysis.letter.judge_thresholds` raise `InvalidSessionValues`, and changed bounds
+    raise `LetterThresholdsLocked` once a Test attempt exists. None when the User may not
+    manage the Class (or change the switch or the letter); raises `ClassArchived`."""
     async with get_sessionmaker().begin() as s:
         row = await repo.session_row(s, session_id)
-    if row is None or await _class_for(user, row["class_id"], "class_sessions.manage") is None:
+    found = (
+        await _class_for(user, row["class_id"], "class_sessions.manage")
+        if row is not None
+        else None
+    )
+    if row is None or found is None:
         return None
     needs_students = (
         dates is not None or obligatory is True or allocation_method == "student_choice"
@@ -1071,6 +1376,9 @@ async def save_session(
         )
         method: AllocationMethod = allocation_method or row["allocation_method"]
         switching = method != row["allocation_method"]
+        stored_sitting = await _sitting_minutes(s, session_id)
+        sitting = stored_sitting if test_sitting is None else test_sitting.minutes
+        timing = sitting != stored_sitting
         try:
             if switching:
                 await _judge_method(s, row, method, locked=locked)
@@ -1091,12 +1399,34 @@ async def save_session(
                         ("obligatory", marked != row["obligatory"]),
                         ("required_share_percent", share != row["required_share_percent"]),
                         ("inactivity_limit_hours", limit != row["inactivity_limit_hours"]),
+                        ("test_sitting", timing),
                     )
                     if differs
                 }
                 if refused:
                     raise SessionLocked(refused)
+            switch = await assessment.switch_of(s, session_id)
+            switching_assessment = ai_assessment is not None and ai_assessment != switch.enabled
+            if switching_assessment:
+                if not authz.can(user, "ai_assessment.change", found):
+                    return None
+                if not _ai_assessment_open(row, switch, now):
+                    raise AiAssessmentPinned({"ai_assessment": "pinned"})
+            letter = await _judge_letter(
+                s,
+                user,
+                found,
+                row,
+                switch,
+                now,
+                setting=letter_setting,
+                thresholds=letter_thresholds,
+            )
+            if letter is None:
+                return None
             _judge_values(row, share, limit)
+            if timing:
+                _judge_sitting(sitting)
             if game_settings is not None:
                 new_settings = _settings_to_store(row, game_settings, locked=locked)
             # An own template follows changed Game settings even when the scenario is not sent.
@@ -1171,6 +1501,20 @@ async def save_session(
             allocation_method=method if switching else None,
             replay=replay,
         )
+        if "test_deadline" in changed:
+            # Story 11.3: open Individual test attempts keep their stored deadline in step.
+            for mover in _test_deadline_movers:
+                await mover(s, session_id, changed["test_deadline"])
+        if timing and _test_sitting:
+            await _test_sitting[0][1](s, session_id, sitting, user.id, now)
+        if switching_assessment:
+            assert ai_assessment is not None
+            # The Class session's row lock, held since the read, keeps `lock_test` out meanwhile.
+            await assessment.set_switch(s, session_id, ai_assessment, now=now)
+        if letter.changed:
+            await assessment.set_letter(
+                s, session_id, setting=letter.setting, thresholds=letter.thresholds, now=now
+            )
         if switching and method == "student_choice":
             await _open_student_choice(s, session_id, user.id, students, now)
         await events.emit(s, "session", str(session_id))
@@ -1198,6 +1542,10 @@ async def save_session(
         obligatory_switched_on=switched_on,
         students_told=len(students) if switched_on else 0,
         student_choice_opened=switching,
+        ai_assessment=ai_assessment if switching_assessment else None,
+        letter_setting=letter.setting,
+        letter_thresholds_changed=letter.thresholds is not None,
+        test_sitting_changed=timing,
     )
     if changed and locked:
         # After the start a moved deadline holds for the whole Class session (FR-18).
@@ -1205,6 +1553,60 @@ async def save_session(
             "class_session_dates_moved", class_session_id=str(session_id), dates=sorted(changed)
         )
     return await get_session(user, session_id)
+
+
+@dataclass(frozen=True)
+class _LetterChange:
+    """What a save changes of the Indicative letter (Story 12.6): the new setting and bounds, each
+    None when unchanged."""
+
+    setting: assessment.LetterSetting | None = None
+    thresholds: dict[str, int] | None = None
+
+    @property
+    def changed(self) -> bool:
+        return self.setting is not None or self.thresholds is not None
+
+
+async def _judge_letter(
+    s: AsyncSession,
+    user: authz.Principal,
+    found: classes.ClassOut,
+    row: Mapping[str, Any],
+    switch: assessment.Switch,
+    now: datetime,
+    *,
+    setting: assessment.LetterSetting | None,
+    thresholds: Mapping[str, int] | None,
+) -> _LetterChange | None:
+    """Judge a save's letter setting and bounds under the Class session's row lock (Story 12.6,
+    FR-56). A value equal to the one in force is no change. None when the User may not change it
+    (403); raises `AiAssessmentPinned`, `LetterUnavailable`, `InvalidSessionValues` or
+    `LetterThresholdsLocked`."""
+    new_setting = setting if setting is not None and setting != switch.letter_setting else None
+    in_force = switch.letter_thresholds or assessment.default_thresholds()
+    new_bounds = (
+        dict(thresholds) if thresholds is not None and dict(thresholds) != in_force else None
+    )
+    if new_setting is None and new_bounds is None:
+        # The Institution may forbid the letter after the Lecturer chose one: sending that choice
+        # again is no change, but choosing it is refused below.
+        return _LetterChange()
+    if not authz.can(user, "ai_assessment.change", found):
+        return None
+    if not _ai_assessment_open(row, switch, now):
+        pinned = {"letter_setting": "pinned"} if new_setting else {}
+        raise AiAssessmentPinned(pinned | ({"letter_thresholds": "pinned"} if new_bounds else {}))
+    if new_setting is not None and new_setting != "unavailable":
+        if await identity.institution_forbids_letter(found.institution_id, session=s):
+            raise LetterUnavailable({"letter_setting": "institution"})
+    if new_bounds is not None:
+        reason = judge_thresholds(new_bounds)
+        if reason is not None:
+            raise InvalidSessionValues({"letter_thresholds": reason})
+        if await _attempts_opened(s, row["id"]):
+            raise LetterThresholdsLocked({"letter_thresholds": "locked"})
+    return _LetterChange(setting=new_setting, thresholds=new_bounds)
 
 
 def _judge_values(row: Mapping[str, Any], share: int, limit: int) -> None:
@@ -1305,7 +1707,9 @@ async def enrolled_sessions(user: authz.Principal) -> EnrolledSessionListOut:
     now = auth.utcnow()
     choice = student_choice_enabled()
     async with get_sessionmaker().begin() as s:
-        rows = await repo.enrolled_sessions(s, user)
+        found = await repo.enrolled_sessions(s, user)
+        extensions = await repo.extensions_of_user(s, user.id, [row["id"] for row in found])
+        rows = [_with_own_deadlines(row, extensions.get(row["id"])) for row in found]
         labs = await repo.lab_hours_of(s, [row["id"] for row in rows], ending_after=now)
         drafts = (
             await repo.drafts_of(
@@ -1377,6 +1781,7 @@ async def enrolled_sessions(user: authz.Principal) -> EnrolledSessionListOut:
                     quiz_changed=changed.get(row["id"], False),
                     group_open=grouped.get(row["id"], False),
                     replay_closed=_replay_closed(replays.get(row["id"]), user, row, now),
+                    test_closed=test_deadline_passed(user, row, now),
                 ),
                 adjustment=own_adjustment(adjustments.get(row["id"])),
                 replay=replays.get(row["id"]),
@@ -1406,6 +1811,7 @@ def stegene(
     quiz_changed: bool = False,
     group_open: bool = False,
     replay_closed: bool = False,
+    test_closed: bool = False,
 ) -> list[StepOut]:
     """The state of each of Stegene's steps (Story 6.1, AD-10): a done step is `done`; with a
     game the first step not done is `current` and the later ones `locked`; with no game (before
@@ -1415,7 +1821,9 @@ def stegene(
     `quiz_changed` (Story 9.10): a current Quiz step says the Lecturer has changed the quiz.
     `group_open` (Story 9.11): a current Debrief step says a Group debrief the Student can join is
     under way. `replay_closed` (Story 10.3): a current Replay step says the Test deadline has
-    passed with no Replay started; it stays not done."""
+    passed with no Replay started; it stays not done. `test_closed` (Story 11.11): a current
+    Individual test step (not handed in) says the Student's Test deadline has passed; it stays
+    not done, and turns done when the sweep hands a saved attempt in."""
     steps: list[StepOut] = []
     current_given = not has_game
     for name, step in STEGENE:
@@ -1432,7 +1840,7 @@ def stegene(
             if name == "debrief" and group_open:
                 steps.append(StepOut(step=name, state=state, group_open=True))
                 continue
-            if name == "replay" and replay_closed:
+            if (name == "replay" and replay_closed) or (name == "test" and test_closed):
                 steps.append(StepOut(step=name, state=state, closed=True))
                 continue
         else:
@@ -1557,7 +1965,9 @@ async def _test_deadline_of(
     """The Student's `effective_test_deadline` in the Class session, read in `s`; None for no such
     session. What `games` judges a Replay's close and its Orders by (Story 10.6, FR-18)."""
     row = await repo.session_row(s, class_session_id)
-    return None if row is None else effective_test_deadline(user_id, row)
+    if row is None:
+        return None
+    return effective_test_deadline(user_id, await _student_row(s, row, user_id))
 
 
 games_service.register_test_deadline(_test_deadline_of)
@@ -1629,6 +2039,38 @@ async def debrief_fallback_mail_context(
     return await debrief_released_mail_context(session, user_id, ref, now)
 
 
+async def assessment_ready_mail_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    """The template variables of an `assessment_ready` notice (Story 12.4, FR-55): the Class's
+    name only (never a score, a letter or feedback), under the same rules as
+    `debrief_released_mail_context`."""
+    return await debrief_released_mail_context(session, user_id, ref, now)
+
+
+async def assessment_failed_mail_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    """The template variables of an `assessment_failed` notice (Story 12.4, NFR-8): the Class's
+    name and the Class session's number. None, so the mail is left out, when the Class session or
+    its Class is gone, or the User is no longer an active Admin."""
+    if ref is None:
+        return None
+    row = await repo.session_row(session, ref)
+    if row is None or user_id not in await identity.active_admins(session):
+        return None
+    label = await classes.label_of_class(session, row["class_id"])
+    if label is None:
+        return None
+    number = await repo.number_of(session, ref, row["class_id"])
+    return {"class_name": label.name, "session_number": number}
+
+
+# Story 12.4: the assessment tells each Admin about a failed assessment; it may not import
+# `identity`, so the Admins are read through this registration.
+assessment.register_admin_reader(identity.active_admins)
+
+
 async def student_names(
     class_session_id: uuid.UUID, user_ids: list[uuid.UUID]
 ) -> dict[uuid.UUID, str]:
@@ -1681,7 +2123,119 @@ async def replay_session_of(
     only through `replay_template`, `test_deadline_passed` and its frozen `snapshot`."""
     if await enrolled_locked_row(s, user, class_session_id) is None:
         return None
-    return await repo.session_row(s, class_session_id, share=True)
+    row = await repo.session_row(s, class_session_id, share=True)
+    return None if row is None else await _student_row(s, row, user.id)
+
+
+@dataclass(frozen=True)
+class IndividualTestSession:
+    """A Class session as the Student's Individual test reads it (Story 11.3): its row, share-
+    locked in the caller's transaction, and the pins its lock stored."""
+
+    row: Mapping[str, Any]
+    pins: Any
+
+
+async def individual_test_session_of(
+    s: AsyncSession, user: authz.Principal, class_session_id: uuid.UUID
+) -> IndividualTestSession | None:
+    """The Class session for the Student's Individual test (Story 11.3), read in `s` and share-
+    locked, so its Test deadline and pins hold while an attempt is opened; under
+    `enrolled_locked_row`'s checks (None for every other case alike, FR-5). The caller reads the
+    deadline only through `effective_test_deadline`."""
+    if await enrolled_locked_row(s, user, class_session_id) is None:
+        return None
+    row = await repo.session_row(s, class_session_id, share=True)
+    if row is None:
+        return None
+    return IndividualTestSession(
+        row=await _student_row(s, row, user.id), pins=await repo.session_pins(s, class_session_id)
+    )
+
+
+async def test_locked_session(
+    s: AsyncSession, class_session_id: uuid.UUID
+) -> IndividualTestSession | None:
+    """The Class session for `tests.close_attempt` (Story 11.11, AD-9), read in `s` and share-
+    locked, with its pins; None unless the Test-deadline lock (`lock_test`) has run for it, so
+    nothing is closed before the Scoring guide and the «KI-vurdering» switch are pinned. A
+    running `lock_test` holds the row `FOR UPDATE`, so this waits for it."""
+    row = await repo.session_row(s, class_session_id, share=True)
+    if row is None or row["test_locked_at"] is None:
+        return None
+    return IndividualTestSession(row=row, pins=await repo.session_pins(s, class_session_id))
+
+
+def test_locked_ids() -> Select[tuple[uuid.UUID]]:
+    """The ids of the Class sessions `lock_test` has run for, as a query (Story 11.11): the sweep's
+    `tests.close_attempt` finder lists only their attempts."""
+    return repo.test_locked_ids()
+
+
+async def locked_pins(s: AsyncSession, class_session_id: uuid.UUID) -> Any:
+    """The pins the Class session's lock stored (`SessionRuntime.pins`), read in `s`; None before
+    the lock. For a job that has only ids (Story 11.8: the Adapted item wording)."""
+    return await repo.session_pins(s, class_session_id)
+
+
+TestDeadlineMover = Callable[[AsyncSession, uuid.UUID, datetime | None], Awaitable[None]]
+"""`(session, class_session_id, new_test_deadline)`: run in the transaction of a save that
+changes the Class session's Test deadline, under its row lock."""
+
+_test_deadline_movers: list[TestDeadlineMover] = []
+
+
+def register_test_deadline_mover(mover: TestDeadlineMover) -> None:
+    """Add a mover a Test-deadline change runs (Story 11.3: `tests` moves the stored deadline of
+    open attempts), for a module `sessions` may not import. The same one again changes nothing."""
+    if mover not in _test_deadline_movers:
+        _test_deadline_movers.append(mover)
+
+
+async def test_session(
+    s: AsyncSession, class_session_id: uuid.UUID
+) -> IndividualTestSession | None:
+    """The Class session for `tests.end_sitting` (Story 11.12, AD-9), read in `s` and share-locked
+    with its pins, as `individual_test_session_of` holds it for a Student's own commands; None when
+    it is gone. The sweep has only ids."""
+    row = await repo.session_row(s, class_session_id, share=True)
+    if row is None:
+        return None
+    return IndividualTestSession(row=row, pins=await repo.session_pins(s, class_session_id))
+
+
+TestSittingReader = Callable[[AsyncSession, uuid.UUID], Awaitable[int | None]]
+"""`(session, class_session_id)`: the Class session's time limit in whole minutes for one timed
+sitting of the Individual test (Story 11.12), or None when it has none."""
+
+TestSittingWriter = Callable[
+    [AsyncSession, uuid.UUID, int | None, uuid.UUID, datetime], Awaitable[None]
+]
+"""`(session, class_session_id, minutes or None, user_id, now)`: stores the time limit (None
+switches the timed sitting off), in the transaction of «Lagre Klasseøkt» under the row lock."""
+
+_test_sitting: list[tuple[TestSittingReader, TestSittingWriter]] = []
+
+
+def register_test_sitting(read: TestSittingReader, write: TestSittingWriter) -> None:
+    """Register where the Individual test's one timed sitting is kept (Story 11.12: `tests`
+    stores it), for a module `sessions` may not import. One pair; registering again replaces it."""
+    _test_sitting[:] = [(read, write)]
+
+
+async def _sitting_minutes(s: AsyncSession, class_session_id: uuid.UUID) -> int | None:
+    """The Class session's time limit through the registered reader; None without one."""
+    return await _test_sitting[0][0](s, class_session_id) if _test_sitting else None
+
+
+def _judge_sitting(minutes: int | None) -> None:
+    """Raises `InvalidSessionValues` for a time limit outside the configured range (Story 11.12;
+    `test_sitting_minutes` `out_of_range`). None (switched off) is always allowed."""
+    settings = get_settings()
+    if minutes is not None and not (
+        settings.test_sitting_min_minutes <= minutes <= settings.test_sitting_max_minutes
+    ):
+        raise InvalidSessionValues({"test_sitting_minutes": "out_of_range"})
 
 
 async def debrief_session_of(
@@ -1708,10 +2262,179 @@ async def student_deadlines(
     through `effective_debrief_deadline` and `effective_test_deadline`, so another module never
     reads the dates itself. (None, None) for a session that does not exist."""
     async with get_sessionmaker()() as s:
-        row = await repo.session_row(s, class_session_id)
+        found = await repo.session_row(s, class_session_id)
+        row = None if found is None else await _student_row(s, found, user_id)
     if row is None:
         return None, None
     return effective_debrief_deadline(user_id, row), effective_test_deadline(user_id, row)
+
+
+# One Student's own Test deadline (Story 11.13, FR-18, AD-8, AD-9, AD-12, AD-15).
+
+DEADLINE_EXTENSION_SAVED = "deadline_extension.saved"
+"""The audit action of «Lagre frist»: target the Class session and the Student, change the new
+Test and Debrief deadlines and the ones before (ids and times only, AD-15)."""
+
+
+class InvalidExtension(Exception):
+    """422 `invalid_extension`: `fields.test_deadline` says why the date is refused:
+    `no_test_deadline` (the Class session has none to extend), `not_later` (not after the Class
+    session's Test deadline: an extension only ever extends) or `passed` (not after now)."""
+
+    code = "invalid_extension"
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(self.code)
+        self.fields = {"test_deadline": reason}
+
+
+@dataclass(frozen=True)
+class StudentTarget:
+    """A Student of a Class session as their Studentside reaches them (Story 8.9): the Class
+    session row, its Class and the Student's Roster name now."""
+
+    row: Mapping[str, Any]
+    class_id: uuid.UUID
+    class_name: str
+    name: str
+    can_manage: bool
+    """Story 12.5: whether `user` may also manage the Class's sessions (`class_sessions.manage`:
+    an owner), so the Studentside shows «Tilrettelegging» and «Frister»."""
+
+
+async def student_target(
+    user: authz.Principal,
+    class_session_id: uuid.UUID,
+    user_id: uuid.UUID,
+    action: str = "class_sessions.manage",
+) -> StudentTarget | None:
+    """The Student `user_id` of the Class session when `user` may do the Class action `action`
+    on its Class's sessions (by default `class_sessions.manage`: a Lecturer of the Class, never an
+    Assistant lecturer) and `user_id` is a Student of the Class now; None, one answer, for
+    anything else (FR-5, AD-12). The Studentside (Story 8.9; `student_pages.read` from Story
+    12.5), a deadline extension (Story 11.13) and the staff's AI assessment (Story 12.5,
+    `ai_assessments.read`) are reached only so."""
+    if action not in authz.CLASS_STAFF_ROLES:
+        # A Class action only; an unknown one refuses (one answer) rather than raise.
+        log.warning("student_target_unknown_action", action=action)
+        return None
+    async with get_sessionmaker()() as s:
+        row = await repo.session_row(s, class_session_id)
+    if row is None:
+        return None
+    found = await _class_for(user, row["class_id"], action)
+    if found is None:
+        return None
+    names = await classes.student_names(row["class_id"], [user_id])
+    if user_id not in names:
+        return None
+    return StudentTarget(
+        row=row,
+        class_id=found.id,
+        class_name=found.name,
+        name=names[user_id],
+        can_manage=authz.can(user, "class_sessions.manage", found),
+    )
+
+
+async def session_students(class_session_id: uuid.UUID) -> dict[uuid.UUID, str]:
+    """The Students of the Class session's Class now (registered, not removed) with their Roster
+    names, read at request time (AD-14): the Klasseøkt's list of AI assessments (Story 12.5). The
+    caller has judged that the asking User may read them. Empty for an unknown session."""
+    async with get_sessionmaker()() as s:
+        row = await repo.session_row(s, class_session_id)
+    if row is None:
+        return {}
+    students = await classes.registered_students(row["class_id"])
+    return await classes.student_names(row["class_id"], students)
+
+
+async def deadlines_out(
+    s: AsyncSession, row: Mapping[str, Any], user_id: uuid.UUID
+) -> StudentDeadlinesOut:
+    """The block «Frister» of the Student's Studentside (Story 11.13), read in `s`."""
+    student = await _student_row(s, row, user_id)
+    done = await progress.steps_of(s, user_id, [row["id"]])
+    test = effective_test_deadline(user_id, student)
+    return StudentDeadlinesOut(
+        class_debrief_deadline=row["debrief_deadline"],
+        class_test_deadline=row["test_deadline"],
+        debrief_deadline=effective_debrief_deadline(user_id, student),
+        test_deadline=test,
+        # Extended while the own date is still the later one: a Class date moved past it since
+        # makes the Student's date the Class's again.
+        extended=test is not None and test != row["test_deadline"],
+        submitted=progress.Step.TEST_SUBMITTED in done.get(row["id"], set()),
+    )
+
+
+async def save_extension(
+    s: AsyncSession,
+    actor: uuid.UUID,
+    class_session_id: uuid.UUID,
+    user_id: uuid.UUID,
+    test_deadline: datetime,
+    now: datetime,
+) -> Mapping[str, Any]:
+    """Store the Student's own Test deadline (Story 11.13, FR-18), for
+    `tests.commands.extend_deadline` in its transaction: the Class session row share-locked, its
+    Class writable (`ClassArchived`), the date judged (`InvalidExtension`), the Student's extension
+    row locked, then upserted with the Debrief deadline moved by the same amount (NULL when the
+    Class session has none), and the change recorded in the audit log. The caller has judged the
+    target (`student_target`). Returns the Class session row with the Student's own deadlines, as
+    `effective_test_deadline` reads it. Nothing is logged."""
+    row = await repo.session_row(s, class_session_id, share=True)
+    if row is None:
+        raise LookupError("no such Class session")
+    await _writable(s, row["class_id"])
+    class_test: datetime | None = row["test_deadline"]
+    if class_test is None:
+        raise InvalidExtension("no_test_deadline")
+    if test_deadline <= class_test:
+        raise InvalidExtension("not_later")
+    if test_deadline <= now:
+        raise InvalidExtension("passed")
+    was = await repo.extension_row(s, class_session_id, user_id, lock=True)
+    class_debrief: datetime | None = row["debrief_deadline"]
+    debrief = None if class_debrief is None else class_debrief + (test_deadline - class_test)
+    await repo.save_extension(
+        s,
+        class_session_id=class_session_id,
+        user_id=user_id,
+        test_deadline=test_deadline,
+        debrief_deadline=debrief,
+        updated_by=actor,
+        updated_at=now,
+    )
+    await audit.record(
+        s,
+        actor,
+        DEADLINE_EXTENSION_SAVED,
+        {"class_session_id": class_session_id, "user_id": user_id},
+        {
+            "test_deadline": test_deadline.isoformat(),
+            "debrief_deadline": None if debrief is None else debrief.isoformat(),
+            "was": None
+            if was is None
+            else {
+                "test_deadline": was["test_deadline"].isoformat(),
+                "debrief_deadline": None
+                if was["debrief_deadline"] is None
+                else was["debrief_deadline"].isoformat(),
+            },
+        },
+        now,
+    )
+    return await _student_row(s, row, user_id)
+
+
+async def own_test_deadlines(
+    s: AsyncSession, class_session_id: uuid.UUID
+) -> dict[uuid.UUID, datetime]:
+    """Each Student's own Test deadline in the Class session, by Student, read in `s` (Story
+    11.13): what `tests.move_deadline` keeps when the Class session's Test deadline moves."""
+    rows = await repo.extensions_of_session(s, class_session_id)
+    return {user_id: row["test_deadline"] for user_id, row in rows.items()}
 
 
 async def class_staff_may(user: authz.Principal, class_session_id: uuid.UUID, action: str) -> bool:
@@ -1770,6 +2493,91 @@ async def lock_for_quiz_exclusions(
         raise LookupError(f"no Class session {class_session_id}")
     await _writable(s, row["class_id"])
     return await repo.session_pins(s, class_session_id), row["test_deadline"]
+
+
+@dataclass(frozen=True)
+class QuestionSetSession:
+    """A Class session as the «Spørsmål og vekter» block reads it (Story 11.1): its row (the
+    Start date, the lock), the pins its lock stored (None before) and whether the User may change
+    the selection (an owner of a Class that is not archived)."""
+
+    id: uuid.UUID
+    row: Mapping[str, Any]
+    pins: Any
+    may_change: bool
+    """An owner of the Class (`question_set.change`)."""
+    can_change: bool
+    """An owner, and the Class is not archived."""
+
+
+async def question_set_session(
+    user: authz.Principal,
+    class_session_id: uuid.UUID,
+    change_action: str = "question_set.change",
+) -> QuestionSetSession | None:
+    """The Class session for its staff's «Spørsmål og vekter» block (`class_sessions.read`); None
+    for every other caller and for a session that does not exist alike (FR-5). `may_change` and
+    `can_change` answer `change_action`: the «Sensorveiledning» block (Story 11.2) asks
+    `scoring_guide.change`."""
+    async with get_sessionmaker()() as s:
+        row = await repo.session_row(s, class_session_id)
+        pins = await repo.session_pins(s, class_session_id) if row is not None else None
+    if row is None:
+        return None
+    found = await _class_for(user, row["class_id"], "class_sessions.read")
+    if found is None:
+        return None
+    return QuestionSetSession(
+        id=row["id"],
+        row=row,
+        pins=pins,
+        may_change=authz.can(user, change_action, found),
+        can_change=authz.can(user, change_action, found) and not found.archived,
+    )
+
+
+async def lock_for_question_set(
+    s: AsyncSession, class_session_id: uuid.UUID, *, now: datetime
+) -> Mapping[str, Any]:
+    """In the caller's transaction (Story 11.1): locks the Class session row, refuses an archived
+    Class (`classes.ClassArchived`, 409 `class_archived`) and a session past its Start-date lock
+    point (`SessionLocked`, 409 `session_locked`, FR-18), and answers the row. The caller has
+    checked `question_set.change`."""
+    row = await repo.session_row(s, class_session_id, lock=True)
+    if row is None:
+        raise LookupError(f"no Class session {class_session_id}")
+    await _writable(s, row["class_id"])
+    if is_locked(row, now=now):
+        raise SessionLocked({"question_set": "locked"})
+    return row
+
+
+def test_deadline_reached(row: Mapping[str, Any], now: datetime) -> bool:
+    """Whether the Class session's original Test deadline has passed at `now`, or the
+    Test-deadline lock has run (Story 11.2, FR-18): what hangs on that deadline no longer
+    changes, also in the minute before the sweep runs `lock_test`. Never for a session without
+    a Test deadline that has not been test-locked."""
+    if row["test_locked_at"] is not None:
+        return True
+    deadline = row["test_deadline"]
+    return deadline is not None and deadline <= now
+
+
+async def lock_for_scoring_guide(
+    s: AsyncSession, class_session_id: uuid.UUID, *, now: datetime
+) -> Mapping[str, Any]:
+    """In the caller's transaction (Story 11.2): locks the Class session row, refuses an archived
+    Class (`classes.ClassArchived`, 409 `class_archived`) and a session whose original Test
+    deadline has passed (`ScoringGuideLocked`, 409 `scoring_guide_locked`, FR-18), and answers
+    the row. The row lock keeps `lock_test` out meanwhile. The caller has checked
+    `scoring_guide.change` (through `question_set_session`'s `may_change`)."""
+    row = await repo.session_row(s, class_session_id, lock=True)
+    if row is None:
+        raise LookupError(f"no Class session {class_session_id}")
+    await _writable(s, row["class_id"])
+    if test_deadline_reached(row, now):
+        raise ScoringGuideLocked({"scoring_guide": "locked"})
+    return row
 
 
 async def student_name(class_session_id: uuid.UUID, user_id: uuid.UUID) -> str | None:
@@ -2915,6 +3723,30 @@ SEAT_ORDER: tuple[Role, ...] = tuple(reversed(ROLES))
 """The Seats of a Class game as the preview lists them: Fabrikk first, Detaljist last."""
 
 
+async def _without_consent(
+    row: Mapping[str, Any],
+    students: list[uuid.UUID],
+    session: AsyncSession | None = None,
+) -> list[uuid.UUID]:
+    """Those of `students` a Control test may not seat yet: no consent given on the current text
+    (Story 12.8, FR-82, AD-27). None for a course."""
+    if row["kind"] != authz.CONTROL_TEST_KIND or not students:
+        return []
+    async with reading(session) as s:
+        given = await identity.consented_users(s, students)
+    return [student for student in students if student not in given]
+
+
+async def _seatable(
+    row: Mapping[str, Any],
+    students: list[uuid.UUID],
+    session: AsyncSession | None = None,
+) -> list[uuid.UUID]:
+    """`students` less those a Control test may not seat yet, in their order (Story 12.8)."""
+    missing = set(await _without_consent(row, students, session))
+    return [student for student in students if student not in missing]
+
+
 async def _allocation_out(
     class_id: uuid.UUID,
     draft: Mapping[str, Any] | None,
@@ -3035,9 +3867,13 @@ async def _out_for(
     if method == "student_choice" and draft is not None and not opened:
         async with get_sessionmaker().begin() as s:
             games = await games_service.class_games(s, row["id"])
-        return await _opened_out(row["class_id"], draft, games, is_open=False, method=method)
-    out = await _allocation_out(row["class_id"], draft, opened)
-    out.method = method
+        out = await _opened_out(row["class_id"], draft, games, is_open=False, method=method)
+    else:
+        out = await _allocation_out(row["class_id"], draft, opened)
+        out.method = method
+    if row["kind"] == authz.CONTROL_TEST_KIND:  # Story 12.8
+        registered = await classes.registered_students(row["class_id"])
+        out.consent_missing = len(await _without_consent(row, registered))
     return out
 
 
@@ -3110,6 +3946,19 @@ async def draw_allocation(
                 error_code=confirmed.code,
             )
             raise confirmed
+        # Story 12.8, after the lock and confirmed refusals: a Control test is drawn only once
+        # every test student has consented.
+        if (draft is None or again) and (missing := await _without_consent(row, students, s)):
+            refused_consent = ConsentMissing(
+                {"allocation": "consent_missing", "missing": str(len(missing))}
+            )
+            log.info(
+                "allocation_refused",
+                class_session_id=str(session_id),
+                error_code=refused_consent.code,
+                missing=len(missing),
+            )
+            raise refused_consent
         if draft is not None and not again:
             pass  # The stored draft, never recomputed.
         elif not students:
@@ -3202,6 +4051,14 @@ async def confirm_allocation(
             changed = AllocationChanged({"draft": "changed"})
             _confirm_refused(session_id, changed.code)
             raise changed
+        if draft["confirmed_at"] is None and (
+            missing := await _without_consent(row, [uuid.UUID(r) for r in registered], s)
+        ):
+            refused_consent = ConsentMissing(
+                {"allocation": "consent_missing", "missing": str(len(missing))}
+            )
+            _confirm_refused(session_id, refused_consent.code)
+            raise refused_consent
         assignments = draft["assignments"]
         kept = _without(assignments, registered)
         if draft["confirmed_at"] is not None:
@@ -3466,6 +4323,8 @@ register_pin_provider(content.Kind.DEBRIEF_QUIZ.value, content.debrief_quiz_pin)
 # Story 9.14: the narration templates, and whether the Debrief shows AI text, with the model
 # config and Effort level its calls use.
 register_pin_provider(content.Kind.NARRATION_TEMPLATES.value, content.narration_templates_pin)
+# Story 11.7: the Adapted item templates its Individual tests are built with.
+register_pin_provider(content.Kind.ADAPTED_TEMPLATES.value, content.adapted_templates_pin)
 
 
 DEBRIEF_AI_TEXT_PIN = "debrief_ai_text"
@@ -3822,6 +4681,16 @@ class ProviderKeyMissing(Exception):
     code = "provider_key_missing"
 
 
+class PinRefused(Exception):
+    """A pin provider refuses the lock with a stable code (Story 11.1: `question_set_draft`, a
+    draft question set in production). Raised from `build_snapshot` inside the lock's
+    transaction, so nothing is frozen; the sweep tells the owners as for `ProviderKeyMissing`."""
+
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
+
+
 async def build_snapshot(
     class_session: Mapping[str, Any], *, session: AsyncSession | None = None
 ) -> dict[str, Any]:
@@ -3930,7 +4799,7 @@ async def _allocate_at_lock(s: AsyncSession, row: Mapping[str, Any], now: dateti
         return 0
     if not await classes.is_writable(row["class_id"], session=s):
         return 0
-    students = await classes.registered_students(row["class_id"])
+    students = await _seatable(row, await classes.registered_students(row["class_id"]), s)
     if not students:
         if draft is not None:  # a preview of Students who have all left: nothing to show
             await repo.delete_draft(s, row["id"])
@@ -4023,28 +4892,125 @@ async def lock_due(class_session_id: object, now: datetime) -> bool:
     assert isinstance(class_session_id, uuid.UUID)
     try:
         return await lock(class_session_id, now=now, due_only=True)
-    except ProviderKeyMissing:
-        told = await _tell_lock_refused(class_session_id, now)
+    except (ProviderKeyMissing, PinRefused) as refused:
+        told = await _tell_lock_refused(class_session_id, now, refused.code)
         log.warning(
             "class_session_lock_refused",
             class_session_id=str(class_session_id),
-            error_code=ProviderKeyMissing.code,
+            error_code=refused.code,
             told=told,
         )
         return False
 
 
-async def _tell_lock_refused(class_session_id: uuid.UUID, now: datetime) -> int:
+TestPinner = Callable[[AsyncSession, Mapping[str, Any], datetime], Awaitable[bool]]
+"""`(session, class_session_row, at)` → whether this call pinned: pins what a module keeps that
+hangs on the original Test deadline, in `lock_test`'s transaction, once and idempotently."""
+
+_test_pinners: list[TestPinner] = []
+
+
+def register_test_pinner(pinner: TestPinner) -> None:
+    """Add a pinner `lock_test` runs (Story 11.2: `tests` pins the Scoring guide in force), for a
+    module `sessions` may not import. Registering the same one again changes nothing."""
+    if pinner not in _test_pinners:
+        _test_pinners.append(pinner)
+
+
+ASSESSMENT_PURPOSE = "assessment"
+"""The purpose a model config must name a prompt for before the AI assessment uses it (12.2)."""
+
+
+async def _assessment_config(
+    s: AsyncSession, row: Mapping[str, Any]
+) -> tuple[uuid.UUID, str | None] | None:
+    """The model config (and Effort level) the Test-deadline lock pins for the AI assessment
+    (Story 12.2, AD-23, AD-27), marked referenced; None while the switch is off or when no config
+    names the `assessment` prompt. The Class session's own `model_config_id` (kept by Story 12.7's
+    trigger for a Control test, and set for Rule-based players too) when its config names it;
+    otherwise, for a course session made before the purpose existed, the active default when it
+    names it. A Control test never falls back: it checks its own config."""
+    if not (await assessment.switch_of(s, row["id"])).enabled:
+        return None
+    own = row["model_config_id"]
+    found = await config.get(own, session=s) if own is not None else None
+    level: str | None = row["effort_level"]
+    if found is None or ASSESSMENT_PURPOSE not in found.spec.prompts:
+        if row["kind"] != COURSE:
+            return None
+        found = await config.active_default(session=s)
+        if found is None or ASSESSMENT_PURPOSE not in found.spec.prompts:
+            return None
+        level = None
+    if level is not None and found.effort_level(level) is None:
+        level = None
+    await config.mark_referenced(found.id, session=s)
+    return found.id, level
+
+
+async def lock_test(class_session_id: uuid.UUID, *, now: datetime) -> bool:
+    """The Test-deadline lock (Story 12.1; Epic 11's `lock_test`, AD-9, FR-18): under the Class
+    session's row lock, in one transaction, it pins what hangs on the original Test deadline,
+    once and idempotently: the «KI-vurdering» switch (`assessment.pin_switch`) and, through each
+    pinner of `register_test_pinner`, the Scoring guide in force (Story 11.2). The sweep's
+    `tests.close_attempt` due action comes right after it (Story 11.11), and `close_attempt`
+    does nothing to an attempt of a Class session this lock has not run for. It sets
+    `test_locked_at` and emits `session:<id>`; a second call changes and emits nothing. It does
+    not judge the deadline: the sweep's finder does, and the local dev route calls it at once.
+    True when this call locked it."""
+    async with get_sessionmaker().begin() as s:
+        row = await repo.session_row(s, class_session_id, lock=True)
+        if row is None or row["test_locked_at"] is not None:
+            return False
+        # Pinned as of the Test deadline it hangs on, also when the sweep runs late (after an
+        # outage, or for a session whose deadline passed before this lock existed); the dev route
+        # runs it before the deadline, as of now.
+        deadline = row["test_deadline"]
+        at = now if deadline is None else min(now, deadline)
+        chosen = await _assessment_config(s, row)
+        pinned = await assessment.pin_switch(
+            s,
+            class_session_id,
+            at=at,
+            model_config_id=None if chosen is None else chosen[0],
+            effort_level=None if chosen is None else chosen[1],
+        )
+        for pinner in _test_pinners:
+            await pinner(s, row, at)
+        await repo.set_test_locked(s, class_session_id, now)
+        await events.emit(s, "session", str(class_session_id))
+    log.info("class_session_test_locked", class_session_id=str(class_session_id), pinned=pinned)
+    return True
+
+
+async def due_test_locks(now: datetime) -> list[uuid.UUID]:
+    """The sweep's `sessions.lock_test` finder (AD-9): the Class sessions whose original Test
+    deadline has passed and that the Test-deadline lock has not run for, by id."""
+    async with get_sessionmaker()() as s:
+        return await repo.due_test_locks(s, now)
+
+
+async def lock_test_due(class_session_id: object, now: datetime) -> bool:
+    """The sweep's `sessions.lock_test` action, one Class session per transaction with its id
+    only (AD-9)."""
+    assert isinstance(class_session_id, uuid.UUID)
+    return await lock_test(class_session_id, now=now)
+
+
+async def _tell_lock_refused(
+    class_session_id: uuid.UUID, now: datetime, reason: str = ProviderKeyMissing.code
+) -> int:
     """Mark the session's lock refused (`lock_refused_at`, the first time only, so the Klasseøkt
-    can say so), and one `LOCK_REFUSED_NOTICE` per owner of the Class and per active Admin, keyed
-    by the session and the User, so each is told once. No notice for a Class that is archived.
+    can say so, and `lock_refused_reason`, the latest reason), and one `LOCK_REFUSED_NOTICE` per
+    owner of the Class and per active Admin, keyed by the session and the User, so each is told
+    once. No notice for a Class that is archived.
     Returns how many notices were stored now."""
     told = 0
     async with get_sessionmaker().begin() as s:
         row = await repo.session_row(s, class_session_id)
         if row is None:
             return 0
-        await repo.set_lock_refused(s, class_session_id, now)
+        await repo.set_lock_refused(s, class_session_id, now, reason)
         if not await classes.is_writable(row["class_id"], session=s):
             return 0
         recipients = set(await classes.owners_of(s, row["class_id"]))
@@ -4073,6 +5039,7 @@ async def lock_refused_mail_context(
     return {
         "class_name": label.name,
         "session_number": await repo.number_of(session, ref, row["class_id"]),
+        "reason": row["lock_refused_reason"] or ProviderKeyMissing.code,
     }
 
 
@@ -4156,7 +5123,8 @@ async def late_registrants(now: datetime) -> list[tuple[uuid.UUID, uuid.UUID]]:
         if locked and not any(_open_seats(game, locked=True) for game in games):
             continue
         seated = _seated(games)
-        due.extend((row["id"], student) for student in sorted(registered - seated))
+        waiting = await _seatable(row, sorted(registered - seated))
+        due.extend((row["id"], student) for student in waiting)
     return due
 
 
@@ -4234,6 +5202,8 @@ async def seat_late_registrant(
             return False
         if user_id not in await classes.registered_students(row["class_id"]):
             return False
+        if not await _seatable(row, [user_id], s):
+            return False  # Story 12.8: a test student without consent gets no Seat.
         if await games_service.student_seated(s, class_session_id, user_id):
             return False
         locked = is_locked(row, now=now)
@@ -4382,16 +5352,31 @@ REMINDER_AHEAD = timedelta(hours=24)
 
 
 async def reminder_recipients(
-    class_session_id: uuid.UUID, deadline: DeadlineName
+    class_session_id: uuid.UUID, deadline: DeadlineName, user_id: uuid.UUID | None = None
 ) -> list[uuid.UUID]:
-    """Who is reminded of `deadline` (Story 5.14): for now every registered Student of the
-    Class session's Class, sorted. The one place the recipients are chosen; Epic 11 leaves out a
-    Student with an extension and Epic 13 one who has done the step (`progress.has_step`)."""
+    """Who is reminded of `deadline` (Story 5.14): every registered Student of the Class
+    session's Class, sorted; for the Test deadline, less those who have handed in their
+    Individual test (`test_submitted`, Story 11.10, FR-18; read through `progress`, AD-16); for
+    the Debrief and Test deadlines, less those with their own extension (Story 11.13), who are
+    reminded of their own date instead. With `user_id`, the reminder of that Student's own
+    deadline: them alone, when they are such a Student with an extension. The one place the
+    recipients are chosen; Epic 13 leaves out one who has done the other steps."""
     async with get_sessionmaker().begin() as s:
         row = await repo.session_row(s, class_session_id)
+        done: set[uuid.UUID] = set()
+        extended: set[uuid.UUID] = set()
+        if row is not None and deadline == "test_deadline":
+            done = set(
+                await progress.users_with_step(s, class_session_id, progress.Step.TEST_SUBMITTED)
+            )
+        if row is not None and deadline in OWN_DEADLINE_KEYS:
+            extended = set(await repo.extensions_of_session(s, class_session_id))
     if row is None:
         return []
-    return sorted(await classes.registered_students(row["class_id"]))
+    students = set(await classes.registered_students(row["class_id"])) - done
+    if user_id is not None:
+        return [user_id] if user_id in students and user_id in extended else []
+    return sorted(students - extended)
 
 
 async def due_playouts(now: datetime) -> list[tuple[str, uuid.UUID]]:
@@ -4465,41 +5450,95 @@ async def send_deadline_reminder_due(item: object, now: datetime) -> bool:
     return await send_deadline_reminder(class_session_id, deadline, now=now)
 
 
+async def due_own_deadline_reminders(
+    now: datetime,
+) -> list[tuple[uuid.UUID, uuid.UUID, DeadlineName]]:
+    """The sweep's `sessions.send_own_deadline_reminder` finder (Story 11.13, AD-9): `(class
+    session id, user id, deadline)` of each Student's own Debrief or Test deadline at most 24
+    hours ahead with no reminder of theirs at that time, in a Class that is not archived."""
+    async with get_sessionmaker().begin() as s:
+        rows = await repo.due_own_deadlines(s, now, now + REMINDER_AHEAD)
+    due: list[tuple[uuid.UUID, uuid.UUID, DeadlineName]] = []
+    writable: dict[uuid.UUID, bool] = {}
+    for row in rows:
+        if row["class_id"] not in writable:
+            writable[row["class_id"]] = await classes.is_writable(row["class_id"])
+        if writable[row["class_id"]]:
+            due.append((row["class_session_id"], row["user_id"], row["deadline"]))
+    return due
+
+
+async def send_own_deadline_reminder_due(item: object, now: datetime) -> bool:
+    """The sweep's `sessions.send_own_deadline_reminder` action: one Student's deadline per
+    transaction, with ids and the deadline's name only."""
+    if not isinstance(item, tuple) or len(item) != 3:
+        raise TypeError("an own reminder item is (class_session_id, user_id, deadline)")
+    class_session_id, user_id, deadline = item
+    if (
+        not isinstance(class_session_id, uuid.UUID)
+        or not isinstance(user_id, uuid.UUID)
+        or deadline not in OWN_DEADLINE_KEYS
+    ):
+        raise TypeError("an own reminder item holds two ids and a Debrief or Test deadline")
+    return await send_deadline_reminder(class_session_id, deadline, now=now, user_id=user_id)
+
+
 async def send_deadline_reminder(
-    class_session_id: uuid.UUID, deadline: DeadlineName, *, now: datetime
+    class_session_id: uuid.UUID,
+    deadline: DeadlineName,
+    *,
+    now: datetime,
+    user_id: uuid.UUID | None = None,
 ) -> bool:
     """Remind the Students of `deadline` once per deadline time (Story 5.14, FR-18): under the
     Class session's row lock, when the deadline is set, has not passed and is at most 24 hours
     away, record the reminder and enqueue one `DEADLINE_REMINDER_NOTICE` per Student of
-    `reminder_recipients`, keyed by session, deadline kind, deadline time and User. Returns False,
-    changing nothing, when there is nothing to remind of now or it was reminded before."""
+    `reminder_recipients`, keyed by session, deadline kind, deadline time and User. With
+    `user_id` (Story 11.13), the case of that Student's own Debrief or Test deadline: the time is
+    their `effective_*` deadline, the reminder row is theirs, and they alone are reminded, as the
+    same `digest` kind with a key that holds their id, the deadline kind and their time. Returns
+    False, changing nothing, when there is nothing to remind of now or it was reminded before."""
     if deadline not in DEADLINE_NAMES:
         raise ValueError(f"not a deadline: {deadline!r}")
+    if user_id is not None and deadline not in OWN_DEADLINE_KEYS:
+        raise ValueError(f"no Student has their own {deadline!r}")
     async with get_sessionmaker().begin() as s:
         row = await repo.session_row(s, class_session_id, lock=True)
         if row is None:
             return False
-        at = row[deadline]
+        at = (
+            row[deadline]
+            if user_id is None
+            else _effective(await _student_row(s, row, user_id), deadline)
+        )
         if at is None or not now < at <= now + REMINDER_AHEAD:
             return False
         if not await classes.is_writable(row["class_id"], session=s):
             return False
         reminder_id = await repo.insert_reminder(
-            s, class_session_id=class_session_id, deadline=deadline, deadline_at=at, now=now
+            s,
+            class_session_id=class_session_id,
+            deadline=deadline,
+            deadline_at=at,
+            now=now,
+            user_id=user_id,
         )
         if reminder_id is None:
             return False
         # Read once the reminder is recorded, so a Student registered until now is among them.
-        recipients = await reminder_recipients(class_session_id, deadline)
+        recipients = await reminder_recipients(class_session_id, deadline, user_id)
         kind = DATE_KINDS[deadline]
-        for user_id in recipients:
-            key = f"{DEADLINE_REMINDER_NOTICE}:{class_session_id}:{kind}:{at.isoformat()}:{user_id}"
-            await notify.enqueue(s, user_id, DEADLINE_REMINDER_NOTICE, key, ref=reminder_id)
+        for recipient in recipients:
+            key = (
+                f"{DEADLINE_REMINDER_NOTICE}:{class_session_id}:{kind}:{at.isoformat()}:{recipient}"
+            )
+            await notify.enqueue(s, recipient, DEADLINE_REMINDER_NOTICE, key, ref=reminder_id)
     log.info(
         "deadline_reminder_sent",
         class_session_id=str(class_session_id),
         deadline=kind,
         students=len(recipients),
+        own=user_id is not None,
     )
     return True
 
@@ -4511,16 +5550,27 @@ async def deadline_reminder_mail_context(
     (Story 5.14, AD-9): the Class's name, the deadline (`play`, `debrief`, `test`), its time in
     Europe/Oslo and whether the session is obligatory. None, so the notice is left out, when the
     reminder or session is gone, the deadline has moved from the reminded time or passed, the
-    Class is archived, or the User is no longer a registered Student of it."""
+    Class is archived, or the User is no longer a registered Student of it. Story 11.13: a
+    Student's own reminder holds only for them at their own deadline; the Class session's Debrief
+    or Test reminder is left out for a Student who has their own deadline by now."""
     if ref is None:
         return None
     reminder = await repo.reminder_row(session, ref)
     if reminder is None:
         return None
+    if reminder["user_id"] is not None and reminder["user_id"] != user_id:
+        return None
     row = await repo.session_row(session, reminder["class_session_id"])
     if row is None:
         return None
-    at = row[reminder["deadline"]]
+    name = reminder["deadline"]
+    at = row[name]
+    if name in OWN_DEADLINE_KEYS:
+        student = await _student_row(session, row, user_id)
+        own = student[OWN_DEADLINE_KEYS[name]] is not None
+        if reminder["user_id"] is None and own:
+            return None
+        at = _effective(student, name)
     if at is None or at != reminder["deadline_at"] or at <= now:
         return None
     label = await classes.label_of_class(session, row["class_id"])
@@ -4658,7 +5708,7 @@ async def _draw_at_lock(s: AsyncSession, row: Mapping[str, Any], now: datetime) 
     registered = await classes.registered_students(row["class_id"])
     games = await games_service.class_games(s, row["id"])
     seated = _seated(games)
-    waiting = [student for student in registered if student not in seated]
+    waiting = await _seatable(row, [student for student in registered if student not in seated], s)
     if not waiting:
         return 0
     # A Seat a Student chose and then left the Class with is free to the draw too: the open would
@@ -4833,6 +5883,8 @@ async def take_seat(
             row = locked_row
             if is_locked(row, now=now):
                 raise SessionLocked({"seat": "locked"})
+            if not await _seatable(row, [user.id], s):
+                raise ConsentMissing({"seat": "consent_missing", "missing": "1"})
             games = await games_service.class_games(s, session_id)
             game = next((g for g in games if g.number == wanted.game_number), None)
             target = (
@@ -5151,6 +6203,20 @@ def _copied_settings(source: Mapping[str, Any], *, keep_seed: bool) -> GameSetti
     return copied
 
 
+Copier = Callable[[AsyncSession, Mapping[str, Any], uuid.UUID, datetime], Awaitable[None]]
+"""`(session, source_row, new_session_id, now)`: copies what its module keeps of a Class session
+into the copy, in `copy_from`'s transaction (FR-66)."""
+
+_copiers: list[Copier] = []
+
+
+def register_copier(copier: Copier) -> None:
+    """Add a copier `copy_from` runs (Story 11.1: `tests` copies the question set selection), for
+    a module `sessions` may not import. Registering the same one again changes nothing."""
+    if copier not in _copiers:
+        _copiers.append(copier)
+
+
 async def copy_from(
     user: authz.Principal,
     source_id: uuid.UUID,
@@ -5168,17 +6234,27 @@ async def copy_from(
     «Lag Klasseøkt» does. Dates, Lab hours, the Roster, the allocation and the obligatory mark
     with its share are not copied. Raises `FeatureDisabled` while `FEATURE_RERUN` is off,
     `InvalidSettings`, `ClassArchived`; None when the User may not manage the target Class or may
-    not read the source. It copies the settings of Epic 5 and the Replay scenario
-    (`_copied_replay`, Story 10.2); the later stories that own more session settings (FR-66) add
-    theirs here."""
+    not read the source. It copies the settings of Epic 5, the Replay scenario
+    (`_copied_replay`, Story 10.2), the «KI-vurdering» switch (Story 12.1) and, through each
+    copier of `register_copier`, the question set selection (Story 11.1) and an edited Scoring
+    guide (Story 11.2); the later stories that own more session settings (FR-66) add theirs
+    here."""
     if not rerun_enabled():
         raise FeatureDisabled(dict(RERUN_DISABLED))
-    if await _class_for(user, target_class_id, "class_sessions.manage") is None:
+    target = await _class_for(user, target_class_id, "class_sessions.manage")
+    if target is None:
         return None
     async with get_sessionmaker().begin() as s:
         source = await repo.session_row(s, source_id)
-    if source is None or await _class_for(user, source["class_id"], "class_sessions.read") is None:
+    found = (
+        await _class_for(user, source["class_id"], "class_sessions.read")
+        if source is not None
+        else None
+    )
+    if source is None or found is None:
         return None
+    _refuse_control_test(target)
+    _refuse_control_test(found)
     session_id = uuid.uuid7()
     replaced: str | None = None
     async with get_sessionmaker().begin() as s:
@@ -5232,6 +6308,11 @@ async def copy_from(
         )
         if default is not None:
             await budget.set_budget(budget.BudgetScope.class_session(session_id), session=s)
+        # Story 12.1 (FR-66): the «KI-vurdering» switch's value, never its pin.
+        await assessment.copy_switch(s, source_id, session_id, now=now)
+        # Story 11.1 (FR-66): what the modules `sessions` may not import copy themselves.
+        for copier in _copiers:
+            await copier(s, source, session_id, now)
         await events.emit(s, "session", str(session_id))
     log.info(
         "class_session_copied",
@@ -5318,7 +6399,7 @@ async def evaluation_sessions(
     """Every saved Class session, newest first, or the ones with these ids (Story 15.4): how
     the Admin names them, with the dates the deletion date is computed from. No Student data."""
     rows = await repo.evaluation_rows(session, ids)
-    facts = await classes.class_facts(session, list({row["class_id"] for row in rows}))
+    facts = await classes.class_labels(session, list({row["class_id"] for row in rows}))
     found = []
     for row in rows:
         fact = facts.get(row["class_id"])
@@ -5364,7 +6445,7 @@ async def model_settings(
     """Every saved Class session, newest first, or the ones with these ids, with its model
     setting (Story 15.5). No Student data."""
     rows = await repo.model_setting_rows(session, ids)
-    facts = await classes.class_facts(session, list({row["class_id"] for row in rows}))
+    facts = await classes.class_labels(session, list({row["class_id"] for row in rows}))
     found = []
     for row in rows:
         fact = facts.get(row["class_id"])

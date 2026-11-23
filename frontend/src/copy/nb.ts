@@ -416,6 +416,29 @@ export const nb = {
     startDate: START_DATE_LINE,
     // [ASSUMPTION] Issue #93: Hjem with no Class (none yet, removed, or archived).
     noClass: "Du er ikke med i noen Klasse nå. Når en Faglærer legger deg til, står Klassen her.",
+    /** A test student's consent on Hjem (Story 12.8, FR-82, AD-27). [ASSUMPTION] draft copy for the
+     * founder's review: the purpose and the data controller are the AC's, the wording is not.
+     * `version` is the api's `CONSENT_TEXT_VERSION`: a new text takes a new version. */
+    consent: {
+      version: "kontrolltest-samtykke-1",
+      title: "Samtykke til Kontrolltest",
+      purpose:
+        "Du er teststudent i en Kontrolltest av ØL-spillet. Kontrolltesten måler hvor godt KI-vurderingen av Individuell test stemmer med vurderinger fra mennesker. Den teller aldri med i en Klasseøkt, og du får ingen karakter.",
+      data:
+        "Vi lagrer spillene dine, svarene dine på Individuell test og vurderingene av dem. Navnet ditt og e-postadressen din sendes aldri til KI-tjenesten.",
+      controller: "Operatøren av ØL-spillet er behandlingsansvarlig for opplysningene.",
+      seat: "Du får Sete i Kontrolltesten først når du har samtykket. Sier du nei, er du ikke med.",
+      give: "Jeg samtykker",
+      decline: "Nei takk",
+      giveAfterAll: "Jeg samtykker likevel",
+      /** «Du samtykket 23. november.» */
+      given: (day: string) => `Du samtykket ${day}. Du får Sete når Kontrolltesten fordeles.`,
+      declined: "Du sa nei takk. Du er ikke med i Kontrolltesten og får ikke Sete.",
+      changed: "Samtykketeksten er endret. Last inn siden på nytt og les den nye teksten.",
+      alreadyGiven: "Du har allerede samtykket.",
+      readFailed: "Samtykket kunne ikke hentes.",
+      failed: "Svaret ble ikke lagret. Prøv igjen.",
+    },
     /** Hjem from the Start date (Story 6.1, UX-DR29, EXPERIENCE.md → Hjem (Student), mockup
      * `04-student-hjem.png`). «Spill 17 · Du er Grossist», «Setene», «Stegene», «pågår», «Neste
      * frist», the Replay and Individuell test lock lines are the spine's; the rest is
@@ -603,6 +626,10 @@ export const nb = {
       /** Story 10.6: the current Replay step once a started Replay was closed at the Testfrist
        * unfinished. [ASSUMPTION] */
       replayClosedUnfinished: "stengt ved Testfristen, ikke fullført",
+      /** Story 11.11: the current Individual test step after the Student's Testfrist while it is
+       * not handed in: never opened, or opened and waiting for the sweep (about a minute), after
+       * which it turns done. [ASSUMPTION] The Replay's words. */
+      testClosed: "ikke gjort, Testfristen er ute",
       /** Story 10.4 (UX-DR64, EXPERIENCE.md → Replay in progress): the current Replay step while
        * the Replay runs; its link leads to the play screen. The spine's line. */
       replayResume: (week: number) => `Fortsett Replay, Uke ${week}.`,
@@ -711,6 +738,11 @@ export const nb = {
       staff: "Faglærere og assistenter",
       /** Above the Roster an Assistant lecturer reads (Story 4.9). [ASSUMPTION] */
       assistantLead: "Du er Assistent i Klassen. Du ser Klasselista, men Faglærerne endrer den.",
+      /** A Control test Class (Story 12.7, FR-82). [ASSUMPTION] */
+      controlTest: "Kontrolltest. Teller aldri med i en Klasseøkt.",
+      /** Story 12.8. [ASSUMPTION] */
+      controlTestRoster:
+        "Bare teststudenter kan stå på Klasselista. Hver av dem samtykker på Hjem før de får Sete.",
     },
     /** Archiving a Class (Story 4.10, FR-6, UX-DR56). [ASSUMPTION] draft copy: EXPERIENCE.md asks
      * only that the button states the consequence and that archived Classes are marked in text. */
@@ -860,6 +892,10 @@ export const nb = {
         not_invited: "Ikke invitert ennå",
       },
       invitedUntil: (lastDay: string) => `Invitert, gyldig til og med ${lastDay}`,
+      /** Story 12.8 (UX-DR57): a test student of a Control test is labelled «Teststudent», with
+       * their consent in text. The consent words are [ASSUMPTION] draft copy. */
+      testStudent: "Teststudent",
+      consent: { given: "Samtykket", declined: "Takket nei", pending: "Ikke svart ennå" },
     },
     /** Manual registration and single addresses (Story 4.8, FR-7, FR-9, UX-DR47). «Registrer
      * manuelt» is EXPERIENCE.md's own; the rest is [ASSUMPTION] draft copy. */
@@ -969,6 +1005,10 @@ export const nb = {
         two_at: "To @",
         missing_name: "Mangler navn før @",
         missing_domain: "Domene mangler",
+        // [ASSUMPTION] Story 12.8: a Control test's Klasseliste takes test students only, and an
+        // ordinary one none of them.
+        not_test_student: "Adressen har en konto som ikke er teststudent. Bruk en ny adresse.",
+        address_unavailable: "Adressen kan ikke brukes i denne Klassen. Bruk en annen adresse.",
       },
       duplicate: (firstRow: number) => `Dublett av rad ${firstRow}`,
       /** Story 4.4 (FR-7). [ASSUMPTION] */
@@ -1412,10 +1452,17 @@ export const nb = {
       // [ASSUMPTION] GitHub issue 109: the lock was refused, LLM players and no provider key.
       refused:
         "Klasseøkten kan ikke starte: KI-leverandøren for LLM-spillerne er ikke satt opp. Be en Admin ordne det. Låsen prøves igjen hvert minutt.",
+      // [ASSUMPTION] Story 11.1 (issue #16): refused in production on a draft question set.
+      refusedDraft:
+        "Klasseøkten kan ikke starte: spørsmålene til den individuelle testen er et utkast som ikke er godkjent. En Admin må legge inn godkjente spørsmål. Låsen prøves igjen hvert minutt.",
       open: "Frister som ikke er passert, og Labtimer, kan fortsatt endres.",
+      /** Story 12.1: while KI-vurdering can still change too. [ASSUMPTION] */
+      openWithAssessment: "Frister som ikke er passert, Labtimer og KI-vurdering kan fortsatt endres.",
       labHoursOpen: "Labtimer kan fortsatt endres.",
       save: "Lagre frister",
       saveHint: "Bare frister som ikke er passert, blir lagret.",
+      /** Story 12.1: «Lagre Klasseøkt» after the lock saves the deadlines and KI-vurdering. [ASSUMPTION] */
+      saveHintWithAssessment: "Bare frister som ikke er passert, og KI-vurdering, blir lagret.",
       saved: "Fristene er lagret.",
     },
     // [ASSUMPTION] the save of LLM players refused (`llm_unavailable`).
@@ -1566,6 +1613,10 @@ export const nb = {
       title: "Fordeling",
       notConfirmed: "Ikke bekreftet.",
       nobody: "Ingen registrerte studenter å fordele ennå.",
+      /** A Control test (Story 12.8): no allocation while test students have not consented; the
+       * count is the api's. [ASSUMPTION] */
+      consentMissing: (count: number) =>
+        `${count} ${count === 1 ? "teststudent har" : "teststudenter har"} ikke samtykket ennå. Kontrolltesten fordeles når alle har samtykket, eller når de som sa nei er tatt av Klasselista.`,
       open: "Se fordelingen",
       opening: "Henter fordelingen …",
       close: "Lukk",
@@ -2166,6 +2217,9 @@ export const nb = {
       aiCost: "KI-kostnad",
       // [ASSUMPTION] Story 15.8.
       operations: "Drift per Klasseøkt",
+
+      // EXPERIENCE.md → Terms («Kontrolltest»); Story 12.7.
+      controlTests: "Kontrolltest",
     },
     /** «Revisjonslogg» (Story 3.12, FR-3): every Admin action with who did it and when. The page
      * renders any action from these entries; a later epic adds its own action names here and the
@@ -2220,6 +2274,16 @@ export const nb = {
         "model_config.pinned": "Modell festet for Klasseøkt",
         "model_config.frozen": "Modell fryst for en studie",
         "model_config.freeze_lifted": "Frysing av modell opphevet",
+
+        // [ASSUMPTION] Story 12.7.
+        "institution.operator_marked": "Merket som operatørens egen Institusjon",
+        "control_test.created": "Kontrolltest satt opp",
+        // [ASSUMPTION] Story 12.9.
+        "control_test.scorer_named": "Sensor utnevnt for Kontrolltest",
+        "control_test.scorer_removed": "Sensor fjernet fra Kontrolltest",
+        "control_test.answers_read": "Svar i Kontrolltest lest av Admin",
+        "control_test.results_read": "Resultater av Kontrolltest lest av Admin",
+        "control_test.checked": "Kontrolltest fullført, Sensorveiledning kontrollert",
       } as Record<string, string>,
       /** What an action concerns, by its target key. */
       targets: {
@@ -2254,6 +2318,11 @@ export const nb = {
         model_config_id: "Modell",
         previous_model_config_id: "Forrige modell",
         freeze_id: "Frysing",
+        // [ASSUMPTION] Story 12.7.
+        previous_institution_id: "Merket før",
+        scoring_guide_id: "Sensorveiledning",
+        scoring_guide_version: "Versjon av sensorveiledningen",
+        institution_id: "Institusjon",
       } as Record<string, string>,
       values: {
         roles: { lecturer: "Faglærer", admin: "Admin" } as Record<string, string>,
@@ -2590,6 +2659,28 @@ export const nb = {
         more: "Vis flere Institusjoner",
         moreFailed: "Flere Institusjoner kunne ikke lastes. Prøv igjen.",
       },
+      /** The operator's own Institution (Story 12.7, FR-82, AD-27). [ASSUMPTION] */
+      operator: {
+        column: "Kontrolltest",
+        label: "Operatørens egen",
+        mark: (name: string) => `Merk ${name} som operatørens egen`,
+        marked: (name: string) => `${name} er nå operatørens egen Institusjon. Kontrolltester settes opp her.`,
+        failed: "Merket ble ikke lagret. Prøv igjen.",
+        help: "Kontrolltester settes opp i operatørens egen Institusjon. Bare én Institusjon kan ha merket.",
+      },
+      /** Story 12.6 (FR-56, FR-3): the Bryter that forbids the Indicative letter in every Class
+       * session of the Institution, saved at once. [ASSUMPTION] */
+      noLetter: {
+        column: "Veiledende bokstav",
+        /** The Bryter's state words. */
+        on: "Sperret",
+        off: "Faglærer velger",
+        /** The Bryter's name in a row: «Sperr veiledende bokstav for USN». */
+        name: (name: string) => `Sperr veiledende bokstav for ${name}`,
+        saved: (name: string, on: boolean) =>
+          on ? `Veiledende bokstav er sperret for ${name}.` : `${name}: faglærer velger igjen om veiledende bokstav vises.`,
+        failed: "Valget ble ikke lagret. Prøv igjen.",
+      },
       rename: {
         open: (name: string) => `Gi ${name} nytt navn`,
         field: (name: string) => `Nytt navn på ${name}`,
@@ -2597,6 +2688,50 @@ export const nb = {
         cancel: "Avbryt",
         renamed: (old: string, name: string) => `${old} heter nå ${name}.`,
         failed: "Navnet ble ikke endret. Prøv igjen.",
+      },
+    },
+    /** Admin-område → «Kontrolltest» (Story 12.7, FR-82, AD-27, UX-DR57). [ASSUMPTION] all but
+     * «Teller aldri med i en Klasseøkt.», which EXPERIENCE.md gives. */
+    controlTests: {
+      title: "Kontrolltest",
+      never: "Teller aldri med i en Klasseøkt.",
+      lead: "En Kontrolltest er en egen Klasse med én Klasseøkt i operatørens egen Institusjon. Den sjekker KI-vurderingen mot menneskelige sensorer på ekte svar.",
+      operator: (name: string) => `Settes opp i ${name}.`,
+      noOperator: "Ingen Institusjon er merket som operatørens egen. Merk én under Institusjoner først.",
+      toInstitutions: "Til Institusjoner",
+      create: {
+        title: "Ny Kontrolltest",
+        name: "Navn på Klassen",
+        guide: "Sensorveiledning som testes",
+        config: "Modellkonfigurasjon som testes",
+        pinned: "Sensorveiledningen og modellkonfigurasjonen låses når Kontrolltesten opprettes, og kan ikke endres etterpå.",
+        submit: "Opprett Kontrolltest",
+        created: (name: string) => `${name} er opprettet. Sett datoer, last opp Klasselista og fordel som i en vanlig Klasse.`,
+        failed: "Kontrolltesten ble ikke opprettet. Prøv igjen.",
+        noChoices: "Det finnes ingen modellkonfigurasjon å teste ennå.",
+        errors: {
+          name_empty: "Skriv navnet på Klassen.",
+          name_too_long: "Navnet kan ha høyst 200 tegn.",
+          name_invalid: "Navnet kan ikke inneholde kontrolltegn.",
+          unknown: "Valget finnes ikke lenger. Velg på nytt.",
+          operator_institution_missing: "Ingen Institusjon er merket som operatørens egen. Merk én under Institusjoner først.",
+        } as Record<string, string>,
+      },
+      guide: (version: number, edited: boolean, draft: boolean) =>
+        `Versjon ${version}${edited ? ", endret av en Faglærer" : ", standard"}${draft ? " (utkast)" : ""}`,
+      config: (name: string, model: string, isDefault: boolean) =>
+        `${name} (${model})${isDefault ? ", standard" : ""}`,
+      list: {
+        title: "Kontrolltester",
+        empty: "Ingen Kontrolltester ennå.",
+        guide: "Sensorveiledning",
+        config: "Modellkonfigurasjon",
+        institution: "Institusjon",
+        created: "Opprettet",
+        configGone: "Ukjent",
+        openClass: (name: string) => `Åpne Klassen ${name}`,
+        openSession: (name: string) => `Åpne Klasseøkten i ${name}`,
+        notOwner: "Bare Admin som satte den opp, åpner Klassen.",
       },
     },
     users: {
@@ -3280,6 +3415,604 @@ export const nb = {
     failed: "Svaret ble ikke sendt. Prøv igjen.",
   },
 
+  /** The AI assessment (Epic 12). */
+  tests: {
+    /** Story 11.3 (FR-51, UX-DR65, EXPERIENCE.md → Individuell test): the Student's test page.
+     * The locked line and «Testfristen er passert. Testen er ikke levert.» are the spine's; the
+     * own-work statement, its button and the item lines are [ASSUMPTION] draft copy for the
+     * founder's review. */
+    individual: {
+      title: "Individuell test",
+      statementHeading: "Eget arbeid",
+      statement:
+        "Svarene i testen skal være ditt eget arbeid. Du svarer selv og lar ingen andre svare for deg.",
+      howItWorks: "Du kan lukke testen og fortsette senere. Svarene lagres underveis, og du leverer én gang.",
+      /** «Testfrist to. 18. des. kl. 23:59.» */
+      deadline: (date: string) => `Testfrist ${date}.`,
+      /** The one primary button, named by its effect (UX-DR9). */
+      accept: "Bekreft og åpne testen",
+      failed: "Testen ble ikke åpnet. Prøv igjen.",
+      errors: {
+        test_deadline_passed: "Testfristen er passert. Testen er ikke levert.",
+        replay_required: "Individuell test, åpnes når du har fullført Replay.",
+      },
+      closed: "Testfristen er passert. Testen er ikke levert.",
+      itemsHeading: "Oppgavene",
+      /** «Oppgave 3». */
+      item: (n: number) => `Oppgave ${n}`,
+      types: {
+        choice: "Flervalg",
+        table: "Fyll inn kolonnen",
+        number: "Tallsvar",
+        long: "Langsvar",
+        /** [ASSUMPTION] a drawn Interactive item (Story 11.14): points in a graph over its table. */
+        drawn: "Tegn i grafen",
+        /** [ASSUMPTION] an Adapted item (Story 11.7): asked about the Student's own game or Replay,
+         * answered as a long answer. The Klasseøkt calls these «Tilpassede oppgaver». */
+        adapted: "Tilpasset oppgave",
+      },
+      /** Autosave (Story 11.4, UX-DR65): «Lagret 21:14», Europe/Oslo; the failure line is the
+       * spine's. */
+      saved: (time: string) => `Lagret ${time}`,
+      notSaved: "Ikke lagret. Svarene ligger på denne enheten, og vi prøver igjen.",
+      /** [ASSUMPTION] draft copy: a choice item's option, while the draft question set has option
+       * ids only (the real texts are issue #16's deliverable). «Alternativ B». */
+      option: (id: string) => `Alternativ ${id.toUpperCase()}`,
+      /** [ASSUMPTION] draft copy: a save the api refused; it is not tried again. */
+      saveErrors: {
+        attempt_submitted: "Testen er levert. Svaret ble ikke lagret.",
+        test_deadline_passed: "Testfristen er passert. Svaret ble ikke lagret.",
+        /** [ASSUMPTION] Story 11.12: the timed sitting ended before the save arrived. */
+        sitting_ended: "Tiden er ute. Svaret ble ikke lagret.",
+      } as Readonly<Record<string, string>>,
+      saveRefused: "Svaret ble ikke lagret. Last siden på nytt.",
+      /** Table and number Interactive items (Story 11.5, FR-80, UX-DR38). «Skriv et helt tall.»
+       * and «Ikke besvart» are the spine's; the rest is [ASSUMPTION] draft copy. */
+      interactive: {
+        /** [ASSUMPTION] above each Interactive item (FR-80, UX-DR74): these items are hard. */
+        intro: "Oppgaver som dette er vanskelige, også for voksne med lang utdanning. Ta én uke om gangen.",
+        /** [ASSUMPTION] the heading over the row labels of a value table. */
+        rowHeader: "Uke",
+        /** Beside the row label of an Uke with no value. */
+        notAnswered: "Ikke besvart",
+        /** [ASSUMPTION] a cell's name: «Lager, Uke 3». */
+        cell: (asked: string, row: string) => `${asked}, ${row}`,
+        wholeNumber: "Skriv et helt tall.",
+      },
+      /** A drawn Interactive item (Story 11.14, FR-80, UX-DR38): points in a graph over its value
+       * table, one answer. «Uke 3: 14 enheter» is the spine's; the rest is [ASSUMPTION] draft copy. */
+      drawn: {
+        /** Under the prompt: the three ways to answer, and that the table is the answer. */
+        howTo: "Dra eller trykk i grafen, bruk piltastene, eller skriv i tabellen. Grafen og tabellen er samme svar.",
+        /** The scroll region that holds the graph and its table. */
+        region: (caption: string) => `Graf og tabell: ${caption}`,
+        /** The group of points: the graph is a view of the table under it. */
+        graph: "Graf over tabellen",
+        /** A point's value as a slider reads it. */
+        valueText: (week: string, value: string, n: number) => `${week}: ${value} ${n === 1 || n === -1 ? "enhet" : "enheter"}`,
+        notAnsweredText: (week: string) => `${week}: ikke besvart`,
+        /** The SVGs' titles (AD-18). */
+        svg: (caption: string) => `Graf: ${caption}`,
+        axisSvg: "Verdiene på grafens akse",
+        /** [ASSUMPTION] as the charts' line: shown while later Uker are out of view. */
+        swipe: "Sveip for flere uker",
+      },
+      /** Long answers (Story 11.6, FR-73, UX-DR65). [ASSUMPTION] draft copy: the advice shown
+       * above the field on a phone. */
+      long: {
+        largerScreen: "Langsvar er lettere å skrive på en større skjerm, som en PC. Du kan likevel skrive og lagre her.",
+        /** [ASSUMPTION] draft copy: the count shown once the text nears the longest answer. */
+        count: (used: string, max: string) => `${used} av ${max} tegn`,
+        /** [ASSUMPTION] draft copy: pasted text went past the longest answer and was cut. */
+        cut: (max: string) => `Svaret kan være på høyst ${max} tegn. Det som gikk over, ble ikke tatt med.`,
+      },
+      /** Review and submit (Story 11.10, FR-51, UX-DR65, UX-DR59). «Lever testen», the unanswered
+       * line, the warning, «Levert …» and the failure line are the spine's; the rest is
+       * [ASSUMPTION] draft copy. */
+      submit: {
+        /** The one primary button, under the items and again in the review. */
+        button: "Lever testen",
+        /** [ASSUMPTION] the review's heading. */
+        reviewHeading: "Gå gjennom før du leverer",
+        /** «3 oppgaver er ikke besvart:», followed by the item numbers as links. */
+        unanswered: (n: number) => (n === 1 ? "1 oppgave er ikke besvart:" : `${n} oppgaver er ikke besvart:`),
+        /** Between the numbers: «4, 7 og 9». */
+        listComma: ", ",
+        listAnd: " og ",
+        listEnd: ".",
+        /** The link text of one unanswered item, for a screen reader: «Oppgave 4». */
+        itemLink: (n: number) => `Oppgave ${n}`,
+        /** [ASSUMPTION] every item answered. */
+        allAnswered: "Alle oppgavene er besvart.",
+        warning: "Du kan ikke endre svarene etter at du har levert.",
+        /** [ASSUMPTION] while an answer typed on this device is not yet stored. */
+        saving: "Svarene lagres …",
+        failed: "Det ble ikke lagret. Prøv igjen.",
+        errors: {
+          /** [ASSUMPTION] the Testfrist passed while the page was open. */
+          test_deadline_passed: "Testfristen er passert. Svarene du har lagret, leveres automatisk.",
+          /** [ASSUMPTION] Story 11.12: the timed sitting ended while the review was open. */
+          sitting_ended: "Tiden er ute. Svarene du har lagret, leveres automatisk.",
+        } as Readonly<Record<string, string>>,
+        /** «Levert to. 18. des. kl. 21:40. Du kan ikke endre svarene.» */
+        submitted: (date: string) => `Levert ${date}. Du kan ikke endre svarene.`,
+        /** Story 11.11's state: handed in by the Testfrist. */
+        autoSubmitted: "Testfristen er passert. Svarene dine ble levert automatisk.",
+        /** [ASSUMPTION] the heading over the read-only answers. */
+        answersHeading: "Svarene dine",
+        /** [ASSUMPTION] a read-only answer: «Ditt svar: Alternativ B», «Legg til: 16». */
+        yourAnswer: "Ditt svar",
+        answerLine: (label: string, value: string) => `${label}: ${value}`,
+      },
+      /** One timed sitting (Story 11.12, FR-51, UX-DR65). «Tid igjen 38 min», «5 minutter igjen.
+       * Svarene dine er lagret.» and «Tiden er ute. Testen er levert.» are the epic's draft copy;
+       * the rest is [ASSUMPTION] draft copy for the founder's review. */
+      timed: {
+        /** In the own-work statement, before the button (UX-DR9). */
+        limit: (minutes: number) =>
+          `Testen har en tidsgrense på ${minutes} minutter. Tiden starter når du åpner testen, og den kan ikke stoppes.`,
+        /** Replaces «Du kan lukke testen og fortsette senere …» for a timed sitting. */
+        howItWorks:
+          "Svarene lagres underveis. Lukker du testen, går tiden likevel, og du kan komme tilbake før tiden er ute.",
+        /** Fixed at the top of the open test, in whole minutes. */
+        timeLeft: (minutes: number) => `Tid igjen ${minutes} min`,
+        /** Announced politely once. */
+        fiveMinutes: "5 minutter igjen. Svarene dine er lagret.",
+        /** The sitting ended: before the sweep, and once it has handed the test in. */
+        ended: "Tiden er ute. Testen er levert.",
+      },
+    },
+    /** Story 11.12 (FR-51, UX-DR12, UX-DR49): the Klasseøkt's block «Tidsgrense» for the
+     * Individual test, saved with «Lagre Klasseøkt». [ASSUMPTION] draft copy for the founder's
+     * review. */
+    sitting: {
+      heading: "Tidsgrense på testen",
+      lead: "Studentene kan ta Individuell test over flere kvelder fram til testfristen, eller i én økt med tidsgrense.",
+      /** The Bryter's state words. */
+      on: "Én økt med tidsgrense",
+      off: "Ingen tidsgrense",
+      minutesLabel: "Tidsgrense i minutter",
+      /** The scope, under the field (UX-DR49). */
+      help: "Gjelder alle studentene i Klasseøkten. Tiden starter når studenten åpner testen, og kan ikke stoppes. Studenter med tilrettelegging får mer tid. Testfristen gjelder fortsatt.",
+      /** «Fra 15 til 240 minutter.» */
+      range: (min: number, max: number) => `Fra ${min} til ${max} minutter.`,
+      /** On leaving the field or saving, and the api's `out_of_range`. */
+      error: (min: number, max: number) => `Skriv et helt antall minutter fra ${min} til ${max}.`,
+      /** Read-only (from the Start date, or for an Assistant lecturer). */
+      readOnly: (minutes: number) => `Én økt med tidsgrense: ${minutes} minutter.`,
+      readOnlyOff: "Ingen tidsgrense. Testen er åpen fram til testfristen.",
+      locked: "Låst fra startdatoen.",
+    },
+    /** Story 11.1 (FR-52, FR-53, UX-DR49): the Klasseøkt's block «Spørsmål og vekter». The title,
+     * «Ta ut», «Vekt», the sum line and the quantity warning are the spine's; the rest is
+     * [ASSUMPTION] draft copy for the founder's review. */
+    questionSet: {
+      heading: "Spørsmål og vekter",
+      help: "Vektene gjelder alle studentene i Klasseøkten. Et spørsmål du tar ut, kommer ikke med i Individuell test. Spørsmål og vekter låses ved startdatoen.",
+      /** A draft set (issue #16). */
+      draft: "Spørsmålene er et utkast og ikke godkjent. De byttes ut før kurset tar dem i bruk.",
+      /** The vekter saved on an older version of the questions no longer apply. */
+      outdated: "Spørsmålene er endret siden vektene ble lagret. Vektene er satt tilbake til standard.",
+      types: {
+        choice: "Flervalg",
+        table: "Tabell",
+        number: "Tall",
+        long: "Langsvar",
+        /** [ASSUMPTION] Story 11.14. */
+        drawn: "Graf",
+      } as Record<string, string>,
+      startingTask: "Fra Startoppgaven",
+      quantity: "Måler mengder",
+      weight: "Vekt i %",
+      /** Read-only weight, «Vekt 10 %». */
+      weightText: (n: number) => `Vekt ${n} %`,
+      takeOut: "Ta ut",
+      putBack: "Ta med igjen",
+      takenOut: "Tatt ut",
+      adaptedTitle: "Tilpassede oppgaver",
+      adaptedHelp: "Lages fra hver students eget spill og Replay. Samme samlede vekt for alle studentene.",
+      /** [ASSUMPTION] Story 11.9: the Lenke to the Adapted item preview. */
+      adaptedPreview: "Se de tilpassede oppgavene med demodata",
+      replacements: (n: number) =>
+        `Studenter med færre enn 10 egne ordrer får ${n} vanlige oppgaver med samme samlede vekt i stedet.`,
+      /** The live sum; «Sum 95 %. Vektene må bli 100 %.» blocks the save. */
+      sum: (n: number) => (n === 100 ? "Sum 100 %." : `Sum ${n} %. Vektene må bli 100 %.`),
+      quantityWarning: "Du tar ut en oppgave som måler mengder.",
+      invalidWeight: "Skriv et helt tall fra 0 til 100.",
+      save: "Lagre vekter",
+      saving: "Lagrer …",
+      saved: "Vektene er lagret.",
+      /** Read-only reasons. */
+      assistant: "Bare Faglærerne i Klassen kan endre spørsmål og vekter.",
+      closed: "Startdatoen er passert. Spørsmål og vekter er låst.",
+      /** Refusals beside «Lagre vekter». */
+      notHundred: "Vektene må bli 100 %. Ingenting ble lagret.",
+      archived: "Klassen er arkivert, så spørsmål og vekter kan ikke endres.",
+      failed: "Vektene ble ikke lagret. Prøv igjen.",
+      loadFailed: "Spørsmål og vekter kunne ikke hentes.",
+    },
+    /** Story 11.9 (FR-53, UX-DR70): the Adapted item preview, each template filled for a sample
+     * Student and labelled «Demodata». The draft notice is «Spørsmål og vekter»'s own; the rest
+     * is [ASSUMPTION] draft copy for the founder's review. */
+    adaptedPreview: {
+      title: "Tilpassede oppgaver",
+      crumb: "Tilpassede oppgaver",
+      lead: "Slik ser de tilpassede oppgavene ut for én student. Alle studentene får de samme oppgavene, fylt med tall fra sitt eget Klassespill og sin egen Replay.",
+      /** Under the lead: where the numbers come from. */
+      sample: "Tallene her er fra ett eksempelspill, ikke fra noen av studentene dine. Oppgaven fra Replay bruker tall fra det samme spillet.",
+      /** The Debrief's AI-text switch may let an AI choose another approved wording (Story 11.8). */
+      wordings: "Når KI-tekst er slått på, kan en KI velge en annen godkjent ordlyd for en student. Tallene er de samme.",
+      /** The Adapted total weight in force, from «Spørsmål og vekter». */
+      total: (n: number) => `Samlet vekt ${n} %`,
+      item: (n: number) => `Oppgave ${n}`,
+      sources: {
+        game: "Fra Klassespillet",
+        replay: "Fra Replay",
+      } as Record<string, string>,
+      weightText: (n: number) => `Vekt ${n} %`,
+      /** A template the sample game has no fact for. */
+      noFact: "Eksempelspillet har ingen slik hendelse, så denne oppgaven kan ikke vises her.",
+      loadFailed: "De tilpassede oppgavene kunne ikke hentes.",
+    },
+    /** Story 11.2 (FR-81, UX-DR49): the Klasseøkt's block «Sensorveiledning». The title, «Standard»,
+     * «Endret» and «Ikke kontrollert med en Kontrolltest.» are the spine's; the rest is [ASSUMPTION]
+     * draft copy for the founder's review. */
+    scoringGuide: {
+      heading: "Sensorveiledning",
+      help: "Sensorveiledningen sier hva KI-vurderingen ser etter i hvert langsvar og hver tilpassede oppgave. Du kan endre teksten for denne Klasseøkten. Kriteriene og skalaen er faste.",
+      /** A draft guide (issue #16). */
+      draft: "Sensorveiledningen er et utkast og ikke godkjent. Den byttes ut før kurset tar den i bruk.",
+      /** Every version no Control test has checked, the default included (AD-27). */
+      unchecked: "Ikke kontrollert med en Kontrolltest.",
+      /** A newer default was published after this Klasseøkt's guide was edited. */
+      outdated: "Standardveiledningen er oppdatert etter at dere endret denne. Endringene deres gjelder fortsatt.",
+      /** The one five-step scale, shared by every question. */
+      scaleHeading: "Skala for alle spørsmål",
+      kinds: {
+        long: "Langsvar",
+        adapted: "Tilpasset oppgave",
+      } as Record<string, string>,
+      standard: "Standard",
+      changed: "Endret",
+      /** The Tekstfelt's label, above it. */
+      guideLabel: "Veiledning",
+      guideHint: "Hva oppgaven spør etter, og hvordan sterke og svake svar ser ut.",
+      /** The read-only criteria under the Tekstfelt. */
+      criteriaCaption: "Kriterier",
+      code: "Kode",
+      criterion: "Kriterium",
+      weight: "Vekt",
+      weightText: (n: number) => `${n} %`,
+      emptyGuide: "Skriv en veiledning.",
+      tooLong: (max: number) => `Skriv høyst ${max} tegn.`,
+      save: "Lagre sensorveiledning",
+      saving: "Lagrer …",
+      saved: "Sensorveiledningen er lagret.",
+      /** Read-only reasons. */
+      assistant: "Bare Faglærerne i Klassen kan endre sensorveiledningen.",
+      closed: "Testfristen er passert. Sensorveiledningen er låst.",
+      /** A Control test (Story 12.7): the version under test, pinned at creation. [ASSUMPTION] */
+      controlTest: "Låst da Kontrolltesten ble opprettet. Det er denne versjonen som testes.",
+      /** Refusals beside «Lagre sensorveiledning». */
+      archived: "Klassen er arkivert, så sensorveiledningen kan ikke endres.",
+      invalid: "En veiledning er tom eller for lang. Ingenting ble lagret.",
+      failed: "Sensorveiledningen ble ikke lagret. Prøv igjen.",
+      loadFailed: "Sensorveiledningen kunne ikke hentes.",
+    },
+  },
+
+  assessment: {
+    /** Story 12.1 (FR-61, UX-DR49): the block «KI-vurdering» on the Klasseøkt. The title and the
+     * help text are the spine's; the rest is [ASSUMPTION] draft copy for the founder's review. */
+    switchBlock: {
+      title: "KI-vurdering",
+      /** The Bryter's state words. */
+      on: "På",
+      off: "Av",
+      /** What the switch decides, above it. [ASSUMPTION] */
+      lead: "Når KI-vurdering er på, vurderer en KI hvert langsvar i Individuell test etter testfristen. Vurderingen teller ikke og er ingen karakter.",
+      help: "Flervalg og interaktive oppgaver rettes fortsatt automatisk. Studentrapporten finnes som vanlig.",
+      /** Under the switch while it can change. [ASSUMPTION] */
+      open: "Kan endres fram til testfristen. Da låses valget.",
+      /** Pinned by the Test-deadline lock; `when` as «ti. 24. nov. kl. 10:00». [ASSUMPTION] */
+      pinned: (when: string) => `Låst ved testfristen ${when}.`,
+      /** The Test deadline has passed and the lock has not run yet (each minute). [ASSUMPTION] */
+      deadlinePassed: "Testfristen er passert. Valget kan ikke endres.",
+      /** The save refused (`ai_assessment_pinned`). [ASSUMPTION] */
+      refused: "KI-vurdering kan ikke endres etter testfristen. Valget er låst.",
+    },
+    /** Story 12.6 (FR-56, UX-DR12): the Indicative letter in the Klasseøkt's «KI-vurdering». The
+     * name «Veiledende bokstav» is the spine's; the rest is [ASSUMPTION] draft copy. */
+    letterBlock: {
+      title: "Veiledende bokstav",
+      legend: "Hvem ser bokstaven",
+      options: {
+        all: "Vist for alle",
+        student_choice: "Studenten velger",
+        unavailable: "Ikke tilgjengelig",
+      },
+      /** The scope of each setting, under the Valgknapper. [ASSUMPTION] */
+      scope: {
+        all: "Alle studentene i denne Klasseøkten ser en bokstav ved summen sin, og faglærerne ser den også.",
+        student_choice: "Hver student kan slå bokstaven på for sin egen visning. Faglærerne ser aldri en bokstav studenten har slått på.",
+        unavailable: "Ingen i denne Klasseøkten ser en bokstav.",
+      },
+      /** Always under the choice: what the letter is. [ASSUMPTION] */
+      note: "Bokstaven regnes fra den vektede summen. Den er KI-generert, teller ikke og er ingen karakter.",
+      /** The Institution forbids it. [ASSUMPTION] */
+      forced: "Institusjonen har sperret veiledende bokstav etter krav fra personvernombudet. Bare «Ikke tilgjengelig» kan velges.",
+      thresholdsTitle: "Grenser",
+      thresholdsLead: "Laveste andel av maksimal sum, i prosent, for hver bokstav. Grensene må synke fra A til E.",
+      /** The bound field's label: «A fra (%)». */
+      bound: (letter: string) => `${letter} fra (%)`,
+      /** F has no field. */
+      rest: "F: under grensen for E",
+      /** One bound as text once read-only: «A fra 90 %». */
+      boundText: (letter: string, value: string) => `${letter} fra ${value} %`,
+      /** Why the bounds no longer change. [ASSUMPTION] */
+      thresholdsLocked: "Grensene kan ikke endres etter at den første studenten har åpnet testen.",
+      /** The web's own checks and the api's refusals. [ASSUMPTION] */
+      errors: {
+        out_of_range: "Skriv hele tall fra 1 til 100.",
+        out_of_order: "Grensene må synke fra A til E.",
+      },
+      refusedLocked: "Grensene kan ikke endres lenger: en student har åpnet testen.",
+      refusedForced: "Institusjonen har sperret veiledende bokstav. Valget ble ikke lagret.",
+    },
+    /** Story 12.2 (FR-54, FR-55, FR-61, UX-DR66): the Student's «KI-vurdering» of their
+     * Individual test. The disclosure, «kommer innen ett døgn» and the switched-off line are the
+     * spine's; the rest is [ASSUMPTION] draft copy for the founder's review. */
+    student: {
+      title: "KI-vurdering",
+      /** The Lenke on Hjem once the test is handed in. [ASSUMPTION] */
+      link: "KI-vurdering",
+      /** Story 12.4 (FR-55): on Hjem, before that Lenke, once the assessment is ready. [ASSUMPTION] */
+      readyOnHjem: "KI-vurderingen er klar.",
+      /** First on every view (FR-55). */
+      disclosure: "KI-generert, kan ta feil. Teller ikke. Ingen karakter.",
+      notReady: "KI-vurderingen kommer innen ett døgn etter testfristen.",
+      switchedOff: "Faglærer har slått av KI-vurdering for denne Klasseøkten. Studentrapporten finnes som vanlig.",
+      /** No attempt in the Class session. [ASSUMPTION] */
+      noTest: "Du har ingen levert test i denne Klasseøkten, så det finnes ingen KI-vurdering.",
+      /** Every item has no AI score yet after a run; `numbers` as «3 og 6». [ASSUMPTION] */
+      incomplete: (numbers: string) => `KI-vurderingen er ikke ferdig. Disse oppgavene mangler vurdering: ${numbers}. Derfor er det ingen samlet sum ennå.`,
+      /** The run cap was reached, or no model was pinned. [ASSUMPTION] */
+      failed: "KI-vurderingen kunne ikke lages. De automatisk rettede poengene står i Studentrapporten.",
+      loadFailed: "KI-vurderingen kunne ikke hentes.",
+      /** The item's points of its Item weight: «7,5 av 10 poeng». [ASSUMPTION] */
+      points: (points: string, weight: string) => `${points} av ${weight} poeng`,
+      /** An item still without an AI score. [ASSUMPTION] */
+      notAssessed: "Ikke vurdert ennå",
+      /** The AI's step on the Scoring guide's scale: «KI-vurdering: 3 av 4 (Godt)». [ASSUMPTION] */
+      aiStep: (step: string, top: string, label: string) => `KI-vurdering: ${step} av ${top} (${label})`,
+      /** The computed score of an answer-key or Interactive item. [ASSUMPTION] */
+      computed: {
+        right: "Rettet automatisk: riktig.",
+        partly: "Rettet automatisk: delvis riktig.",
+        wrong: "Rettet automatisk: ikke riktig.",
+        not_answered: "Rettet automatisk: ikke besvart.",
+      },
+      /** One criterion of an Interactive item, before its computed explanation. [ASSUMPTION] */
+      criterionMet: "Oppfylt",
+      criterionNotMet: "Ikke oppfylt",
+      /** The weighted total: «Vektet sum: 72,5 av 100 poeng». [ASSUMPTION] */
+      total: (points: string, max: string) => `Vektet sum: ${points} av ${max} poeng`,
+      /** Under the total. [ASSUMPTION] */
+      totalNote: "Summen er vektet etter oppgavenes vekt. Den teller ikke og er ingen karakter.",
+      /** The list's heading. [ASSUMPTION] */
+      itemsTitle: "Oppgavene",
+      /** «og» between the last two item numbers. */
+      and: "og",
+      /** Story 12.3 (FR-34, UX-DR69): the spine's prefix of an item's written feedback, which quotes the Student's own
+       * answer. */
+      feedbackPrefix: "KI-generert, kan ta feil:",
+      /** Story 12.3: in place of feedback the validator rejected twice; the score stands. [ASSUMPTION] */
+      feedbackDropped:
+        "Den skrevne tilbakemeldingen ble holdt tilbake fordi den ikke kunne kontrolleres mot svaret ditt. KI-vurderingen ovenfor gjelder fortsatt.",
+      /** Story 12.3 (FR-81, AD-27): the spine's line while the Scoring guide is not checked with the model by a Control
+       * test. */
+      unchecked: "Ikke kontrollert med en Kontrolltest.",
+    },
+    /** Story 12.6 (FR-56, UX-DR66): the Indicative letter beside the total. «Veiledende bokstav» is
+     * the spine's; the rest is [ASSUMPTION] draft copy for the founder's review. */
+    letter: {
+      /** The Student's Bryter. */
+      control: "Veiledende bokstav",
+      on: "Vist",
+      off: "Skjult",
+      /** Beside the Bryter: whom it concerns. [ASSUMPTION] */
+      help: "Bare du ser bokstaven når du slår den på. Faglærer ser den ikke.",
+      /** The letter itself: «Veiledende bokstav: B». */
+      value: (letter: string) => `Veiledende bokstav: ${letter}`,
+      /** The label under the letter, the same for the Student and the staff. [ASSUMPTION] */
+      label: "KI-generert indikasjon. Teller ikke. Ingen karakter.",
+      failed: "Det ble ikke lagret. Prøv igjen.",
+    },
+    /** Story 12.5 (FR-55, UX-DR39, UX-DR59): the Student's flag under a piece of feedback. The
+     * spine's words. */
+    flag: {
+      mark: "Marker som feil",
+      marked: "Markert. Faglærer ser det.",
+      undo: "Angre",
+      failed: "Det ble ikke lagret. Prøv igjen.",
+    },
+    /** Story 12.5 (FR-55, UX-DR66): the block «KI-vurdering» on a Student's Studentside, for the
+     * Class's staff. The disclosure and the other lines are the Student's own; these are
+     * [ASSUMPTION] draft copy for the founder's review. */
+    staff: {
+      title: "KI-vurdering",
+      /** Under a piece of feedback the Student flagged. [ASSUMPTION] */
+      flagged: "Studenten har markert denne tilbakemeldingen som feil.",
+      /** How many pieces the Student flagged, above the items; `count` through the formatter. [ASSUMPTION] */
+      flagCount: (count: number, words: string) =>
+        count === 1 ? "Studenten har markert 1 tilbakemelding som feil." : `Studenten har markert ${words} tilbakemeldinger som feil.`,
+      /** The Student has no attempt. [ASSUMPTION] */
+      noTest: "Studenten har ingen levert test i denne Klasseøkten, så det finnes ingen KI-vurdering.",
+      /** Switched off, or stopped while not ready. [ASSUMPTION] */
+      switchedOff: "KI-vurdering er slått av for denne Klasseøkten. Studentrapporten finnes som vanlig.",
+      /** In place of feedback the validator rejected twice. [ASSUMPTION] */
+      feedbackDropped:
+        "Den skrevne tilbakemeldingen ble holdt tilbake fordi den ikke kunne kontrolleres mot svaret. KI-vurderingen ovenfor gjelder fortsatt.",
+      loadFailed: "KI-vurderingen kunne ikke hentes.",
+    },
+    /** Story 12.5: the Klasseøkt's list of the Students' AI assessments, under the switch.
+     * [ASSUMPTION] draft copy for the founder's review. */
+    list: {
+      title: "Studentenes KI-vurderinger",
+      /** Each row's state, in words. [ASSUMPTION] */
+      states: {
+        ready: "Klar",
+        not_ready: "Ikke klar",
+        incomplete: "Ikke ferdig",
+        failed: "Kunne ikke lages",
+        switched_off: "Slått av",
+        no_test: "Ingen levert test",
+      },
+      /** Each row's flags; `words` is the count through the formatter. [ASSUMPTION] */
+      flags: (count: number, words: string) =>
+        count === 0 ? "Ingen markert som feil" : `${words} markert som feil`,
+      empty: "Ingen studenter i Klassen ennå.",
+      loadFailed: "Listen kunne ikke hentes.",
+    },
+  },
+
+  /** Blind scoring of a Control test (Story 12.9, FR-82, AD-27, UX-DR57). «Kontrolltest» and
+   * «Sensorveiledning» are the spine's; everything else is [ASSUMPTION] draft copy for the
+   * founder's review. A scorer never reads a test student's name: an answer is «Svar 3». */
+  scoring: {
+    /** The Lenke on the scorer's own home, and the page it opens. [ASSUMPTION] */
+    homeLink: "Sensur av Kontrolltest",
+    title: "Sensur av Kontrolltest",
+    lead: "Du vurderer svarene uten å se navn og uten å se KI-vurderingen. Den vises for et svar først når din egen vurdering er lagret.",
+    tests: {
+      empty: "Du er ikke sensor for noen Kontrolltest nå.",
+      open: (name: string) => `Vurder svarene i ${name}`,
+      closed: (date: string) => `Åpner etter testfristen ${date}.`,
+      noDeadline: "Åpner etter testfristen, som ikke er satt ennå.",
+    },
+    list: {
+      title: "Svarene",
+      notOpen: (date: string) => `Svarene kan vurderes etter testfristen ${date}.`,
+      noDeadline: "Svarene kan vurderes etter testfristen, som ikke er satt ennå.",
+      empty: "Ingen svar å vurdere.",
+      readOnly: "Du leser som Admin. Bare sensorene vurderer.",
+      progress: (scored: string, total: string) => `${scored} av ${total} vurdert`,
+      answer: (number: string) => `Svar ${number}`,
+      scored: "Vurdert",
+      notScored: "Ikke vurdert",
+      types: { long: "Langsvar", adapted: "Tilpasset oppgave" } as Record<string, string>,
+    },
+    item: {
+      title: (number: string) => `Svar ${number}`,
+      question: "Oppgaven",
+      answer: "Svaret",
+      facts: "Fakta fra studentens spill",
+      guide: "Sensorveiledning",
+      criteria: "Kriterier",
+      weight: (points: string) => `vekt ${points}`,
+      scale: "Skala",
+      choose: "Din vurdering",
+      step: (step: string, label: string) => `${step}: ${label}`,
+      consequence: "Vurderingen kan ikke endres etter at den er lagret.",
+      submit: "Lagre vurdering",
+      chooseFirst: "Velg et trinn på skalaen først.",
+      own: (step: string, label: string) => `Din vurdering: ${step} av 4, ${label}.`,
+      ownAt: (date: string) => `Lagret ${date}.`,
+      ai: (step: string, label: string) => `KI-vurderingen: ${step} av 4, ${label}.`,
+      aiMissing: "KI-vurderingen av dette svaret er ikke klar ennå.",
+      pick: "Velg trinn",
+      aiHidden: "KI-vurderingen vises når din vurdering er lagret.",
+      readOnly: "Du leser som Admin og vurderer ikke.",
+      back: "Til svarene",
+      notFound: "Svaret finnes ikke i listen.",
+      errors: {
+        human_score_exists: "Du har allerede vurdert dette svaret. Vurderingen kan ikke endres.",
+        not_found: "Svaret finnes ikke i listen.",
+      } as Record<string, string>,
+    },
+    /** Admin-område → «Kontrolltest» → «Sensorer». [ASSUMPTION] */
+    scorers: {
+      title: "Sensorer",
+      lead: "Sensorene leser svarene uten navn og vurderer dem med Sensorveiledningen. De trenger ingen Admin-rolle.",
+      openFrom: (name: string) => `Sensorer og svar i ${name}`,
+      answers: (count: string) => `${count} svar å vurdere`,
+      listTitle: "Utnevnte sensorer",
+      empty: "Ingen sensorer ennå.",
+      scored: (scored: string, total: string) => `${scored} av ${total} vurdert`,
+      remove: (name: string) => `Fjern ${name}`,
+      removeButton: "Fjern",
+      removeFailed: "Sensoren ble ikke fjernet. Prøv igjen.",
+      addTitle: "Utnevn sensor",
+      email: "E-post",
+      add: "Utnevn som sensor",
+      added: (email: string) => `${email} er sensor.`,
+      readAnswers: "Les svarene",
+      errors: {
+        unknown: "Ingen aktiv bruker har denne adressen.",
+        test_student: "En teststudent kan ikke være sensor.",
+        empty: "Skriv e-postadressen.",
+      } as Record<string, string>,
+      failed: "Sensoren ble ikke utnevnt. Prøv igjen.",
+      notFound: "Kontrolltesten finnes ikke.",
+    },
+    /** Admin-område → «Kontrolltest» → «Resultater» (Story 12.10, FR-82, UX-DR57). «Teller aldri
+     * med i en Klasseøkt.» is the spine's (`nb.admin.controlTests.never`); the rest is
+     * [ASSUMPTION] draft copy. */
+    results: {
+      title: "Resultater",
+      openFrom: (name: string) => `Resultater for ${name}`,
+      lead: "Sensorenes vurderinger og KI-vurderingen av de samme svarene, side om side, med samsvaret mellom dem.",
+      checked: "Sensorveiledningen er kontrollert med denne modellkonfigurasjonen.",
+      preliminary: "Foreløpige tall. Sensorveiledningen er ikke kontrollert ennå.",
+      preliminaryCheckedElsewhere:
+        "Foreløpige tall for denne Kontrolltesten. Sensorveiledningen er alt kontrollert med denne modellkonfigurasjonen av en annen Kontrolltest.",
+      missing: (count: number, text: string) => (count === 1 ? "1 vurdering mangler." : `${text} vurderinger mangler.`),
+      openAttempts: (count: number, text: string) =>
+        count === 1 ? "1 test er ikke levert ennå." : `${text} tester er ikke levert ennå.`,
+      aiMissing: (count: number, text: string) =>
+        count === 1 ? "KI-vurderingen mangler for 1 svar." : `KI-vurderingen mangler for ${text} svar.`,
+      noScorers: "Ingen sensorer er utnevnt.",
+      notOpen: (date: string) => `Resultatene kommer etter testfristen ${date}.`,
+      noDeadline: "Resultatene kommer etter testfristen, som ikke er satt ennå.",
+      empty: "Ingen svar å sammenligne.",
+      withheld:
+        "Du er selv sensor i denne Kontrolltesten. KI-vurderingene og samsvaret vises når du har vurdert alle svarene.",
+      measures: {
+        title: "Samsvar",
+        pairs: (text: string) => `Beregnet over ${text} par av sensor- og KI-vurdering.`,
+        noPairs: "Ingen par å beregne ennå.",
+        exact: "Helt likt",
+        exactHelp: "Andel par der sensor og KI valgte samme trinn.",
+        withinOne: "Innen ett trinn",
+        withinOneHelp: "Andel par der de er høyst ett trinn fra hverandre.",
+        offset: "Systematisk forskyvning",
+        offsetHelp: "Gjennomsnittlig KI-trinn minus sensorens trinn. Over 0: KI gir høyere.",
+        compression: "Spredning, KI mot sensor",
+        compressionHelp: "KI-ens spredning delt på sensorenes. Under 1: KI bruker mindre av skalaen.",
+        none: "Ikke beregnet",
+        steps: (text: string) => `${text} trinn`,
+      },
+      byLength: {
+        title: "Samsvar etter svarlengde",
+        band: "Svarlengde",
+        pairs: "Par",
+        bands: { short: "Under 50 ord", medium: "50–149 ord", long: "150 ord eller mer" } as Record<string, string>,
+      },
+      table: {
+        title: "Vurderingene side om side",
+        answer: "Svar",
+        type: "Type",
+        words: "Ord",
+        scorer: (number: string) => `Sensor ${number}`,
+        ai: "KI",
+        notScored: "Ikke vurdert",
+        aiMissing: "Mangler",
+        hidden: "Skjult",
+      },
+      notFound: "Kontrolltesten finnes ikke.",
+    },
+  },
+
   /** The Oversikt of a Class session (Story 7.1, FR-39, UX-DR40). The headline form, «Oppdatert»,
    * the group names «Venter», «Pågår» and «Ferdig, lavest kjedekost øverst», «KI-spiller» and
    * «Spill n» are the spine's; everything else is [ASSUMPTION] draft copy for the founder's
@@ -3891,6 +4624,42 @@ export const nb = {
         invalid_adjustment: "Sjekk feltene.",
       } as Record<string, string>,
       failed: "Tilretteleggingen ble ikke lagret. Prøv igjen.",
+    },
+    /** The block «Frister» (Story 11.13, FR-18): one Student's own Test deadline, the Debrief
+     * deadline moved with it. EXPERIENCE.md gives none of these strings: all [ASSUMPTION] draft
+     * copy, listed for the founder's review. Times are Europe/Oslo. */
+    deadline: {
+      title: "Frister",
+      /** «Testfrist: ti. 22. des. kl. 10:00.» */
+      test: (at: string) => `Testfrist: ${at}.`,
+      /** «Debrieffrist: …» */
+      debrief: (at: string) => `Debrieffrist: ${at}.`,
+      noTest: "Klasseøkta har ingen testfrist.",
+      /** Shown when extended: «Forlenget. Klassens testfrist: …» */
+      extended: (at: string) => `Forlenget. Klassens testfrist: ${at}.`,
+      asClass: "Som klassen.",
+      change: "Forleng testfrist",
+      submitted: (name: string) => `${name} har levert testen. Fristen kan ikke forlenges.`,
+      fieldLabel: "Ny testfrist",
+      /** The help line under the field: «Må være etter klassens testfrist, …» */
+      hint: (at: string) => `Må være etter klassens testfrist, ${at}.`,
+      /** «Debrieffristen flyttes like mye. Gjelder bare Jonas. Endringen logges.» */
+      scope: (name: string) => `Debrieffristen flyttes like mye. Gjelder bare ${name}. Endringen logges.`,
+      save: "Lagre frist",
+      cancel: "Avbryt",
+      /** The result line that replaces the form: «Lagret. Ny testfrist for Jonas: …» */
+      saved: (name: string, at: string) => `Lagret. Ny testfrist for ${name}: ${at}.`,
+      /** On the field. */
+      errors: {
+        required: "Velg dato og klokkeslett.",
+        not_later: (at: string) => `Velg en tid etter klassens testfrist, ${at}.`,
+        passed: "Velg en tid som ikke har passert.",
+      },
+      refusals: {
+        attempt_submitted: "Studenten har levert testen. Fristen kan ikke forlenges.",
+        no_test_deadline: "Klasseøkta har ingen testfrist å forlenge.",
+      } as Record<string, string>,
+      failed: "Fristen ble ikke lagret. Prøv igjen.",
     },
   },
 

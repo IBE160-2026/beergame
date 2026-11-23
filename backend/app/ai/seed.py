@@ -38,6 +38,8 @@ MOCK_SPEC: dict[str, object] = {
         "quiz_explanation": 1,
         "debrief_follow_up": 1,
         "replay_walkthrough": 1,
+        "adapted_item_wording": 1,
+        "assessment": 2,
     },
     "effort_levels": [
         {
@@ -71,12 +73,13 @@ async def _offer_and_pin(row: config.ModelConfig, s: AsyncSession) -> str:
 
 async def _missing_prompts(s: AsyncSession) -> tuple[config.ModelConfig, dict[str, int]] | None:
     """The active default when it is a mock config whose `prompts` map lacks a purpose the
-    seeded spec names, with the purposes to add; None otherwise."""
+    seeded spec names, or names it at a lower version (Story 12.3: `assessment` v2), with the
+    purposes to add or move; None otherwise."""
     default = await config.active_default(session=s)
     if default is None or default.spec.provider != "mock":
         return None
     wanted: dict[str, int] = dict(MOCK_SPEC["prompts"])  # type: ignore[call-overload]
-    missing = {name: v for name, v in wanted.items() if name not in default.spec.prompts}
+    missing = {name: v for name, v in wanted.items() if default.spec.prompts.get(name, 0) < v}
     return (default, missing) if missing else None
 
 
@@ -84,7 +87,8 @@ async def ensure_zero_config() -> str | None:
     """Seed the `mock` config when the environment allows it and no config is stored; returns
     the new config's id, else None. One transaction under an advisory lock.
 
-    A later epic's purposes reach a database seeded before them the way an operator adds them
+    A later epic's purposes (and a later prompt version, Story 12.3) reach a database seeded
+    before them the way an operator adds them
     (`config edit ID --prompt …`, Story 9.14): when the active default is a mock config without a
     purpose of `MOCK_SPEC`, a new row is derived from it with those prompts, measured as mock and
     pinned; Class sessions created before keep the config they hold."""

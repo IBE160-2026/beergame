@@ -205,6 +205,95 @@ class TestGameRefOut(BaseModel):
     status: Literal["not_ready", "ready", "running", "finished"]
 
 
+class TestSittingOut(BaseModel):
+    """The Individual test's one timed sitting of a Class session (Story 11.12, FR-51), stored by
+    `modules/tests`."""
+
+    minutes: int | None
+    """The time limit in whole minutes, before any Student's time factor; None: no time limit, the
+    test stays open until the Test deadline."""
+    min_minutes: int
+    max_minutes: int
+    """The range a limit must lie in (configuration)."""
+    can_change: bool
+    """The reader may change it now: an owner of a Class that is not archived, before the Class
+    session is locked (it is frozen with the question set). Assistant lecturers read it only."""
+
+
+class TestSittingIn(BaseModel):
+    """The one timed sitting as «Lagre Klasseøkt» sends it (Story 11.12): `minutes` the time limit
+    in whole minutes, or null to switch it off."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    minutes: StrictInt | None = Field(..., ge=-100_000, le=100_000)
+    """Whole minutes, a JSON integer; the service answers `out_of_range` outside the configured
+    range. The bounds here only keep the value an integer the database holds."""
+
+
+class LetterThresholdsOut(BaseModel):
+    """Story 12.6 (FR-56): the lower bounds of the Indicative letters A to E in whole percent of
+    the total's maximum, strictly falling; F is what lies under E."""
+
+    A: int
+    B: int
+    C: int
+    D: int
+    E: int
+
+
+class LetterThresholdsIn(BaseModel):
+    """Story 12.6 (FR-56): the lower bounds of A to E as JSON integers; the service answers
+    `out_of_range` outside 1 to 100 and `out_of_order` unless they fall strictly from A to E. The
+    bounds here only keep each value an integer the database can hold."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    A: StrictInt = Field(ge=-1000, le=1000)
+    B: StrictInt = Field(ge=-1000, le=1000)
+    C: StrictInt = Field(ge=-1000, le=1000)
+    D: StrictInt = Field(ge=-1000, le=1000)
+    E: StrictInt = Field(ge=-1000, le=1000)
+
+
+class LetterSettingOut(BaseModel):
+    """The Indicative letter of a Class session (Story 12.6, FR-56), stored by
+    `modules/assessment` with the «KI-vurdering» switch."""
+
+    setting: Literal["all", "student_choice", "unavailable"]
+    """In force: `unavailable` whenever the Institution forbids the letter (`forced`)."""
+    stored: Literal["all", "student_choice", "unavailable"]
+    """What the Lecturer saved; `student_choice` by default."""
+    forced: bool
+    """The Institution's data protection officer requires that no letter is shown: only
+    `unavailable` can be chosen, and no letter is derived even where one was turned on."""
+    thresholds: LetterThresholdsOut
+    """In force: the stored bounds, or the configured defaults (placeholders)."""
+    thresholds_open: bool
+    """The bounds can still change: `can_change`, and no Test attempt of the Class session has
+    been opened."""
+    can_change: bool
+    """The reader may change the setting now: as `AiAssessmentOut.can_change`."""
+
+
+class AiAssessmentOut(BaseModel):
+    """The «KI-vurdering» switch of a Class session (Story 12.1, FR-61), stored by
+    `modules/assessment`."""
+
+    enabled: bool
+    """On by default; off, the Individual tests get no AI assessment and no LLM call is made for
+    one. Answer-key and Interactive items are still scored, and the Student report exists."""
+    pinned_at: datetime | None
+    """When the Test-deadline lock pinned it; None while it can change."""
+    open: bool
+    """It can still change: not pinned, and the original Test deadline has not passed."""
+    can_change: bool
+    """The reader may change it now: an owner of a Class that is not archived, while `open`.
+    Assistant lecturers read it only (AD-12)."""
+    letter: LetterSettingOut
+    """Story 12.6 (FR-56): the Indicative letter's setting and bounds."""
+
+
 class ClassSessionOut(BaseModel):
     """One Class session as its Class's staff read it."""
 
@@ -213,6 +302,9 @@ class ClassSessionOut(BaseModel):
     class_name: str
     number: int
     """«Klasseøkt 2»: its place among its Class's sessions, oldest first, from 1."""
+    kind: Literal["course", "control_test"] = "course"
+    """`control_test` for a Control test (Story 12.7, AD-27): it never counts in a Class
+    session; its Scoring guide and model config were pinned when it was created."""
     game_settings: GameSettings
     """The engine's `GameSettings` the Class session holds, its demand seed included."""
     is_classic: bool
@@ -276,6 +368,9 @@ class ClassSessionOut(BaseModel):
     lock_refused: bool = False
     """Not locked, and the sweep has refused the lock for a missing provider key (GitHub issue
     109): LLM players and no key for the model's provider. The sweep tries again each minute."""
+    lock_refused_reason: str | None = None
+    """Why the sweep refused the lock, while `lock_refused`: `provider_key_missing` or
+    `question_set_draft` (Story 11.1)."""
     passed_dates: list[DateName]
     """The dates that are set and have passed by the server's clock; they no longer move."""
     play_time_warning: bool
@@ -312,6 +407,10 @@ class ClassSessionOut(BaseModel):
     the screen shows nothing about it and the route answers 404 `not_found`."""
     test_game: TestGameRefOut | None = None
     """Story 6.20: the reader's latest test Game in this session, while the flag is on."""
+    ai_assessment: AiAssessmentOut
+    """Story 12.1 (FR-61): the «KI-vurdering» switch, open until the original Test deadline."""
+    test_sitting: TestSittingOut
+    """Story 11.12 (FR-51): one timed sitting for the Individual test, frozen at the Start date."""
 
 
 class TestGameIn(BaseModel):
@@ -404,6 +503,18 @@ class ClassSessionSaveIn(BaseModel):
     """Story 9.2: left out, the stored choice is kept; frozen at the Start date like the others."""
     debrief_ai_text: bool | None = None
     """Story 9.14: the Debrief's AI text on or off; left out, kept; frozen at the Start date."""
+    ai_assessment: bool | None = None
+    """Story 12.1 (FR-61): the «KI-vurdering» switch on or off; left out, kept. It can change
+    after the Start date, until the original Test deadline."""
+    letter_setting: Literal["all", "student_choice", "unavailable"] | None = None
+    """Story 12.6 (FR-56): the Indicative letter setting; left out, kept. It changes while the
+    «KI-vurdering» switch can."""
+    letter_thresholds: LetterThresholdsIn | None = None
+    """Story 12.6 (FR-56): the lower bounds of A to E; left out, kept. Read-only once the first
+    Test attempt of the Class session has been opened."""
+    test_sitting: TestSittingIn | None = None
+    """Story 11.12 (FR-51): one timed sitting with its time limit, or `{"minutes": null}` for
+    none; left out, kept. Frozen at the Start date."""
     dates: DatesIn | None = None
     game_settings: dict[str, Any] | None = None
     obligatory: bool | None = None
@@ -733,7 +844,9 @@ class StepOut(BaseModel):
     closed: bool = False
     """Story 10.3: the current Replay step after the Student's Test deadline with no Replay
     started: it is not done, and it can no longer start (FR-18). Story 10.6: also once a started
-    Replay was closed at the Testfrist unfinished (the Replay's `end_reason` says so)."""
+    Replay was closed at the Testfrist unfinished (the Replay's `end_reason` says so). Story
+    11.11: also the current Individual test step after the Student's Test deadline: not handed
+    in, so not done; a saved attempt turns done when the sweep hands it in."""
 
 
 class ReplayGameOut(BaseModel):
@@ -908,6 +1021,9 @@ class AllocationOut(BaseModel):
     without_seat: list[AllocationStudentOut] = []
     """Once the session is locked: the registered Students no Class game could seat (Story
     5.13), by name. Empty before the lock, when a late registrant is seated within a minute."""
+    consent_missing: int = 0
+    """A Control test (Story 12.8): how many registered test students have not consented; no
+    allocation is drawn or confirmed while it is above 0. Always 0 for a course."""
 
 
 class AllocationConfirmIn(BaseModel):
@@ -1508,9 +1624,27 @@ class AdjustmentOut(BaseModel):
     """The share of Weeks required of the Student; None: the Class session's own."""
 
 
+class StudentDeadlinesOut(BaseModel):
+    """The block «Frister» on the Studentside (Story 11.13, FR-18): the Student's Debrief and Test
+    deadlines beside the Class session's, for the Lecturers of its Class only."""
+
+    class_debrief_deadline: datetime | None
+    class_test_deadline: datetime | None
+    debrief_deadline: datetime | None
+    """The Student's own (`service.effective_debrief_deadline`)."""
+    test_deadline: datetime | None
+    """The Student's own (`service.effective_test_deadline`)."""
+    extended: bool
+    """The Student's Test deadline is their own, later than the Class session's as it now stands."""
+    submitted: bool
+    """The Student has handed in the Individual test: their deadline can no longer be extended."""
+
+
 class StudentPageOut(BaseModel):
-    """The Studentside of one Student of a Class session (Story 8.9, UX-DR53), for the Lecturers of
-    its Class only: for now the block «Tilrettelegging»; Story 13.2 adds its own blocks."""
+    """The Studentside of one Student of a Class session (Story 8.9, UX-DR53), for the staff of
+    its Class: the blocks «Tilrettelegging» and «Frister» (Story 11.13) for its owners only
+    (`can_manage`; Story 12.5 opens the page to Assistant lecturers, who get neither); the block
+    «KI-vurdering» reads its own endpoint (Story 12.5); Story 13.2 adds its own blocks."""
 
     class_session_id: uuid.UUID
     class_id: uuid.UUID
@@ -1521,7 +1655,13 @@ class StudentPageOut(BaseModel):
     class_share: int
     """The Class session's required share of Weeks (`service.required_share`, Story 5.7)."""
     adjustment: AdjustmentOut | None
-    """None: no Tilrettelegging («Ingen tilrettelegging.»)."""
+    """None: no Tilrettelegging («Ingen tilrettelegging.»), or withheld (`can_manage` false)."""
+    deadlines: StudentDeadlinesOut | None
+    """Story 11.13: the Student's deadlines and whether they are extended; None when withheld
+    (`can_manage` false)."""
+    can_manage: bool
+    """Story 12.5: whether the User is an owner of the Class, who reads and changes
+    «Tilrettelegging» and «Frister»; an Assistant lecturer reads neither."""
 
 
 class AdjustmentIn(BaseModel):
@@ -1532,3 +1672,71 @@ class AdjustmentIn(BaseModel):
 
     time_factor: float
     share_percent: StrictInt | None = None
+
+
+# The Control test (Story 12.7, FR-82, AD-27): Admin-område → «Kontrolltest».
+
+CONTROL_TEST_NAME_MAX_LENGTH = 200
+"""The Class name rule's limit (`classes.schemas.class_name`)."""
+
+
+class ControlTestIn(BaseModel):
+    """A new Control test: its Class's name, and the Scoring guide version and the model config
+    under test. The service checks every field and answers each refused one in `fields`."""
+
+    name: str = Field(default="", max_length=4 * CONTROL_TEST_NAME_MAX_LENGTH)
+    scoring_guide_id: uuid.UUID | None = None
+    model_config_id: uuid.UUID | None = None
+
+
+class ControlTestInstitutionOut(BaseModel):
+    """The operator's own Institution, where a Control test is set up."""
+
+    id: uuid.UUID
+    name: str
+
+
+class ControlTestGuideOut(BaseModel):
+    """A Scoring guide version: the latest default, or one a Lecturer edited (`edited`)."""
+
+    id: uuid.UUID
+    version: int
+    edited: bool
+    draft: bool
+    created_at: datetime | None = None
+    """When the version was stored; given with the choices only."""
+
+
+class ControlTestConfigOut(BaseModel):
+    """A model config: its name and model version; `default` for the active default."""
+
+    id: uuid.UUID
+    name: str
+    model_version: str
+    default: bool
+
+
+class ControlTestOut(BaseModel):
+    """One Control test: its Class and Class session, its Institution, when and with what it was
+    set up. `can_open` when the asking Admin owns its Class (only the owner opens its screens)."""
+
+    id: uuid.UUID
+    """The Control test's Class session."""
+    class_id: uuid.UUID
+    name: str
+    institution_name: str | None
+    created_at: datetime
+    scoring_guide: ControlTestGuideOut
+    ai_config: ControlTestConfigOut | None
+    """The model config under test; None only if its row were gone (configs are never deleted)."""
+    can_open: bool
+
+
+class ControlTestsOut(BaseModel):
+    """The Kontrolltest page: the operator's own Institution (None until one is marked), the
+    choices for a new Control test, and every Control test, newest first."""
+
+    operator_institution: ControlTestInstitutionOut | None
+    scoring_guides: list[ControlTestGuideOut]
+    model_configs: list[ControlTestConfigOut]
+    items: list[ControlTestOut]

@@ -179,6 +179,7 @@ __all__ = [
     "finished_student_seats",
     "demand_series",
     "fact_set",
+    "fact_set_by_id",
     "StoredFactSet",
     "games_charged_to",
     "scope_of",
@@ -918,6 +919,13 @@ async def fact_set(game_id: str, seat: str) -> StoredFactSet:
     built and stored by the first call, as stored after that. For readers outside `games` (the
     Debrief, Story 9.5). Raises `ViewError` as `games.facts.get_or_create` does."""
     return await _facts.get_or_create(game_id, seat)
+
+
+async def fact_set_by_id(fact_set_id: str) -> StoredFactSet | None:
+    """The stored facts set with this id, as stored, never built or rebuilt (AD-7); None when
+    there is none. For a reader that holds a citation's `fact_set_id` (Story 12.2: the AI
+    assessment of an Adapted item)."""
+    return await _facts.by_id(fact_set_id)
 
 
 def _or_none[T: (GameSettings, SessionRuntime)](model: type[T], value: object) -> T | None:

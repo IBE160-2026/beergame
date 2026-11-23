@@ -31,7 +31,6 @@ from app.ai import gateway
 from app.ai import text as ai_text
 from app.analysis import narration as narration_rules
 from app.analysis.facts import FactSet
-from app.analysis.sentences import format_money, format_number
 from app.modules.content import service as content
 from app.modules.debrief import commands
 from app.modules.debrief.models import debrief_ai_texts
@@ -116,20 +115,8 @@ async def _defer_on_finish(session: AsyncSession, finished: games.FinishedGame) 
 games.on_game_finished("debrief.narration", _defer_on_finish)
 
 
-def fact_lines(facts: FactSet) -> str:
-    """The facts a narration or a follow-up answer may cite, one per line: the id, then its
-    numbers (no names)."""
-    lines = []
-    for fact_id, fact in narration_rules.citable(facts).items():
-        seen = fact.state_seen
-        values = (
-            f"uke={format_number(fact.week)}, bestilling={format_number(fact.order)}, "
-            f"på_vei={format_number(seen.supply_line)}, "
-            f"ordre_inn={format_number(seen.incoming_order)}, "
-            f"senere_kostnad={format_money(fact.later_cost)}"
-        )
-        lines.append(f"{fact_id}: {values}")
-    return "\n".join(lines)
+fact_lines = narration_rules.fact_lines
+"""The facts a narration or a follow-up answer may cite (`analysis.narration.fact_lines`)."""
 
 
 def _template_lines(templates: narration_rules.NarrationTemplates) -> str:

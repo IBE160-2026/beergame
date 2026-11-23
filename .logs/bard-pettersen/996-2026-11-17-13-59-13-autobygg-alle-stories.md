@@ -3935,3 +3935,24 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet, og en k
 
 ### Åpne punkter
 - Issue #242: beslutninger, utsatte punkter og nye tabeller med persondata.
+
+## Avslutning av Epic 12 (spor 3)
+
+### Oppgave
+Avslutte Epic 12 på `epic-12`: hente inn `main`, visuell kontroll, norsk sortering, testfart, oppfølgende gjennomgang, stabilisering, PR og CI.
+
+### Plan
+Én avslutningsagent i det tredje worktreet, med en egen agent for skjermbildene og én for gjennomgangen.
+
+### Resultat
+- PR #240 er merget til `main` (d486bf4), med grønn CI. Alembic har én head, 0209.
+- Norsk sortering: én felles hjelper (`platform/collation.py`) setter æ, ø og å etter z, i Python og SQL, brukt i klasselister, Admin-lister og sensorlistene.
+- Oppfølgende gjennomgang: tre middels funn rettet (vurdering som står fast i `incomplete`, Kontrolltest merket kontrollert mens en student med forlenget frist fortsatt kan åpne testen, rekkefølge i sjekken av åpne forsøk).
+- Visuell kontroll: 240 skjermbilder; rettet blant annet HTTP 500 på sidene for en Kontrolltest uten Testfrist.
+- Testfart: backend 207 s → 193 s; testen med 400 forsøk er fortsatt rundt 35 s.
+- Playwright 785 av 788 (tre passerte ved ny kjøring).
+- Status: `epic-12: done`.
+
+### Åpne punkter
+- Issue #241: utsatte punkter (blant annet en drept worker som kan la en vurdering stå fast).
+- Grunnleggeren: `assessment`-prompten i OpenRouter-konfigurasjonen, samtykketeksten (Issue #234) og kontroller med ekte modell.

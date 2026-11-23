@@ -200,6 +200,7 @@ async def test_with_every_student_removed_the_draft_goes(klass):
         "opened": False,
         "method": "random",  # Story 5.17
         "without_seat": [],
+        "consent_missing": 0,
     }
     assert counts()[0] == 0
 

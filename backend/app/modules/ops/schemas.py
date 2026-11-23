@@ -30,7 +30,7 @@ class AgreementIn(BaseModel):
     controller: AgreementText
 
 
-class AgreementOut(BaseModel):
+class EvaluationAgreementOut(BaseModel):
     agreed_by: str
     agreed_on: date
     controller: str
@@ -49,7 +49,7 @@ class EvaluationSessionOut(BaseModel):
     start_at: datetime | None
     test_deadline: datetime | None
     deletion_date: date | None
-    agreement: AgreementOut | None
+    agreement: EvaluationAgreementOut | None
 
 
 class EvaluationSessionListOut(BaseModel):

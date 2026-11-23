@@ -249,12 +249,16 @@ async def session_figures(class_session_id: uuid.UUID) -> SessionFigures:
             )
         ).all()
         config_ids = (
-            await session.execute(
-                select(llm_calls.c.model_config_id)
-                .where(in_scope, llm_calls.c.purpose == PLAYER_PURPOSE)
-                .distinct()
+            (
+                await session.execute(
+                    select(llm_calls.c.model_config_id)
+                    .where(in_scope, llm_calls.c.purpose == PLAYER_PURPOSE)
+                    .distinct()
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
     return SessionFigures(
         usd=_usd(total[0]),
         calls=total[1],

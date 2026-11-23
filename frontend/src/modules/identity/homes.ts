@@ -44,6 +44,22 @@ export function adminOperationsPath(classSessionId: string): string {
   return `${ADMIN_OPERATIONS_PATH}/${encodeURIComponent(classSessionId)}`;
 }
 
+/** «Kontrolltest» in the Admin-område (Story 12.7). */
+export const ADMIN_CONTROL_TESTS_PATH = "/admin/kontrolltest";
+
+/** «Sensorer» of one Control test in the Admin-område (Story 12.9). */
+export const controlTestScorersPath = (id: string) => `${ADMIN_CONTROL_TESTS_PATH}/${encodeURIComponent(id)}`;
+
+/** «Resultater» of one Control test in the Admin-område (Story 12.10). */
+export const controlTestResultsPath = (id: string) => `${controlTestScorersPath(id)}/resultater`;
+
+/** «Sensur av Kontrolltest» (Story 12.9): the Control tests a named scorer scores, reached from
+ * their own home; one Control test's answers, and one answer. */
+export const SCORING_PATH = "/sensur";
+export const scoringListPath = (id: string) => `${SCORING_PATH}/${encodeURIComponent(id)}`;
+export const scoringAnswerPath = (id: string, answerId: string) =>
+  `${scoringListPath(id)}/${encodeURIComponent(answerId)}`;
+
 /** «Lag Klasse» (Story 4.1). */
 export const NEW_CLASS_PATH = "/klasser/ny";
 
@@ -103,6 +119,9 @@ export const messagePath = (sessionId: string, to: { game?: string; student?: st
 /** «Meldinger» (Story 7.10): the Messages a Class session was sent, for its staff. */
 export const sentMessagesPath = (sessionId: string) => `${classSessionPath(sessionId)}/meldinger`;
 
+/** The Adapted item preview with a sample Student (Story 11.9), for the Class session's staff. */
+export const adaptedPreviewPath = (sessionId: string) => `${classSessionPath(sessionId)}/tilpassede-oppgaver`;
+
 /** A Student's «Velg spill og sete» in a Class session with Student choice (Story 5.17). */
 export const seatChoicePath = (id: string) => `${classSessionPath(id)}/velg-sete`;
 
@@ -117,6 +136,14 @@ export const walkthroughPath = (id: string) => `${gamePath(id)}/gjennomgang`;
 /** The Student's Debrief in a Class session (Story 9.2): where «Gå til Debrief» on «Spillet er
  * ferdig» and Stegene's Debrief step lead. One Debrief per Student and Class session. */
 export const DEBRIEF_PATH = (classSessionId: string) => `/debrief/${encodeURIComponent(classSessionId)}`;
+
+/** The Student's Individual test in a Class session (Story 11.3): where Stegene's current test
+ * step leads. One attempt per Student and Class session. */
+export const TEST_PATH = (classSessionId: string) => `/individuell-test/${encodeURIComponent(classSessionId)}`;
+
+/** The Student's «KI-vurdering» of their Individual test in a Class session (Story 12.2), linked
+ * from Hjem once the test step is done. */
+export const ASSESSMENT_PATH = (classSessionId: string) => `/ki-vurdering/${encodeURIComponent(classSessionId)}`;
 
 /** A Student's Explanation and Debrief summary for the Class's staff (Story 9.8), where
  * Spillinnsikt's links lead (`debrief.insight` in the api builds the same path). */
@@ -138,10 +165,30 @@ const isStaff = (user: RoleHolder) => isLecturer(user) || isAssistant(user);
 /** Whether `user` may create a Class: a Lecturer, never an Assistent (Story 4.9). */
 export const canCreateClass = isLecturer;
 
+/** Whether `user` may open a Class page and its Klasseøkt (Stories 4.1, 5.1): the staff, and an
+ * Admin, who owns the Control test Classes they set up (Story 12.7). The api decides which Class
+ * (`platform/authz`); any other reads as the permission-denied page. */
+export function canOpenClasses(user: RoleHolder): boolean {
+  return isStaff(user) || isAdmin(user);
+}
+
 export function homeOf(user: RoleHolder): Home {
   if (isStaff(user)) return "lecturerHome";
   if (isAdmin(user)) return "adminArea";
   return "home";
+}
+
+/** The crumbs before a Class and its Klasseøkt: the Lærerhjem for its staff; for a Control test
+ * Class whose owner holds no staff role, only the Admin's, the Admin-område and «Kontrolltest»
+ * (Story 12.7), where they reached it. */
+export function classCrumbs(user: RoleHolder, controlTest: boolean) {
+  if (controlTest && homeOf(user) === "adminArea") {
+    return [
+      { label: nb.homes.adminArea, href: HOME_PATH.adminArea },
+      { label: nb.admin.controlTests.title, href: ADMIN_CONTROL_TESTS_PATH },
+    ] as const;
+  }
+  return [{ label: nb.homes.lecturerHome, href: HOME_PATH.lecturerHome }] as const;
 }
 
 /** Whether `user` may open `page`. Hjem is the home of a User with no staff role. */

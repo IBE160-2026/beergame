@@ -48,9 +48,11 @@ router = APIRouter(prefix="/api/classes", tags=["classes"])
     operation_id="listClasses",
 )
 async def list_classes(
-    user: Annotated[authz.Principal, Depends(authz.require("classes.read"))],
+    user: Annotated[authz.Principal, Depends(authz.require("lecturer_home.view"))],
 ) -> Response:
-    """The Classes the User is staff of, by name: «Klassene dine» on the Lærerhjem."""
+    """The Classes the User is staff of, by name: «Klassene dine» on the Lærerhjem; a Control
+    test Class is never among them (Story 12.7), and the Lærerhjem's policy holds it, so the Admin
+    role alone, which reads a Control test Class it owns, does not reach this list."""
     return JSONResponse((await service.list_classes(user)).model_dump(mode="json"))
 
 
@@ -561,6 +563,14 @@ async def remove_roster_entry(
 # The Class's staff (Story 4.9, FR-10): «Faglærere og assistenter», for the Class's owners only.
 
 
+def control_test_refused() -> Response:
+    """409 `control_test_class` (Story 12.7, mapped in `main.py`): a Control test Class takes no
+    other staff and no other Class session."""
+    return error_response(
+        409, "control_test_class", "A Control test Class takes no other staff or Class session."
+    )
+
+
 def _staff_refused(error: StaffRefused) -> Response:
     if error.field is None:
         return error_response(422, error.reason, "The Class must keep a Faglærer.")
@@ -591,7 +601,7 @@ async def get_staff(
     "/{class_id}/staff/lecturers",
     status_code=201,
     response_model=StaffLecturer,
-    responses=documented(401, 403, 422),
+    responses=documented(401, 403, 409, 422),
     operation_id="addClassLecturer",
 )
 async def add_lecturer(
@@ -615,7 +625,7 @@ async def add_lecturer(
     "/{class_id}/staff/assistants",
     status_code=201,
     response_model=StaffAssistant,
-    responses=documented(401, 403, 422),
+    responses=documented(401, 403, 409, 422),
     operation_id="inviteClassAssistant",
 )
 async def invite_assistant(

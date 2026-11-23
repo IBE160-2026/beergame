@@ -49,7 +49,7 @@ from app.modules.ops.models import evaluation_agreements, pseudonym_key_fingerpr
 from app.modules.ops.retention import OSLO, deletion_date
 from app.modules.ops.schemas import (
     AgreementIn,
-    AgreementOut,
+    EvaluationAgreementOut,
     EvaluationSessionListOut,
     EvaluationSessionOut,
     ExportListOut,
@@ -135,8 +135,8 @@ def pseudonym(key: str, user_id: uuid.UUID) -> str:
 # The Class sessions and their agreements.
 
 
-def _agreement_out(row: Any) -> AgreementOut:
-    return AgreementOut(
+def _agreement_out(row: Any) -> EvaluationAgreementOut:
+    return EvaluationAgreementOut(
         agreed_by=row["agreed_by"],
         agreed_on=row["agreed_on"],
         controller=row["controller"],

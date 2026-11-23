@@ -1,4 +1,5 @@
 import { nb } from "@/copy/nb";
+import { ApiRequestError } from "@/lib/api/client";
 
 import type { Allocation, AllocationGame, AllocationSeat } from "./api";
 import { roleName } from "./sessions";
@@ -26,6 +27,14 @@ export function seatMark(seat: AllocationSeat): SeatMark {
 /** Why «Bekreft fordeling» committed nothing (409 `allocation_changed`), by its `fields.draft`. */
 export function changedReason(fields: Readonly<Record<string, unknown>> | undefined): string {
   return fields?.draft === "students_removed" ? copy.studentsRemoved : copy.changed;
+}
+
+/** The line for a Control test's allocation refused while test students have not consented (409
+ * `consent_missing`, Story 12.8), with the api's count; null for any other failure. */
+export function consentRefusal(error: unknown): string | null {
+  if (!(error instanceof ApiRequestError) || error.code !== "consent_missing") return null;
+  const missing = Number(error.fields?.missing);
+  return copy.consentMissing(Number.isFinite(missing) ? missing : 0);
 }
 
 /** «KI-spiller, Fabrikk. Mikkel, Distributør. Sara, Grossist. Ida, Detaljist.»: the Seats in the

@@ -34,26 +34,36 @@ async function locked(lecturer: Page, id: string, changes: Record<string, unknow
   await lecturer.route(`**/api/class-sessions/${id}`, async (route) => {
     const response = await route.fetch();
     if (!response.ok()) return route.fulfill({ response });
-    await route.fulfill({ response, json: { ...(await response.json()), locked: true, ...changes } });
+    const body = await response.json();
+    // A stand-in switch keeps the real answer's other fields (Story 12.6's `letter`).
+    const assessment = changes.ai_assessment ? { ai_assessment: { ...body.ai_assessment, ...(changes.ai_assessment as object) } } : {};
+    await route.fulfill({ response, json: { ...body, locked: true, ...changes, ...assessment } });
   });
 }
 
-test("locked, everything frozen stands as text and «Lagre frister» saves a deadline", async ({ page, browser }) => {
+test("locked, everything frozen stands as text and «Lagre Klasseøkt» saves a deadline", async ({ page, browser }) => {
   const lecturer = await freshLecturer(page, browser);
   const { id, lockedAt } = await datedSession(lecturer);
   await locked(lecturer, id, { locked_at: lockedAt, passed_dates: ["start_at"] });
   await lecturer.goto(`/klasseokter/${id}`);
 
   await expect(lecturer.getByText(copy.lock.lockedAt(osloDateText(lockedAt)))).toBeVisible();
-  await expect(lecturer.getByText(copy.lock.open)).toBeVisible();
+  await expect(lecturer.getByText(copy.lock.openWithAssessment)).toBeVisible();
   await expect(lecturer.getByText(copy.defaults)).toHaveCount(0);
   await expect(lecturer.getByText(copy.delaySources)).toHaveCount(0);
   // No control for a frozen value: no Valgknapper, no Bryter, no settings to open. The Debrief
-  // quiz's switches stay open after the lock until the Testfrist (Story 9.10): wait for that
-  // block, then count only the switches outside it.
+  // quiz's switches (Story 9.10) and KI-vurdering (Story 12.1) stay open after the lock until the
+  // Testfrist: wait for those blocks, then count only the switches outside them.
   await expect(lecturer.locator("[data-quiz-exclusions]")).toBeVisible();
-  await expect(lecturer.getByRole("radio")).toHaveCount(0);
-  await expect(lecturer.locator("[role='switch']:not([data-quiz-exclusions] [role='switch'])")).toHaveCount(0);
+  await expect(lecturer.locator("[data-ai-assessment] [role='switch']")).toBeVisible();
+  // Story 12.6: the Veiledende bokstav's Valgknapper, in KI-vurdering, stay open with it.
+  await expect(lecturer.locator("[data-letter-block] input[type='radio']")).toHaveCount(3);
+  await expect(lecturer.locator("input[type='radio']:not([data-ai-assessment] input)")).toHaveCount(0);
+  await expect(
+    lecturer.locator(
+      "[role='switch']:not([data-quiz-exclusions] [role='switch']):not([data-ai-assessment] [role='switch'])",
+    ),
+  ).toHaveCount(0);
   await expect(lecturer.getByRole("button", { name: copy.edit.open })).toHaveCount(0);
   await expect(lecturer.getByRole("heading", { name: copy.choices.aiMode })).toBeVisible();
   // The passed Startdato as text; the deadlines ahead stay fields.
@@ -61,15 +71,17 @@ test("locked, everything frozen stands as text and «Lagre frister» saves a dea
     osloDateText(lockedAt),
   );
   await expect(lecturer.locator("input#date-start_at")).toHaveCount(0);
-  await expect(lecturer.getByRole("button", { name: copy.save })).toHaveCount(0);
-  const save = lecturer.getByRole("button", { name: copy.lock.save });
-  await expect(save).toHaveAccessibleDescription(copy.lock.saveHint);
+  // KI-vurdering can still change until the Testfrist (Story 12.1), so the one save is «Lagre
+  // Klasseøkt», and it says what it saves.
+  await expect(lecturer.getByRole("button", { name: copy.lock.save })).toHaveCount(0);
+  const save = lecturer.getByRole("button", { name: copy.save });
+  await expect(save).toHaveAccessibleDescription(copy.lock.saveHintWithAssessment);
 
   const testField = lecturer.locator("input#date-test_deadline");
   const later = new Date(Date.now() + 30 * DAY).toISOString();
   await testField.fill(toOsloInput(later));
   await save.click();
-  await expect(lecturer.getByRole("status").filter({ hasText: copy.lock.saved })).toBeVisible();
+  await expect(lecturer.getByRole("status").filter({ hasText: copy.saved })).toBeVisible();
   const stored = await (await lecturer.request.get(`/api/class-sessions/${id}`)).json();
   expect(toOsloInput(stored.test_deadline)).toBe(toOsloInput(later));
 });
@@ -77,8 +89,10 @@ test("locked, everything frozen stands as text and «Lagre frister» saves a dea
 test("locked with every date passed, the Klasseøkt has no save at all", async ({ page, browser }) => {
   const lecturer = await freshLecturer(page, browser);
   const { id } = await datedSession(lecturer);
-  // Locked by the sweep a minute ago or refused: no `locked_at` yet.
-  await locked(lecturer, id, { locked_at: null, passed_dates: ALL_DATES });
+  // Locked by the sweep a minute ago or refused: no `locked_at` yet. The Testfrist has passed, so
+  // KI-vurdering no longer changes either (Story 12.1).
+  const closed = { enabled: true, pinned_at: null, open: false, can_change: false };
+  await locked(lecturer, id, { locked_at: null, passed_dates: ALL_DATES, ai_assessment: closed });
   await lecturer.goto(`/klasseokter/${id}`);
   await expect(lecturer.getByText(copy.lock.pending)).toBeVisible();
   await expect(lecturer.getByText(copy.lock.labHoursOpen, { exact: true })).toBeVisible();
@@ -104,7 +118,9 @@ test("a lock the sweep refused is said on the Klasseøkt (Issue #109)", async ({
 test("locked before the Startdato (an early start), the Startdato stands as text too", async ({ page, browser }) => {
   const lecturer = await freshLecturer(page, browser);
   const { id } = await datedSession(lecturer);
-  await locked(lecturer, id, { locked_at: new Date().toISOString(), passed_dates: [] });
+  // KI-vurdering already pinned (Story 12.1): «Lagre frister» saves only the deadlines.
+  const pinned = { enabled: true, pinned_at: new Date().toISOString(), open: false, can_change: false };
+  await locked(lecturer, id, { locked_at: new Date().toISOString(), passed_dates: [], ai_assessment: pinned });
   await lecturer.goto(`/klasseokter/${id}`);
   await expect(lecturer.getByRole("group", { name: copy.dates.names.start_at, exact: true })).toContainText(
     copy.dates.lockedStart,
@@ -225,7 +241,7 @@ for (const vp of SIZES) {
       const { id, lockedAt } = await datedSession(lecturer);
       await locked(lecturer, id, { locked_at: lockedAt, passed_dates: ["start_at"] });
       await lecturer.goto(`/klasseokter/${id}`);
-      await expect(lecturer.getByRole("button", { name: copy.lock.save })).toBeVisible();
+      await expect(lecturer.getByRole("button", { name: copy.save })).toBeVisible();
       await expectAccessible(lecturer, vp.phone);
     });
 

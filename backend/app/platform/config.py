@@ -131,6 +131,10 @@ class Settings(BaseSettings):
     # The required share of Weeks a new Class session starts with (Story 5.7, FR-17), a whole
     # percent. PLACEHOLDER from FR-17's assumption; Completion itself is Epic 13's.
     completion_default_share_percent: int = Field(80, ge=1, le=100)
+    # One timed sitting for the Individual test (Story 11.12, FR-51). PLACEHOLDERS: the whole
+    # minutes a Lecturer may set as the time limit, before any Student's time factor.
+    test_sitting_min_minutes: int = Field(15, ge=1)
+    test_sitting_max_minutes: int = Field(240, ge=1)
     # The Group debrief (Story 9.11, FR-43). PLACEHOLDER: how long a shared step must have been
     # open before its opener may move every joined Student on, in minutes.
     debrief_move_on_wait_minutes: int = Field(5, ge=0)
@@ -156,6 +160,27 @@ class Settings(BaseSettings):
     # prototype: how long, in minutes, a Class game may stay `playing_out` after the Play deadline
     # playout took it over; a Game still playing out after it is logged as an error.
     playout_allowed_minutes: int = Field(60, ge=1, le=10080)
+    # The AI assessment (Story 12.2, FR-54, AD-6). PLACEHOLDERS: the back-off before the next run
+    # of an assessment that still lacks an item score (doubled after each run), and the most job
+    # runs one assessment gets before it is `failed`.
+    assessment_retry_minutes: int = Field(30, ge=1, le=1440)
+    assessment_max_runs: int = Field(4, ge=1, le=20)
+    # Story 12.4 (FR-54, NFR-8): the target for a ready assessment after the attempt's
+    # `effective_deadline` (a target until measured); past it the sweep logs it as overdue once
+    # and defers its job again when none is alive.
+    assessment_overdue_hours: int = Field(24, ge=1, le=240)
+    # Story 12.6 (FR-56). PLACEHOLDERS, to be set after the first Control test: the default lower
+    # bounds of the Indicative letters A to E, in whole percent of the total's maximum, strictly
+    # falling (F is the rest). A Class session that stores none uses these until it is pinned.
+    indicative_letter_thresholds: str = "90,80,60,50,40"
+
+    @field_validator("indicative_letter_thresholds")
+    @classmethod
+    def _letter_bounds(cls, v: str) -> str:
+        from app.analysis.letter import parse_thresholds
+
+        parse_thresholds(v)  # a malformed set refuses at load, naming the variable
+        return v
 
     # Mail (AD-9, AD-17, Story 3.5). With no RESEND_API_KEY outside production every mail goes
     # to the `[email:mock]` sender; the compose file never passes a key.

@@ -39,9 +39,28 @@ users = Table(
     # Set when the User was erased (Story 15.2, FR-76): the row stays as the anonymous User its
     # id now names, with no name, e-mail or password of the person.
     Column("deleted_at", DateTime(timezone=True), nullable=True),
+    # A test student (Story 12.8, AD-27): set when the User is created from a Control test's
+    # Roster, never changed after. Written and read through `service` only.
+    Column("is_test_student", Boolean, nullable=False, server_default=text("false")),
     CheckConstraint("email = lower(btrim(email))", name="ck_users_email_normalised"),
 )
 """One row per account; exactly one User per e-mail (FR-4)."""
+
+test_student_consents = Table(
+    "test_student_consents",
+    metadata,
+    Column("id", Uuid, primary_key=True),
+    Column("user_id", Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True),
+    Column("decision", Text, nullable=False),
+    # The version of the consent text the test student read (`service.CONSENT_TEXT_VERSION`).
+    Column("text_version", Text, nullable=False),
+    Column("decided_at", DateTime(timezone=True), nullable=False),
+    CheckConstraint("decision IN ('given', 'declined')", name="ck_test_student_consents_decision"),
+    CheckConstraint("text_version <> ''", name="ck_test_student_consents_text_version"),
+)
+"""One row per decision a test student takes on Hjem (Story 12.8, FR-82, AD-27): `given` or
+`declined`, the text version they read and the time (the api's clock). The newest row of the
+current text version is the User's decision. Personal data; deleted with the User."""
 
 user_roles = Table(
     "user_roles",
@@ -179,12 +198,25 @@ institutions = Table(
     Column("name", Text, nullable=False),
     Column("created_at", DateTime(timezone=True), nullable=False),
     Column("updated_at", DateTime(timezone=True), nullable=False),
+    # The operator's own Institution, where Control tests are set up (Story 12.7, AD-27): one at
+    # most (`uq_institutions_operator_owned`), written and read through `service` only.
+    Column("operator_owned", Boolean, nullable=False, server_default=text("false")),
+    # Story 12.6 (FR-56, FR-3): the Institution's data protection officer requires that no
+    # Indicative letter is shown; every Class session of it then reads the letter as unavailable.
+    # Written and read through `service` only, each change audited.
+    Column("no_letter", Boolean, nullable=False, server_default=text("false")),
     CheckConstraint("name <> ''", name="ck_institutions_name_not_empty"),
 )
 """One row per Institution the Admin creates (Story 3.11, FR-3); Classes belong to one (Epic 4).
 Names are unique case-insensitively. Times come from the api's clock. No delete in v1."""
 
 Index("uq_institutions_name", func.lower(institutions.c.name), unique=True)
+Index(
+    "uq_institutions_operator_owned",
+    institutions.c.operator_owned,
+    unique=True,
+    postgresql_where=institutions.c.operator_owned,
+)
 
 access_requests = Table(
     "access_requests",
