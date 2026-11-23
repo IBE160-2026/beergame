@@ -96,7 +96,7 @@ describe("the review before «Lever testen» (Story 11.10)", () => {
 });
 
 describe("Stegene's Individual test step (Story 11.3)", () => {
-  const flags = { held: false, quiz_changed: false, group_open: false, closed: false };
+  const flags = { held: false, quiz_changed: false, group_open: false, closed: false, corrected: false, after_makeup: false };
   const steps = (state: "current" | "locked"): EnrolledSession["steps"] => [
     { step: "replay", state: state === "current" ? "done" : "current", ...flags },
     { step: "test", state, ...flags },

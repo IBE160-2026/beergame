@@ -7,7 +7,9 @@ import { nb } from "@/copy/nb";
 import { formatNumber } from "@/lib/number-format";
 import { topicKeys } from "@/lib/api/topics";
 
-import { assessmentListKey, type MyAssessment, staffAssessmentKey } from "./api";
+import { studentRecordKey } from "@/modules/reports/api";
+
+import { assessmentListKey, type MyAssessment } from "./api";
 import { flagCount, flagCountText, rowFlagsText, stateLine } from "./assessment";
 import { AssessmentView } from "./assessment-page";
 import { FlagControl } from "./flag-control";
@@ -87,7 +89,7 @@ describe("«Marker som feil» (Story 12.5)", () => {
     const keys = topicKeys({ topic: "session", id: "s1", version: null });
     const prefixes = (key: readonly unknown[]) =>
       keys.some((prefix) => (prefix as unknown[]).every((part, index) => key[index] === part));
-    expect(prefixes(staffAssessmentKey("s1", "u1"))).toBe(true);
+    expect(prefixes(studentRecordKey("s1", "u1"))).toBe(true);
     expect(prefixes(assessmentListKey("s1"))).toBe(true);
   });
 });

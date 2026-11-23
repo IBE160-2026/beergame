@@ -42,6 +42,16 @@ def test_print_answers_404_at_the_proxy():
     assert "reverse_proxy" not in body
 
 
+def test_the_apis_internal_routes_answer_404_at_the_proxy_before_the_api():
+    # Story 13.7: the report snapshot read is for the frontend server only (AD-11, AD-18).
+    assert matchers()["@internal"] == ["/api/internal", "/api/internal/*"]
+    body = handle_blocks()["@internal"]
+    assert re.search(r"respond\s+404", body)
+    assert "reverse_proxy" not in body
+    text = re.sub(r"#.*", "", CADDYFILE.read_text(encoding="utf-8"))
+    assert text.index("handle @internal") < text.index("handle @api")
+
+
 def test_everything_else_goes_to_frontend():
     body = handle_blocks()["*"]
     assert re.search(r"reverse_proxy\s+\{\$WEB_UPSTREAM:frontend:3000\}", body)

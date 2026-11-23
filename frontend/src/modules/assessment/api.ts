@@ -57,30 +57,10 @@ export type StaffAssessment = components["schemas"]["StaffAssessmentOut"];
 /** The Klasseøkt's list of the Students' AI assessments (Story 12.5). */
 export type AssessmentRow = components["schemas"]["AssessmentRowOut"];
 
-/** Under the Studentside's key, so the Class session's `session` event reads it again (`topics.ts`). */
-export const staffAssessmentKey = (sessionId: string, userId: string) =>
-  ["class-sessions", "students", sessionId, userId, "assessment"] as const;
-
 /** Under `["class-sessions", id]`, which the `session` event reads again. */
 export const assessmentListKey = (sessionId: string) => ["class-sessions", sessionId, "assessments"] as const;
 
-/** `/api/class-sessions/{id}/students/{user_id}/assessment`: 403 `forbidden` for anyone but the
- * Class's owners and Assistant lecturers. */
-export function useStaffAssessment(sessionId: string, userId: string) {
-  return useQuery({
-    queryKey: staffAssessmentKey(sessionId, userId),
-    queryFn: () =>
-      request(() =>
-        api.GET("/api/class-sessions/{session_id}/students/{user_id}/assessment", {
-          params: { path: { session_id: sessionId, user_id: userId } },
-          cache: "no-store",
-        }),
-      ),
-    retry: false,
-  });
-}
-
-/** `/api/class-sessions/{id}/assessments`: 403 `forbidden` as `useStaffAssessment`. */
+/** `/api/class-sessions/{id}/assessments`: for the staff of the Class; 403 `forbidden` otherwise. */
 export function useAssessmentList(sessionId: string) {
   return useQuery({
     queryKey: assessmentListKey(sessionId),

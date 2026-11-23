@@ -328,6 +328,25 @@ describe("Stegene", () => {
   it("keeps its markers out of the accessibility tree", () => {
     expect(html.match(/aria-hidden="true"/g)?.length).toBe(3);
   });
+
+  it("puts an action under a locked step's note too (Story 13.9)", () => {
+    const locked = renderToStaticMarkup(
+      <Stegene
+        title="Stegene"
+        titleId="st"
+        items={[
+          {
+            key: "report",
+            name: "Rapport",
+            state: "locked",
+            note: "Rapport, åpnes når Testfristen er ute.",
+            action: <p data-under="">Slettes 18. juni 2027.</p>,
+          },
+        ]}
+      />,
+    );
+    expect(locked).toMatch(/Rapport, åpnes når Testfristen er ute\.<\/span><p data-under="">Slettes 18\. juni 2027\.<\/p>/);
+  });
 });
 
 describe("ColumnItem", () => {

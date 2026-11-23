@@ -1,0 +1,83 @@
+#!/usr/bin/env python3
+"""PDF/UA-1 check of a Student report with veraPDF (Story 13.7, NFR-6, AD-18).
+
+    scripts/verapdf frontend/test-results/student-report.pdf
+
+WeasyPrint's `pdf/ua-1` variant tags the PDF but does not guarantee valid PDF/UA, so a sample report
+is checked with veraPDF, the reference validator, against its built-in `ua1` profile. veraPDF runs
+from its official Docker image, pinned by digest: no account, no download beyond the image. The
+sample is the PDF the e2e `student-report.spec.ts` downloads through the real pipeline.
+
+Prints each failed rule with its clause and count, and exits 0 only when veraPDF says the file is
+compliant. Standard library and Docker only.
+"""
+
+import subprocess
+import sys
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+IMAGE = "verapdf/cli@sha256:c2ac9448973a56acd833c81441e38d2dca58ea26a2ce1621e9a32e85d3d2728f"
+"""veraPDF 1.30.4 (the image `verapdf/cli:latest` of 2026-11-18)."""
+
+
+def failures(report: str) -> tuple[bool | None, list[str]]:
+    """Whether veraPDF found the file compliant (None when it gave no verdict), and each failed
+    rule as «clause test: description (n)»."""
+    root = ET.fromstring(report)
+    verdict = root.find(".//validationReport")
+    if verdict is None:
+        return None, []
+    rules = [
+        f"{rule.get('clause')}-{rule.get('testNumber')}: "
+        f"{(rule.findtext('description') or '').strip()} ({rule.get('failedChecks')})"
+        for rule in root.iter("rule")
+        if rule.get("status") == "failed"
+    ]
+    return verdict.get("isCompliant") == "true", rules
+
+
+def main(argv: list[str]) -> int:
+    if len(argv) != 1:
+        print("usage: scripts/verapdf <pdf>", file=sys.stderr)
+        return 2
+    pdf = Path(argv[0]).resolve()
+    if not pdf.is_file():
+        print(f"no such file: {pdf}", file=sys.stderr)
+        return 2
+    run = subprocess.run(
+        [
+            "docker",
+            "run",
+            "--rm",
+            "--network",
+            "none",
+            "-v",
+            f"{pdf.parent}:/data:ro",
+            IMAGE,
+            "--flavour",
+            "ua1",
+            "--format",
+            "xml",
+            f"/data/{pdf.name}",
+        ],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+    try:
+        compliant, rules = failures(run.stdout)
+    except ET.ParseError:
+        compliant, rules = None, []
+    if compliant is None:
+        print(f"veraPDF gave no verdict (exit {run.returncode}):\n{run.stderr[-2000:]}", file=sys.stderr)
+        return 1
+    for rule in rules:
+        print(f"FAIL {rule}")
+    print(f"veraPDF PDF/UA-1: {'compliant' if compliant else 'NOT compliant'} ({pdf.name})")
+    return 0 if compliant else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))

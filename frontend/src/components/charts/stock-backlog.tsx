@@ -21,7 +21,13 @@ export type StockBacklogProps = {
   /** With a size, each band's largest stock and largest backlog carry their number as a direct
    * label (DESIGN.md: direct labels), in room kept free at the band's top and foot. */
   fontSize?: number;
+  /** The game's largest stock and backlog when it is drawn in several blocks of Uker (the
+   * Student report, Story 13.8), so every block shares the game's one scale. */
+  most?: StockBacklogMost;
 };
+
+/** The largest stock and largest backlog a scale is split at. */
+export type StockBacklogMost = { stock: number; backlog: number };
 
 /** The room left free at the top and bottom of each band, in px, so two bands never touch. */
 const GAP = 3;
@@ -32,12 +38,12 @@ const GAP = 3;
  * With neither the line sits at the band's foot. A drawing choice, like an axis: the numbers
  * themselves are the api's.
  */
-export function stockBands(height: number, rows: readonly StockBacklogRow[], labelRoom = 0) {
+export function stockBands(height: number, rows: readonly StockBacklogRow[], labelRoom = 0, given?: StockBacklogMost) {
   const band = height / Math.max(1, rows.length);
-  const most = (pick: (row: StockBacklogRow) => readonly (number | null)[]) =>
-    Math.max(0, ...rows.flatMap((row) => pick(row).map((value) => value ?? 0)));
-  const stock = most((row) => row.stock);
-  const backlog = most((row) => row.backlog);
+  const most = (pick: (row: StockBacklogRow) => readonly (number | null)[], floor = 0) =>
+    Math.max(0, floor, ...rows.flatMap((row) => pick(row).map((value) => value ?? 0)));
+  const stock = most((row) => row.stock, given?.stock);
+  const backlog = most((row) => row.backlog, given?.backlog);
   const room = Math.max(1, band - 2 * GAP - 2 * labelRoom);
   const total = stock + backlog;
   const unit = total > 0 ? room / total : 0;
@@ -55,9 +61,9 @@ export function stockBands(height: number, rows: readonly StockBacklogRow[], lab
  * in a Graf over tabell field, so its columns are the Uke header's; `aria-hidden` there, its
  * «Vis som tabell» is the alternative.
  */
-export function StockBacklog({ width, height, xs, columnWidth, rows, title, fontSize }: StockBacklogProps) {
+export function StockBacklog({ width, height, xs, columnWidth, rows, title, fontSize, most }: StockBacklogProps) {
   const labelRoom = fontSize ? Math.ceil(fontSize * 1.25) : 0;
-  const bands = stockBands(height, rows, labelRoom);
+  const bands = stockBands(height, rows, labelRoom, most);
   const barWidth = Math.max(2, Math.round(columnWidth * 0.7));
   return (
     <svg

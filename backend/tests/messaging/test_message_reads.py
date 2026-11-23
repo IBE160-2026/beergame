@@ -8,6 +8,7 @@ import sys
 import uuid
 from pathlib import Path
 
+import pytest
 from sqlalchemy import event
 
 from app.main import create_app
@@ -211,11 +212,16 @@ def test_no_route_lets_a_student_write_a_message():
     assert writes == [("/api/class-sessions/{session_id}/messages", "POST")]
 
 
-def test_the_messages_module_imports_first_in_a_fresh_interpreter():
+@pytest.mark.parametrize(
+    "module",
+    ["app.modules.messaging.messages", "app.modules.ops.jobs"],
+)
+def test_the_messages_module_imports_first_in_a_fresh_interpreter(module):
     """Story 7.9 broke an import cycle here: importing `messaging.messages` before anything else
-    must work."""
+    must work. Story 13.6: so must the worker's first import (`ops.jobs`), which reaches
+    `messages` through `sessions`, `classes` and `messaging.delivery` while `sessions` loads."""
     done = subprocess.run(
-        [sys.executable, "-c", "import app.modules.messaging.messages"],
+        [sys.executable, "-c", f"import {module}"],
         cwd=BACKEND,
         capture_output=True,
         text=True,

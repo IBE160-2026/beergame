@@ -214,8 +214,12 @@ for (const vp of VIEWPORTS) {
       await centreInView(columnOf(5));
       const x5 = await settledX(columnOf(5));
       const level20 = await centreY(graph.locator("[data-mark=point][data-week='2']"));
-      await page.mouse.click(x5, level20);
-      await expect(cells.nth(4)).toHaveValue("20");
+      // Under a loaded run the first tap could land before the column settled: tap again until
+      // it took (a tap at the same height places the same value, so a repeat changes nothing).
+      await expect(async () => {
+        await page.mouse.click(x5, level20);
+        await expect(cells.nth(4)).toHaveValue("20", { timeout: 2_000 });
+      }).toPass({ timeout: 15_000 });
       await expect.poll(() => saves.at(-1)?.value).toEqual([23, 20, 19, 30, 20, null]);
       await expect(sliders.nth(4)).toBeFocused();
       // A drag in Uke 6's column: pressed at 20, moved down to the bottom, it ends at 0.

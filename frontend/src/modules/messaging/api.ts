@@ -10,13 +10,18 @@ import type { components } from "@/lib/api/schema";
  * Students it reaches now, the earlier Messages to it and the length limit. */
 export type MessageForm = components["schemas"]["MessageFormOut"];
 export type MessageSent = components["schemas"]["MessageSentOut"];
+/** A Student who has not met the requirement, as the form's table lists them (Story 13.6). */
+export type NotMetStudent = components["schemas"]["NotMetStudentOut"];
 
 /** Whom the form writes to: a Student (with the game it was opened from, if any), a Class game,
- * or, with neither, the whole Class session. */
-export type MessageTo = { game?: string; student?: string };
+ * the Students who have not met the requirement (Story 13.6, `requirement`), or, with none of
+ * these, the whole Class session. */
+export type MessageTo = { game?: string; student?: string; requirement?: true };
+
+const REQUIREMENT_NOT_MET = "requirement_not_met" as const;
 
 export const messageFormKey = (sessionId: string, to: MessageTo) =>
-  ["messaging", "form", sessionId, to.game ?? "", to.student ?? ""] as const;
+  ["messaging", "form", sessionId, to.game ?? "", to.student ?? "", to.requirement ? REQUIREMENT_NOT_MET : ""] as const;
 
 /** `/api/class-sessions/{id}/messages/form`: anyone but the staff of the Class, and a recipient
  * outside the Class session, answers 403 `forbidden`. */
@@ -26,7 +31,10 @@ export function useMessageForm(sessionId: string, to: MessageTo) {
     queryFn: () =>
       request(() =>
         api.GET("/api/class-sessions/{session_id}/messages/form", {
-          params: { path: { session_id: sessionId }, query: { game_id: to.game, student_id: to.student } },
+          params: {
+            path: { session_id: sessionId },
+            query: { game_id: to.game, student_id: to.student, recipient: to.requirement ? REQUIREMENT_NOT_MET : undefined },
+          },
           cache: "no-store",
         }),
       ),
@@ -41,7 +49,13 @@ export function sendMessage(sessionId: string, to: MessageTo, text: string, key:
   return request(() =>
     api.POST("/api/class-sessions/{session_id}/messages", {
       params: { path: { session_id: sessionId } },
-      body: { key, text, game_id: to.game ?? null, student_id: to.student ?? null },
+      body: {
+        key,
+        text,
+        game_id: to.game ?? null,
+        student_id: to.student ?? null,
+        recipient: to.requirement ? REQUIREMENT_NOT_MET : null,
+      },
     }),
   );
 }

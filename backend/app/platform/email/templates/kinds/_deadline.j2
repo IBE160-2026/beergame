@@ -7,3 +7,8 @@
 {%- set months = ["januar", "februar", "mars", "april", "mai", "juni", "juli", "august", "september", "oktober", "november", "desember"] -%}
 {{ weekdays[at.weekday()] }} {{ at.day }}. {{ months[at.month - 1] }} kl. {{ at.strftime("%H:%M") }}
 {%- endmacro %}
+{# Story 13.9: a calendar day, «24. mai 2027». #}
+{% macro day(on) -%}
+{%- set months = ["januar", "februar", "mars", "april", "mai", "juni", "juli", "august", "september", "oktober", "november", "desember"] -%}
+{{ on.day }}. {{ months[on.month - 1] }} {{ on.year }}
+{%- endmacro %}

@@ -27,7 +27,8 @@ COPY backend/migrations ./migrations
 COPY backend/app ./app
 RUN uv sync --locked --no-dev && chmod +x docker-entrypoint.sh
 
-RUN useradd --system --uid 10001 app
+RUN useradd --system --uid 10001 app     && mkdir -p /app/.local-storage && chown app /app/.local-storage
+# The storage mock's folder (Story 13.7): a named volume mounted here starts owned by `app`.
 USER app
 
 EXPOSE 8000

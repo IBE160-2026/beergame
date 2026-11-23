@@ -10,26 +10,29 @@ import { AccessDenied, GuardedPage } from "@/modules/identity/home-page";
 import { classPath, classSessionPath, HOME_PATH, studentPagePath } from "@/modules/identity/homes";
 import { PageShell } from "@/modules/identity/page-shell";
 
-import { StaffAssessmentBlock } from "@/modules/assessment/staff-block";
-
 import { AdjustmentBlock } from "./adjustment-block";
-import { type StudentPage, studentPageKey, useStudentPage } from "./api";
+import { type StudentPage, studentRecordKey, useStudentPage, useStudentRecord } from "./api";
+import { CompletionBlock } from "./completion-block";
 import { DeadlineBlock } from "./deadline-block";
+import { RecordBlocks } from "./record-blocks";
+import type { StudentRecord } from "./record";
 
 /** The Studentside's in-place forms: one open at a time (EXPERIENCE.md → Studentside, «One
- * panel»); opening another closes the first and keeps nothing. */
-type Editing = "adjustment" | "deadline" | null;
+ * panel»); opening another closes the first and keeps nothing. Story 13.3: the correction form
+ * of one step of «Fullføring», `correct:<step>`. */
+type Editing = "adjustment" | "deadline" | `correct:${string}` | null;
 
 /** The shape of an id (a UUID). */
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * The Studentside (Story 8.9, UX-DR53, EXPERIENCE.md → Studentside): one Student of a Class
- * session, as a page of blocks for the staff of its Class: «Tilrettelegging» and «Frister» (Story
- * 11.13) for its Lecturers only (`can_manage`), and «KI-vurdering» (Story 12.5) for its Lecturers
- * and Assistant lecturers; Story 13.2 adds its own blocks here. Reached from the Student's name on
- * Spillinnsikt and on the Klasseøkt's list of AI assessments. Anyone else sees the
- * permission-denied page (FR-5, AD-12).
+ * session, as a page of blocks for the staff of its Class (Story 13.2, FR-63): «Fullføring», the
+ * record blocks and «KI-vurdering» with the Student's flags (Story 12.5) for its Lecturers and
+ * Assistant lecturers, then «Tilrettelegging» and «Frister» (Story 11.13) for its Lecturers only
+ * (`can_manage`). Reached from the Student's name on Spillinnsikt, on the Klasseøkt's list of AI
+ * assessments and on the Roster. Anyone else sees the permission-denied page, which never says
+ * whether the Student exists (FR-5, AD-12).
  */
 export function StudentPageView({ sessionId, userId }: { sessionId: string; userId: string }) {
   const named = ID.test(sessionId) && ID.test(userId);
@@ -58,12 +61,16 @@ function StudentPageBody({
   user: SessionUser;
   updatedAt: number;
 }) {
-  const found = useStudentPage(sessionId, userId);
+  const found = useStudentRecord(sessionId, userId);
+  const data: StudentRecord | undefined = found.data;
+  // «Tilrettelegging» and «Frister» are the Lecturers' (`getStudentPage`); an Assistant lecturer
+  // never asks for them.
+  const page = useStudentPage(sessionId, userId, data?.can_manage === true);
   const [editing, setEditing] = useState<Editing>(null);
   const toggle = (block: Exclude<Editing, null>) => (open: boolean) =>
     setEditing((now) => (open ? block : now === block ? null : now));
-  const { phase, retry } = usePageState(found, studentPageKey(sessionId, userId));
-  const data: StudentPage | undefined = found.data;
+  const { phase, retry } = usePageState(found, studentRecordKey(sessionId, userId));
+  const managed: StudentPage | undefined = data?.can_manage ? page.data : undefined;
   if (found.error instanceof ApiRequestError && found.error.code === "forbidden") {
     return <AccessDenied user={user} updatedAt={updatedAt} />;
   }
@@ -83,7 +90,7 @@ function StudentPageBody({
       crumbs={crumbs}
       phase={data ? "ready" : phase === "ready" ? "loading" : phase}
       onRetry={retry}
-      skeleton={{ rows: 3, columns: 1 }}
+      skeleton={{ rows: 6, columns: 1 }}
       header={
         data ? (
           <header className="flex flex-col gap-1">
@@ -97,17 +104,26 @@ function StudentPageBody({
     >
       {data ? (
         <>
-          {data.can_manage ? (
-            <AdjustmentBlock data={data} open={editing === "adjustment"} onOpenChange={toggle("adjustment")} />
+          <CompletionBlock
+            record={data}
+            editing={editing?.startsWith("correct:") ? editing.slice("correct:".length) : null}
+            onEditingChange={(step) =>
+              setEditing((now) => (step ? `correct:${step}` : now?.startsWith("correct:") ? null : now))
+            }
+          />
+          <RecordBlocks record={data} />
+          {managed ? (
+            <>
+              <AdjustmentBlock data={managed} open={editing === "adjustment"} onOpenChange={toggle("adjustment")} />
+              {managed.deadlines ? (
+                <DeadlineBlock
+                  data={{ ...managed, deadlines: managed.deadlines }}
+                  open={editing === "deadline"}
+                  onOpenChange={toggle("deadline")}
+                />
+              ) : null}
+            </>
           ) : null}
-          {data.can_manage && data.deadlines ? (
-            <DeadlineBlock
-              data={{ ...data, deadlines: data.deadlines }}
-              open={editing === "deadline"}
-              onOpenChange={toggle("deadline")}
-            />
-          ) : null}
-          <StaffAssessmentBlock sessionId={sessionId} userId={userId} />
         </>
       ) : null}
     </PageShell>

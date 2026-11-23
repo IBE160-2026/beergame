@@ -1013,6 +1013,64 @@
         "title": "AssessmentRowOut",
         "type": "object"
       },
+      "AssessmentSectionOut": {
+        "description": "«KI-vurdering» (Story 13.11, FR-55, FR-56, FR-58): only when the Student added it. The\nStudent's own ready view: `checked` (a Control test checked the Scoring guide), the items, the\nweighted total, and `letter` only where `assessment.letter_for` gives one for the report. No\nflags. It counts toward nothing and is no grade.",
+        "properties": {
+          "checked": {
+            "title": "Checked",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReportAssessedItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "kind": {
+            "const": "assessment",
+            "default": "assessment",
+            "title": "Kind",
+            "type": "string"
+          },
+          "letter": {
+            "anyOf": [
+              {
+                "enum": [
+                  "A",
+                  "B",
+                  "C",
+                  "D",
+                  "E",
+                  "F"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Letter"
+          },
+          "total": {
+            "title": "Total",
+            "type": "number"
+          },
+          "total_max": {
+            "title": "Total Max",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "checked",
+          "items",
+          "total",
+          "total_max",
+          "letter"
+        ],
+        "title": "AssessmentSectionOut",
+        "type": "object"
+      },
       "AuditActor": {
         "description": "An actor of the log for the filter: a User with their name, or the system (both null).",
         "properties": {
@@ -2577,6 +2635,233 @@
         "title": "ColumnRowOut",
         "type": "object"
       },
+      "CompletionOut": {
+        "description": "The Student's Completion status as `reports.service.completion_status` gives it (FR-17).\n`requirement_met` is None when the Class session is not obligatory. The shares are whole\npercents rounded down, None without a Class game snapshot; `required_share` is the one that\napplies to this Student, `adjusted` whether it is their own (Story 8.9).",
+        "properties": {
+          "adjusted": {
+            "title": "Adjusted",
+            "type": "boolean"
+          },
+          "obligatory": {
+            "title": "Obligatory",
+            "type": "boolean"
+          },
+          "ordered_share": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ordered Share"
+          },
+          "playout_share": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Playout Share"
+          },
+          "required_share": {
+            "title": "Required Share",
+            "type": "integer"
+          },
+          "requirement_met": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requirement Met"
+          },
+          "share_game": {
+            "anyOf": [
+              {
+                "enum": [
+                  "class",
+                  "makeup"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Share Game"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/CompletionStepOut"
+            },
+            "title": "Steps",
+            "type": "array"
+          }
+        },
+        "required": [
+          "obligatory",
+          "requirement_met",
+          "required_share",
+          "adjusted",
+          "ordered_share",
+          "playout_share",
+          "steps"
+        ],
+        "title": "CompletionOut",
+        "type": "object"
+      },
+      "CompletionSectionOut": {
+        "description": "«Fullføring»: the Completion status per step and whether an obligatory requirement is met\n(FR-17, FR-58). The shares are whole percents; `required_share` the one that applies to the\nStudent; `share_game` which game the shares come from when there is an Oppfølgingsspill.",
+        "properties": {
+          "kind": {
+            "const": "completion",
+            "default": "completion",
+            "title": "Kind",
+            "type": "string"
+          },
+          "obligatory": {
+            "title": "Obligatory",
+            "type": "boolean"
+          },
+          "ordered_share": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ordered Share"
+          },
+          "playout_share": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Playout Share"
+          },
+          "required_share": {
+            "title": "Required Share",
+            "type": "integer"
+          },
+          "requirement_met": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requirement Met"
+          },
+          "share_game": {
+            "anyOf": [
+              {
+                "enum": [
+                  "class",
+                  "makeup"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Share Game"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/ReportStepOut"
+            },
+            "title": "Steps",
+            "type": "array"
+          }
+        },
+        "required": [
+          "obligatory",
+          "requirement_met",
+          "required_share",
+          "ordered_share",
+          "playout_share",
+          "share_game",
+          "steps"
+        ],
+        "title": "CompletionSectionOut",
+        "type": "object"
+      },
+      "CompletionStepOut": {
+        "description": "One step of the «Fullføring» block: whether its step event is recorded and when, whether it\ncounts as done after the share, the minimums and any correction, and whether a correction\ndecided it (Story 13.1), with that correction (Story 13.3).",
+        "properties": {
+          "corrected": {
+            "title": "Corrected",
+            "type": "boolean"
+          },
+          "correction": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CorrectionOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "done": {
+            "title": "Done",
+            "type": "boolean"
+          },
+          "recorded": {
+            "title": "Recorded",
+            "type": "boolean"
+          },
+          "recorded_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recorded At"
+          },
+          "step": {
+            "enum": [
+              "class_game",
+              "debrief",
+              "quiz_passed",
+              "replay",
+              "test_submitted"
+            ],
+            "title": "Step",
+            "type": "string"
+          }
+        },
+        "required": [
+          "step",
+          "recorded",
+          "recorded_at",
+          "done",
+          "corrected"
+        ],
+        "title": "CompletionStepOut",
+        "type": "object"
+      },
       "ComputedCriterionOut": {
         "description": "One coded criterion of an Interactive item as the computed rule scored it (FR-80): met or\nnot, and the computed explanation in words.",
         "properties": {
@@ -3142,6 +3427,75 @@
         "title": "CopySourceOut",
         "type": "object"
       },
+      "CorrectionIn": {
+        "additionalProperties": false,
+        "description": "«Lagre retting» (Story 13.3, FR-17): the step, its new status and the required reason.",
+        "properties": {
+          "done": {
+            "title": "Done",
+            "type": "boolean"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "step": {
+            "enum": [
+              "class_game",
+              "debrief",
+              "quiz_passed",
+              "replay",
+              "test_submitted"
+            ],
+            "title": "Step",
+            "type": "string"
+          }
+        },
+        "required": [
+          "step",
+          "done",
+          "reason"
+        ],
+        "title": "CorrectionIn",
+        "type": "object"
+      },
+      "CorrectionOut": {
+        "description": "The correction of a step that applies, the latest (Story 13.3): the status it set, the\nLecturer's reason, when, and who made it by their name now (None when the name is no longer\nknown in the Class). For the staff of the Class only; never served to a Student.",
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "By"
+          },
+          "done": {
+            "title": "Done",
+            "type": "boolean"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "done",
+          "reason",
+          "at",
+          "by"
+        ],
+        "title": "CorrectionOut",
+        "type": "object"
+      },
       "CostLine": {
         "additionalProperties": false,
         "description": "One part of this Week's cost: units on the end-of-Week balance times the rate.",
@@ -3328,6 +3682,11 @@
             "title": "Id",
             "type": "string"
           },
+          "makeup": {
+            "default": false,
+            "title": "Makeup",
+            "type": "boolean"
+          },
           "role": {
             "$ref": "#/components/schemas/Role"
           },
@@ -3355,6 +3714,101 @@
         ],
         "title": "DebriefRelease",
         "type": "string"
+      },
+      "DebriefSectionOut": {
+        "description": "«Debrief» (Story 13.10, FR-58, FR-47): the Explanation as written (null: not sent); when\nthe Debrief was finished (null: not finished) and whether after the Debrief deadline; the\nsummary's key moments and the line that ties them together; the reflection answers on\nevidence and structure; the quiz attempts up to the pass and whether it is passed.",
+        "properties": {
+          "explanation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Explanation"
+          },
+          "explanation_saved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Explanation Saved At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "kind": {
+            "const": "debrief",
+            "default": "debrief",
+            "title": "Kind",
+            "type": "string"
+          },
+          "late": {
+            "title": "Late",
+            "type": "boolean"
+          },
+          "moments": {
+            "items": {
+              "$ref": "#/components/schemas/ReportMomentOut"
+            },
+            "title": "Moments",
+            "type": "array"
+          },
+          "narration": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportTextOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "quiz_attempts": {
+            "title": "Quiz Attempts",
+            "type": "integer"
+          },
+          "quiz_passed": {
+            "title": "Quiz Passed",
+            "type": "boolean"
+          },
+          "reflection": {
+            "items": {
+              "$ref": "#/components/schemas/ReportReflectionOut"
+            },
+            "title": "Reflection",
+            "type": "array"
+          }
+        },
+        "required": [
+          "explanation",
+          "explanation_saved_at",
+          "finished_at",
+          "late",
+          "moments",
+          "narration",
+          "reflection",
+          "quiz_attempts",
+          "quiz_passed"
+        ],
+        "title": "DebriefSectionOut",
+        "type": "object"
       },
       "DebriefStepOut": {
         "description": "A Debrief step after step 1, reached only with a saved Explanation (FR-41, FR-43). Step 2\ncarries the reveal (Story 9.4), step 3 the whole chain (Story 9.5), step 4 the own moments\n(Story 9.7) and the Debrief's lines under Kjedens regning (Story 9.8); step 5, the Debrief quiz,\nhas routes of its own (`/quiz`, Story 9.9) and answers the step number only here.",
@@ -3708,6 +4162,18 @@
             ],
             "title": "Debrief Deadline"
           },
+          "deletion_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deletion Date"
+          },
           "drawn_seat": {
             "anyOf": [
               {
@@ -3739,6 +4205,16 @@
             },
             "title": "Lab Hours",
             "type": "array"
+          },
+          "makeup": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StudentGameOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "next_deadline": {
             "anyOf": [
@@ -3779,6 +4255,17 @@
                 "type": "null"
               }
             ]
+          },
+          "requirement_met": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requirement Met"
           },
           "seat_choice_open": {
             "default": false,
@@ -4418,6 +4905,32 @@
           "backorder_cost"
         ],
         "title": "GameRulesOut",
+        "type": "object"
+      },
+      "GameSectionOut": {
+        "description": "«Klassespill» or «Oppfølgingsspill» (Story 13.8): `game` null when the Student has no\ngame with an opened Week; the section then says so.",
+        "properties": {
+          "game": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportGameOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "const": "game",
+            "default": "game",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "game"
+        ],
+        "title": "GameSectionOut",
         "type": "object"
       },
       "GameSettings": {
@@ -6279,7 +6792,8 @@
             "enum": [
               "student",
               "class_game",
-              "class_session"
+              "class_session",
+              "requirement_not_met"
             ],
             "title": "Kind",
             "type": "string"
@@ -6287,6 +6801,14 @@
           "max_length": {
             "title": "Max Length",
             "type": "integer"
+          },
+          "not_met": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/NotMetStudentOut"
+            },
+            "title": "Not Met",
+            "type": "array"
           },
           "sent_before": {
             "title": "Sent Before",
@@ -6346,6 +6868,18 @@
             "format": "uuid",
             "title": "Key",
             "type": "string"
+          },
+          "recipient": {
+            "anyOf": [
+              {
+                "const": "requirement_not_met",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipient"
           },
           "student_id": {
             "anyOf": [
@@ -7048,6 +7582,78 @@
         "title": "NoLetterIn",
         "type": "object"
       },
+      "NotMetStudentOut": {
+        "description": "One Student who has not met the requirement (Story 13.6, FR-17), from\n`reports.service.completion_status`.",
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "ordered_share": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ordered Share"
+          },
+          "playout_share": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Playout Share"
+          },
+          "required_share": {
+            "title": "Required Share",
+            "type": "integer"
+          },
+          "share_game": {
+            "anyOf": [
+              {
+                "enum": [
+                  "class",
+                  "makeup"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Share Game"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "name",
+          "ordered_share",
+          "required_share",
+          "playout_share",
+          "share_game"
+        ],
+        "title": "NotMetStudentOut",
+        "type": "object"
+      },
       "OfferedEffortLevelOut": {
         "description": "An Effort level the Class session may use (Story 5.5, FR-78), as the model config holds it\nand `ai.config.offered_effort_levels` offers it: nothing here is written by `sessions`.",
         "properties": {
@@ -7586,6 +8192,42 @@
           "submitted_at"
         ],
         "title": "OwnScoreOut",
+        "type": "object"
+      },
+      "ParticipationOut": {
+        "description": "Participation signals, information only: they never change the Completion status (FR-17).\nThe seconds spent on the Student's own Orders, how many own Orders there are, and whether the\nown Orders after the Guided Weeks were constant (None with fewer than two).",
+        "properties": {
+          "after_guided": {
+            "title": "After Guided",
+            "type": "integer"
+          },
+          "constant": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Constant"
+          },
+          "own_orders": {
+            "title": "Own Orders",
+            "type": "integer"
+          },
+          "seconds": {
+            "title": "Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "own_orders",
+          "seconds",
+          "constant",
+          "after_guided"
+        ],
+        "title": "ParticipationOut",
         "type": "object"
       },
       "PasswordResetIn": {
@@ -8164,6 +8806,269 @@
         "title": "QuizResultOut",
         "type": "object"
       },
+      "RecordDebriefOut": {
+        "description": "The Explanation and the Debrief summary (`debrief.service.staff_summary`): the Explanation's\ntext and time, and when the Debrief was finished and whether after the Debrief deadline.",
+        "properties": {
+          "explanation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Explanation"
+          },
+          "explanation_saved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Explanation Saved At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "late": {
+            "title": "Late",
+            "type": "boolean"
+          },
+          "moments": {
+            "title": "Moments",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "explanation",
+          "explanation_saved_at",
+          "finished_at",
+          "late",
+          "moments"
+        ],
+        "title": "RecordDebriefOut",
+        "type": "object"
+      },
+      "RecordGameOut": {
+        "description": "The Student's Class game (`games.service.student_game`): its id for the link to\nSpillinnsikt, number, the Student's Role and where it stands (`ended`: closed without its last\nWeek, Story 10.6), with when it finished. `makeup`: it is the Student's finished\nOppfølgingsspill, which became their game (Story 13.5); it has no Spillinnsikt.",
+        "properties": {
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "game_id": {
+            "format": "uuid",
+            "title": "Game Id",
+            "type": "string"
+          },
+          "makeup": {
+            "default": false,
+            "title": "Makeup",
+            "type": "boolean"
+          },
+          "number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number"
+          },
+          "played_out": {
+            "title": "Played Out",
+            "type": "boolean"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "not_ready",
+              "ready",
+              "running",
+              "finished",
+              "ended"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "game_id",
+          "number",
+          "role",
+          "state",
+          "played_out",
+          "finished_at"
+        ],
+        "title": "RecordGameOut",
+        "type": "object"
+      },
+      "RecordMakeupOut": {
+        "description": "The Student's Oppfølgingsspill (Story 13.4): its Game, when it was given, the Student's\neffective Test deadline it is open until, and where it stands (`ended`: closed at that\ndeadline without its last Week).",
+        "properties": {
+          "game_id": {
+            "format": "uuid",
+            "title": "Game Id",
+            "type": "string"
+          },
+          "given_at": {
+            "format": "date-time",
+            "title": "Given At",
+            "type": "string"
+          },
+          "open_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Open Until"
+          },
+          "state": {
+            "enum": [
+              "not_ready",
+              "ready",
+              "running",
+              "finished",
+              "ended"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "game_id",
+          "given_at",
+          "open_until",
+          "state"
+        ],
+        "title": "RecordMakeupOut",
+        "type": "object"
+      },
+      "RecordQuizAttemptOut": {
+        "description": "A Debrief quiz attempt: its number, time and result; never the answers.",
+        "properties": {
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          },
+          "submitted_at": {
+            "format": "date-time",
+            "title": "Submitted At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "number",
+          "submitted_at",
+          "passed"
+        ],
+        "title": "RecordQuizAttemptOut",
+        "type": "object"
+      },
+      "RecordReplayOut": {
+        "description": "The Student's Replay Game (`replay.service.replay_game_of`) and when it finished.",
+        "properties": {
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "game_id": {
+            "format": "uuid",
+            "title": "Game Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "game_id",
+          "finished_at"
+        ],
+        "title": "RecordReplayOut",
+        "type": "object"
+      },
+      "RecordTestOut": {
+        "description": "The Student's Individual test attempt (`tests.service.attempt_summary`): its status, when it\nwas handed in and which parts hold content. Never an answer.",
+        "properties": {
+          "parts": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "title": "Parts",
+            "type": "object"
+          },
+          "status": {
+            "enum": [
+              "open",
+              "submitted",
+              "auto_submitted"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "submitted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted At"
+          }
+        },
+        "required": [
+          "status",
+          "submitted_at",
+          "parts"
+        ],
+        "title": "RecordTestOut",
+        "type": "object"
+      },
       "ReflectionAnswerIn": {
         "description": "«Fortsett» on a reflection question: the answer as typed. It must hold more than white\nspace and at most 2000 characters (422 `validation_error`).",
         "properties": {
@@ -8332,6 +9237,18 @@
             "default": false,
             "title": "Test Student",
             "type": "boolean"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
           }
         },
         "required": [
@@ -8669,6 +9586,32 @@
           "replay_template"
         ],
         "title": "ReplayScenarioCheckIn",
+        "type": "object"
+      },
+      "ReplaySectionOut": {
+        "description": "«Replay» (Story 13.10): `replay` null when the Student has no Replay.",
+        "properties": {
+          "kind": {
+            "const": "replay",
+            "default": "replay",
+            "title": "Kind",
+            "type": "string"
+          },
+          "replay": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportReplayOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "replay"
+        ],
+        "title": "ReplaySectionOut",
         "type": "object"
       },
       "ReplayStartOut": {
@@ -9016,6 +9959,965 @@
           "state"
         ],
         "title": "ReplayWalkthroughOut",
+        "type": "object"
+      },
+      "ReportAiScoreOut": {
+        "description": "The AI's score of a long-answer or Adapted item (Story 12.2): its step on the Scoring\nguide's scale with the label, its written feedback (`ai_generated`, quotes as «…») or that the\nfeedback was left out (`feedback_dropped`).",
+        "properties": {
+          "assessed": {
+            "title": "Assessed",
+            "type": "boolean"
+          },
+          "feedback": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportTextOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "feedback_dropped": {
+            "title": "Feedback Dropped",
+            "type": "boolean"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "step": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step"
+          },
+          "top": {
+            "title": "Top",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "assessed",
+          "step",
+          "top",
+          "label",
+          "feedback",
+          "feedback_dropped"
+        ],
+        "title": "ReportAiScoreOut",
+        "type": "object"
+      },
+      "ReportAssessedItemOut": {
+        "description": "One item of the AI assessment in the test's order: its question, its points of its Item\nweight, and either its computed result or the AI's score.",
+        "properties": {
+          "ai": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportAiScoreOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computed": {
+            "anyOf": [
+              {
+                "enum": [
+                  "right",
+                  "partly",
+                  "wrong",
+                  "not_answered"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Computed"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "points": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Points"
+          },
+          "title": {
+            "$ref": "#/components/schemas/ReportTextOut"
+          },
+          "type": {
+            "enum": [
+              "choice",
+              "table",
+              "number",
+              "long",
+              "adapted"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "weight": {
+            "title": "Weight",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "number",
+          "type",
+          "title",
+          "weight",
+          "points",
+          "computed",
+          "ai"
+        ],
+        "title": "ReportAssessedItemOut",
+        "type": "object"
+      },
+      "ReportDataOut": {
+        "description": "A Student report's content, as the print route reads it from its snapshot (AD-18).",
+        "properties": {
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "dates": {
+            "$ref": "#/components/schemas/ReportDatesOut"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "sections": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "assessment": "#/components/schemas/AssessmentSectionOut",
+                  "completion": "#/components/schemas/CompletionSectionOut",
+                  "debrief": "#/components/schemas/DebriefSectionOut",
+                  "game": "#/components/schemas/GameSectionOut",
+                  "replay": "#/components/schemas/ReplaySectionOut",
+                  "test": "#/components/schemas/TestSectionOut"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/CompletionSectionOut"
+                },
+                {
+                  "$ref": "#/components/schemas/GameSectionOut"
+                },
+                {
+                  "$ref": "#/components/schemas/DebriefSectionOut"
+                },
+                {
+                  "$ref": "#/components/schemas/ReplaySectionOut"
+                },
+                {
+                  "$ref": "#/components/schemas/TestSectionOut"
+                },
+                {
+                  "$ref": "#/components/schemas/AssessmentSectionOut"
+                }
+              ]
+            },
+            "title": "Sections",
+            "type": "array"
+          },
+          "session_number": {
+            "title": "Session Number",
+            "type": "integer"
+          },
+          "student_name": {
+            "title": "Student Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "generated_at",
+          "student_name",
+          "class_name",
+          "session_number",
+          "dates",
+          "sections"
+        ],
+        "title": "ReportDataOut",
+        "type": "object"
+      },
+      "ReportDatesOut": {
+        "description": "The Class session's dates, with the Student's own Debrief and Test deadlines.",
+        "properties": {
+          "debrief_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Debrief Deadline"
+          },
+          "play_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Play Deadline"
+          },
+          "start_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start At"
+          },
+          "test_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test Deadline"
+          }
+        },
+        "required": [
+          "start_at",
+          "play_deadline",
+          "debrief_deadline",
+          "test_deadline"
+        ],
+        "title": "ReportDatesOut",
+        "type": "object"
+      },
+      "ReportDemandWeekOut": {
+        "properties": {
+          "demand": {
+            "title": "Demand",
+            "type": "integer"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "week",
+          "demand"
+        ],
+        "title": "ReportDemandWeekOut",
+        "type": "object"
+      },
+      "ReportGameOut": {
+        "description": "The Student's game (`games.service.student_game`) as the report documents it (FR-58):\n`seat` is the Student's Seat in the game's last opened Week (its `history` the earlier\nWeeks), `last_order` that Week's Order; `roles` and `demand` the whole chain in chain order\n(the Role serving the customer first), as Spillinnsikt reads it (FR-34, AD-15).",
+        "properties": {
+          "demand": {
+            "items": {
+              "$ref": "#/components/schemas/ReportDemandWeekOut"
+            },
+            "title": "Demand",
+            "type": "array"
+          },
+          "finished": {
+            "title": "Finished",
+            "type": "boolean"
+          },
+          "game_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Number"
+          },
+          "last_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Order"
+          },
+          "makeup": {
+            "title": "Makeup",
+            "type": "boolean"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/ReportGameRoleOut"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "seat": {
+            "$ref": "#/components/schemas/SeatState"
+          },
+          "total_cost": {
+            "title": "Total Cost",
+            "type": "string"
+          },
+          "weeks_played": {
+            "title": "Weeks Played",
+            "type": "integer"
+          },
+          "weeks_total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weeks Total"
+          }
+        },
+        "required": [
+          "makeup",
+          "game_number",
+          "role",
+          "weeks_played",
+          "weeks_total",
+          "finished",
+          "total_cost",
+          "seat",
+          "last_order",
+          "demand",
+          "roles"
+        ],
+        "title": "ReportGameOut",
+        "type": "object"
+      },
+      "ReportGameRoleOut": {
+        "description": "One Role of the chain, by Role only (never a name, AD-14), its Weeks in order.",
+        "properties": {
+          "first_large_order_week": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Large Order Week"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "weeks": {
+            "items": {
+              "$ref": "#/components/schemas/ReportGameWeekOut"
+            },
+            "title": "Weeks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "role",
+          "weeks",
+          "first_large_order_week"
+        ],
+        "title": "ReportGameRoleOut",
+        "type": "object"
+      },
+      "ReportGameWeekOut": {
+        "description": "One Role in one opened Week of the chain (Spillinnsikt's read, Story 7.7): its placed\nOrder (null for none), stored inventory and backlog, who held the Seat (`student`, `ai`, or\n`free`; never who) and the marks of the one AD-15 mapping (`games.service.seat_mark`).",
+        "properties": {
+          "backlog": {
+            "title": "Backlog",
+            "type": "integer"
+          },
+          "holder": {
+            "enum": [
+              "student",
+              "ai",
+              "free"
+            ],
+            "title": "Holder",
+            "type": "string"
+          },
+          "inventory": {
+            "title": "Inventory",
+            "type": "integer"
+          },
+          "marks": {
+            "items": {
+              "$ref": "#/components/schemas/SeatMark"
+            },
+            "title": "Marks",
+            "type": "array"
+          },
+          "order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "week",
+          "order",
+          "inventory",
+          "backlog",
+          "holder",
+          "marks"
+        ],
+        "title": "ReportGameWeekOut",
+        "type": "object"
+      },
+      "ReportMomentOut": {
+        "description": "A key moment of the Debrief summary (Story 9.8), as rendered from its facts set.",
+        "properties": {
+          "heading": {
+            "$ref": "#/components/schemas/ReportTextOut"
+          },
+          "later": {
+            "$ref": "#/components/schemas/ReportTextOut"
+          },
+          "patterns": {
+            "items": {
+              "$ref": "#/components/schemas/ReportTextOut"
+            },
+            "title": "Patterns",
+            "type": "array"
+          },
+          "reckoning": {
+            "$ref": "#/components/schemas/ReportTextOut"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "week",
+          "heading",
+          "reckoning",
+          "later",
+          "patterns"
+        ],
+        "title": "ReportMomentOut",
+        "type": "object"
+      },
+      "ReportReflectionOut": {
+        "description": "A reflection answer on evidence or structure, with its question (FR-58: never feelings).",
+        "properties": {
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "prompt",
+          "text"
+        ],
+        "title": "ReportReflectionOut",
+        "type": "object"
+      },
+      "ReportReplayOut": {
+        "description": "The Student's Replay (FR-58, FR-50): `finished`, `closed` at the Test deadline, or `open`;\nthe Role, the scenario and the run; for a finished one the Class game it is set beside (null\nwhen it was played mostly by AI players, `mostly_ai`, or cannot be read).",
+        "properties": {
+          "class_game": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportRunOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "class_game_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Class Game Number"
+          },
+          "mostly_ai": {
+            "title": "Mostly Ai",
+            "type": "boolean"
+          },
+          "replay": {
+            "$ref": "#/components/schemas/ReportRunOut"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "scenario": {
+            "$ref": "#/components/schemas/ReportScenarioOut"
+          },
+          "state": {
+            "enum": [
+              "finished",
+              "closed",
+              "open"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "role",
+          "scenario",
+          "replay",
+          "class_game",
+          "class_game_number",
+          "mostly_ai"
+        ],
+        "title": "ReportReplayOut",
+        "type": "object"
+      },
+      "ReportRequestIn": {
+        "additionalProperties": false,
+        "description": "«Lag Studentrapport» (Story 13.11): `ai` adds the AI assessment section; off by default.",
+        "properties": {
+          "ai": {
+            "default": false,
+            "title": "Ai",
+            "type": "boolean"
+          }
+        },
+        "title": "ReportRequestIn",
+        "type": "object"
+      },
+      "ReportRunOut": {
+        "properties": {
+          "total_cost": {
+            "title": "Total Cost",
+            "type": "string"
+          },
+          "weeks": {
+            "items": {
+              "$ref": "#/components/schemas/ReportRunWeekOut"
+            },
+            "title": "Weeks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "weeks",
+          "total_cost"
+        ],
+        "title": "ReportRunOut",
+        "type": "object"
+      },
+      "ReportRunWeekOut": {
+        "description": "One Uke of a run: Netto lager, the Order and «Kostnad så langt» (kroner).",
+        "properties": {
+          "net_inventory": {
+            "title": "Net Inventory",
+            "type": "integer"
+          },
+          "order": {
+            "title": "Order",
+            "type": "integer"
+          },
+          "total_cost": {
+            "title": "Total Cost",
+            "type": "string"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "week",
+          "net_inventory",
+          "order",
+          "total_cost"
+        ],
+        "title": "ReportRunWeekOut",
+        "type": "object"
+      },
+      "ReportScenarioOut": {
+        "description": "The Replay's own Game settings: its Replay scenario as drawn for the Student (FR-49).",
+        "properties": {
+          "backorder_cost": {
+            "title": "Backorder Cost",
+            "type": "string"
+          },
+          "guided_weeks": {
+            "title": "Guided Weeks",
+            "type": "integer"
+          },
+          "holding_cost": {
+            "title": "Holding Cost",
+            "type": "string"
+          },
+          "order_delay": {
+            "title": "Order Delay",
+            "type": "integer"
+          },
+          "production_delay": {
+            "title": "Production Delay",
+            "type": "integer"
+          },
+          "shipping_delay": {
+            "title": "Shipping Delay",
+            "type": "integer"
+          },
+          "starting_backlog": {
+            "title": "Starting Backlog",
+            "type": "integer"
+          },
+          "starting_inventory": {
+            "title": "Starting Inventory",
+            "type": "integer"
+          },
+          "weeks": {
+            "title": "Weeks",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "weeks",
+          "guided_weeks",
+          "starting_inventory",
+          "starting_backlog",
+          "order_delay",
+          "shipping_delay",
+          "production_delay",
+          "holding_cost",
+          "backorder_cost"
+        ],
+        "title": "ReportScenarioOut",
+        "type": "object"
+      },
+      "ReportStateOut": {
+        "description": "The Student's own Student report (Story 13.7, FR-57): when it opens (their effective Test\ndeadline; None while the Class session has none), whether it is open now, the latest\nrequest's status, and when the PDF that can be downloaded was made (None without one).\n`failed` covers a render that failed and one that never ended; a new press tries again.\nStory 13.12: the staff's download of one Student's report answers the same shape, always\n`open`, with `opens_at` None.",
+        "properties": {
+          "ai": {
+            "default": false,
+            "title": "Ai",
+            "type": "boolean"
+          },
+          "ai_available": {
+            "default": false,
+            "title": "Ai Available",
+            "type": "boolean"
+          },
+          "deleted": {
+            "default": false,
+            "title": "Deleted",
+            "type": "boolean"
+          },
+          "generated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generated At"
+          },
+          "open": {
+            "title": "Open",
+            "type": "boolean"
+          },
+          "opens_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opens At"
+          },
+          "status": {
+            "enum": [
+              "none",
+              "pending",
+              "ready",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "opens_at",
+          "open",
+          "status",
+          "generated_at"
+        ],
+        "title": "ReportStateOut",
+        "type": "object"
+      },
+      "ReportStepOut": {
+        "description": "One step of the requirement: whether it counts as done, and whether a Lecturer's correction\ndecided it (never the reason).",
+        "properties": {
+          "corrected": {
+            "title": "Corrected",
+            "type": "boolean"
+          },
+          "done": {
+            "title": "Done",
+            "type": "boolean"
+          },
+          "step": {
+            "enum": [
+              "class_game",
+              "debrief",
+              "quiz_passed",
+              "replay",
+              "test_submitted"
+            ],
+            "title": "Step",
+            "type": "string"
+          }
+        },
+        "required": [
+          "step",
+          "done",
+          "corrected"
+        ],
+        "title": "ReportStepOut",
+        "type": "object"
+      },
+      "ReportTestItemOut": {
+        "description": "One item in its frozen order (Story 13.10, FR-58): its question (an Adapted item's wording,\nmarked when an AI worded it), a choice item's option ids, a table or drawn item's value table\nor a number item's column, the saved answer (null: not answered), the item's weight and the\nstored computed score as points of it (null: no computed rule scores it, or not handed in).\nNo criterion, explanation, answer key or AI score (FR-54, C-2).",
+        "properties": {
+          "answer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "column": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ColumnOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "options": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Options",
+            "type": "array"
+          },
+          "points": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Points"
+          },
+          "table": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TableOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": {
+            "$ref": "#/components/schemas/ReportTextOut"
+          },
+          "type": {
+            "enum": [
+              "choice",
+              "table",
+              "number",
+              "long",
+              "drawn",
+              "adapted"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "weight": {
+            "title": "Weight",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "number",
+          "type",
+          "title",
+          "options",
+          "table",
+          "column",
+          "answer",
+          "weight",
+          "points"
+        ],
+        "title": "ReportTestItemOut",
+        "type": "object"
+      },
+      "ReportTestOut": {
+        "description": "The Student's Individual test: its state, when it was handed in, every item, and the sum\nof the computed scores over the items they score (`points` null when none is scored).",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReportTestItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "points": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Points"
+          },
+          "points_of": {
+            "title": "Points Of",
+            "type": "integer"
+          },
+          "state": {
+            "enum": [
+              "open",
+              "submitted",
+              "auto_submitted"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "submitted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted At"
+          }
+        },
+        "required": [
+          "state",
+          "submitted_at",
+          "items",
+          "points",
+          "points_of"
+        ],
+        "title": "ReportTestOut",
+        "type": "object"
+      },
+      "ReportTextOut": {
+        "description": "Text as it is shown: `ai_generated` (only that) turns on «KI-generert, kan ta feil:» and\nthe machine-readable mark in the PDF (FR-34, UX-DR69). No LLM call id.",
+        "properties": {
+          "ai_generated": {
+            "title": "Ai Generated",
+            "type": "boolean"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "ai_generated"
+        ],
+        "title": "ReportTextOut",
         "type": "object"
       },
       "ResetCheckOut": {
@@ -10516,7 +12418,8 @@
               "student",
               "class_game",
               "class_session",
-              "list"
+              "list",
+              "requirement_not_met"
             ],
             "title": "Kind",
             "type": "string"
@@ -11491,6 +13394,11 @@
             ],
             "title": "Game Number"
           },
+          "makeup": {
+            "default": false,
+            "title": "Makeup",
+            "type": "boolean"
+          },
           "name": {
             "anyOf": [
               {
@@ -11738,10 +13646,31 @@
       "StepOut": {
         "description": "A step of Stegene (Story 6.1, UX-DR29, AD-10, AD-16), its state computed here: the web app\nholds no rule for which step is open.",
         "properties": {
+          "after_makeup": {
+            "default": false,
+            "title": "After Makeup",
+            "type": "boolean"
+          },
           "closed": {
             "default": false,
             "title": "Closed",
             "type": "boolean"
+          },
+          "corrected": {
+            "default": false,
+            "title": "Corrected",
+            "type": "boolean"
+          },
+          "counts": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counts"
           },
           "group_open": {
             "default": false,
@@ -11941,6 +13870,11 @@
                 "type": "null"
               }
             ]
+          },
+          "makeup": {
+            "default": false,
+            "title": "Makeup",
+            "type": "boolean"
           },
           "number": {
             "anyOf": [
@@ -12142,6 +14076,163 @@
           "can_manage"
         ],
         "title": "StudentPageOut",
+        "type": "object"
+      },
+      "StudentRecordOut": {
+        "description": "The Studentside's record of one Student of a Class session (Story 13.2, FR-63, UX-DR55),\nfor the Lecturers and Assistant lecturers of its Class. `can_manage`: the reader is a Lecturer\nof the Class, so the page also shows «Tilrettelegging» and «Frister» (`getStudentPage`).\n`completion` is None for a Student the reports leave out (`reports.scope`). The Student report\nthe staff download (Story 13.12) is read from its own endpoint, `getStudentReport`.",
+        "properties": {
+          "assessment": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StaffAssessmentOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "can_correct": {
+            "default": false,
+            "title": "Can Correct",
+            "type": "boolean"
+          },
+          "can_give_makeup": {
+            "default": false,
+            "title": "Can Give Makeup",
+            "type": "boolean"
+          },
+          "can_manage": {
+            "title": "Can Manage",
+            "type": "boolean"
+          },
+          "class_id": {
+            "format": "uuid",
+            "title": "Class Id",
+            "type": "string"
+          },
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "class_session_id": {
+            "format": "uuid",
+            "title": "Class Session Id",
+            "type": "string"
+          },
+          "completion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CompletionOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "debrief": {
+            "$ref": "#/components/schemas/RecordDebriefOut"
+          },
+          "game": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecordGameOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "makeup": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecordMakeupOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "participation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ParticipationOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "quiz": {
+            "items": {
+              "$ref": "#/components/schemas/RecordQuizAttemptOut"
+            },
+            "title": "Quiz",
+            "type": "array"
+          },
+          "replay": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecordReplayOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "session_number": {
+            "title": "Session Number",
+            "type": "integer"
+          },
+          "test": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecordTestOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "test_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test Deadline"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "class_session_id",
+          "class_id",
+          "class_name",
+          "session_number",
+          "user_id",
+          "name",
+          "can_manage",
+          "completion",
+          "participation",
+          "game",
+          "debrief",
+          "quiz",
+          "replay",
+          "test",
+          "assessment"
+        ],
+        "title": "StudentRecordOut",
         "type": "object"
       },
       "StudentReplayOut": {
@@ -12672,6 +14763,32 @@
           "status"
         ],
         "title": "TestGameRefOut",
+        "type": "object"
+      },
+      "TestSectionOut": {
+        "description": "«Individuell test» (Story 13.10): `test` null when the Student never opened it.",
+        "properties": {
+          "kind": {
+            "const": "test",
+            "default": "test",
+            "title": "Kind",
+            "type": "string"
+          },
+          "test": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportTestOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "test"
+        ],
+        "title": "TestSectionOut",
         "type": "object"
       },
       "TestSittingIn": {
@@ -13592,6 +15709,61 @@
           "llm_call_id"
         ],
         "title": "WordingOut",
+        "type": "object"
+      },
+      "ZipStateOut": {
+        "description": "The ZIP of all Student reports of the Class session (Story 13.13, FR-59): the latest\nrequest's status (`failed` covers a job that failed and one that never ended; a new press\ntries again), when the ZIP that can be downloaded was made and how many Student reports it\nholds (None without one). `deleted` once the Class session's Student data is deleted. The ZIP\nnever holds the AI assessment.",
+        "properties": {
+          "completion_export": {
+            "default": false,
+            "title": "Completion Export",
+            "type": "boolean"
+          },
+          "deleted": {
+            "default": false,
+            "title": "Deleted",
+            "type": "boolean"
+          },
+          "generated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generated At"
+          },
+          "status": {
+            "enum": [
+              "none",
+              "pending",
+              "ready",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "students": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Students"
+          }
+        },
+        "required": [
+          "status",
+          "generated_at",
+          "students"
+        ],
+        "title": "ZipStateOut",
         "type": "object"
       }
     }
@@ -16665,6 +18837,92 @@
         ]
       }
     },
+    "/api/class-sessions/{session_id}/completion-export": {
+      "get": {
+        "description": "«Last ned fullføringsliste (CSV eller Excel)» (Story 13.14, FR-60, FR-17, AD-14, AD-16):\none row per Student reports count, with the fixed columns `completion_export.COLUMNS` (name,\nemail, the date each step was done, the shares, the Oppfølgingsspill, the correction mark and\nwhether the requirement is met), every value from the one Completion assembler. Never an AI\nscore, AI feedback or Indicative letter. Built now and sent, never stored; recorded in the\naudit log once the file is built. 409 `data_deleted` once the Student data is deleted; 403\n`forbidden` for an Assistant lecturer, anyone else outside the Class's Lecturers and a Class\nsession that does not exist (FR-5, AD-12).",
+        "operationId": "downloadCompletionExport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "`csv` (Norwegian Excel: UTF-8 with BOM, `;`) or `xlsx`.",
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "default": "csv",
+              "description": "`csv` (Norwegian Excel: UTF-8 with BOM, `;`) or `xlsx`.",
+              "enum": [
+                "csv",
+                "xlsx"
+              ],
+              "title": "Format",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {},
+              "text/csv": {}
+            },
+            "description": "The file, CSV or .xlsx"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Download Completion Export",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
     "/api/class-sessions/{session_id}/debrief-quiz": {
       "get": {
         "description": "The Klasseøkt's «Debrief-quiz» block (Story 9.10, FR-46, AD-12): the Class session's\nDebrief quiz (the version its lock pinned; the latest before), each question with its answer\nkey and whether it is taken out, whether the User may take questions out and whether that can\nstill change (until the Test deadline). For the Class's owners and Assistant lecturers; 403\n`forbidden` for every other caller.",
@@ -17313,6 +19571,23 @@
               ],
               "title": "Student Id"
             }
+          },
+          {
+            "in": "query",
+            "name": "recipient",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "const": "requirement_not_met",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Recipient"
+            }
           }
         ],
         "responses": {
@@ -17746,6 +20021,221 @@
         "summary": "Check Replay Scenario",
         "tags": [
           "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/reports/zip": {
+      "get": {
+        "description": "The ZIP of all Student reports of the Class session (Story 13.13, FR-59), for the\nLecturers and Assistant lecturers of its Class: shared by them, the latest request's status\nand when the ZIP to download was made. 403 `forbidden` for anyone else, an Admin without a\nstaff role in the Class included, and for a Class session that does not exist (FR-5).",
+        "operationId": "getReportsZip",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZipStateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Reports Zip",
+        "tags": [
+          "reports"
+        ]
+      },
+      "post": {
+        "description": "«Last ned alle Studentrapporter (ZIP)» (Story 13.13, FR-59, AD-9, AD-18): records the\nrequest and defers its job on `reports-bulk` with ids only, recorded in the audit log; the\njob builds one report per Student reports count, never with the AI assessment, whatever the\nrequest holds. While one is pending, a press answers it. The requester is told when it is\nready. 202 with the state; 409 `data_deleted` once the Student data is deleted, 409\n`no_students` when reports count no Student; 403 `forbidden` as `getReportsZip`, with\nnothing recorded.",
+        "operationId": "requestReportsZip",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZipStateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request Reports Zip",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/reports/zip/file": {
+      "get": {
+        "description": "The Class session's latest ZIP (Story 13.13, NFR-7, AD-12): 303 to a signed URL that lives\n`SIGNED_URL_TTL_SECONDS` (300), made only now that the policy allowed it, recorded in the\naudit log. 409 `zip_not_ready`, `data_deleted`; 503 `storage_unavailable`; 403 `forbidden`\nas `getReportsZip`.",
+        "operationId": "downloadReportsZip",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "303": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "To a signed URL"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Download Reports Zip",
+        "tags": [
+          "reports"
         ]
       }
     },
@@ -18500,6 +20990,98 @@
         ]
       }
     },
+    "/api/class-sessions/{session_id}/students/{user_id}/corrections": {
+      "post": {
+        "description": "«Lagre retting» (Story 13.3, FR-17, FR-3, AD-15, AD-16): a Lecturer of the Class sets one\nstep of the Student's Completion status to done or not done, with a required reason. A new\nrow every time; the latest per step applies. Recorded in the audit log; the Studentside and\nthe Student's Hjem read it again. It records no step event. Answers the Studentside's record.\n422 `invalid_correction` with `fields.reason` `required` or `too_long`; 409 `not_obligatory`\nfor a Class session that is not obligatory, 409 `class_archived`; 403 `forbidden` for an\nAssistant lecturer and anyone else as `getStudentRecord`.",
+        "operationId": "correctCompletion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CorrectionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentRecordOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Correct Completion",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
     "/api/class-sessions/{session_id}/students/{user_id}/deadline": {
       "put": {
         "description": "«Lagre frist» on the Studentside (Story 11.13, FR-18, AD-9): the Student's own Test\ndeadline, later than the Class session's, and their Debrief deadline moved by the same amount;\nan open Individual test attempt takes it at once (a timed sitting keeps its end). Recorded in\nthe audit log. Answers the block «Frister». 422 `invalid_extension` with `fields.test_deadline`\n(`not_later`, `passed`, `no_test_deadline`); 409 `attempt_submitted` when the Student has\nhanded the test in; 409 `class_archived`; 403 `forbidden` for anyone but a Lecturer of the\nClass (an Assistant lecturer too) and for a User who is no Student of it.",
@@ -18589,6 +21171,443 @@
         "summary": "Extend Test Deadline",
         "tags": [
           "tests"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/students/{user_id}/makeup": {
+      "post": {
+        "description": "«Gi oppfølgingsspill» (Story 13.4, FR-17, FR-20, FR-30, AD-13): a Lecturer of the Class\ngives the Student a make-up game: a Class game of their own against three AI players on the\nClass session's frozen snapshot, open until the Student's Test deadline. Recorded in the audit\nlog; the Student is told on Hjem and by mail. One per Student: a second press answers the\nexisting one and writes nothing. Answers the Studentside's record. 409 `not_counted` for a\nStudent reports leave out (a test student, a Control test Class session),\n`session_not_locked` before the Class session's lock, `no_test_deadline`,\n`test_deadline_passed`, `class_archived`; 403 `forbidden` for an Assistant lecturer and\nanyone else as `getStudentRecord`.",
+        "operationId": "giveMakeup",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentRecordOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Give Makeup",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/students/{user_id}/record": {
+      "get": {
+        "description": "The Studentside's record (Story 13.2, FR-63, FR-17, UX-DR54, UX-DR55): one Student of the\nClass session with the Completion status per step, the participation signals (information\nonly), the game, the Explanation, the Debrief summary, the Debrief quiz attempts, the Replay,\nthe Individual test and the AI assessment's state, for the Lecturers and Assistant lecturers\nof its Class. 403 `forbidden` for anyone else, an Admin without a staff role in the Class\nincluded, for a User who is no Student of the Class now and for a Class session that does not\nexist (FR-5, AD-12).",
+        "operationId": "getStudentRecord",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentRecordOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Student Record",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/students/{user_id}/report": {
+      "get": {
+        "description": "One Student's report as the staff of the Class download it from the Studentside (Story\n13.12, FR-59, FR-63): always open, shared by its Lecturers and Assistant lecturers, apart from\nthe Student's own. `ai_available` while the Student's AI assessment is ready and the reader may\nread it (FR-55); with `ai` the state of the report with the AI section, never with the\nIndicative letter (FR-56). 403 `forbidden` as `getStudentRecord`.",
+        "operationId": "getStudentReport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Story 13.11: the report with the AI assessment section (off by default).",
+            "in": "query",
+            "name": "ai",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Story 13.11: the report with the AI assessment section (off by default).",
+              "title": "Ai",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportStateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Student Report",
+        "tags": [
+          "reports"
+        ]
+      },
+      "post": {
+        "description": "«Lag Studentrapport» on the Studentside (Story 13.12, FR-59, AD-9, AD-18): before or after\nthe Test deadline, the same request and `reports-single` job as the Student's own, recorded in\nthe audit log. 202 with the state; 409 `data_deleted` once the Student's data is deleted\n(`deleted` in the state), 409 `not_counted` for a Student reports leave out, 409\n`ai_assessment_unavailable` when `ai` asks for the section and it cannot be added. 403\n`forbidden` as `getStudentRecord`, with nothing recorded.",
+        "operationId": "requestStudentReport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ReportRequestIn"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportStateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request Student Report",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/students/{user_id}/report/file": {
+      "get": {
+        "description": "The staff's latest PDF of the Student (Story 13.12, NFR-7, AD-12): 303 to a signed URL\nmade only now that the policy allowed it, recorded in the audit log. 409 `report_not_ready`,\n`data_deleted`, `not_counted`,\n`ai_assessment_unavailable`; 503 `storage_unavailable`; 403 `forbidden` as\n`getStudentRecord`. Without `ai` never the PDF with the AI section.",
+        "operationId": "downloadStudentReport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Story 13.11: the report with the AI assessment section (off by default).",
+            "in": "query",
+            "name": "ai",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Story 13.11: the report with the AI assessment section (off by default).",
+              "title": "Ai",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "303": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "To a signed URL"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Download Student Report",
+        "tags": [
+          "reports"
         ]
       }
     },
@@ -22746,6 +25765,69 @@
         "summary": "Health"
       }
     },
+    "/api/internal/report-snapshots/{snapshot_id}": {
+      "get": {
+        "description": "The print route's read of one report snapshot (Story 13.7, AD-18), with its render token in\n`X-Render-Token`: the data once, while the token is unused and unexpired (5 minutes). A\nused, expired or wrong token, and an unknown snapshot, all answer 404 `not_found` with no\ndata. The proxy refuses `/api/internal/*`: only the frontend server reaches it.",
+        "operationId": "readReportSnapshot",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "snapshot_id",
+            "required": true,
+            "schema": {
+              "title": "Snapshot Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-render-token",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "X-Render-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportDataOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Report Snapshot",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
     "/api/lecturer-home/class-sessions": {
       "get": {
         "description": "The Lærerhjem's «Venter» and «Neste frist» over the User's Classes that are not archived\n(UX-DR56). The Lærerhjem's policy holds it: the Admin role alone, which reads a Control test\nClass it owns (Story 12.7), does not reach it, and a Control test is never among them.",
@@ -22963,6 +26045,262 @@
         "summary": "Start My Replay",
         "tags": [
           "replay"
+        ]
+      }
+    },
+    "/api/me/class-sessions/{session_id}/report": {
+      "get": {
+        "description": "The Student's own Student report in the Class session (Story 13.7, FR-57): when it opens\n(their effective Test deadline), whether it is open, the latest request's status and when\nthe PDF to download was made. Story 13.11: `ai_available` while their AI assessment is ready;\nwith `ai` the state of the report with the AI section (`ai` true in the answer), or the\nstandard one's while it cannot be added. 403 `forbidden` for a Class session that is not the\nStudent's own (not enrolled, not listed on Hjem, not locked, no such session).",
+        "operationId": "getMyReport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Story 13.11: the report with the AI assessment section (off by default).",
+            "in": "query",
+            "name": "ai",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Story 13.11: the report with the AI assessment section (off by default).",
+              "title": "Ai",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportStateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get My Report",
+        "tags": [
+          "reports"
+        ]
+      },
+      "post": {
+        "description": "«Lag Studentrapport» (Story 13.7, FR-57, AD-9, AD-18): records the request and defers its\nrender on `reports-single` with ids only; the api builds no report content. While one is\npending, a press answers it and starts no second render. The finished job emits the\nStudent's `user` topic. 202 with the state; 409 `report_not_open` before the Student's\neffective Test deadline or with none, 409 `not_counted` for a Student reports leave out;\nStory 13.11: `ai` in the body adds the AI assessment section, a report of its own; 409\n`ai_assessment_unavailable` while the Student's AI assessment is not ready. 403 `forbidden`\nas `getMyReport`.",
+        "operationId": "requestMyReport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ReportRequestIn"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportStateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request My Report",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/me/class-sessions/{session_id}/report/file": {
+      "get": {
+        "description": "The Student's latest PDF (Story 13.7, NFR-7, AD-12): 303 to a signed URL that lives\n`SIGNED_URL_TTL_SECONDS` (300), made only now that the policy allowed it. 409\n`report_not_ready` without a ready PDF, `report_not_open` before the deadline,\n`not_counted` for a Student reports leave out; 503 `storage_unavailable`; 403\n`forbidden` as `getMyReport`. Story 13.11: with `ai` the PDF with the AI section (409\n`ai_assessment_unavailable` while the assessment is not ready); without it always the\nstandard PDF.",
+        "operationId": "downloadMyReport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Story 13.11: the report with the AI assessment section (off by default).",
+            "in": "query",
+            "name": "ai",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Story 13.11: the report with the AI assessment section (off by default).",
+              "title": "Ai",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "303": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "To a signed URL"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Download My Report",
+        "tags": [
+          "reports"
         ]
       }
     },

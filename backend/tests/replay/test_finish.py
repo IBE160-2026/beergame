@@ -134,14 +134,15 @@ async def test_the_last_order_finishes_the_replay_and_unlocks_the_next_step(
     pins = {narration.AI_TEXT_PIN: {"enabled": True, "model_config_id": str(uuid.uuid4())}}
     seat = uuid.uuid4()
     async with get_sessionmaker().begin() as s:
-        for purpose in ("replay", "class"):
+        for purpose in ("replay", "class", "makeup"):
             await narration._defer_on_finish(
                 s,
                 games_service.FinishedGame(
                     uuid.UUID(game_id), purpose, uuid.UUID(session_id), pins, (seat,)
                 ),
             )
-    assert [kwargs["seat_id"] for kwargs in deferred] == [str(seat)]  # the Class game's only
+    # The Class game's and, Story 13.5, the Oppfølgingsspill's (its Debrief runs on it).
+    assert [kwargs["seat_id"] for kwargs in deferred] == [str(seat), str(seat)]
     window = await games_service.finished_student_seats(now - timedelta(hours=1), now)
     assert uuid.UUID(game_id) not in {found.game_id for found in window}
 

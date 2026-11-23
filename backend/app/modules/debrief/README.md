@@ -12,6 +12,15 @@ The Debrief (Epic 9, FR-41 to FR-47, AD-21). Never imports `modules/players`
   wraps it with the Class session read through `sessions.service.debrief_session_of`.
   `sessions` reads the rule through `sessions.service.register_debrief_state`, so Hjem's
   Stegene and «Spillet er ferdig» judge as the routes do.
+- Story 13.5: the game is `rules.debrief_game`: the game of a Debrief the Student already started
+  in the Class session (a row of theirs in `debrief_explanations`, `debrief_fact_sets`,
+  `debrief_summaries`, `quiz_attempts`, `debrief_members`, `debrief_step_marks` or
+  `debrief_alone` other than the fallback's), else `student_game`, which is their finished
+  Oppfølgingsspill once there is one. Such a game (`games.policy` `debrief_always_personal`) never
+  gets a shared session, and its finish defers narration as a Class game's does. A Student
+  whose make-up has finished stays among their Class game's Students (`games.service.
+  game_students` reads `class_game_of`); a Group debrief of the Class game is offered to them only
+  while their Debrief runs on it (`group_open` reads `debrief_game`).
 - `commands` is the only writer of `debrief_sessions` (one per Game, step pointer 1 to 5) and
   `debrief_releases`. `open(game_id, class_session_id)` inserts once, locks the row and emits
   `debrief:<id>` when it created it. `release(class_session_id, now)` writes the release once

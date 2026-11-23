@@ -5,6 +5,7 @@ import { ApiRequestError } from "@/lib/api/client";
 
 import {
   addDays,
+  calendarDateText,
   dateErrors,
   datesBody,
   datesEditable,
@@ -93,5 +94,13 @@ describe("the date fields in Europe/Oslo (Story 5.2)", () => {
     expect(dateErrors(new ApiRequestError(409, "class_archived"), inputs)).toEqual({});
     const before = new ApiRequestError(422, "invalid_dates", { start_at: "before" });
     expect(dateErrors(before, inputs)).toEqual({ start_at: copy.errors.before(copy.names.debrief_deadline) });
+  });
+});
+
+describe("calendarDateText (Story 13.9)", () => {
+  it("writes a calendar day with the month word and the year, no time zone applied", () => {
+    expect(calendarDateText("2027-06-18")).toBe("18. juni 2027");
+    expect(calendarDateText("2027-01-01")).toBe("1. januar 2027");
+    expect(calendarDateText("2028-02-29")).toBe("29. februar 2028");
   });
 });

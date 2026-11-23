@@ -11,13 +11,19 @@ const copy = nb.homes.student;
 type StudentGame = NonNullable<EnrolledSession["game"]>;
 type TableSeat = StudentGame["seats"][number];
 
-/** «Spill 17 · Du er Grossist»; «Replay · Du er Grossist» for the Replay (Story 10.4). */
-export function gameTitle(game: Pick<StudentGame, "number" | "role" | "replay" | "test_game">): string {
+type Titled = Pick<StudentGame, "number" | "role" | "replay" | "test_game"> & { makeup?: boolean };
+
+/** «Spill 17 · Du er Grossist»; «Replay · Du er Grossist» for the Replay (Story 10.4);
+ * «Oppfølgingsspill · Du er Grossist» for the Oppfølgingsspill (Story 13.4). */
+export function gameTitle(game: Titled): string {
+  if (game.makeup) return copy.makeup.title(roleName(game.role));
   return game.replay ? copy.replay.title(roleName(game.role)) : copy.game(game.number, roleName(game.role));
 }
 
-/** «Grossist, Spill 17» under the Uke on the play screen; «Grossist, Replay» for the Replay. */
-export function roleGameText(game: Pick<StudentGame, "number" | "role" | "replay" | "test_game">): string {
+/** «Grossist, Spill 17» under the Uke on the play screen; «Grossist, Replay» for the Replay;
+ * «Grossist, Oppfølgingsspill» for the Oppfølgingsspill. */
+export function roleGameText(game: Titled): string {
+  if (game.makeup) return nb.games.play.roleMakeup(roleName(game.role));
   return game.replay ? nb.games.play.roleReplay(roleName(game.role)) : nb.games.play.roleGame(roleName(game.role), game.number);
 }
 
@@ -43,20 +49,28 @@ export function holderText(seat: TableSeat): string {
  * 10.6), and while the Replay runs «Fortsett Replay, Uke 9.» (Story
  * 10.4, UX-DR64), from the api's `replay` (AD-10); the way there is the Replay block's button just
  * above, so the step itself is no second Lenke. The current Individual test step leads to the test
- * (Story 11.3), and says when the Testfrist has passed without a hand-in (Story 11.11). */
+ * (Story 11.3), and says when the Testfrist has passed without a hand-in (Story 11.11). A step a
+ * Faglærer corrected says «gjort, rettet av faglærer» or «ikke gjort, …» whatever its state (Story
+ * 13.3); its link stays. A locked Debrief step of a Student with no Class game says it opens when
+ * their Oppfølgingsspill is finished (Story 13.5). */
 export function stepItems(
   steps: EnrolledSession["steps"],
   sessionId?: string,
   replay?: EnrolledSession["replay"],
 ): StegeneItem[] {
   const running = replay?.game?.status === "running" && replay.game.week != null ? replay.game : null;
-  return (steps ?? []).map(({ step, state, held, quiz_changed, group_open, closed }) => ({
+  return (steps ?? []).map(({ step, state, held, quiz_changed, group_open, closed, counts, corrected, after_makeup }) => ({
     key: step,
     name: copy.stepNames[step],
     state,
-    note:
-      state === "current"
-        ? quiz_changed && step === "quiz"
+    note: corrected
+      ? // Story 13.3: a Faglærer corrected the step's status; the reason is never the Student's.
+        copy.corrected(counts === true)
+      : state === "current"
+        ? step === "report"
+          ? // Story 13.7: open from the Testfrist on; the download is under the step.
+            copy.reportOpen
+          : quiz_changed && step === "quiz"
           ? copy.quizChanged
           : group_open && step === "debrief"
             ? copy.groupOpen
@@ -72,10 +86,14 @@ export function stepItems(
                   ? copy.replayResume(running.week!)
                   : copy.current
         : state === "done"
-          ? copy.done
+          ? // Story 13.1: a done step that does not count for the requirement says why.
+            (counts === false ? copy.notCounted[step] : undefined) ?? copy.done
           : held && step === "debrief"
             ? copy.held.debrief
-            : copy.locked[step],
+            : after_makeup && step === "debrief"
+              ? // Story 13.5: no Class game; the Oppfølgingsspill opens the Debrief.
+                copy.debriefAfterMakeup
+              : copy.locked[step],
     href: state === "current" && sessionId ? stepHref(step, sessionId) : undefined,
   }));
 }

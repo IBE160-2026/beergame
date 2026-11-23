@@ -46,7 +46,7 @@ export function AdjustmentBlock({
     if (saved > 0) savedRef.current?.focus();
   }, [saved]);
   return (
-    <section aria-labelledby={titleId} className="mt-8 max-w-xl border-t border-hairline pt-4" data-adjustment="">
+    <section aria-labelledby={titleId} className="mt-8 max-w-2xl border-t border-hairline pt-4" data-adjustment="">
       <h2 id={titleId} className="text-headline text-ink">
         {copy.title}
       </h2>

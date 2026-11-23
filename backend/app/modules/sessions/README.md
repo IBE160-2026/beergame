@@ -340,6 +340,23 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
   the session's Class games (Epic 13's make-up). Once locked, `GET …/allocation` names them in
   `without_seat`; a removed Student's Seat in a started game keeps its id with no name.
 
+## Deletion date and its reminder (Story 13.9)
+
+- `class_sessions.deletion_date` (migration 0305): the Oslo calendar day the Class session's
+  Student data is deleted, `platform.retention.deletion_date` over the latest effective Test
+  deadline (the Class session's or the latest `student_deadline_extensions.test_deadline`) plus
+  `RETENTION_MONTHS` (placeholder 6); NULL without a Test deadline. `service._store_deletion_date`
+  is the only writer, called under the row lock by the Class session save when the Test deadline
+  changed, by `save_extension` (the row is locked for update, so `tests.extend_deadline` takes it
+  with `test_session(lock=True)`) and by the dev route that moves the dates. Hjem reads it as
+  `EnrolledSessionOut.deletion_date`. Epic 15 deletes on it (`ops.retention`) by the same rule.
+- `sessions.send_deletion_reminder` (after the deadline reminders): Class sessions whose date is
+  after today and at most `DELETION_REMINDER_DAYS` (placeholder 14) away in Oslo, with no
+  `deletion_reminded_at`, archived Classes included. Under the row lock one `deletion_reminder`
+  digest notice per registered Student, key `deletion_reminder:{session}:{user}`, `ref` the
+  session; then `deletion_reminded_at` is set. The mail reads the date at send time
+  (`deletion_reminder_mail_context`).
+
 ## Deadline reminders (Story 5.14)
 
 - `deadline_reminders` (migration 0041): one row per deadline time the Students were reminded

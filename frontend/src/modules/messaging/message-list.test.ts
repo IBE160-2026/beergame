@@ -31,19 +31,22 @@ describe("recipientLine and againTo", () => {
     const fromGame = { ...student, game_id: "g1", game_number: 2 };
     const game = { ...base, kind: "class_game" as const, game_id: "g1", game_number: 2 };
     const list = { ...base, kind: "list" as const, students: 12 };
-    expect([student, fromGame, game, base, list].map((item) => recipientLine(item, 1))).toEqual([
+    const notMet = { ...base, kind: "requirement_not_met" as const, students: 4 };
+    expect([student, fromGame, game, base, list, notMet].map((item) => recipientLine(item, 1))).toEqual([
       "Til Noah",
       "Til Noah, Spill 2",
       "Til Spill 2",
       "Til alle i Klasseøkt 1",
       "Til 12 studenter",
+      "Til 4 som ikke hadde oppfylt kravet",
     ]);
-    expect([student, fromGame, game, base, list].map(againTo)).toEqual([
+    expect([student, fromGame, game, base, list, notMet].map(againTo)).toEqual([
       { student: "u1" },
       { game: "g1", student: "u1" },
       { game: "g1" },
       {},
       null,
+      { requirement: true },
     ]);
   });
 

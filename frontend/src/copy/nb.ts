@@ -48,6 +48,9 @@ const weeksInWords = (weeks: number) => WEEK_WORDS[weeks] ?? `${weeks} uker`;
 const formula = (sum: string) => sum.replaceAll(" ", " ");
 
 /** «Spill 17», or «Testspill» for a test Game, which has no number (Story 6.20). */
+/** A day ending a sentence: «12. des.» keeps its full stop, «15. mai» gets one (Story 13.4). */
+const sentence = (text: string) => (text.endsWith(".") ? text : `${text}.`);
+
 const gameName = (number: number | null) => (number === null ? TEST_GAME : `Spill ${number}`);
 
 /** Story 6.5: a game the lock has not given its snapshot yet. [ASSUMPTION] */
@@ -549,6 +552,9 @@ export const nb = {
       },
       /** The current step's mark, in text. */
       current: "pågår",
+      /** Story 13.7: the «Rapport» step once the Testfrist has passed; the download is under it.
+       * [ASSUMPTION] */
+      reportOpen: "åpen",
       // [ASSUMPTION] A step that is done.
       done: "ferdig",
       /** What opens each later step. Replay's and Individuell test's are the spine's; the other
@@ -559,13 +565,17 @@ export const nb = {
         quiz: "Quiz, åpnes når du har fullført Debriefen.",
         replay: "Replay, åpnes når du har bestått Debrief-quizen.",
         test: "Individuell test, åpnes når du har fullført Replay.",
-        report: "Rapport, åpnes når den individuelle testen er vurdert.",
+        // Story 13.7 (UX-DR29): the Student report opens at the Student's own Testfrist.
+        report: "Rapport, åpnes når Testfristen er ute.",
       },
       /** Story 9.2: the Debrief step while the Faglærer holds every Debrief until all Class games
        * have finished; never how many remain. [ASSUMPTION] */
       held: {
         debrief: "Debrief, åpnes når alle Klassespillene er ferdige.",
       },
+      /** Story 13.5: the Debrief step of a Student with no Class game while their
+       * Oppfølgingsspill is not finished. [ASSUMPTION] */
+      debriefAfterMakeup: "Debrief, åpnes når Oppfølgingsspillet er ferdig.",
       /** Story 9.10: the current Quiz step after the Faglærer took out every question the
        * Student's last attempt got wrong. [ASSUMPTION] */
       quizChanged: "pågår, quizen er endret",
@@ -582,6 +592,28 @@ export const nb = {
        * not handed in: never opened, or opened and waiting for the sweep (about a minute), after
        * which it turns done. [ASSUMPTION] The Replay's words. */
       testClosed: "ikke gjort, Testfristen er ute",
+      /** Story 13.1 (FR-17, UX-DR29): in an Obligatorisk Klasseøkt, a done step that does not
+       * count for the requirement says why, never with a number of Uker or a share (FR-14). Only
+       * these three steps have a rule beyond being done. [ASSUMPTION] draft copy. */
+      notCounted: {
+        class_game: "ferdig, men du bestilte selv for sjelden",
+        debrief: "ferdig, men Forklaringen er for kort",
+        test: "levert, men en del mangler svar",
+      } as Partial<Record<string, string>>,
+      /** Story 13.3 (FR-17, UX-DR54): a step whose status a Faglærer corrected, marked so; the
+       * Student never sees the reason. [ASSUMPTION] draft copy. */
+      corrected: (counts: boolean) => (counts ? "gjort, rettet av faglærer" : "ikke gjort, rettet av faglærer"),
+      /** Story 13.1 (FR-17): one line under Stegene in an Obligatorisk Klasseøkt, from the
+       * Completion status. Neutral, so it stays true after the Testfrist. [ASSUMPTION] */
+      requirement: {
+        met: "Kravet er oppfylt.",
+        notMet: "Kravet er ikke oppfylt.",
+      },
+      /** Story 13.9 (FR-77, FR-57, UX-DR29): under «Rapport», locked or open, the day the
+       * Klasseøkt's data is deleted («18. juni 2027»). [ASSUMPTION] draft copy for the founder's
+       * review. */
+      deletion: (day: string) =>
+        `Dataene dine fra denne Klasseøkten slettes ${day}. Last ned Studentrapporten før det.`,
       /** Story 10.4 (UX-DR64, EXPERIENCE.md → Replay in progress): the current Replay step while
        * the Replay runs; its link leads to the play screen. The spine's line. */
       replayResume: (week: number) => `Fortsett Replay, Uke ${week}.`,
@@ -606,6 +638,14 @@ export const nb = {
           quiz_required: "Bestå Debrief-quizen først.",
           test_deadline_passed: "Testfristen er ute. Replay kan ikke startes.",
         },
+      },
+      /** Story 13.4 (FR-17, EXPERIENCE.md → Fullføringsretting): the Oppfølgingsspill a Faglærer
+       * gave the Student. «Oppfølgingsspill» is the spine's; the rest is [ASSUMPTION] draft copy. */
+      makeup: {
+        /** «Oppfølgingsspill · Du er Grossist», above its Setene. */
+        title: (role: string) => `Oppfølgingsspill · Du er ${role}`,
+        /** The Spillkort's title while it runs (UX-DR28). */
+        card: "Oppfølgingsspill",
       },
       nextDeadline: "Neste frist",
       /** «Spillfrist ti. 8. des.» */
@@ -1911,6 +1951,8 @@ export const nb = {
       roleGame: (role: string, number: number | null) => `${role}, ${gameName(number)}`,
       /** Story 10.4: «Grossist, Replay» under the Uke in the Replay's Topplinje. [ASSUMPTION] */
       roleReplay: (role: string) => `${role}, Replay`,
+      /** Story 13.4: «Grossist, Oppfølgingsspill» in the Oppfølgingsspill's Topplinje. [ASSUMPTION] */
+      roleMakeup: (role: string) => `${role}, Oppfølgingsspill`,
       /** Story 6.20: a test Game leads back to where it was started. [ASSUMPTION] */
       toClassSession: "Tilbake til Klasseøkta",
       /** «Spillet er ferdig» (Story 6.18, FR-28, UX-DR30, EXPERIENCE.md → Spillet er ferdig): the
@@ -1943,6 +1985,12 @@ export const nb = {
         title: "Replay stengt",
         lead: "Testfristen er ute. Replay ble stengt før siste uke og er ikke fullført.",
         kept: "Ordrene du la inn, er lagret som de var.",
+      },
+      /** Story 13.4: an Oppfølgingsspill closed at the Testfrist without its last Uke, as the
+       * Replay's. [ASSUMPTION] */
+      makeupClosed: {
+        title: "Oppfølgingsspill stengt",
+        lead: "Testfristen er ute. Oppfølgingsspillet ble stengt før siste uke og er ikke fullført.",
       },
       /** Ordrefelt (Story 6.10, DESIGN.md → Ordrefelt, UX-DR20). The label is the spine's; the
        * Veiledet uke line is [ASSUMPTION] draft copy. It never says how many Veiledede uker are
@@ -2460,6 +2508,9 @@ export const nb = {
     title: (number: number | null) => `Debrief, ${gameName(number)}`,
     /** «Grossist, Spill 17» under the title. */
     roleGame: (role: string, number: number | null) => `${role}, ${gameName(number)}`,
+    /** Story 13.5: «Debrief, Oppfølgingsspill» and «Grossist, Oppfølgingsspill». [ASSUMPTION] */
+    makeupTitle: "Debrief, Oppfølgingsspill",
+    roleMakeup: (role: string) => `${role}, Oppfølgingsspill`,
     /** «Steg 1 av 5». */
     stepOf: (step: number, steps: number) => `Steg ${step} av ${steps}`,
     /** Step 1's heading (EXPERIENCE.md → Debrief sequence); steps 2 to 5 come with their
@@ -2709,6 +2760,10 @@ export const nb = {
       counter: (at: number, of: number) => `Spørsmål ${at} av ${of}`,
       /** [ASSUMPTION] who reads the answers, under the field (FR-58 adds the report's line). */
       privacy: "Bare du og de som underviser Klassen, kan lese svarene. Et svar kan ikke endres etter at du har gått videre.",
+      /** [ASSUMPTION] draft for review (Story 13.10, FR-58): once, under the heading. Who reads the
+       * answers, and that the answers on feelings stay out of the Student report. */
+      report:
+        "Faglærerne og assistentene i Klassen kan lese svarene dine. Svarene på spørsmålene om følelser kommer ikke med i Studentrapporten.",
       /** [ASSUMPTION] */
       next: "Fortsett",
       /** [ASSUMPTION] beside the field while it is empty. */
@@ -3814,6 +3869,9 @@ export const nb = {
           test_submitted: "Test levert",
           assessment_ready: "KI-vurdering klar",
         },
+        /** Story 13.6 (UX-DR54): under the Trakt, only when the Klasseøkt is Obligatorisk and someone
+         * has not met the requirement; opens the Meldingsskjema with them preset. */
+        notMet: (n: number) => `Send Melding til ${n} som ikke har oppfylt kravet`,
       },
     },
   },
@@ -4185,13 +4243,277 @@ export const nb = {
   },
 
   /** The Studentside (Story 8.9, UX-DR53, EXPERIENCE.md → Studentside and Tilrettelegging), for
-   * the Lecturers of the Class: for now the block «Tilrettelegging»; Story 13.2 adds its own. */
+   * the staff of the Class: «Tilrettelegging» and «Frister» for its Lecturers, and the record
+   * blocks of Story 13.2 (FR-63) for its Lecturers and Assistant lecturers. */
   reports: {
+    /** The Student report's download (Story 13.7, FR-57), under the «Rapport» step on Hjem and,
+     * from Story 15.1, at the top of «Mine data». «Studentrapport» is the spine's; the rest is
+     * [ASSUMPTION] draft copy for the founder's review. */
+    download: {
+      make: "Lag Studentrapport",
+      again: "Lag Studentrapporten på nytt",
+      /** While the PDF is made (it takes up to half a minute); read out politely. */
+      pending: "Lager Studentrapporten. Det tar opptil et halvt minutt.",
+      ready: "Studentrapporten er klar.",
+      link: "Last ned Studentrapporten (PDF)",
+      /** «Laget 24. nov. kl. 10:00.» */
+      made: (when: string) => `Laget ${when}.`,
+      /** Under the action: the report says what it is. */
+      note: "Rapporten viser hva du har gjort i Klasseøkten. Den er ikke en karakter.",
+      failed: "Studentrapporten ble ikke laget. Prøv igjen.",
+      retry: "Prøv igjen",
+      /** Before the Testfrist (Story 15.1 shows it at the top of «Mine data»). */
+      opens: (when: string) => `Studentrapporten kan lastes ned fra ${when}.`,
+      /** Once the Class session's deletion date has come (FR-77): no report is made. [ASSUMPTION] */
+      deleted: "Dataene dine i denne Klasseøkten er slettet. Det kan ikke lages en Studentrapport.",
+      errors: {
+        report_not_open: "Studentrapporten kan lastes ned når Testfristen er ute.",
+        not_counted: "Det lages ingen Studentrapport for denne Klasseøkten.",
+        /** Story 13.12: the staff's report once the Student's data is deleted. [ASSUMPTION] */
+        data_deleted: "Dataene til Studenten i denne Klasseøkten er slettet. Det kan ikke lages en Studentrapport.",
+        /** Story 13.11: the AI section asked for while the AI assessment is not ready. [ASSUMPTION] */
+        ai_assessment_unavailable: "KI-vurderingen kan ikke tas med nå. Studentrapporten kan lages uten den.",
+      } as Record<string, string>,
+      /** Story 13.11 (FR-58, FR-55, FR-56): the Bryter that adds the AI assessment section, offered
+       * only while the Student's AI assessment is ready; off on every visit. [ASSUMPTION] draft copy. */
+      ai: {
+        control: "KI-vurdering i rapporten",
+        on: "Tas med",
+        off: "Tas ikke med",
+        help: "Av som standard. Slått på får rapporten en egen del med KI-vurderingen, merket som KI-generert. Den teller ikke og er ingen karakter. Veiledende bokstav kommer bare med hvis du selv ser den.",
+      },
+      /** Story 13.12 (FR-59, FR-58, FR-56): the staff's download of one Student's report on the
+       * Studentside, at any time. [ASSUMPTION] draft copy. */
+      staff: {
+        note: "Rapporten viser hva Studenten har gjort i Klasseøkten til nå. Steg som ikke er gjort, står som ikke gjort. Den er ikke en karakter.",
+        aiHelp: "Av som standard. Slått på får rapporten en egen del med KI-vurderingen, merket som KI-generert. Den teller ikke og er ingen karakter. Veiledende bokstav kommer aldri med i en rapport du laster ned.",
+        /** Once the Class session's deletion date has come (FR-77): nothing is built. */
+        deleted: "Dataene til Studenten i denne Klasseøkten er slettet. Det kan ikke lages en Studentrapport.",
+      },
+    },
+    /** The Klasseøkt's «Eksport» block (Story 13.13, FR-59, UX-DR49, EXPERIENCE.md → Eksport): the
+     * title, the action, the note, the pending line and the failure line are the spine's; the
+     * rest is [ASSUMPTION] draft copy for the founder's review. The Completion export (13.14) and
+     * the Game data export add their own actions. */
+    export: {
+      title: "Eksport",
+      zip: {
+        action: "Last ned alle Studentrapporter (ZIP)",
+        note: "ZIP-filen har aldri med KI-vurderingen.",
+        /** While the job runs; read out politely. */
+        pending: "ZIP-filen lages. Du får beskjed når den er klar, innen 10 minutter.",
+        ready: "ZIP-filen er klar.",
+        failed: "ZIP-filen kunne ikke lages.",
+        retry: "Prøv igjen",
+        again: "Lag ZIP-filen på nytt",
+        /** The state could not be read (not a refusal). */
+        unread: "Eksporten kunne ikke vises nå. Last inn siden på nytt.",
+        /** «Laget 24. nov. kl. 10:00, med 28 Studentrapporter.» */
+        made: (when: string, students: number) =>
+          `Laget ${when}, med ${students} ${students === 1 ? "Studentrapport" : "Studentrapporter"}.`,
+        deleted: "Dataene til Studentene i denne Klasseøkten er slettet. Det kan ikke lages en ZIP-fil.",
+        errors: {
+          no_students: "Det er ingen Studenter å lage Studentrapporter for i denne Klasseøkten.",
+          data_deleted: "Dataene til Studentene i denne Klasseøkten er slettet. Det kan ikke lages en ZIP-fil.",
+        } as Record<string, string>,
+      },
+      /** The Completion export (Story 13.14, FR-60): the action and the note are the spine's
+       * (UX-DR49); the two format links and their lead are [ASSUMPTION] draft copy. */
+      completion: {
+        action: "Last ned fullføringsliste (CSV eller Excel)",
+        note: "Ingen av filene har KI-vurderinger.",
+        choose: "Velg format:",
+        csv: "CSV-fil",
+        xlsx: "Excel-fil (.xlsx)",
+      },
+    },
     studentPage: {
       /** The crumb and the link from Spillinnsikt are the Student's name. */
       linkLabel: (name: string) => `Studentside for ${name}`,
       /** [ASSUMPTION] the line under the name. */
       session: (number: number) => `Klasseøkt ${number}`,
+      /** [ASSUMPTION] The Roster's link from a registered Student (Story 13.2): «Studentside» for
+       * a Class with one Klasseøkt, «Studentside, økt 2» for each where it has several. */
+      rosterLink: "Studentside",
+      rosterLinkSession: (number: number) => `Studentside, økt ${number}`,
+      rosterLinkLabel: (email: string, number: number) => `Studentside for ${email}, Klasseøkt ${number}`,
+    },
+    /** The block «Fullføring» (Story 13.2, FR-17, UX-DR54, EXPERIENCE.md → Fullføringsretting):
+     * the step names, «gjort» / «ikke gjort» and the two share lines are the spine's; the rest is
+     * [ASSUMPTION] draft copy for the founder's review. */
+    completion: {
+      title: "Fullføring",
+      steps: {
+        class_game: "Klassespill",
+        debrief: "Debrief",
+        quiz_passed: "Debrief-quiz",
+        replay: "Replay",
+        test_submitted: "Individuell test",
+      } as Record<string, string>,
+      done: "gjort",
+      notDone: "ikke gjort",
+      /** «Registrert ti. 12. des.»: when the step event was recorded (the day ends in its own
+       * full stop). */
+      recorded: (day: string) => `Registrert ${sentence(day)}`,
+      /** A recorded step that does not count, said in text. */
+      notCounted: {
+        class_game: "Spillet er ferdig, men studenten bestilte selv for sjelden.",
+        debrief: "Debriefen er fullført, men Forklaringen er for kort.",
+        test_submitted: "Testen ble levert ved fristen, men en del mangler svar.",
+      } as Record<string, string>,
+      /** «Bestilte i 70 % av ukene.» */
+      ordered: (percent: string) => `Bestilte i ${percent} av ukene.`,
+      /** Story 13.4: with an Oppfølgingsspill the share names its game: «Bestilte i 100 % av ukene
+       * i Oppfølgingsspillet.» [ASSUMPTION] */
+      orderedIn: (percent: string, game: "class" | "makeup") =>
+        `Bestilte i ${percent} av ukene i ${game === "makeup" ? "Oppfølgingsspillet" : "Klassespillet"}.`,
+      /** « Kravet er 80 %.», only when the Class session is obligatory. */
+      required: (percent: string) => `Kravet er ${percent}.`,
+      /** The Student's own share (Tilrettelegging): «Kravet er 60 % (tilrettelagt).» */
+      requiredAdjusted: (percent: string) => `Kravet er ${percent} (tilrettelagt).`,
+      /** «20 % av ukene ble spilt i utspillingen ved Spillfristen.» */
+      playout: (percent: string) => `${percent} av ukene ble spilt i utspillingen ved Spillfristen.`,
+      met: "Kravet er oppfylt.",
+      notMet: "Kravet er ikke oppfylt.",
+      unavailable: "Fullføringen telles ikke for denne studenten.",
+      /** Participation signals (FR-17): never part of the status. */
+      infoTitle: "Til informasjon",
+      infoNote: "Endrer ikke fullføringen.",
+      /** «Tid på egne bestillinger: 1 t 4 min.» */
+      timeSpent: (time: string) => `Tid på egne bestillinger: ${time}.`,
+      hoursMinutes: (hours: number, minutes: number) => (hours > 0 ? `${hours} t ${minutes} min` : `${minutes} min`),
+      underMinute: "under 1 min",
+      /** Over the Student's own Orders after the Guided Weeks only. */
+      constant: (count: number) => `De ${count} egne bestillingene etter de veiledede ukene hadde samme antall.`,
+      varied: (count: number) => `De ${count} egne bestillingene etter de veiledede ukene hadde ulike antall.`,
+      tooFew: "For få egne bestillinger etter de veiledede ukene til å si om de var like.",
+      noOrders: "Ingen egne bestillinger.",
+      /** Story 13.3 (UX-DR54, EXPERIENCE.md → Fullføringsretting): the correction of a step. The
+       * spine's strings; the legend, the refusals, the failure and the fallback name are
+       * [ASSUMPTION]. */
+      correct: (step: string) => `Rett ${step}`,
+      doneChoice: "Gjort",
+      notDoneChoice: "Ikke gjort",
+      statusLegend: "Status",
+      reasonLabel: "Begrunnelse",
+      reasonError: "Skriv en begrunnelse.",
+      reasonTooLong: "Begrunnelsen kan være på høyst 1000 tegn.",
+      logged: "Rettingen logges med navnet ditt, tidspunktet og begrunnelsen.",
+      save: "Lagre retting",
+      cancel: "Avbryt",
+      /** «Gjort, rettet av Bård 12. des.» (the day ends in its own full stop). */
+      corrected: (done: boolean, by: string, day: string) => `${done ? "Gjort" : "Ikke gjort"}, rettet av ${by} ${sentence(day)}`,
+      /** The corrector's name when it is no longer known in the Class. */
+      someone: "en faglærer",
+      refusals: {
+        invalid_correction: "Sjekk begrunnelsen.",
+        not_obligatory: "Klasseøkta er ikke obligatorisk, så det er ingenting å rette.",
+        class_archived: "Klassen er arkivert, så ingenting kan rettes.",
+      } as Record<string, string>,
+      failed: "Rettingen ble ikke lagret. Prøv igjen.",
+      /** Story 13.4 (UX-DR54, EXPERIENCE.md → Fullføringsretting → Oppfølgingsspill): the spine's
+       * strings; the state lines, the refusals and the failure are [ASSUMPTION]. */
+      makeup: {
+        give: "Gi oppfølgingsspill",
+        /** «Jonas får et eget Klassespill mot tre KI-spillere, åpent til Testfristen fr. 18. des.
+         * Jonas får beskjed på Hjem og på e-post.» (the day ends in its own full stop) */
+        consequence: (name: string, day: string) =>
+          `${name} får et eget Klassespill mot tre KI-spillere, åpent til Testfristen ${sentence(day)} ${name} får beskjed på Hjem og på e-post.`,
+        /** «Oppfølgingsspill gitt 12. des. Åpent til fr. 18. des.» */
+        given: (given: string, until: string) => `Oppfølgingsspill gitt ${sentence(given)} Åpent til ${sentence(until)}`,
+        /** Without a Testfrist any more (it was removed after the Oppfølgingsspill was given). */
+        givenOn: (given: string) => `Oppfølgingsspill gitt ${sentence(given)}`,
+        state: {
+          ready: "Ikke startet ennå.",
+          running: "Pågår.",
+          finished: "Ferdig.",
+          ended: "Stengt ved Testfristen før siste uke.",
+        } as Record<string, string>,
+        cancel: "Avbryt",
+        refusals: {
+          not_counted: "Studenten telles ikke i rapportene, så et Oppfølgingsspill teller ikke.",
+          session_not_locked: "Klasseøkta er ikke låst ennå, så det finnes ikke noe spill å gi.",
+          no_test_deadline: "Klasseøkta har ingen Testfrist.",
+          test_deadline_passed: "Testfristen er ute.",
+          class_archived: "Klassen er arkivert.",
+        } as Record<string, string>,
+        failed: "Oppfølgingsspillet ble ikke gitt. Prøv igjen.",
+      },
+    },
+    /** The record blocks of the Studentside (Story 13.2, FR-63). All [ASSUMPTION] draft copy. */
+    record: {
+      /** Story 13.12: the block with the staff's download of the Student report. */
+      report: {
+        title: "Studentrapport",
+        notCounted: "Det lages ingen Studentrapport for denne Studenten.",
+      },
+      game: {
+        title: "Spillet",
+        none: "Ikke noe spill ennå.",
+        /** «Spill 3 · Grossist» */
+        line: (game: string, role: string) => `${game} · ${role}`,
+        name: (number: number | null) => gameName(number),
+        /** Story 13.5: the finished Oppfølgingsspill that became the Student's game. [ASSUMPTION] */
+        makeup: "Oppfølgingsspill",
+        state: {
+          not_ready: "Ikke klart ennå.",
+          ready: "Ikke startet.",
+          running: "Pågår.",
+          finished: "Ferdig.",
+          ended: "Avsluttet før siste uke.",
+        } as Record<string, string>,
+        /** «Ferdig ti. 12. des.» (the day ends in its own full stop) */
+        finishedOn: (day: string) => `Ferdig ${sentence(day)}`,
+        playedOut: "Spilt ut ved Spillfristen.",
+        insight: "Se Spillinnsikt",
+      },
+      debrief: {
+        title: "Debrief",
+        explanation: "Forklaring",
+        noExplanation: "Ingen Forklaring ennå.",
+        /** «Sendt ti. 12. des.» */
+        sent: (day: string) => `Sendt ${sentence(day)}`,
+        notFinished: "Debriefen er ikke fullført.",
+        /** «Fullført ti. 12. des. 3 nøkkeløyeblikk.» */
+        finished: (day: string, moments: number) =>
+          moments === 0 ? `Fullført ${sentence(day)}` : `Fullført ${sentence(day)} ${moments} nøkkeløyeblikk.`,
+        late: "Etter Debrieffristen.",
+        summary: "Se Debrief-sammendraget",
+      },
+      quiz: {
+        title: "Debrief-quiz",
+        none: "Ingen forsøk ennå.",
+        /** One row: «Forsøk 2 · ti. 12. des. kl. 10:00 · bestått» */
+        attempt: (number: number, at: string, passed: boolean) =>
+          `Forsøk ${number} · ${at} · ${passed ? "bestått" : "ikke bestått"}`,
+      },
+      replay: {
+        title: "Replay",
+        none: "Ingen Replay ennå.",
+        running: "Startet, ikke ferdig.",
+        finishedOn: (day: string) => `Ferdig ${sentence(day)}`,
+        insight: "Se Replay i Spillinnsikt",
+      },
+      test: {
+        title: "Individuell test",
+        none: "Ikke åpnet ennå.",
+        status: {
+          open: "Åpnet, ikke levert.",
+          submitted: "Levert.",
+          auto_submitted: "Levert automatisk ved Testfristen.",
+        } as Record<string, string>,
+        /** «Levert ti. 12. des. kl. 10:00.» */
+        submittedAt: (at: string) => `Levert ${at}.`,
+        partsTitle: "Deler med svar",
+        parts: {
+          choice: "Flervalg",
+          interactive: "Interaktive oppgaver",
+          long: "Langsvar",
+          adapted: "Tilpassede oppgaver",
+        } as Record<string, string>,
+        answered: "har svar",
+        unanswered: "mangler svar",
+      },
     },
     /** The block (EXPERIENCE.md → Tilrettelegging): the idle lines, the form, «Lagret. Gjelder fra
      * nå.» are the spine's; the refusals and the failure are [ASSUMPTION] draft copy. */
@@ -4282,6 +4604,22 @@ export const nb = {
         game === null ? `Melding til ${name}` : `Melding til ${name}, ${gameName(game)}`,
       classGame: (game: number | null) => `Melding til ${gameName(game)}`,
       classSession: (session: number) => `Melding til alle i Klasseøkt ${session}`,
+      /** Story 13.6 [ASSUMPTION] */
+      requirementNotMet: "Melding til dem som ikke har oppfylt kravet",
+    },
+    /** Story 13.6 [ASSUMPTION] draft copy for review: the table above the field of the Students who
+     * have not met the requirement. The list is judged again when the Message is sent. */
+    notMet: {
+      caption: "Studenter som ikke har oppfylt kravet",
+      note: "Listen sjekkes på nytt når du sender. Den som har oppfylt kravet innen da, får ikke meldingen.",
+      student: "Student",
+      ordered: "Bestilte selv",
+      required: "Kravet",
+      playout: "Spilt i utspillingen",
+      /** No share: no game, or no playout at the Play deadline. */
+      none: "–",
+      /** The ordered share from the Oppfølgingsspill: «100 % i Oppfølgingsspillet». */
+      inMakeup: (share: string) => `${share} i Oppfølgingsspillet`,
     },
     /** A Student whose name the api no longer gives. */
     unknownStudent: "studenten",
@@ -4331,6 +4669,8 @@ export const nb = {
         classGame: (game: number | null) => `Til ${gameName(game)}`,
         classSession: (session: number) => `Til alle i Klasseøkt ${session}`,
         list: (n: number) => (n === 1 ? "Til 1 student" : `Til ${n} studenter`),
+        /** Story 13.6 [ASSUMPTION]: judged when it was sent. */
+        requirementNotMet: (n: number) => `Til ${n} som ikke hadde oppfylt kravet`,
       },
       from: (sender: string) => `Fra ${sender}`,
       reach: (n: number) => (n === 1 ? "Sendt til 1 student" : `Sendt til ${n} studenter`),

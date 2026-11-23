@@ -2,8 +2,8 @@
 
 import { type ReactNode } from "react";
 
-import { StockBacklog, StockBacklogLabels, type StockBacklogRow } from "@/components/charts/stock-backlog";
-import { type GraphColumn, type GraphField, GraphOverTable } from "@/components/graph-over-table";
+import { StockBacklog, StockBacklogLabels, type StockBacklogMost, type StockBacklogRow } from "@/components/charts/stock-backlog";
+import { fixedCell, type FixedLayout, type GraphColumn, type GraphField, GraphOverTable } from "@/components/graph-over-table";
 
 /** One Role, as the api gave it: its stored inventory and backlog per Uke. */
 export type StockBacklogRole = {
@@ -33,6 +33,9 @@ export function StockBacklogTable({
   roles,
   caption,
   texts,
+  fixed,
+  most,
+  rows: tableRows,
 }: {
   /** The scroll region's accessible name. */
   label: string;
@@ -40,7 +43,16 @@ export function StockBacklogTable({
   /** The line over the bars (a key); read by screen readers. */
   caption?: ReactNode;
   texts: { week: string; svg: string; axisSvg: string; swipe: string };
+  /** Every width in px, for the server-rendered print page (the Student report, Story 13.8). */
+  fixed?: FixedLayout;
+  /** The game's largest stock and backlog when it is drawn in several blocks of Uker. */
+  most?: StockBacklogMost;
+  /** Table rows under the bands on the same columns (the Student report has no «Vis som tabell»):
+   * a label and one printed cell per Uke. Left out, the caller gives the table elsewhere. */
+  rows?: readonly { key: string; label: string; cells: readonly string[] }[];
 }) {
+  const weekCell = fixedCell(fixed, "week");
+  const labelCell = fixedCell(fixed, "label");
   const weeks = [...new Set(roles.flatMap((role) => role.weeks.map((w) => w.week)))].sort((a, b) => a - b);
   const columns: GraphColumn[] = weeks.map((week) => ({ week, when: "past", phone: true }));
   const byWeek = roles.map((role) => new Map(role.weeks.map((w) => [w.week, w])));
@@ -63,6 +75,7 @@ export function StockBacklogTable({
             rows={rows}
             title={texts.svg}
             fontSize={size.fontSize}
+            most={most}
           />
         ),
         axis: (
@@ -83,21 +96,43 @@ export function StockBacklogTable({
       label={label}
       columns={columns}
       fields={[field]}
-      swipe={texts.swipe}
+      swipe={fixed ? undefined : texts.swipe}
+      fixed={fixed}
       head={
         <tr className="border-b border-axis">
-          <th scope="row" className={ROW_LABEL}>
+          <th scope="row" className={ROW_LABEL} style={labelCell}>
             {texts.week}
           </th>
           {weeks.map((week) => (
-            <th key={week} scope="col" data-col={week} className={`${WEEK_COL} h-row-phone font-normal text-ink-muted lg:h-row-laptop`}>
+            <th
+              key={week}
+              scope="col"
+              data-col={week}
+              style={weekCell}
+              className={`${WEEK_COL} h-row-phone font-normal text-ink-muted lg:h-row-laptop`}
+            >
               <span className="sr-only">{texts.week} </span>
               {week}
             </th>
           ))}
         </tr>
       }
-      body={null}
+      body={
+        tableRows
+          ? tableRows.map((row) => (
+              <tr key={row.key} data-row={row.key} className="border-b border-hairline">
+                <th scope="row" className={ROW_LABEL} style={labelCell}>
+                  {row.label}
+                </th>
+                {row.cells.map((cell, i) => (
+                  <td key={weeks[i]} style={weekCell} className={`${WEEK_COL} h-row-phone lg:h-row-laptop`}>
+                    {cell}
+                  </td>
+                ))}
+              </tr>
+            ))
+          : null
+      }
     />
   );
 }

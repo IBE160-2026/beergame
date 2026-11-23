@@ -158,6 +158,12 @@ async def test_the_walkthrough_sets_the_replay_beside_the_class_game(klass, emit
     monkeypatch.setattr(
         walkthrough, "get_settings", lambda: SimpleNamespace(replay_walkthrough_wait_seconds=0)
     )
+    # Story 13.10: before any walkthrough record, the Student report's read sets the Replay
+    # beside the same Class game (`student_game`).
+    [(my_id,)] = rows("SELECT id FROM users WHERE email = %s", me)
+    early = await replay_service.report_replay(my_id, uuid.UUID(session_id))
+    assert early is not None and early.class_game is not None
+    assert rows("SELECT count(*) FROM replay_walkthroughs") == [(0,)]
     first = await read(me, mine)
     replay_facts = await games_service.fact_set(mine, role)
     class_facts = await games_service.fact_set(class_game, role)
@@ -181,6 +187,18 @@ async def test_the_walkthrough_sets_the_replay_beside_the_class_game(klass, emit
     assert_run_is_the_rows(first["class_game"], class_game, role)
     assert len(first["replay"]["weeks"]) == WEEKS and len(first["class_game"]["weeks"]) == 14
     assert first["class_game"]["game_number"] is not None
+    # Story 13.10: the Student report's read sets the same two runs side by side, with the
+    # Replay's own settings as its scenario (FR-58).
+    reported = await replay_service.report_replay(my_id, uuid.UUID(session_id))
+    assert reported is not None and (reported.state, reported.role) == ("finished", role)
+    assert reported.settings.weeks == WEEKS and not reported.mostly_ai
+    assert reported.class_game is not None and early.class_game == reported.class_game
+    for run, shown in (
+        (reported.replay, first["replay"]),
+        (reported.class_game, first["class_game"]),
+    ):
+        assert [w.model_dump(mode="json") for w in run.weeks] == shown["weeks"]
+        assert run.total_cost == Decimal(shown["total_cost"])
     # One or two moments of the Student's own Replay Orders, every number from the facts.
     by_id = {moment.id: moment for moment in replay_facts.facts.seat.moments}
     assert len(by_id) == MOMENTS

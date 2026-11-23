@@ -22,11 +22,20 @@ import {
   HOME_PATH,
   messagePath,
   sentMessagesPath,
+  studentPagePath,
 } from "@/modules/identity/homes";
 import { PageShell } from "@/modules/identity/page-shell";
 
-import { type MessageForm, messageFormKey, type MessageSent, type MessageTo, sendMessage, useMessageForm } from "./api";
-import { canSend, keyFor, messageTitle, recipientFrom, sendErrors } from "./message-form";
+import {
+  type MessageForm,
+  messageFormKey,
+  type MessageSent,
+  type MessageTo,
+  type NotMetStudent,
+  sendMessage,
+  useMessageForm,
+} from "./api";
+import { canSend, keyFor, messageTitle, notMetCells, recipientFrom, sendErrors } from "./message-form";
 
 const copy = nb.messages;
 
@@ -38,7 +47,8 @@ const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * as the title — one Student, a Class game or the whole Class session — a multi-line Tekstfelt and
  * «Send Melding». One-way: no reply field and no way to add recipients. Browser Back returns to the
  * page it was opened from. Opened from the Oversikt header and Spillinnsikt; later epics open it
- * with `messagePath`. Anyone but the Class's staff sees the permission-denied page (FR-5).
+ * with `messagePath`. Story 13.6: written to the Students who have not met the requirement, a table
+ * of them and their shares stands above the field. Anyone but the Class's staff sees the permission-denied page (FR-5).
  */
 export function MessagePage({ sessionId }: { sessionId: string }) {
   const to = recipientFrom(useSearchParams());
@@ -175,6 +185,9 @@ function Composer({ sessionId, to, form }: { sessionId: string; to: MessageTo; f
       <p className="text-body-phone text-ink-secondary lg:text-body">
         {form.students > 0 ? copy.reach(form.students) : copy.noStudents}
       </p>
+      {form.kind === "requirement_not_met" && form.not_met.length > 0 ? (
+        <NotMetTable sessionId={sessionId} rows={form.not_met} />
+      ) : null}
       <TextAreaField
         ref={field}
         id={fieldId}
@@ -193,6 +206,62 @@ function Composer({ sessionId, to, form }: { sessionId: string; to: MessageTo; f
       <p className="text-caption text-ink-secondary">{copy.sentBefore(form.sent_before)}</p>
       <SentLink sessionId={sessionId} />
     </form>
+  );
+}
+
+/**
+ * The Students who have not met the requirement (Story 13.6, FR-17, UX-DR54): each name a Lenke
+ * to their Studentside, the share of Weeks they ordered against the share required of them, and
+ * the share the Play deadline's playout played, so a shortfall the playout or the group's pace
+ * caused can be told from one the Student caused. Every number is the api's.
+ */
+function NotMetTable({ sessionId, rows }: { sessionId: string; rows: readonly NotMetStudent[] }) {
+  const table = copy.notMet;
+  return (
+    <div className="flex flex-col gap-2">
+      <table className="w-full border-collapse text-caption text-ink tabular-nums lining-nums lg:text-body" data-not-met="">
+        <caption className="text-left text-label text-ink">{table.caption}</caption>
+        <thead>
+          <tr className="border-b border-axis text-ink-secondary">
+            <th scope="col" className="py-1 pr-3 text-left align-bottom font-normal">
+              {table.student}
+            </th>
+            <th scope="col" className="py-1 pr-3 text-right align-bottom font-normal">
+              {table.ordered}
+            </th>
+            <th scope="col" className="py-1 pr-3 text-right align-bottom font-normal">
+              {table.required}
+            </th>
+            <th scope="col" className="py-1 text-right align-bottom font-normal">
+              {table.playout}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => {
+            const cells = notMetCells(row);
+            return (
+              <tr key={row.user_id} className="border-b border-hairline" data-not-met-row={row.user_id}>
+                <th scope="row" className="py-1 pr-3 text-left align-top font-normal [overflow-wrap:anywhere]">
+                  {row.name === null ? (
+                    copy.unknownStudent
+                  ) : (
+                    // A 44 px tap target, as every control on a phone.
+                    <Link href={studentPagePath(sessionId, row.user_id)} standalone className="min-w-tap-target-min">
+                      {row.name}
+                    </Link>
+                  )}
+                </th>
+                <td className="py-1 pr-3 text-right align-top">{cells.ordered}</td>
+                <td className="py-1 pr-3 text-right align-top">{cells.required}</td>
+                <td className="py-1 text-right align-top">{cells.playout}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <p className="text-caption text-ink-secondary">{table.note}</p>
+    </div>
   );
 }
 

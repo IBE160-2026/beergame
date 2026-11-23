@@ -1,3 +1,4 @@
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { nb } from "@/copy/nb";
@@ -7,6 +8,7 @@ import { endTitle } from "@/modules/games/game-end";
 import { stepItems } from "@/modules/games/home";
 
 import type { StudentReplay } from "./api";
+import { ReplayClosed } from "./replay-closed";
 import { closedReplay, finishedReplay, replayEnd, replayTitle, resumeWeek, wantsReplayPrimary } from "./replay";
 
 const classic = result as GameResult;
@@ -43,7 +45,7 @@ describe("the Replay on Hjem (Story 10.3)", () => {
 
   it("says in Stegene's Replay step to go on at the open Uke while it runs (Story 10.4)", () => {
     const steps = [
-      { step: "replay" as const, state: "current" as const, held: false, quiz_changed: false, group_open: false, closed: false },
+      { step: "replay" as const, state: "current" as const, held: false, quiz_changed: false, group_open: false, closed: false, corrected: false, after_makeup: false },
     ];
     const [running] = stepItems(steps, "s1", { ...STARTED, game: { ...STARTED.game!, week: 9 } });
     expect(running.note).toBe("Fortsett Replay, Uke 9.");
@@ -76,6 +78,8 @@ describe("the Replay on Hjem (Story 10.3)", () => {
         quiz_changed: false,
         group_open: false,
         closed: true,
+        corrected: false,
+        after_makeup: false,
       },
     ]);
     expect(replay.note).toBe(nb.homes.student.replayClosed);
@@ -87,6 +91,8 @@ describe("the Replay on Hjem (Story 10.3)", () => {
         quiz_changed: false,
         group_open: false,
         closed: false,
+        corrected: false,
+        after_makeup: false,
       },
     ]);
     expect(open.note).toBe(nb.homes.student.current);
@@ -106,12 +112,22 @@ describe("the Replay on Hjem (Story 10.3)", () => {
     expect(closedReplay(null)).toBe(false);
     // Stegene: a started Replay closed there reads so; none started, as before.
     const steps = [
-      { step: "replay" as const, state: "current" as const, held: false, quiz_changed: false, group_open: false, closed: true },
+      { step: "replay" as const, state: "current" as const, held: false, quiz_changed: false, group_open: false, closed: true, corrected: false, after_makeup: false },
     ];
     expect(stepItems(steps, "s1", closed)[0]!.note).toBe(nb.homes.student.replayClosedUnfinished);
     expect(stepItems(steps, "s1", { can_start: false, game: null })[0]!.note).toBe(nb.homes.student.replayClosed);
     // The page title: «Replay stengt», never «Replay er ferdig».
     expect(endTitle({ replay: true, end_reason: "test_deadline" })).toBe("Replay stengt");
     expect(endTitle({ replay: true, end_reason: null })).toBe("Replay er ferdig");
+    // Story 13.4: an Oppfølgingsspill closed at the Testfrist says so in its own words.
+    expect(endTitle({ replay: false, makeup: true, end_reason: "test_deadline" })).toBe("Oppfølgingsspill stengt");
+    expect(endTitle({ replay: false, makeup: true, end_reason: null })).toBe("Spillet er ferdig");
+  });
+});
+
+describe("the closed screen of an Oppfølgingsspill (Story 13.4)", () => {
+  it("names the Oppfølgingsspill, not the Replay", () => {
+    expect(renderToStaticMarkup(<ReplayClosed makeup />)).toContain(nb.games.play.makeupClosed.lead);
+    expect(renderToStaticMarkup(<ReplayClosed />)).toContain(nb.games.play.replayClosed.lead);
   });
 });

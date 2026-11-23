@@ -1,4 +1,5 @@
 import NextLink from "next/link";
+import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -14,6 +15,9 @@ export type StegeneItem = {
   note: string;
   /** Where the current step leads (Story 9.2: the Debrief); its name is then a link. */
   href?: string;
+  /** Story 13.7: an action under an open step's row (the Student report's download); Story 13.9:
+   * also under a locked one (the deletion date under «Rapport»). */
+  action?: ReactNode;
 };
 
 /**
@@ -23,7 +27,8 @@ export type StegeneItem = {
  * line that says what opens it, in `ink-secondary`. The markers are decorative: the state is
  * always in words, never in colour or shape alone. The component holds no rule for which step is
  * open; the api decides and the caller passes the words. A current step with `href` (the
- * Debrief, Story 9.2) names itself as a Lenke to it. Reused by Epics 9 to 13.
+ * Debrief, Story 9.2) names itself as a Lenke to it. A step with `action` (Story 13.7: the Student
+ * report's download under «Rapport») shows it under its row. Reused by Epics 9 to 13.
  */
 export function Stegene({ title, items, titleId }: { title: string; items: StegeneItem[]; titleId: string }) {
   return (
@@ -51,23 +56,33 @@ export function Stegene({ title, items, titleId }: { title: string; items: Stege
               />
             </svg>
             {item.state === "locked" ? (
-              <span className="text-body-phone text-ink-secondary lg:text-body">{item.note}</span>
+              item.action ? (
+                <div className="flex flex-1 flex-col">
+                  <span className="text-body-phone text-ink-secondary lg:text-body">{item.note}</span>
+                  {item.action}
+                </div>
+              ) : (
+                <span className="text-body-phone text-ink-secondary lg:text-body">{item.note}</span>
+              )
             ) : (
-              <span className="flex flex-1 flex-wrap justify-between gap-x-4 text-body-phone lg:text-body">
-                {item.href ? (
-                  // A Lenke (DESIGN.md → Controls): `lager`, weight 600, underlined. Padding taken
-                  // back by a negative margin gives it a 44 px tap target without moving the row.
-                  <NextLink
-                    href={item.href}
-                    className="-my-3.5 inline-block py-3.5 font-semibold text-lager underline underline-offset-2 hover:decoration-2 active:text-ink"
-                  >
-                    {item.name}
-                  </NextLink>
-                ) : (
-                  <span className={cn("text-ink", item.state === "current" && "font-semibold")}>{item.name}</span>
-                )}
-                <span className="text-ink-secondary">{item.note}</span>
-              </span>
+              <div className="flex flex-1 flex-col">
+                <span className="flex flex-wrap justify-between gap-x-4 text-body-phone lg:text-body">
+                  {item.href ? (
+                    // A Lenke (DESIGN.md → Controls): `lager`, weight 600, underlined. Padding taken
+                    // back by a negative margin gives it a 44 px tap target without moving the row.
+                    <NextLink
+                      href={item.href}
+                      className="-my-3.5 inline-block py-3.5 font-semibold text-lager underline underline-offset-2 hover:decoration-2 active:text-ink"
+                    >
+                      {item.name}
+                    </NextLink>
+                  ) : (
+                    <span className={cn("text-ink", item.state === "current" && "font-semibold")}>{item.name}</span>
+                  )}
+                  <span className="text-ink-secondary">{item.note}</span>
+                </span>
+                {item.action}
+              </div>
             )}
           </li>
         ))}
