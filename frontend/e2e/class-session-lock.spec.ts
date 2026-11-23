@@ -34,7 +34,10 @@ async function locked(lecturer: Page, id: string, changes: Record<string, unknow
   await lecturer.route(`**/api/class-sessions/${id}`, async (route) => {
     const response = await route.fetch();
     if (!response.ok()) return route.fulfill({ response });
-    await route.fulfill({ response, json: { ...(await response.json()), locked: true, ...changes } });
+    const body = await response.json();
+    // A stand-in switch keeps the real answer's other fields (Story 12.6's `letter`).
+    const assessment = changes.ai_assessment ? { ai_assessment: { ...body.ai_assessment, ...(changes.ai_assessment as object) } } : {};
+    await route.fulfill({ response, json: { ...body, locked: true, ...changes, ...assessment } });
   });
 }
 
@@ -53,7 +56,9 @@ test("locked, everything frozen stands as text and «Lagre Klasseøkt» saves a 
   // Testfrist: wait for those blocks, then count only the switches outside them.
   await expect(lecturer.locator("[data-quiz-exclusions]")).toBeVisible();
   await expect(lecturer.locator("[data-ai-assessment] [role='switch']")).toBeVisible();
-  await expect(lecturer.getByRole("radio")).toHaveCount(0);
+  // Story 12.6: the Veiledende bokstav's Valgknapper, in KI-vurdering, stay open with it.
+  await expect(lecturer.locator("[data-letter-block] input[type='radio']")).toHaveCount(3);
+  await expect(lecturer.locator("input[type='radio']:not([data-ai-assessment] input)")).toHaveCount(0);
   await expect(
     lecturer.locator(
       "[role='switch']:not([data-quiz-exclusions] [role='switch']):not([data-ai-assessment] [role='switch'])",

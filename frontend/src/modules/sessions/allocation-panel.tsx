@@ -16,6 +16,7 @@ import { LINK_BUTTON } from "@/modules/classes/roster-entry-forms";
 
 import {
   changedReason,
+  consentRefusal,
   gameLabel,
   gameLine,
   gameState,
@@ -221,6 +222,11 @@ export function AllocationBlock({
           ) : null}
         </div>
       ) : null}
+      {allocation && allocation.consent_missing > 0 && !confirmed ? (
+        <p className="mt-2 max-w-prose text-body-phone text-ink lg:text-body">
+          {copy.consentMissing(allocation.consent_missing)}
+        </p>
+      ) : null}
       {allocation && withoutSeatLine(allocation) ? (
         <p className="mt-2 max-w-prose text-body-phone text-ink lg:text-body">{withoutSeatLine(allocation)}</p>
       ) : null}
@@ -240,7 +246,7 @@ export function AllocationBlock({
           {opening.isPending ? copy.opening : copy.open}
         </button>
       ) : null}
-      <ActionError message={opening.errorMessage ?? closedReason} />
+      <ActionError message={consentRefusal(opening.error) ?? opening.errorMessage ?? closedReason} />
     </section>
   );
 }
@@ -314,7 +320,7 @@ function Preview({
   const confirmError =
     confirm.error instanceof ApiRequestError && confirm.error.code === "allocation_changed"
       ? changedReason(confirm.error.fields)
-      : confirm.errorMessage;
+      : (consentRefusal(confirm.error) ?? confirm.errorMessage);
   // Moving and swapping (Story 5.10): pick a Student, choose any game in the chart, then press the
   // button on the Seat to move to. The request carries the revision on screen.
   const [picked, setPicked] = useState<Picked | null>(null);
@@ -506,7 +512,7 @@ function Preview({
           {copy.close}
         </button>
       </div>
-      <ActionError message={redraw.errorMessage ?? confirmError} />
+      <ActionError message={consentRefusal(redraw.error) ?? redraw.errorMessage ?? confirmError} />
       <p role="status" className="text-body-phone text-ink">
         {result}
       </p>

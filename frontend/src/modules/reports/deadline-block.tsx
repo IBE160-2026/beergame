@@ -13,7 +13,7 @@ import { errorCode, useAction } from "@/lib/api/mutation";
 import { cn } from "@/lib/utils";
 import { osloDateText, toOsloInput } from "@/modules/sessions/dates";
 
-import { extendTestDeadline, type StudentPage, studentPageKey } from "./api";
+import { extendTestDeadline, type ManagedStudentPage, studentPageKey } from "./api";
 import { canExtend, checkDeadline, deadlineLines, refusalOnField, type StudentDeadlines } from "./deadline";
 
 const copy = nb.reports.deadline;
@@ -33,7 +33,7 @@ export function DeadlineBlock({
   open,
   onOpenChange,
 }: {
-  data: StudentPage;
+  data: ManagedStudentPage;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -109,7 +109,7 @@ function DeadlineForm({
   onCancel,
   onSaved,
 }: {
-  data: StudentPage;
+  data: ManagedStudentPage;
   classTestDeadline: string;
   onCancel: () => void;
   onSaved: (block: StudentDeadlines) => void;
@@ -131,7 +131,7 @@ function DeadlineForm({
     messages: { ...copy.refusals, invalid_extension: copy.refusals.no_test_deadline },
     fallback: copy.failed,
     onSuccess: (block: StudentDeadlines) => {
-      queryClient.setQueryData<StudentPage>(pageKey, (page) => (page ? { ...page, deadlines: block } : page));
+      queryClient.setQueryData<ManagedStudentPage>(pageKey, (page) => (page ? { ...page, deadlines: block } : page));
       onSaved(block);
     },
   });

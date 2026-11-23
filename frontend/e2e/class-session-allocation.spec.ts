@@ -192,6 +192,7 @@ function hundredGames(): Allocation {
   return {
     registered_count: 397,
     missing_count: 0,
+    consent_missing: 0,
     confirmed: false,
     confirmed_at: null,
     opened: false,

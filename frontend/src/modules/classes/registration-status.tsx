@@ -21,7 +21,7 @@ import {
   useRegistrations,
 } from "./api";
 import { useFormArea } from "./one-form";
-import { barShares, filterRegistrations, reminderReach, STATUSES, statusLabel } from "./registration";
+import { barShares, filterRegistrations, reminderReach, STATUSES, statusLabel, testStudentLabel } from "./registration";
 import { EntryResult, ManualForm, RemoveConfirm, resultText } from "./roster-entry-forms";
 import { dayLabel, parseValidDays, VALID_DAYS } from "./roster";
 
@@ -537,7 +537,12 @@ function AddressList({
           <li key={item.id} className="border-b border-hairline py-2">
             <div className="flex flex-col gap-1 sm:grid sm:min-h-tap-target-min sm:grid-cols-[minmax(0,1fr)_minmax(0,12rem)_minmax(0,21rem)] sm:items-center sm:gap-x-4">
               <span className="text-body-phone text-ink [overflow-wrap:anywhere] lg:text-body">{item.email}</span>
-              <span className="text-body-phone text-ink-secondary lg:text-body">{statusLabel(item, today)}</span>
+              <span className="text-body-phone text-ink-secondary lg:text-body">
+                {statusLabel(item, today)}
+                {testStudentLabel(item) ? (
+                  <span className="block text-label text-ink">{testStudentLabel(item)}</span>
+                ) : null}
+              </span>
               {readOnly ? null : (
               <span className="flex flex-wrap gap-x-4 sm:justify-self-end">
                 {item.remindable ? (

@@ -8,7 +8,8 @@ Student opened the test, it stores nothing new."""
 
 import structlog
 
-from app.modules.tests import prepare
+# `assessed` registers the Test attempt reader the `assessment.assess` job reads (Story 12.2).
+from app.modules.tests import assessed, prepare  # noqa: F401
 from app.platform import jobs
 
 __all__ = ["prepare_adapted"]

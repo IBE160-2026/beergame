@@ -119,10 +119,20 @@ SITTING_TABLES = {"test_sittings"}
 """The tables of revision 0129 (Story 11.12)."""
 EXTENSION_TABLES = {"student_deadline_extensions"}
 """The table of revision 0130 (Story 11.13)."""
+AI_ASSESSMENT_TABLES = {"ai_assessments", "ai_item_scores"}
+"""The tables of revision 0202 (Story 12.2)."""
 RECLAIM_TABLES = {"seat_reclaims"}
 """The table of revision 0055 (Story 8.4)."""
 ADJUSTMENT_TABLES = {"student_adjustments"}
 """The table of revision 0059 (Story 8.9)."""
+FLAG_TABLES = {"ai_feedback_flags"}
+"""The table of revision 0205 (Story 12.5)."""
+CONSENT_TABLES = {"test_student_consents"}
+"""The table of revision 0207 (Story 12.8)."""
+SCORING_TABLES = {"control_test_scorers", "human_scores"}
+"""The tables of revision 0208 (Story 12.9)."""
+CHECK_TABLES = {"scoring_guide_checks"}
+"""The table of revision 0209 (Story 12.10)."""
 HEAD_TABLES = (
     PRE_SESSION_TABLES
     | SESSION_TABLES
@@ -153,10 +163,18 @@ HEAD_TABLES = (
     | PREPARED_TABLES
     | SITTING_TABLES
     | EXTENSION_TABLES
+    | AI_ASSESSMENT_TABLES
     | RECLAIM_TABLES
     | ADJUSTMENT_TABLES
+    | FLAG_TABLES
+    | CONSENT_TABLES
+    | SCORING_TABLES
+    | CHECK_TABLES
 )
-HEAD = "0130"  # 0130 adds one Student's own Test deadline (11.13); 0120-0130 follow main's 0064
+# 0209 (12.10), 0208 (12.9), 0207 (12.8), 0206 (12.6), 0205 (12.5), 0204 (12.4), 0203 (12.3)
+# and 0202 (12.2) follow 0201 (12.7);
+# 0120-0130 follow 0064
+HEAD = "0209"
 
 
 def reset_schema(url: str) -> None:
@@ -344,6 +362,71 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     # 0111 (Story 9.12): presence, the Students who go on alone and the 48-hour fallback.
     assert "last_seen_at" in columns(url, "debrief_members")
     assert {"fallback_due_at", "fallback_at"} <= columns(url, "debrief_sessions")
+
+    # 0209 (Story 12.10): the Scoring guide checks, which never change.
+    assert CHECK_TABLES <= tables(url)
+    assert function_names(url, "scoring_guide_checks_immutable")
+    command.downgrade(cfg, "0208")
+    assert CHECK_TABLES.isdisjoint(tables(url))
+
+    # 0208 (Story 12.9): the named scorers and the human scores, which never change.
+    assert SCORING_TABLES <= tables(url)
+    assert function_names(url, "human_scores_immutable")
+    command.downgrade(cfg, "0207")
+    assert SCORING_TABLES.isdisjoint(tables(url))
+
+    # 0207 (Story 12.8): the test student mark and the consent decisions.
+    assert "is_test_student" in columns(url, "users")
+    assert CONSENT_TABLES <= tables(url)
+    command.downgrade(cfg, "0206")
+    assert "is_test_student" not in columns(url, "users")
+    assert CONSENT_TABLES.isdisjoint(tables(url))
+
+    # 0206 (Story 12.6): the Indicative letter's setting and bounds, the Student's own choice and
+    # the Institution's no-letter mark; the pin trigger also covers the letter columns.
+    assert {"letter_setting", "letter_thresholds"} <= columns(url, "assessment_switches")
+    assert "letter_chosen" in columns(url, "ai_assessments")
+    assert "no_letter" in columns(url, "institutions")
+    command.downgrade(cfg, "0205")
+    assert "letter_setting" not in columns(url, "assessment_switches")
+    assert "letter_chosen" not in columns(url, "ai_assessments")
+    assert "no_letter" not in columns(url, "institutions")
+
+    # 0205 (Story 12.5): the Student's flags on pieces of written feedback.
+    assert FLAG_TABLES <= tables(url)
+    command.downgrade(cfg, "0204")
+    assert FLAG_TABLES.isdisjoint(tables(url))
+
+    # 0204 (Story 12.4): the stop mark on the switch, and the due and overdue times of an
+    # assessment.
+    assert {"stopped_at", "stopped_by"} <= columns(url, "assessment_switches")
+    assert {"due_at", "overdue_at"} <= columns(url, "ai_assessments")
+    command.downgrade(cfg, "0203")
+    assert "stopped_at" not in columns(url, "assessment_switches")
+    assert "due_at" not in columns(url, "ai_assessments")
+
+    # 0203 (Story 12.3): an item's written feedback, or the note that it was left out.
+    assert {"feedback", "feedback_note"} <= columns(url, "ai_item_scores")
+    command.downgrade(cfg, "0202")
+    assert "feedback" not in columns(url, "ai_item_scores")
+
+    # 0202 (Story 12.2): the AI assessment per Test attempt, its item scores, and the model config
+    # the Test-deadline lock pins with the switch.
+    assert AI_ASSESSMENT_TABLES <= tables(url)
+    assert {"model_config_id", "effort_level"} <= columns(url, "assessment_switches")
+    command.downgrade(cfg, "0201")
+    assert AI_ASSESSMENT_TABLES.isdisjoint(tables(url))
+    assert "model_config_id" not in columns(url, "assessment_switches")
+
+    # 0201 (Story 12.7): the operator's own Institution, the kind of a Class session, and the
+    # trigger that keeps a Control test's kind and model config.
+    assert "operator_owned" in columns(url, "institutions")
+    assert "kind" in columns(url, "class_sessions")
+    assert function_names(url, "class_sessions_kind_fixed")
+    command.downgrade(cfg, "0130")
+    assert "operator_owned" not in columns(url, "institutions")
+    assert "kind" not in columns(url, "class_sessions")
+    assert not function_names(url, "class_sessions_kind_fixed")
 
     # 0130 (Story 11.13): one Student's own Test deadline, and a reminder row may name a Student.
     assert {"test_deadline", "debrief_deadline", "updated_by"} <= columns(

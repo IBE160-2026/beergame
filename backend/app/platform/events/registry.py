@@ -92,11 +92,15 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # A User the Admin deactivates or reactivates (Story 3.10): their open pages reload.
         "identity.deactivate_user": frozenset({"user"}),
         "identity.reactivate_user": frozenset({"user"}),
+        # A test student consents or declines on Hjem (Story 12.8): their own pages read again.
+        "identity.decide_consent": frozenset({"user"}),
         # A Class session created or saved (Story 5.1): its Class's staff read it again. A save
         # that changes a date also tells each registered Student of the Class (Story 5.2), and
         # one that marks it obligatory enqueues a notice per Student, which emits `user` (5.7).
         "sessions.create": frozenset({"session"}),
         "sessions.copy_from": frozenset({"session"}),
+        # A Control test the Admin sets up (Story 12.7): the Admin's own open pages read again.
+        "sessions.create_control_test": frozenset({"user"}),
         "sessions.save": frozenset({"session", "user"}),
         # A Lab hour added, changed or removed (Story 5.6): the staff read the session again, and
         # each registered Student's notice emits `user:<id>`.
@@ -219,6 +223,20 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # FR-51): an open one is auto-submitted and its `test_submitted` step emits `user` and
         # `session`, as at a hand-in; closing one handed in earlier emits nothing.
         "tests.close_attempt": frozenset({"session", "user"}),
+        # A run of the AI assessment of one Test attempt finished (Story 12.2, FR-54): the Student
+        # reads «KI-vurdering» again. Story 12.4: the run that marks it ready records the
+        # `assessment_ready` step, whose `progress.record_step` emits `user` and `session` (the
+        # Class session's funnel), and its notice emits `user`; a failed one tells each Admin
+        # through a notice (`user` of the Admin).
+        "assessment.assess": frozenset({"session", "user"}),
+        # The AI assessment of a Class session stopped or resumed (Story 12.4, FR-61, FR-69): the
+        # Class session and every Student with an assessment in it read it again.
+        "assessment.stop_for_session": frozenset({"session", "user"}),
+        "assessment.resume_for_session": frozenset({"session", "user"}),
+        # The Student flagged a piece of feedback or took the flag back (Story 12.5, FR-55): their
+        # own view and the Class's staff (Studentside, Klasseøkt list) read it again.
+        "assessment.set_flag": frozenset({"session", "user"}),
+        "assessment.set_letter_choice": frozenset({"user"}),
         # A timed sitting ended before the Test deadline (Story 11.12, FR-51): the sweep hands the
         # attempt in, and its `test_submitted` step emits `user` and `session`, as at a hand-in.
         "tests.end_sitting": frozenset({"session", "user"}),

@@ -28,7 +28,8 @@ export function Breadcrumb({ items }: { items: readonly Crumb[] }) {
                   {crumb.label}
                 </span>
               ) : (
-                <Link href={crumb.href} standalone>
+                // A short crumb («Hjem», Story 12.9) still makes a 44 px tap target.
+                <Link href={crumb.href} standalone className="min-w-tap-target-min">
                   {crumb.label}
                 </Link>
               )}

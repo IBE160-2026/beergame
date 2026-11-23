@@ -35,6 +35,10 @@ PURPOSES: dict[str, Purpose] = {
     # Story 11.8 (FR-53, AD-7): an Adapted item's wording, one of its template's approved
     # phrasings, chosen on `llm-batch` before the test opens. One attempt; the code text stays.
     "adapted_item_wording": Purpose("adapted_item_wording", attempt_limit=1, player=False),
+    # Story 12.2 (FR-54, AD-6): one overall score per long-answer or Adapted item, on `llm-batch`
+    # after the Test deadline. One attempt: the caller never retries; a later run of the
+    # idempotent `assessment.assess` job asks again for an item still without a score.
+    "assessment": Purpose("assessment", attempt_limit=1, player=False),
 }
 
 

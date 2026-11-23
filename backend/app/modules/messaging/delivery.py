@@ -215,6 +215,26 @@ async def _debrief_fallback_context(
     return await sessions.debrief_fallback_mail_context(session, user_id, ref, now)
 
 
+ASSESSMENT_READY_KIND = "assessment_ready"
+"""`assessment.service.READY_NOTICE` (Story 12.4), named here for the same reason."""
+
+
+async def _assessment_ready_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    return await sessions.assessment_ready_mail_context(session, user_id, ref, now)
+
+
+ASSESSMENT_FAILED_KIND = "assessment_failed"
+"""`assessment.service.FAILED_NOTICE` (Story 12.4), named here for the same reason."""
+
+
+async def _assessment_failed_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    return await sessions.assessment_failed_mail_context(session, user_id, ref, now)
+
+
 MESSAGE_KIND = "message"
 """`messages.MESSAGE_KIND` (Story 7.9), named here for the same reason."""
 
@@ -246,6 +266,14 @@ KINDS: Mapping[str, Delivery] = MappingProxyType(
         QUIZ_CHANGED_KIND: Delivery(DIGEST, QUIZ_CHANGED_KIND, context=_quiz_changed_context),
         DEBRIEF_FALLBACK_KIND: Delivery(
             DIGEST, DEBRIEF_FALLBACK_KIND, context=_debrief_fallback_context
+        ),
+        # Digest: the Student's AI assessment is ready (Story 12.4, FR-55), and an assessment of a
+        # Class session failed, once per Admin and session (Story 12.4, NFR-8).
+        ASSESSMENT_READY_KIND: Delivery(
+            DIGEST, ASSESSMENT_READY_KIND, context=_assessment_ready_context
+        ),
+        ASSESSMENT_FAILED_KIND: Delivery(
+            DIGEST, ASSESSMENT_FAILED_KIND, context=_assessment_failed_context
         ),
         # Immediate: the group is meeting now (Story 9.11); left out once the Student joined.
         GROUP_DEBRIEF_OPENED_KIND: Delivery(
@@ -279,8 +307,8 @@ notice (Story 5.7, digest), the allocation notice (Story 5.9, digest), the Stude
 (Story 6.19, digest), the release of held Debriefs (Story 9.2, digest), a changed Debrief
 quiz (Story 9.10, digest), the opened Group debrief (Story 9.11, immediate) and its 48-hour
 fallback to a Personal debrief (Story 9.12, digest), a staff member's Message (Story 7.9,
-immediate), the Takeover notice (Story 8.2, immediate) and the turn reminder (Story 8.13,
-digest)."""
+immediate), the Takeover notice (Story 8.2, immediate), the turn reminder (Story 8.13,
+digest), and the ready and failed AI assessment notices (Story 12.4, digest)."""
 
 TEST_KINDS: Mapping[str, Delivery] = MappingProxyType(
     {

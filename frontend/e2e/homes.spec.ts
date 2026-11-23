@@ -76,7 +76,14 @@ for (const vp of VIEWPORTS) {
           for (const href of hrefs) expect(href).toMatch(/^\/(klasser|klasseokter)\/[^/]+$/);
         } else {
           const links =
-            role === "admin" ? [nb.admin.sections.users, nb.admin.sections.institutions, nb.admin.sections.audit] : [];
+            role === "admin"
+              ? [
+                  nb.admin.sections.users,
+                  nb.admin.sections.institutions,
+                  nb.admin.sections.audit,
+                  nb.admin.sections.controlTests,
+                ]
+              : [];
           await expect(mainLinks).toHaveText(links);
         }
         await expectAccessible(page);

@@ -34,10 +34,11 @@ const LINE = "text-body-phone lg:text-body";
  * changed; from the original Test deadline, for an Assistant lecturer and for an archived Class the
  * block is read-only text. Nothing renders for a User the api refuses.
  */
-export function ScoringGuideBlock({ classSessionId }: { classSessionId: string }) {
+export function ScoringGuideBlock({ classSessionId, controlTest = false }: { classSessionId: string; controlTest?: boolean }) {
   const found = useScoringGuide(classSessionId);
   const titleId = useId();
-  if (found.data) return <ScoringGuideView guide={found.data} classSessionId={classSessionId} titleId={titleId} />;
+  if (found.data)
+    return <ScoringGuideView guide={found.data} classSessionId={classSessionId} titleId={titleId} controlTest={controlTest} />;
   if (!found.isError) return null;
   if (found.error instanceof ApiRequestError && found.error.code === "forbidden") return null;
   return (
@@ -53,7 +54,18 @@ export function ScoringGuideBlock({ classSessionId }: { classSessionId: string }
   );
 }
 
-function ScoringGuideView({ guide, classSessionId, titleId }: { guide: ScoringGuide; classSessionId: string; titleId: string }) {
+function ScoringGuideView({
+  guide,
+  classSessionId,
+  titleId,
+  controlTest,
+}: {
+  guide: ScoringGuide;
+  classSessionId: string;
+  titleId: string;
+  /** A Control test (Story 12.7): pinned when it was created, the version under test. */
+  controlTest: boolean;
+}) {
   const queryClient = useQueryClient();
   const ids = useId();
   // The texts the Lecturer touched, until «Lagre sensorveiledning»; the rest follow the api.
@@ -94,7 +106,8 @@ function ScoringGuideView({ guide, classSessionId, titleId }: { guide: ScoringGu
     save.reset();
     setDraft({ versionId: guide.version_id, texts: { ...texts, [id]: text } });
   };
-  const readOnly = !guide.can_change ? copy.assistant : !guide.open ? copy.closed : null;
+  const readOnly =
+    controlTest && guide.pinned ? copy.controlTest : !guide.can_change ? copy.assistant : !guide.open ? copy.closed : null;
   return (
     <section aria-labelledby={titleId} className="mt-12 border-t border-hairline pt-8" data-scoring-guide="">
       <h2 id={titleId} className="text-headline text-ink">

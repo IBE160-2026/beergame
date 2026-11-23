@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { canCreateClass, canView, HOME_LINK, HOME_PATH, type Home, homeOf } from "./homes";
+import { canCreateClass, canOpenClasses, canView, classCrumbs, HOME_LINK, HOME_PATH, type Home, homeOf } from "./homes";
 
 const admin = { roles: ["admin"] };
 const lecturer = { roles: ["lecturer"] };
@@ -47,4 +47,16 @@ describe("canView", () => {
 it("has a path and a link text for every home", () => {
   expect(HOME_PATH).toEqual({ adminArea: "/admin", lecturerHome: "/laererhjem", home: "/hjem" });
   expect(Object.values(HOME_LINK)).toEqual(["Til Admin-område", "Til Lærerhjem", "Til Hjem"]);
+});
+
+describe("the Class pages (Story 12.7)", () => {
+  it("open for the staff and the Admin, who owns the Control tests they set up", () => {
+    expect([admin, lecturer, both, none, assistant].map(canOpenClasses)).toEqual([true, true, true, false, true]);
+  });
+
+  it("lead back through «Kontrolltest» for an Admin with no staff role, else the Lærerhjem", () => {
+    expect(classCrumbs(admin, true).map((c) => c.href)).toEqual([HOME_PATH.adminArea, "/admin/kontrolltest"]);
+    expect(classCrumbs(both, true).map((c) => c.href)).toEqual([HOME_PATH.lecturerHome]);
+    expect(classCrumbs(admin, false).map((c) => c.href)).toEqual([HOME_PATH.lecturerHome]);
+  });
 });

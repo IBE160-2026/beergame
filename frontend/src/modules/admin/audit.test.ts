@@ -14,6 +14,8 @@ describe("the audit row's words", () => {
 
   it("names a known action and shows the code of an unknown one", () => {
     expect(actionLabel("role.granted")).toBe("Rolle gitt");
+    expect(actionLabel("control_test.checked")).toBe("Kontrolltest fullført, Sensorveiledning kontrollert");
+    expect(actionLabel("control_test.results_read")).toBe("Resultater av Kontrolltest lest av Admin");
     expect(actionLabel("takeover.by_person")).toBe("takeover.by_person");
     expect(actionLabel("toString")).toBe("toString");
   });

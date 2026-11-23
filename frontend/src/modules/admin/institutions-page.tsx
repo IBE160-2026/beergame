@@ -39,9 +39,10 @@ export function InstitutionsPage() {
             <InstitutionForm onStart={() => start("create")} otherStarted={started?.by === "rename" ? started.n : 0} />
           </section>
           <section aria-labelledby="institutions-title" className="mt-12">
-            <h2 id="institutions-title" className="mb-4 text-headline text-ink">
+            <h2 id="institutions-title" className="text-headline text-ink">
               {copy.list.title}
             </h2>
+            <p className="mt-2 mb-4 max-w-md text-body-phone text-ink-secondary lg:text-body">{copy.operator.help}</p>
             <InstitutionList onStart={() => start("rename")} otherStarted={started?.by === "create" ? started.n : 0} />
           </section>
         </PageShell>

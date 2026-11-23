@@ -28,7 +28,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse, Response
 
 from app.engine.settings import Role
-from app.modules.sessions import adjustments, overview, service
+from app.modules.sessions import adjustments, control_tests, overview, service
 from app.modules.sessions.schemas import (
     AdjustmentIn,
     AllocationConfirmIn,
@@ -40,6 +40,9 @@ from app.modules.sessions.schemas import (
     ClassSessionListOut,
     ClassSessionOut,
     ClassSessionSaveIn,
+    ControlTestIn,
+    ControlTestOut,
+    ControlTestsOut,
     CopyIn,
     CopySourceListOut,
     DemandSeriesOut,
@@ -715,6 +718,16 @@ async def save_class_session(
     lock has pinned it) a changed value answers 409 `ai_assessment_pinned`
     (`{"ai_assessment": "pinned"}`). Only the Class's owners change it (`ai_assessment.change`).
 
+    `letter_setting` and `letter_thresholds` (Story 12.6, FR-56), left out, keep the Indicative
+    letter's setting (`all`, `student_choice`, `unavailable`) and the lower bounds of A to E.
+    They change while the «KI-vurdering» switch can (else 409 `ai_assessment_pinned` naming the
+    field), only by the Class's owners. While the Institution forbids the letter, a setting other
+    than `unavailable` answers 409 `letter_unavailable` (`{"letter_setting": "institution"}`).
+    Bounds outside 1 to 100 or not strictly falling answer 422 `invalid_session_values`
+    (`{"letter_thresholds": "out_of_range" | "out_of_order"}`); once a Test attempt exists a
+    change answers 409 `letter_thresholds_locked`. A value equal to the one in force is no
+    change.
+
     `test_sitting` (Story 11.12, FR-51), left out, keeps the Individual test's one timed sitting:
     `{"minutes": n}` sets the time limit in whole minutes, `{"minutes": null}` switches it off. A
     limit outside the configured range answers 422 `invalid_session_values`
@@ -740,6 +753,10 @@ async def save_class_session(
             replay_template=body.replay_template,
             ai_assessment=body.ai_assessment,
             test_sitting=body.test_sitting,
+            letter_setting=body.letter_setting,
+            letter_thresholds=(
+                body.letter_thresholds.model_dump() if body.letter_thresholds else None
+            ),
         )
     except service.InvalidSettings as refused:
         return error_response(
@@ -779,6 +796,8 @@ async def save_class_session(
         service.SessionLocked,
         service.AllocationConfirmed,
         service.AiAssessmentPinned,
+        service.LetterUnavailable,
+        service.LetterThresholdsLocked,
     ) as refused:
         return error_response(409, refused.code, "This can no longer change.", refused.fields)
     if saved is None:
@@ -888,6 +907,9 @@ async def get_allocation(
     return JSONResponse(found.model_dump(mode="json"))
 
 
+_CONSENT_MISSING = "Test students of this Control test have not consented."
+
+
 async def _draw(user: authz.Principal, session_id: str, *, again: bool) -> Response:
     try:
         drawn = await service.draw_allocation(user, _id(session_id), now=auth.utcnow(), again=again)
@@ -897,6 +919,8 @@ async def _draw(user: authz.Principal, session_id: str, *, again: bool) -> Respo
         return error_response(
             409, refused.code, "The allocation is confirmed; it is not drawn again.", refused.fields
         )
+    except service.ConsentMissing as refused:
+        return error_response(409, refused.code, _CONSENT_MISSING, refused.fields)
     if drawn is None:
         raise authz.Forbidden
     return JSONResponse(drawn.model_dump(mode="json"))
@@ -917,7 +941,9 @@ async def open_allocation(
     registered Student nothing is stored. No Game or Seat is created and no Student is told.
     Once the Start date has passed a stored draft is still returned, and a draw answers 409
     `session_locked` (`{"allocation": "locked"}`). An archived Class answers 409
-    `class_archived`."""
+    `class_archived`. A Control test draws nothing while N registered test students have not
+    consented: 409 `consent_missing` (`{"allocation": "consent_missing", "missing": "<N>"}`,
+    Story 12.8)."""
     return await _draw(user, session_id, again=False)
 
 
@@ -956,11 +982,15 @@ async def confirm_allocation(
     the current one (drawn again or changed), `{"draft": "students_removed"}` when Students in it
     have left the Roster, whose Seats the draft now leaves free under a raised revision. 409
     `session_locked` (`{"allocation": "locked"}`) once the Start date has passed; 409
-    `class_archived` for an archived Class."""
+    `class_archived` for an archived Class. A Control test answers 409 `consent_missing`
+    (`{"allocation": "consent_missing", "missing": "<N>"}`) while N registered test students have
+    not consented (Story 12.8)."""
     try:
         confirmed = await service.confirm_allocation(user, _id(session_id), body, now=auth.utcnow())
     except service.SessionLocked as refused:
         return error_response(409, refused.code, "The Class session has started.", refused.fields)
+    except service.ConsentMissing as refused:
+        return error_response(409, refused.code, _CONSENT_MISSING, refused.fields)
     except service.AllocationChanged as refused:
         return error_response(
             409, refused.code, "The allocation is not the one confirmed.", refused.fields
@@ -1438,10 +1468,11 @@ async def accept_my_game_time(
     operation_id="lecturerHomeClassSessions",
 )
 async def lecturer_home_class_sessions(
-    user: Annotated[authz.Principal, Depends(authz.require("class_sessions.read"))],
+    user: Annotated[authz.Principal, Depends(authz.require("lecturer_home.view"))],
 ) -> Response:
     """The Lærerhjem's «Venter» and «Neste frist» over the User's Classes that are not archived
-    (UX-DR56)."""
+    (UX-DR56). The Lærerhjem's policy holds it: the Admin role alone, which reads a Control test
+    Class it owns (Story 12.7), does not reach it, and a Control test is never among them."""
     found = await service.lecturer_overview(user)
     return JSONResponse(found.model_dump(mode="json"))
 
@@ -1500,8 +1531,9 @@ async def take_seat(
     moves to it from the Seat they hold, in one request; their own Seat again changes nothing.
     409 `seat_taken` (`{"seat": "taken"}`) when another occupant holds it, 422 `invalid_seat`
     (`{"seat": "unknown"}`) for a game or Role the session does not have, 409 `session_locked`
-    (`{"seat": "locked"}`) once locked, 409 `class_archived` for an archived Class; nothing changes
-    then. Not found as the read."""
+    (`{"seat": "locked"}`) once locked, 409 `class_archived` for an archived Class, 409
+    `consent_missing` (`{"seat": "consent_missing"}`) for a test student of a Control test who has
+    not consented (Story 12.8); nothing changes then. Not found as the read."""
     found_id = _choice_id(session_id)
     try:
         taken = (
@@ -1511,7 +1543,7 @@ async def take_seat(
         )
     except service.InvalidSeat as refused:
         return error_response(422, refused.code, "No such Seat.", refused.fields)
-    except (service.SeatTaken, service.SessionLocked) as refused:
+    except (service.SeatTaken, service.SessionLocked, service.ConsentMissing) as refused:
         return error_response(409, refused.code, "The Seat cannot be taken.", refused.fields)
     if taken is None:
         return _no_seat_choice()
@@ -1531,12 +1563,13 @@ PERSONAL = {"Cache-Control": "no-store"}
 async def get_student_page(
     session_id: str,
     user_id: str,
-    user: Annotated[authz.Principal, Depends(authz.require("class_sessions.manage"))],
+    user: Annotated[authz.Principal, Depends(authz.require("student_pages.read"))],
 ) -> Response:
-    """The Studentside (Story 8.9, UX-DR53): one Student of the Class session with the block
-    «Tilrettelegging», for the Lecturers of its Class only. 403 `forbidden` for an Assistant
-    lecturer, anyone outside the Class, a User who is not a Student of the Class now and a Class
-    session that does not exist (FR-5, AD-12)."""
+    """The Studentside (Story 8.9, UX-DR53): one Student of the Class session, for the staff of
+    its Class (Story 12.5: Assistant lecturers too). «Tilrettelegging» and «Frister» only for its
+    owners (`can_manage`); null for an Assistant lecturer. 403 `forbidden` for anyone outside the
+    Class, a User who is not a Student of the Class now and a Class session that does not exist
+    (FR-5, AD-12)."""
     found = await adjustments.student_page(user, _id(session_id), _id(user_id))
     if found is None:
         raise authz.Forbidden
@@ -1570,3 +1603,55 @@ async def save_adjustment(
     if found is None:
         raise authz.Forbidden
     return JSONResponse(found.model_dump(mode="json"), headers=PERSONAL)
+
+
+# Admin-område → «Kontrolltest» (Story 12.7, FR-82, AD-27).
+admin_router = APIRouter(prefix="/api/admin", tags=["admin"])
+
+
+@admin_router.get(
+    "/control-tests",
+    response_model=ControlTestsOut,
+    responses=documented(401, 403),
+    operation_id="listControlTests",
+)
+async def list_control_tests(
+    user: Annotated[authz.Principal, Depends(authz.require("control_tests.manage"))],
+) -> Response:
+    """The Kontrolltest page (Story 12.7): the operator's own Institution (null until one is
+    marked), the Scoring guide versions and model configs a new Control test may pin, and every
+    Control test, newest first, with what it pinned."""
+    found = await control_tests.overview(user)
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@admin_router.post(
+    "/control-tests",
+    status_code=201,
+    response_model=ControlTestOut,
+    responses=documented(401, 403, 409, 422),
+    operation_id="createControlTest",
+)
+async def create_control_test(
+    body: ControlTestIn,
+    user: Annotated[authz.Principal, Depends(authz.require("control_tests.manage"))],
+) -> Response:
+    """Set up a Control test (Story 12.7, FR-82, AD-27): one transaction makes a Class in the
+    operator's own Institution with the Admin as its owner and in it a Class session of kind
+    `control_test`, pinned to the Scoring guide version and the model config under test. 409
+    `operator_institution_missing` while no Institution is marked; 422 `invalid_request` with
+    `fields` `name` (the Class name rule's code), `scoring_guide_id` and `model_config_id`
+    (`missing` or `unknown`)."""
+    try:
+        created = await control_tests.create(user, body, now=auth.utcnow())
+    except control_tests.OperatorInstitutionMissing:
+        return error_response(
+            409,
+            "operator_institution_missing",
+            "Mark the operator's own Institution first.",
+        )
+    except control_tests.InvalidControlTest as refused:
+        return error_response(
+            422, "invalid_request", "The Control test is not valid.", refused.fields
+        )
+    return JSONResponse(created.model_dump(mode="json"), status_code=201)

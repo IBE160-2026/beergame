@@ -8,7 +8,7 @@ import { usePageState } from "@/lib/page-state";
 import type { SessionUser } from "@/modules/identity/api";
 import { AccessDenied, GuardedPage } from "@/modules/identity/home-page";
 import { Link } from "@/components/link";
-import { classPath, classStaffPath, HOME_PATH } from "@/modules/identity/homes";
+import { classCrumbs, classPath, classStaffPath } from "@/modules/identity/homes";
 import { PageShell } from "@/modules/identity/page-shell";
 import { ClassSessions } from "@/modules/sessions/class-sessions";
 
@@ -36,7 +36,7 @@ export function ClassPage({ classId }: { classId: string }) {
   // route (`/api/classes/institutions`) or be rewritten (`..`). It is refused as any other.
   const named = CLASS_ID.test(classId);
   return (
-    <GuardedPage page="lecturerHome">
+    <GuardedPage page="classes">
       {(user, updatedAt) =>
         named ? (
           <ClassView classId={classId} user={user} updatedAt={updatedAt} />
@@ -77,11 +77,10 @@ function ClassView({ classId, user, updatedAt }: { classId: string; user: Sessio
   // Changes are for the Class's Faglærere, and only while it is active (Story 4.10).
   const writable = Boolean(item?.can_manage && !item.archived);
   const crumbs = item
-    ? ([
-        { label: nb.homes.lecturerHome, href: HOME_PATH.lecturerHome },
-        { label: item.name, href: classPath(item.id) },
-      ] as const)
+    ? ([...classCrumbs(user, item.control_test), { label: item.name, href: classPath(item.id) }] as const)
     : undefined;
+  // A Control test Class (Story 12.7) holds its one Class session and takes no other staff.
+  const controlTest = Boolean(item?.control_test);
   const facts = item ? nb.classes.page.facts(item.course_code, item.institution_name) : "";
   return (
     <PageShell
@@ -105,7 +104,13 @@ function ClassView({ classId, user, updatedAt }: { classId: string; user: Sessio
             {nb.classes.archive.notice}
           </p>
         ) : null}
-        {item?.can_manage ? (
+        {controlTest ? (
+          <p className="mt-4 max-w-2xl border-l-2 border-axis pl-3 text-body-phone text-ink lg:text-body">
+            {nb.classes.page.controlTest}
+            <span className="mt-1 block">{nb.classes.page.controlTestRoster}</span>
+          </p>
+        ) : null}
+        {item?.can_manage && !controlTest ? (
           <p className="mt-4">
             <Link href={classStaffPath(item.id)} standalone>
               {nb.classes.page.staff}
@@ -114,7 +119,7 @@ function ClassView({ classId, user, updatedAt }: { classId: string; user: Sessio
         ) : null}
         {/* The Class sessions (Story 5.1): every staff member reads them; the Faglærere create
             them while the Class is active. */}
-        {item ? <ClassSessions classId={item.id} canCreate={writable} /> : null}
+        {item ? <ClassSessions classId={item.id} canCreate={writable && !controlTest} /> : null}
         {/* The Roster upload is the Faglærere's (the api's `classes.manage` policy), while the
             Class is active. */}
         {item && writable ? (

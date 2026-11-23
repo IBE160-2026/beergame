@@ -273,4 +273,5 @@ def test_no_delete_route_exists():
         if path.startswith("/api/admin/institutions")
         for method in route_methods
     }
-    assert methods == {"GET", "POST", "PATCH"}
+    # PUT is the operator mark (Story 12.7), on its own path.
+    assert methods == {"GET", "POST", "PATCH", "PUT"}

@@ -149,7 +149,8 @@ test("a session that has started shows the choices as text, with no control", as
   await answerWith(lecturer, id, { locked: true });
   await lecturer.goto(`/klasseokter/${id}`);
   await expect(lecturer.getByText(nb.sessions.lock.pending)).toBeVisible();
-  await expect(lecturer.getByRole("radio")).toHaveCount(0);
+  // Only KI-vurdering's Veiledende bokstav (Story 12.6) stays open after the start.
+  await expect(lecturer.locator("input[type='radio']:not([data-ai-assessment] input)")).toHaveCount(0);
   await expect(lecturer.getByRole("heading", { name: c.aiMode })).toBeVisible();
   // Under its label, as the other locked values (Issue #109).
   const effort = lecturer.getByRole("group", { name: c.effortLevel });

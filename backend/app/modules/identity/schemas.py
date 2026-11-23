@@ -5,7 +5,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator
 from pydantic_core import PydanticCustomError
 
 
@@ -164,6 +164,28 @@ class UserOut(BaseModel):
     name: str
     email: str
     roles: list[SessionRole]
+    is_test_student: bool = False
+    """A test student of a Control test (Story 12.8): Hjem asks for their consent."""
+
+
+ConsentDecision = Literal["given", "declined"]
+
+
+class ConsentIn(BaseModel):
+    """A test student's decision on the consent text they read (Story 12.8)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    decision: ConsentDecision
+    text_version: str = Field(min_length=1, max_length=100)
+
+
+class ConsentOut(BaseModel):
+    """The test student's decision on the current consent text: None until they take one."""
+
+    decision: ConsentDecision | None
+    text_version: str
+    decided_at: datetime | None
 
 
 class SessionOut(BaseModel):
@@ -278,6 +300,20 @@ class InstitutionOut(BaseModel):
     id: uuid.UUID
     name: str
     created_at: datetime
+    operator_owned: bool = False
+    """The operator's own Institution, where Control tests are set up (Story 12.7, AD-27): one
+    at most."""
+    no_letter: bool = False
+    """Story 12.6 (FR-56): its data protection officer requires that no Indicative letter is
+    shown; every Class session of the Institution reads the letter as unavailable."""
+
+
+class NoLetterIn(BaseModel):
+    """Story 12.6: the Institution's no-letter Bryter, on or off."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    on: StrictBool
 
 
 class InstitutionListOut(BaseModel):
@@ -426,8 +462,14 @@ class RosterInvalidRow(BaseModel):
     """The row's number in the file, or the address's place in the pasted text."""
     value: str
     """The cell in the chosen column, as staged."""
-    reason: AddressProblem | Literal["duplicate", "on_roster"]
-    """`on_roster`: the address is already on the Class's Roster (Story 4.4)."""
+    reason: (
+        AddressProblem
+        | Literal["duplicate", "on_roster", "not_test_student", "address_unavailable"]
+    )
+    """`on_roster`: the address is already on the Class's Roster (Story 4.4). `not_test_student`:
+    on a Control test's Roster, the address belongs to a User who is no test student;
+    `address_unavailable`: on an ordinary Roster, it belongs to a test student, which the reason
+    does not name (Story 12.8)."""
     first_row: int | None = None
     """For `duplicate`: the row where the address first occurs."""
 

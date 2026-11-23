@@ -29,6 +29,7 @@ from app.analysis.simulated import simulate
 from app.engine import ROLES, RULES_VERSION, DemandFixed, GameSettings, demand_series
 from app.modules.content import service as content
 from app.modules.games import commands, facts
+from app.modules.games import service as games_service
 from app.modules.games.views import ViewError
 from app.sim import load_rule_based_params
 from tests.analysis.test_moments import TEMPLATES as MOMENT_TEMPLATES
@@ -407,6 +408,10 @@ async def test_a_set_is_stored_once_and_returned_as_stored(games_db):
     )
     third = await facts.get_or_create(game_id, str(seat_id))  # the Seat id works too
     assert first == again == third
+    # Story 12.2: read back by its id as stored, never built; an unknown or malformed id is None.
+    assert await games_service.fact_set_by_id(first.id) == first
+    assert await games_service.fact_set_by_id(str(uuid.uuid7())) is None
+    assert await games_service.fact_set_by_id("not-an-id") is None
     rows = query(
         TEST_DATABASE_URL,
         "SELECT id, analysis_version, payload FROM fact_sets WHERE game_id = %s",
