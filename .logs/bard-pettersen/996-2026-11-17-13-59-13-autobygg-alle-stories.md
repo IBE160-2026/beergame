@@ -4079,3 +4079,20 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
 
 ### Åpne punkter
 - Issue #249: beslutninger og avhengigheten til WeasyPrint 70.
+## Story 14.5: Studentene ser alle klassespillene side om side (spor 3)
+
+### Oppgave
+Bygge Story 14.5 på `epic-14` i spor 3 (14.3 og 14.4 venter på Story 15.3 og 13.9).
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-14-5-students-see-all-class-games-side-by-side.md`. Commits: b156e68 (ruff-retting fra 14.1) og 723a2c7.
+- Etter Debrief og Spillfristen ser studenten ordrene i alle klassespillene per rolle, med eget spill uthevet og ingen navn.
+- Tester: backend 3919, Vitest 1240, frontend-sjekkene, Playwright 49 med axe.
+- Gjennomgang: 24 funn, 9 rettet, 2 utsatt.
+- Status: done.
+
+### Åpne punkter
+- Issue #250: beslutninger og oppfølgingsspill som ikke er tatt med ennå.
