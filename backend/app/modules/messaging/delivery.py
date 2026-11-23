@@ -145,6 +145,16 @@ async def _deadline_reminder_context(
     return await sessions.deadline_reminder_mail_context(session, user_id, ref, now)
 
 
+DELETION_REMINDER_KIND = "deletion_reminder"
+"""`sessions.service.DELETION_REMINDER_NOTICE` (Story 13.9), named here for the same reason."""
+
+
+async def _deletion_reminder_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    return await sessions.deletion_reminder_mail_context(session, user_id, ref, now)
+
+
 TIME_PROPOSED_KIND = "time_proposed"
 """`games.commands.TIME_PROPOSED_NOTICE` (Story 6.19), named here for the same reason."""
 
@@ -248,6 +258,10 @@ KINDS: Mapping[str, Delivery] = MappingProxyType(
         DEADLINE_REMINDER_KIND: Delivery(
             DIGEST, DEADLINE_REMINDER_KIND, context=_deadline_reminder_context
         ),
+        # Digest: the Class session's data is deleted soon; download the report (Story 13.9).
+        DELETION_REMINDER_KIND: Delivery(
+            DIGEST, DELETION_REMINDER_KIND, context=_deletion_reminder_context
+        ),
         TIME_PROPOSED_KIND: Delivery(DIGEST, TIME_PROPOSED_KIND, context=_time_proposed_context),
         # Digest: the game has waited for the Student's Order (Story 8.13, FR-27), gathered with
         # the day's other notices and never sent between 22:00 and 07:00.
@@ -294,7 +308,8 @@ notice (Story 5.7, digest), the allocation notice (Story 5.9, digest), the Stude
 quiz (Story 9.10, digest), the opened Group debrief (Story 9.11, immediate) and its 48-hour
 fallback to a Personal debrief (Story 9.12, digest), a staff member's Message (Story 7.9,
 immediate), the Takeover notice (Story 8.2, immediate), the turn reminder (Story 8.13,
-digest) and the Oppfølgingsspill given (Story 13.4, digest)."""
+digest), the Oppfølgingsspill given (Story 13.4, digest) and the deletion reminder (Story
+13.9, digest)."""
 
 TEST_KINDS: Mapping[str, Delivery] = MappingProxyType(
     {

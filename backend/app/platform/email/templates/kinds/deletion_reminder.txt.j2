@@ -1,0 +1,6 @@
+{# The Class session's Student data is deleted soon (Story 13.9, FR-57, FR-77), a digest kind.
+   `class_name` and `deletion_date` (a date, Europe/Oslo calendar) come from
+   `sessions.service.deletion_reminder_mail_context` at send time. Draft copy. #}
+{% import "kinds/_deadline.j2" as d %}
+{% set subject = "Last ned Studentrapporten før dataene slettes" %}
+Dataene dine fra Klassen {{ class_name }} slettes {{ d.day(deletion_date) }}. Last ned Studentrapporten fra Hjem før det.

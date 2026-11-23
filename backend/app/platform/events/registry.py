@@ -133,6 +133,8 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         "sessions.send_deadline_reminder": frozenset({"user"}),
         # One Student's reminder of their own Debrief or Test deadline (Story 11.13), likewise.
         "sessions.send_own_deadline_reminder": frozenset({"user"}),
+        # The deletion reminder (Story 13.9): one notice per Student, which emits `user`.
+        "sessions.send_deletion_reminder": frozenset({"user"}),
         # The Play deadline playout of one Class game (Story 8.14), through `games.playout`.
         "sessions.playout": frozenset({"game", "session", "user"}),
         # Student choice (Story 5.17). A save that opens it creates the empty Class games

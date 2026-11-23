@@ -361,6 +361,13 @@ DUE_ACTIONS: tuple[DueAction, ...] = (
         sessions.due_own_deadline_reminders,
         sessions.send_own_deadline_reminder_due,
     ),
+    # Story 13.9: tell every Student of a Class session once, `DELETION_REMINDER_DAYS` before its
+    # deletion date, to download the Student report (FR-57, FR-77).
+    DueAction(
+        "sessions.send_deletion_reminder",
+        sessions.due_deletion_reminders,
+        sessions.send_deletion_reminder_due,
+    ),
 )
 
 

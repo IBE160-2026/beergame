@@ -191,4 +191,6 @@ async def pass_test_deadline(class_session_id: str) -> DevDeadlineOut | JSONResp
         await s.execute(
             update(class_sessions).where(class_sessions.c.id == session_id).values(**moved)
         )
+        # Story 13.9: the deletion date follows the Test deadline.
+        await service.refresh_deletion_date(s, session_id)
     return DevDeadlineOut(test_deadline=moved["test_deadline"].isoformat())

@@ -4579,6 +4579,8 @@ export interface components {
             class_name: string;
             /** Debrief Deadline */
             debrief_deadline: string | null;
+            /** Deletion Date */
+            deletion_date?: string | null;
             drawn_seat?: components["schemas"]["SeatRef"] | null;
             game?: components["schemas"]["StudentGameOut"] | null;
             /**

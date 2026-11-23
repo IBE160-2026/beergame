@@ -3,6 +3,8 @@ import { ApiRequestError } from "@/lib/api/client";
 
 const copy = nb.sessions.dates;
 const MONTHS = nb.admin.users.invitations.months;
+/** The whole month words («juni»), for a calendar day written out (Story 13.9). */
+const MONTH_WORDS = nb.classes.roster.months;
 
 /** The four dates in their order (FR-18): Startdato, Spillfrist, Debrieffrist, Testfrist. */
 export const DATE_NAMES = ["start_at", "play_deadline", "debrief_deadline", "test_deadline"] as const;
@@ -109,6 +111,16 @@ export function osloWeekdayTime(iso: string): string {
 export function osloDateText(iso: string): string {
   const { day, time } = osloDayAndTime(iso);
   return copy.dateText(day, time);
+}
+
+const DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/** «18. juni 2027»: a calendar day from the API («2027-06-18», already a Europe/Oslo day, so no
+ * time zone is applied), with the month words from `nb.ts` (Story 13.9: the deletion date). */
+export function calendarDateText(day: string): string {
+  const m = DAY.exec(day);
+  if (!m) return day;
+  return `${Number(m[3])}. ${MONTH_WORDS[Number(m[2]) - 1]} ${m[1]}`;
 }
 
 type LockedDates = { passed_dates: readonly DateName[]; locked_at?: string | null };

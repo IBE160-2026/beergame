@@ -586,6 +586,11 @@ export const nb = {
         met: "Kravet er oppfylt.",
         notMet: "Kravet er ikke oppfylt.",
       },
+      /** Story 13.9 (FR-77, FR-57, UX-DR29): under «Rapport», locked or open, the day the
+       * Klasseøkt's data is deleted («18. juni 2027»). [ASSUMPTION] draft copy for the founder's
+       * review. */
+      deletion: (day: string) =>
+        `Dataene dine fra denne Klasseøkten slettes ${day}. Last ned Studentrapporten før det.`,
       /** Story 10.4 (UX-DR64, EXPERIENCE.md → Replay in progress): the current Replay step while
        * the Replay runs; its link leads to the play screen. The spine's line. */
       replayResume: (week: number) => `Fortsett Replay, Uke ${week}.`,

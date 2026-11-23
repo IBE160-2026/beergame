@@ -165,8 +165,8 @@ HEAD_TABLES = (
     | RECLAIM_TABLES
     | ADJUSTMENT_TABLES
 )
-HEAD = "0304"  # 0301-0304: corrections (13.3), Oppfølgingsspill (13.4), Message kind (13.6),
-# Student report (13.7)
+HEAD = "0305"  # 0301-0305: corrections (13.3), Oppfølgingsspill (13.4), Message kind (13.6),
+# Student report (13.7), deletion date (13.9)
 
 
 def reset_schema(url: str) -> None:
@@ -918,6 +918,51 @@ def test_0036_backfills_80_keeps_the_share_in_range_and_its_downgrade_drops_it(
     command.downgrade(cfg, "0035")
     with psycopg.connect(libpq_dsn(migrations_database)) as conn:
         assert conn.execute(query).fetchall() == []
+    command.upgrade(cfg, "head")
+    assert current_version(migrations_database) == HEAD
+
+
+def test_0305_backfills_the_deletion_date_by_the_rule_of_platform_retention(migrations_database):
+    """0305 (Story 13.9): a Class session stored before gets the deletion date the rule gives
+    with the placeholder six months: the Oslo day of its Test deadline, a month's end clamped;
+    none without a Test deadline."""
+    from datetime import UTC, datetime
+
+    from app.platform.retention import deletion_date
+
+    reset_schema(migrations_database)
+    cfg = config(migrations_database)
+    command.upgrade(cfg, "0304")
+    deadlines = {
+        "00000000-0000-0000-0000-000000000301": datetime(2026, 8, 31, 22, 30, tzinfo=UTC),
+        "00000000-0000-0000-0000-000000000302": datetime(2026, 8, 30, 12, tzinfo=UTC),
+        "00000000-0000-0000-0000-000000000303": None,
+    }
+    with psycopg.connect(libpq_dsn(migrations_database), autocommit=True) as conn:
+        conn.execute(
+            "INSERT INTO institutions (id, name, created_at, updated_at) VALUES "
+            "('00000000-0000-0000-0000-000000000009', 'I', now(), now())"
+        )
+        conn.execute(
+            "INSERT INTO classes (id, name, institution_id, created_at) VALUES "
+            "('00000000-0000-0000-0000-000000000002', 'K', "
+            "'00000000-0000-0000-0000-000000000009', now())"
+        )
+        for session, test in deadlines.items():
+            conn.execute(
+                "INSERT INTO class_sessions (id, class_id, game_settings, ai_mode, debrief_mode, "
+                "inactivity_limit_hours, obligatory, required_share_percent, created_at, "
+                "test_deadline) VALUES (%s, '00000000-0000-0000-0000-000000000002', '{}', "
+                "'rule_based', 'group', 24, false, 80, now(), %s)",
+                (session, test),
+            )
+    command.upgrade(cfg, "0305")
+    found = dict(rows(migrations_database, "SELECT id::text, deletion_date FROM class_sessions"))
+    assert found == {session: deletion_date(test, 6) for session, test in deadlines.items()}
+    assert found["00000000-0000-0000-0000-000000000301"].isoformat() == "2027-03-01"
+    assert found["00000000-0000-0000-0000-000000000302"].isoformat() == "2027-02-28"
+    command.downgrade(cfg, "0304")
+    assert "deletion_date" not in columns(migrations_database, "class_sessions")
     command.upgrade(cfg, "head")
     assert current_version(migrations_database) == HEAD
 

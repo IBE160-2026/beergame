@@ -3207,6 +3207,18 @@
             ],
             "title": "Debrief Deadline"
           },
+          "deletion_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deletion Date"
+          },
           "drawn_seat": {
             "anyOf": [
               {

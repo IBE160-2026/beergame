@@ -81,7 +81,7 @@ import secrets
 import uuid
 from collections.abc import Awaitable, Callable, Collection, Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -204,7 +204,7 @@ from app.modules.sessions.schemas import (
     WaitingClass,
     WaitingReason,
 )
-from app.platform import audit, auth, authz, events, notify
+from app.platform import audit, auth, authz, events, notify, retention
 from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker
 
@@ -1329,6 +1329,8 @@ async def save_session(
             # Story 11.3: open Individual test attempts keep their stored deadline in step.
             for mover in _test_deadline_movers:
                 await mover(s, session_id, changed["test_deadline"])
+            # Story 13.9: the deletion date follows, in this transaction.
+            await _store_deletion_date(s, session_id, changed["test_deadline"])
         if timing and _test_sitting:
             await _test_sitting[0][1](s, session_id, sitting, user.id, now)
         if switching_assessment:
@@ -1575,6 +1577,7 @@ async def enrolled_sessions(user: authz.Principal) -> EnrolledSessionListOut:
                 adjustment=own_adjustment(adjustments.get(row["id"])),
                 replay=replays.get(row["id"]),
                 makeup=makeups.get(row["id"]),
+                deletion_date=row["deletion_date"],
             )
             for row in rows
             if row["class_id"] in names
@@ -2095,12 +2098,14 @@ def register_test_deadline_mover(mover: TestDeadlineMover) -> None:
 
 
 async def test_session(
-    s: AsyncSession, class_session_id: uuid.UUID
+    s: AsyncSession, class_session_id: uuid.UUID, *, lock: bool = False
 ) -> IndividualTestSession | None:
     """The Class session for `tests.end_sitting` (Story 11.12, AD-9), read in `s` and share-locked
     with its pins, as `individual_test_session_of` holds it for a Student's own commands; None when
-    it is gone. The sweep has only ids."""
-    row = await repo.session_row(s, class_session_id, share=True)
+    it is gone. The sweep has only ids. With `lock` the row is locked for update instead: an
+    extension writes the deletion date on it (Story 13.9), and two share locks waiting to update
+    the same row would deadlock."""
+    row = await repo.session_row(s, class_session_id, share=not lock, lock=lock)
     if row is None:
         return None
     return IndividualTestSession(row=row, pins=await repo.session_pins(s, class_session_id))
@@ -2325,13 +2330,14 @@ async def save_extension(
     now: datetime,
 ) -> Mapping[str, Any]:
     """Store the Student's own Test deadline (Story 11.13, FR-18), for
-    `tests.commands.extend_deadline` in its transaction: the Class session row share-locked, its
+    `tests.commands.extend_deadline` in its transaction: the Class session row locked, its
     Class writable (`ClassArchived`), the date judged (`InvalidExtension`), the Student's extension
     row locked, then upserted with the Debrief deadline moved by the same amount (NULL when the
     Class session has none), and the change recorded in the audit log. The caller has judged the
     target (`student_target`). Returns the Class session row with the Student's own deadlines, as
-    `effective_test_deadline` reads it. Nothing is logged."""
-    row = await repo.session_row(s, class_session_id, share=True)
+    `effective_test_deadline` reads it. The Class session's deletion date is stored again (Story
+    13.9) under its row lock, taken here. Nothing is logged."""
+    row = await repo.session_row(s, class_session_id, lock=True)
     if row is None:
         raise LookupError("no such Class session")
     await _writable(s, row["class_id"])
@@ -2354,6 +2360,8 @@ async def save_extension(
         updated_by=actor,
         updated_at=now,
     )
+    # Story 13.9: an extension past the latest one moves the deletion date, in this transaction.
+    await _store_deletion_date(s, class_session_id, class_test)
     await audit.record(
         s,
         actor,
@@ -2374,6 +2382,40 @@ async def save_extension(
         now,
     )
     return await _student_row(s, row, user_id)
+
+
+# The deletion date (Story 13.9, FR-77, FR-57, AD-9).
+
+
+def retention_months() -> int:
+    """The retention period in calendar months (placeholder `RETENTION_MONTHS`, FR-77)."""
+    return get_settings().retention_months
+
+
+async def _store_deletion_date(
+    s: AsyncSession, class_session_id: uuid.UUID, test_deadline: datetime | None
+) -> date | None:
+    """Store the Class session's deletion date (Story 13.9, FR-77): `platform.retention` over its
+    latest effective Test deadline, `test_deadline` (the Class session's, as just saved) or the
+    latest Student extension where that is later, read in `s`. The one writer of the column;
+    every Test deadline save and every extension calls it in its own transaction, under the
+    Class session's row lock, so no Student's data can fall due before their own period has
+    run. Returns the date stored."""
+    latest = retention.latest_test_deadline(
+        test_deadline, await repo.extension_test_deadlines(s, class_session_id)
+    )
+    deletion = retention.deletion_date(latest, retention_months())
+    await repo.set_deletion_date(s, class_session_id, deletion)
+    return deletion
+
+
+async def refresh_deletion_date(s: AsyncSession, class_session_id: uuid.UUID) -> date | None:
+    """`_store_deletion_date` from the stored Test deadline, for a path that moved it outside the
+    Class session save (the local dev route of Story 13.7). The caller holds the row lock."""
+    row = await repo.session_row(s, class_session_id)
+    if row is None:
+        return None
+    return await _store_deletion_date(s, class_session_id, row["test_deadline"])
 
 
 async def own_test_deadlines(
@@ -5461,6 +5503,97 @@ async def deadline_reminder_mail_context(
         "at": at.astimezone(OSLO),
         "obligatory": row["obligatory"],
     }
+
+
+# The deletion reminder (Story 13.9, FR-57, FR-77, AD-9).
+
+DELETION_REMINDER_NOTICE = "deletion_reminder"
+"""The notice kind each Student of a Class session gets once, `deletion_reminder_days` before its
+deletion date, `digest` (Story 13.9, AD-9): download the Student report before the data is
+deleted. Its `ref` is the Class session; the mail reads the date at send time."""
+
+
+def _deletion_key(class_session_id: uuid.UUID, deletion: date, user_id: uuid.UUID) -> str:
+    """Once per Student, Class session and date: a date that moves after the reminder (a later
+    extension) is told again in its own window."""
+    return f"{DELETION_REMINDER_NOTICE}:{class_session_id}:{deletion.isoformat()}:{user_id}"
+
+
+def _reminder_ahead() -> timedelta:
+    return timedelta(days=get_settings().deletion_reminder_days)
+
+
+async def due_deletion_reminders(now: datetime) -> list[uuid.UUID]:
+    """The sweep's `sessions.send_deletion_reminder` finder (Story 13.9, AD-9): the ids of the
+    Class sessions whose deletion date is after today and at most `deletion_reminder_days` away
+    on the Europe/Oslo calendar, whose Students were not reminded yet. An archived Class is
+    included: its data is kept until this date."""
+    async with get_sessionmaker()() as s:
+        return await repo.due_deletion_reminders(s, now.astimezone(OSLO).date(), _reminder_ahead())
+
+
+async def send_deletion_reminder_due(item: object, now: datetime) -> bool:
+    """The sweep's `sessions.send_deletion_reminder` action: one Class session per transaction,
+    with its id only."""
+    if not isinstance(item, uuid.UUID):
+        raise TypeError("a deletion reminder item is a Class session id")
+    return await send_deletion_reminder(item, now=now)
+
+
+async def send_deletion_reminder(class_session_id: uuid.UUID, *, now: datetime) -> bool:
+    """Remind each registered Student of the Class session's Class, once, that their data is
+    deleted on the deletion date (Story 13.9, FR-57): under the Class session's row lock, when the
+    date is set, after today and at most `deletion_reminder_days` away, and the Students were not
+    reminded, enqueue one `DELETION_REMINDER_NOTICE` per Student keyed by session and User, and
+    record the reminder on the session. Returns False, changing nothing, otherwise. Idempotent:
+    the key and the mark each keep a second run from telling anyone again."""
+    async with get_sessionmaker().begin() as s:
+        row = await repo.session_row(s, class_session_id, lock=True)
+        if row is None or row["deletion_date"] is None or row["deletion_reminded_at"] is not None:
+            return False
+        today = now.astimezone(OSLO).date()
+        deletion: date = row["deletion_date"]
+        if not today < deletion <= today + _reminder_ahead():
+            return False
+        students = sorted(await classes.registered_students(row["class_id"]))
+        for student in students:
+            await notify.enqueue(
+                s,
+                student,
+                DELETION_REMINDER_NOTICE,
+                _deletion_key(class_session_id, deletion, student),
+                ref=class_session_id,
+            )
+        await repo.mark_deletion_reminded(s, class_session_id, now)
+    log.info(
+        "deletion_reminder_sent",
+        class_session_id=str(class_session_id),
+        students=len(students),
+    )
+    return True
+
+
+async def deletion_reminder_mail_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    """The template variables of a `DELETION_REMINDER_NOTICE`, for `messaging` at send time (Story
+    13.9, AD-9): the Class's name and the deletion date as it stands now. None, so the notice is
+    left out, when the Class session or its date is gone, the date is today or has passed, the
+    Class is gone, or the User is no longer a registered Student of it. An archived Class is
+    still named: its data is kept until the date."""
+    if ref is None:
+        return None
+    row = await repo.session_row(session, ref)
+    if row is None or row["deletion_date"] is None:
+        return None
+    if row["deletion_date"] <= now.astimezone(OSLO).date():
+        return None
+    label = await classes.label_of_class(session, row["class_id"])
+    if label is None:
+        return None
+    if user_id not in await classes.registered_students(row["class_id"]):
+        return None
+    return {"class_name": label.name, "deletion_date": row["deletion_date"]}
 
 
 # Student choice (Story 5.17, FR-21, AD-2, AD-4, AD-8, AD-9, AD-17, UX-DR62).

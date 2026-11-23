@@ -1,7 +1,7 @@
 """API shapes of `modules/sessions` (Stories 5.1 to 5.8)."""
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
 from typing import Any, Literal
@@ -881,6 +881,10 @@ class EnrolledSessionOut(BaseModel):
     makeup: StudentGameOut | None = None
     """Story 13.4: the Oppfølgingsspill a Lecturer gave the Student, as a game card; None
     without one."""
+    deletion_date: date | None = None
+    """Story 13.9 (FR-77, FR-57): the day the Class session's Student data is deleted (an
+    Europe/Oslo calendar day), which Hjem states under «Rapport»; None while it has no Test
+    deadline."""
     requirement_met: bool | None = None
     """Story 13.1 (FR-17): in an Obligatory class session where the Student has a game, whether
     their Completion status meets the requirement (`reports.service.completion_status`); None

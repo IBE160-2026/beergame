@@ -19,6 +19,7 @@ import { ownLines } from "@/modules/reports/adjustment";
 import { ReportDownload } from "@/modules/reports/report-download";
 import { ReplayBlock } from "@/modules/replay/replay-block";
 import { wantsReplayPrimary } from "@/modules/replay/replay";
+import { calendarDateText } from "@/modules/sessions/dates";
 import { homeLine } from "@/modules/sessions/seat-choice";
 
 import { GameAction } from "./game-action";
@@ -212,9 +213,19 @@ function SessionBlock({
         title={copy.steps}
         titleId={`steps-${session.id}`}
         items={stepItems(session.steps, session.id, session.replay).map((item) =>
-          // Story 13.7: once «Rapport» is open (the Testfrist has passed), its download is under it.
-          item.key === "report" && item.state !== "locked"
-            ? { ...item, action: <ReportDownload sessionId={session.id} /> }
+          // Story 13.7: once «Rapport» is open (the Testfrist has passed), its download is under it;
+          // Story 13.9: locked or open, the day the Klasseøkt's data is deleted.
+          item.key === "report"
+            ? {
+                ...item,
+                action:
+                  item.state !== "locked" || session.deletion_date ? (
+                    <>
+                      {item.state !== "locked" ? <ReportDownload sessionId={session.id} /> : null}
+                      <DeletionLine day={session.deletion_date} />
+                    </>
+                  ) : undefined,
+              }
             : item,
         )}
       />
@@ -409,4 +420,15 @@ function BeforeStart({ session }: { session: EnrolledSession }) {
     return <p className="mt-1 text-body-phone text-ink lg:text-body">{line.text}</p>;
   }
   return <p className="mt-1 text-body-phone text-ink-secondary lg:text-body">{nb.homes.startDate}</p>;
+}
+
+/** Story 13.9 (FR-77, FR-57, UX-DR29): under «Rapport», the day the Klasseøkt's data is deleted and
+ * that the Student should download the report before it; nothing while there is no Testfrist. */
+export function DeletionLine({ day }: { day: string | null | undefined }) {
+  if (!day) return null;
+  return (
+    <p className="mt-2 text-body-phone text-ink-secondary lg:text-body" data-deletion-date={day}>
+      {copy.deletion(calendarDateText(day))}
+    </p>
+  );
 }

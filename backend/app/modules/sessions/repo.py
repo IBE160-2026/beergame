@@ -3,7 +3,7 @@ read or manage the Class the rows belong to (AD-12)."""
 
 import uuid
 from collections.abc import Collection
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import (
@@ -12,6 +12,7 @@ from sqlalchemy import (
     Select,
     Text,
     and_,
+    case,
     delete,
     exists,
     func,
@@ -102,7 +103,8 @@ async def enrolled_sessions(session: AsyncSession, user: authz.Principal) -> lis
     """The sessions of the Classes `user` is a Student in (`authz.classes_enrolled_by`), with
     their numbers: dates and the obligatory mark, and the settings and the snapshot's settings
     (`snapshot_settings`; never its demand) only so that `service.game_rules` can pick the rules
-    the briefing states (Story 6.2); the Student's answer never carries the Game settings."""
+    the briefing states (Story 6.2); the Student's answer never carries the Game settings. With
+    the deletion date Hjem states (Story 13.9)."""
     result = await session.execute(
         select(
             _numbered.c.id,
@@ -116,6 +118,7 @@ async def enrolled_sessions(session: AsyncSession, user: authz.Principal) -> lis
             _numbered.c.debrief_mode,
             _numbered.c.game_settings,
             _numbered.c.snapshot["settings"].label("snapshot_settings"),
+            _numbered.c.deletion_date,
         )
         .where(_numbered.c.class_id.in_(authz.classes_enrolled_by(user)))
         .order_by(_numbered.c.class_id, _numbered.c.id)
@@ -608,6 +611,70 @@ async def save_extension(session: AsyncSession, **values: Any) -> None:
                 "updated_at": statement.excluded.updated_at,
             },
         )
+    )
+
+
+# Story 13.9: the day the Class session's Student data is deleted, and its one reminder.
+
+
+async def extension_test_deadlines(
+    session: AsyncSession, class_session_id: uuid.UUID
+) -> list[datetime]:
+    """Every Student's own Test deadline in the Class session (Story 11.13)."""
+    result = await session.execute(
+        select(student_deadline_extensions.c.test_deadline).where(
+            student_deadline_extensions.c.class_session_id == class_session_id
+        )
+    )
+    return list(result.scalars())
+
+
+async def set_deletion_date(
+    session: AsyncSession, class_session_id: uuid.UUID, deletion_date: date | None
+) -> None:
+    """Store the date; a date that moved clears the reminder mark, so the Students are told the
+    new date in its window."""
+    await session.execute(
+        update(class_sessions)
+        .where(class_sessions.c.id == class_session_id)
+        .values(
+            deletion_date=deletion_date,
+            deletion_reminded_at=case(
+                (
+                    class_sessions.c.deletion_date.is_distinct_from(deletion_date),
+                    None,
+                ),
+                else_=class_sessions.c.deletion_reminded_at,
+            ),
+        )
+    )
+
+
+async def due_deletion_reminders(
+    session: AsyncSession, today: date, ahead: timedelta
+) -> list[uuid.UUID]:
+    """The Class sessions whose deletion date lies after `today` and at most `ahead` away, whose
+    Students have not been reminded: by id, the earliest date first."""
+    result = await session.execute(
+        select(class_sessions.c.id)
+        .where(
+            class_sessions.c.deletion_date.is_not(None),
+            class_sessions.c.deletion_reminded_at.is_(None),
+            class_sessions.c.deletion_date > today,
+            class_sessions.c.deletion_date <= today + ahead,
+        )
+        .order_by(class_sessions.c.deletion_date, class_sessions.c.id)
+    )
+    return list(result.scalars())
+
+
+async def mark_deletion_reminded(
+    session: AsyncSession, class_session_id: uuid.UUID, now: datetime
+) -> None:
+    await session.execute(
+        update(class_sessions)
+        .where(class_sessions.c.id == class_session_id)
+        .values(deletion_reminded_at=now)
     )
 
 

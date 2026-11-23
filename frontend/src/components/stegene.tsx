@@ -15,7 +15,8 @@ export type StegeneItem = {
   note: string;
   /** Where the current step leads (Story 9.2: the Debrief); its name is then a link. */
   href?: string;
-  /** Story 13.7: an action under an open step's row (the Student report's download). */
+  /** Story 13.7: an action under an open step's row (the Student report's download); Story 13.9:
+   * also under a locked one (the deletion date under «Rapport»). */
   action?: ReactNode;
 };
 
@@ -55,7 +56,14 @@ export function Stegene({ title, items, titleId }: { title: string; items: Stege
               />
             </svg>
             {item.state === "locked" ? (
-              <span className="text-body-phone text-ink-secondary lg:text-body">{item.note}</span>
+              item.action ? (
+                <div className="flex flex-1 flex-col">
+                  <span className="text-body-phone text-ink-secondary lg:text-body">{item.note}</span>
+                  {item.action}
+                </div>
+              ) : (
+                <span className="text-body-phone text-ink-secondary lg:text-body">{item.note}</span>
+              )
             ) : (
               <div className="flex flex-1 flex-col">
                 <span className="flex flex-wrap justify-between gap-x-4 text-body-phone lg:text-body">

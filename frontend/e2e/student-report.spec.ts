@@ -16,7 +16,8 @@ import { liveClassGame, orderByApi } from "./support/live-game";
  * the real pipeline (snapshot, print route, WeasyPrint `pdf/ua-1` in `worker-batch`, the storage
  * mock). The PDF downloads through the signed URL. The proxy refuses the print route and the api's
  * internal snapshot read. Axe and reflow at 320 px and 1440 px. The PDF is kept as the sample CI's
- * veraPDF step checks (`scripts/verapdf`). What the api refuses is
+ * veraPDF step checks (`scripts/verapdf`). Story 13.9: «Rapport» states the deletion date, locked
+ * and open, and it follows the Testfrist. What the api refuses is
  * `backend/tests/reports/test_student_report.py`. */
 const copy = nb.reports.download;
 const CSRF = { "X-Requested-With": "olspillet" };
@@ -47,8 +48,14 @@ test("a Student makes and downloads the Student report once the Testfrist has pa
     await page.goto("/hjem");
     const stegene = page.locator(`section[aria-labelledby="steps-${sessionId}"]`);
     const report = stegene.locator('li[data-state]').last();
-    await expect(report).toHaveText(nb.homes.student.locked.report);
+    await expect(report).toContainText(nb.homes.student.locked.report);
     await expect(report).toHaveAttribute("data-state", "locked");
+    // Story 13.9: locked or open, «Rapport» states the day the Klasseøkt's data is deleted.
+    const deletion = report.locator("[data-deletion-date]");
+    await expect(deletion).toHaveText(
+      /^Dataene dine fra denne Klasseøkten slettes \d{1,2}\. [a-zø]+ \d{4}\. Last ned Studentrapporten før det\.$/,
+    );
+    const lockedDay = await deletion.getAttribute("data-deletion-date");
     const early = await sara.context.request.post(`/api/me/class-sessions/${sessionId}/report`, { headers: CSRF });
     expect(early.status()).toBe(409);
     expect((await early.json()).error.code).toBe("report_not_open");
@@ -62,6 +69,9 @@ test("a Student makes and downloads the Student report once the Testfrist has pa
     const make = report.getByRole("button", { name: copy.make });
     await expect(make).toBeVisible();
     await expect(report).toContainText(copy.note);
+    // The Testfrist moved into the past: the deletion date moved with it, in the same save.
+    await expect(deletion).toBeVisible();
+    expect(await deletion.getAttribute("data-deletion-date")).not.toBe(lockedDay);
     await expectAccessible(page, false);
 
     const started = Date.now();
