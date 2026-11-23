@@ -3858,3 +3858,22 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
 
 ### Åpne punkter
 - Issue #236: beslutninger og gjenværende risiko for at studenter kan kjennes igjen.
+
+## Story 13.5: Gå videre til Debrief, Replay og test fra et ferdig oppfølgingsspill (spor 2)
+
+### Oppgave
+Rette funnene fra gjennomgangen av 13.4 og bygge Story 13.5 på `epic-13` i spor 2.
+
+### Plan
+Byggeagent: først rettingene i en egen commit, så storyen med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
+
+### Resultat
+- Rettinger for 13.4 (213b19a): bare tellende studenter kan få oppfølgingsspill, e-posten er testet, datoer i mai får punktum, og fristen kan ikke fjernes etter låsing.
+- Spec: `.docs/implementation-artifacts/spec-13-5-continue-to-the-debrief-the-replay-and-the-test-from-a-finished-oppfolgingsspill.md`. Commit: 99cde71.
+- Et ferdig oppfølgingsspill blir studentens spill, fullfører Klassespill-steget og fører til en personlig Debrief. Alle skjermene kaller det «Oppfølgingsspill».
+- Tester: backend 3743, Vitest 1201, tsc, `lint:colours`, `check:copy`, bygg, Playwright 71 med axe.
+- Gjennomgang: 37 funn, 6 rettet.
+- Status: done.
+
+### Åpne punkter
+- Issue #237: beslutninger og en tapt fortellerjobb som ikke prøves på nytt.
