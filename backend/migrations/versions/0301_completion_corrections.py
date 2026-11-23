@@ -8,7 +8,7 @@ AD-15, AD-16).
   Lecturer's free text about the Student: personal data.
 
 Revision ID: 0301
-Revises: 0130
+Revises: 0209
 Create Date: 2026-11-22
 """
 
@@ -18,7 +18,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0301"
-down_revision: str | None = "0130"
+down_revision: str | None = "0209"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

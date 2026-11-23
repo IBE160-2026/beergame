@@ -8,8 +8,8 @@ without a game; the shares come from a short game played out at the Play deadlin
 import uuid
 
 from app.modules.identity.schemas import AccountRole
-from app.modules.messaging import messages
 from app.modules.progress.models import CORRECTABLE_STEPS
+from app.platform.collation import nb_sort_key
 from tests.classes.test_classes import LECTURER, make
 from tests.classes.test_invitation_counts import execute
 from tests.classes.test_staff import ASSISTANT, call, put_staff
@@ -66,7 +66,7 @@ async def test_the_message_goes_to_those_who_have_not_met_the_requirement_when_i
     shown = (await form(LECTURER, session_id, **NOT_MET)).json()
     assert (shown["students"], shown["sent_before"]) == (2, 0)
     assert {row["user_id"] for row in shown["not_met"]} == {str(b), str(c)}
-    assert names(shown) == sorted(names(shown), key=lambda n: n.casefold().translate(messages._NB))
+    assert names(shown) == sorted(names(shown), key=nb_sort_key)
     assert all(row["name"] for row in shown["not_met"])
     # No game yet: no share; the share required is the Class session's.
     assert {
@@ -154,5 +154,5 @@ async def test_the_table_shows_the_share_ordered_and_the_share_the_playout_playe
 
 def test_the_table_is_in_norwegian_alphabetical_order():
     names = ["Åse", "ørjan", "Zara", "Ærlig", "anna"]
-    ordered = sorted(names, key=lambda name: name.casefold().translate(messages._NB))
+    ordered = sorted(names, key=nb_sort_key)
     assert ordered == ["anna", "Zara", "Ærlig", "ørjan", "Åse"]

@@ -4,6 +4,7 @@ import { type ReactNode, useId } from "react";
 
 import { Link } from "@/components/link";
 import { nb } from "@/copy/nb";
+import { StaffAssessmentBlock } from "@/modules/assessment/staff-block";
 import { gameInsightPath, studentDebriefPath } from "@/modules/identity/homes";
 import { roleName } from "@/modules/sessions/sessions";
 
@@ -114,9 +115,8 @@ export function RecordBlocks({ record }: { record: StudentRecord }) {
           </>
         ) : null}
       </Block>
-      <Block title={copy.assessment.title} name="assessment">
-        <p data-assessment-state={record.assessment.state}>{copy.assessment.states[record.assessment.state]}</p>
-      </Block>
+      {/* Story 12.5's «KI-vurdering» with the Student's flags, from the record. */}
+      {record.assessment ? <StaffAssessmentBlock assessment={record.assessment} /> : null}
       {/* The link to the Student report goes here (Story 13.12). */}
       <div data-report-slot="" />
     </>

@@ -197,10 +197,14 @@ async def test_a_lecturer_added_becomes_co_owner_with_the_owners_rights(klass, e
     assert [p["email"] for p in listed["lecturers"]] == [LECTURER, OTHER]
 
 
-@pytest.mark.parametrize("case", ["no_account", "no_role", "deactivated"])
+@pytest.mark.parametrize("case", ["no_account", "no_role", "deactivated", "admin_only"])
 async def test_an_address_that_is_no_lecturer_gets_one_reason(klass, case):
     if case == "no_role":
         await make("ingen@x.no", roles=())
+    if case == "admin_only":
+        # The Admin role grants the Class actions on a Control test Class only (Story 12.7): it
+        # never makes a User a Lecturer.
+        await make("ingen@x.no", roles=(AccountRole.admin,))
     if case == "deactivated":
         user_id = await make("ingen@x.no")
         execute("UPDATE users SET is_active = false WHERE id = %s", user_id)

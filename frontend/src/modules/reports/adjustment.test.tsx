@@ -27,6 +27,7 @@ const page = (over: Partial<StudentPage> = {}): StudentPage => ({
   user_id: "u-jonas",
   name: "Jonas",
   class_share: 80,
+  can_manage: true,
   adjustment: null,
   deadlines: {
     class_debrief_deadline: null,

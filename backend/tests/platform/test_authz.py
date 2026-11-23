@@ -3,6 +3,7 @@ one answers for each User."""
 
 import uuid
 from dataclasses import dataclass, field
+from types import SimpleNamespace
 from typing import Annotated
 
 import httpx
@@ -56,11 +57,28 @@ def test_only_the_lecturer_role_opens_the_laererhjem():
     assert not authz.can(NONE, "lecturer_home.view")
 
 
-@pytest.mark.parametrize("action", ["student_answers.read", "ai_assessments.read"])
-def test_no_account_role_reads_student_answers_or_ai_assessments(action):
-    """FR-5: the Admin sees all Users but no Student answers or AI assessments."""
+def test_no_account_role_reads_student_answers():
+    """FR-5: the Admin sees all Users but no Student answers."""
     for user in (ADMIN, LECTURER, BOTH, NONE):
-        assert not authz.can(user, action)
+        assert not authz.can(user, "student_answers.read")
+
+
+@pytest.mark.parametrize("action", ["ai_assessments.read", "student_pages.read"])
+def test_ai_assessments_and_the_studentside_are_read_by_the_class_staff_only(action):
+    """Story 12.5 (FR-5, FR-55, AD-12): an owner or Assistant lecturer of the Class reads a
+    Student's AI assessment and Studentside; the Admin role alone grants neither, and a Lecturer
+    with no staff role in the Class is refused."""
+    owner, assistant, none = (SimpleNamespace(staff_role=r) for r in ("owner", "assistant", None))
+    assistant_user = P(["assistant"])
+    assert not authz.can(ADMIN, action)
+    assert not authz.can(NONE, action)
+    for user in (LECTURER, BOTH):
+        assert authz.can(user, action, owner)
+        assert not authz.can(user, action, none)
+    assert authz.can(assistant_user, action, assistant)
+    assert not authz.can(assistant_user, action, none)
+    # The Studentside's own blocks stay the owners'.
+    assert not authz.can(assistant_user, "class_sessions.manage", assistant)
 
 
 def test_every_logged_in_user_reads_their_own_session():

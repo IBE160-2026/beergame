@@ -108,11 +108,16 @@ def test_content_imports_no_feature_module():
 
 def test_assessment_imports_no_feature_module_and_is_reached_through_its_service():
     """Story 12.1 (AD-2): `sessions` stores and pins the «KI-vurdering» switch through
-    `assessment.service`, so `assessment` imports no other module, and others only its service."""
+    `assessment.service`, so `assessment` imports no other module, and others only its service.
+    Story 12.4 (AD-16): the one exception is `progress.service`, which any module may call (it
+    imports no feature module) to record the `assessment_ready` step; Story 12.10 (AD-27) adds
+    `content.service` (which imports no feature module either), whose `mark_checked` only
+    `assessment` calls."""
     found = imports(APP / "modules" / "assessment")
     assert found
+    allowed = {"app.modules.progress.service", "app.modules.content.service"}
     for path, line, name in found:
-        if name.startswith("app.modules."):
+        if name.startswith("app.modules.") and name not in allowed:
             assert name.startswith("app.modules.assessment"), f"{path.name}:{line} imports {name}"
     for path, line, name in imports(APP):
         if (APP / "modules" / "assessment") not in path.parents and name.startswith(
@@ -332,3 +337,12 @@ def imports_of(tree: ast.AST, path: Path) -> list[tuple[Path, int, str]]:
         elif isinstance(node, ast.ImportFrom):
             found += [(path, node.lineno, f"{node.module}.{a.name}") for a in node.names]
     return found
+
+
+def test_only_assessment_marks_a_scoring_guide_checked():
+    """Story 12.10 (FR-81, AD-27): `content.service.mark_checked` has one caller, `assessment`."""
+    for path in APP.rglob("*.py"):
+        if path.parent == APP / "modules" / "content":
+            continue
+        if "mark_checked(" in path.read_text(encoding="utf-8"):
+            assert (APP / "modules" / "assessment") in path.parents, path

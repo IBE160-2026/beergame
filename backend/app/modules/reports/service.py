@@ -167,5 +167,7 @@ async def _funnel_in(session: AsyncSession, class_session_id: uuid.UUID) -> prog
 
 
 sessions.register_completion(completion_status, _funnel_in)
+# Story 12.5's list of AI assessments counts the Students reports count.
+sessions.register_reporting_students(scope.reporting_students)
 # Story 13.4: Hjem and the `makeup_given` mail find the Student's Oppfølgingsspill here.
 sessions.register_makeup_game(repo.makeup_game_of)

@@ -1,10 +1,14 @@
 """Story 2.5: `python -m app.worker --queues …` (AD-9, AD-24). The worker loop itself is
 procrastinate's; the job tests drive it with `run_until_idle`."""
 
+from pathlib import Path
+
 import pytest
 
 from app import worker
 from app.platform import jobs
+
+BACKEND = Path(__file__).parents[1]
 
 
 def test_queues_are_read_comma_separated_or_repeated_without_repeats():
@@ -103,6 +107,41 @@ def test_the_worker_knows_the_llm_order_task_by_its_name():
     # Story 11.8: the Individual test's prepare job, on `llm-batch` too.
     assert "app.modules.tests.jobs" in jobs.TASK_MODULES
     assert jobs.app.tasks["tests.prepare_adapted"].queue == jobs.LLM_BATCH
+    # Story 12.2: the AI assessment's job, on `llm-batch` too.
+    assert "app.modules.assessment.jobs" in jobs.TASK_MODULES
+    assert jobs.app.tasks["assessment.assess"].queue == jobs.LLM_BATCH
+
+
+def test_a_worker_alone_registers_the_test_attempt_reader_the_assessment_reads():
+    """Story 12.2: the worker imports only `TASK_MODULES`. `tests.jobs` (one of them) imports
+    `tests.assessed`, whose import registers the reader `tests` hands `assessment`; the app's
+    routes are no part of that chain."""
+    import ast
+
+    assert "app.modules.tests.jobs" in jobs.TASK_MODULES
+    module = BACKEND / "app" / "modules" / "tests"
+    imported = {
+        f"{node.module}.{alias.name}"
+        for node in ast.walk(ast.parse((module / "jobs.py").read_text(encoding="utf-8")))
+        if isinstance(node, ast.ImportFrom)
+        for alias in node.names
+    }
+    assert "app.modules.tests.assessed" in imported
+    # Registered at the module's top level, so importing it is enough.
+    assessed = ast.parse((module / "assessed.py").read_text(encoding="utf-8"))
+    assert any(
+        isinstance(node, ast.Expr) and "register_attempt_reader" in ast.unparse(node)
+        for node in assessed.body
+    )
+    jobs.load_tasks()
+    from app.modules.assessment import service
+
+    assert service._readers
+    # Story 12.4: `tests.assessed` imports `sessions.service`, whose import registers the Admins'
+    # reader a failed assessment tells.
+    assert service._admin_readers
+    assessed = (module / "assessed.py").read_text(encoding="utf-8")
+    assert "from app.modules.sessions import service as sessions" in assessed
 
 
 async def test_run_until_idle_returns_when_no_job_waits(games_db):

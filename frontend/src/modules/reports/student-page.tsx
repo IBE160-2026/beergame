@@ -27,11 +27,12 @@ const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * The Studentside (Story 8.9, UX-DR53, EXPERIENCE.md → Studentside): one Student of a Class
- * session, as a page of blocks for the staff of its Class (Story 13.2, FR-63): «Fullføring» and
- * the record blocks for its Lecturers and Assistant lecturers, then «Tilrettelegging» and «Frister»
- * (Story 11.13) for its Lecturers only. Reached from the Student's name on Spillinnsikt and from
- * the Roster. Anyone else sees the permission-denied page, which never says whether the Student
- * exists (FR-5, AD-12).
+ * session, as a page of blocks for the staff of its Class (Story 13.2, FR-63): «Fullføring», the
+ * record blocks and «KI-vurdering» with the Student's flags (Story 12.5) for its Lecturers and
+ * Assistant lecturers, then «Tilrettelegging» and «Frister» (Story 11.13) for its Lecturers only
+ * (`can_manage`). Reached from the Student's name on Spillinnsikt, on the Klasseøkt's list of AI
+ * assessments and on the Roster. Anyone else sees the permission-denied page, which never says
+ * whether the Student exists (FR-5, AD-12).
  */
 export function StudentPageView({ sessionId, userId }: { sessionId: string; userId: string }) {
   const named = ID.test(sessionId) && ID.test(userId);
@@ -114,7 +115,13 @@ function StudentPageBody({
           {managed ? (
             <>
               <AdjustmentBlock data={managed} open={editing === "adjustment"} onOpenChange={toggle("adjustment")} />
-              <DeadlineBlock data={managed} open={editing === "deadline"} onOpenChange={toggle("deadline")} />
+              {managed.deadlines ? (
+                <DeadlineBlock
+                  data={{ ...managed, deadlines: managed.deadlines }}
+                  open={editing === "deadline"}
+                  onOpenChange={toggle("deadline")}
+                />
+              ) : null}
             </>
           ) : null}
         </>

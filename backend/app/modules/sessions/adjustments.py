@@ -3,9 +3,11 @@
 A Lecturer of the Class gives one Student more time before an AI player takes their Seat (a factor
 of 1, 1.5, 2 or 3 on the Inactivity limit) and a lower share of Weeks. Only the Lecturers of the
 Class read or change it (`class_sessions.manage`); an Assistant lecturer is refused like anyone
-outside the Class (FR-5). The adjustment is personal data: it is audited by ids and values, and
-never written to a log line, a mail or another Student's view. Saving recomputes the open turn
-times of the Student's Class game at once (`games.commands.recompute_turn_times`)."""
+outside the Class (FR-5). Story 12.5 opens the Studentside itself to Assistant lecturers
+(`student_pages.read`), without «Tilrettelegging» and «Frister». The adjustment is personal data:
+it is audited by ids and values, and never written to a log line, a mail or another Student's
+view. Saving recomputes the open turn times of the Student's Class game at once
+(`games.commands.recompute_turn_times`)."""
 
 import uuid
 from decimal import Decimal
@@ -48,11 +50,14 @@ class InvalidAdjustment(Exception):
 
 
 async def _reach(
-    user: authz.Principal, session_id: uuid.UUID, user_id: uuid.UUID
+    user: authz.Principal,
+    session_id: uuid.UUID,
+    user_id: uuid.UUID,
+    action: str = "class_sessions.manage",
 ) -> StudentTarget | None:
     """The Studentside's target (`service.student_target`): None, one answer, for anything else
     (FR-5)."""
-    return await student_target(user, session_id, user_id)
+    return await student_target(user, session_id, user_id, action)
 
 
 async def _page(
@@ -60,8 +65,13 @@ async def _page(
 ) -> StudentPageOut:
     async with get_sessionmaker()() as s:
         number = await repo.number_of(s, session_id, reached.class_id)
-        adjustment = await get_adjustment(s, session_id, user_id)
-        deadlines = await deadlines_out(s, reached.row, user_id)
+        # Story 12.5: an Assistant lecturer reads the page without «Tilrettelegging» and
+        # «Frister»; nothing of either is read for them.
+        if reached.can_manage:
+            adjustment = await get_adjustment(s, session_id, user_id)
+            deadlines = await deadlines_out(s, reached.row, user_id)
+        else:
+            adjustment, deadlines = None, None
     return StudentPageOut(
         class_session_id=session_id,
         class_id=reached.class_id,
@@ -72,14 +82,16 @@ async def _page(
         class_share=required_share(reached.row),
         adjustment=adjustment_out(adjustment),
         deadlines=deadlines,
+        can_manage=reached.can_manage,
     )
 
 
 async def student_page(
     user: authz.Principal, session_id: uuid.UUID, user_id: uuid.UUID
 ) -> StudentPageOut | None:
-    """The Studentside of `user_id` in the Class session (Story 8.9), or None (403)."""
-    reached = await _reach(user, session_id, user_id)
+    """The Studentside of `user_id` in the Class session (Story 8.9; Story 12.5: for the Class's
+    owners and Assistant lecturers, `student_pages.read`), or None (403)."""
+    reached = await _reach(user, session_id, user_id, "student_pages.read")
     if reached is None:
         return None
     return await _page(reached, session_id, user_id)

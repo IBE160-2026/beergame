@@ -29,6 +29,14 @@ export function statusLabel(item: Registration, today: string): string {
   return copy.status[item.status];
 }
 
+/** «Teststudent · Samtykket» for a test student of a Control test (Story 12.8, UX-DR57); null
+ * for anyone else. */
+export function testStudentLabel(item: Registration): string | null {
+  if (!item.test_student) return null;
+  const consent = item.consent ? copy.consent[item.consent] : null;
+  return consent ? `${copy.testStudent} · ${consent}` : copy.testStudent;
+}
+
 /** The addresses with `status` (all for null) whose address contains `query`, trimmed and
  * ignoring case. */
 export function filterRegistrations(

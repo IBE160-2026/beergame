@@ -93,7 +93,10 @@ test("staff read one Student's Fullføring and record, and it follows the game l
     await expect(page.locator('[data-record="quiz"]')).toContainText(record.quiz.none);
     await expect(page.locator('[data-record="replay"]')).toContainText(record.replay.none);
     await expect(page.locator('[data-record="test"]')).toContainText(record.test.none);
-    await expect(page.locator("[data-assessment-state]")).toHaveText(record.assessment.states.not_ready!);
+    // Story 12.5's «KI-vurdering» from the record: no test handed in yet.
+    const assessed = page.locator("[data-staff-assessment]");
+    await expect(assessed.getByRole("heading", { level: 2 })).toHaveText(nb.assessment.staff.title);
+    await expect(assessed.locator("[data-assessment-state]")).toHaveAttribute("data-assessment-state", "no_test");
     await expect(page.locator("[data-report-slot]")).toBeEmpty();
     // A Lecturer of the Class also has «Tilrettelegging» and «Frister».
     await expect(page.locator("[data-adjustment]")).toBeVisible();

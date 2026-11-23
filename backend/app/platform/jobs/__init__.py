@@ -19,6 +19,7 @@ the per-minute `ops.sweep` (AD-9). Later epics add theirs. Alembic owns the proc
 import asyncio
 import importlib
 from collections.abc import Iterable, Sequence
+from datetime import datetime
 
 import procrastinate
 import structlog
@@ -65,6 +66,7 @@ TASK_MODULES = (
     # Oppfølgingsspill with `sessions` (Stories 13.1, 13.4), which the `makeup_given` mail reads.
     "app.modules.reports.service",
     "app.modules.reports.render",  # the Student report (Story 13.7)
+    "app.modules.assessment.jobs",
 )
 """The modules that register tasks on `app`; a worker imports them before it runs."""
 
@@ -85,13 +87,20 @@ def conninfo(database_url: str | None = None) -> str:
 
 
 async def defer(
-    session: AsyncSession, task: str, *, queue: str, queueing_lock: str, **kwargs: str | int
+    session: AsyncSession,
+    task: str,
+    *,
+    queue: str,
+    queueing_lock: str,
+    schedule_at: datetime | None = None,
+    **kwargs: str | int,
 ) -> bool:
     """Defer one job of `task` on `session`'s connection, inside its transaction.
 
     `queueing_lock` is the job's natural key: while a job with the same key waits (`todo`), a
     second one is not deferred and False is returned. The attempt runs in a savepoint, so that
-    refusal leaves the caller's transaction usable."""
+    refusal leaves the caller's transaction usable. `schedule_at` (Story 12.2: a later run after
+    a back-off) keeps the job from running before then."""
     for name, value in kwargs.items():
         if not isinstance(value, str | int) or isinstance(value, bool):
             raise TypeError(f"job argument {name!r} must be an id or a whole number")
@@ -101,7 +110,11 @@ async def defer(
     connection = await session.connection()
     raw = (await connection.get_raw_connection()).driver_connection
     deferrer = app.configure_task(
-        name=task, queue=queue, queueing_lock=queueing_lock, connection=raw
+        name=task,
+        queue=queue,
+        queueing_lock=queueing_lock,
+        connection=raw,
+        schedule_at=schedule_at,
     )
     try:
         job_id = await deferrer.defer_async(**kwargs)

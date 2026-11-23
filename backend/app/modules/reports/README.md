@@ -33,8 +33,8 @@ The minimums are configuration, `COMPLETION_EXPLANATION_MIN_LENGTH` (50 characte
 ## The Studentside's record (Story 13.2)
 
 - `GET /api/class-sessions/{id}/students/{user_id}/record` (`routes.py`, `studentside.py`), policy
-  `student_page.read`: the Lecturers and Assistant lecturers of the Class, reached through
-  `sessions.service.student_target(..., "student_page.read")`. 403 `forbidden` is one answer for
+  `student_pages.read`: the Lecturers and Assistant lecturers of the Class, reached through
+  `sessions.service.student_target(..., "student_pages.read")`. 403 `forbidden` is one answer for
   everyone else, an Admin without a staff role included, and for a User who is no Student of the
   Class now (FR-5). `Cache-Control: no-store`.
 - It reads each part through the owning module's `service.py`: `completion_status` (above), the

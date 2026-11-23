@@ -50,6 +50,7 @@ __all__ = [
     "Verdict",
     "citable",
     "code_output",
+    "fact_lines",
     "render",
     "render_output",
     "validate_ai_text",
@@ -290,6 +291,22 @@ def validate_ai_text(
     if any(number not in numbers for number in _NUMBER.findall(rendered.text)):
         return Verdict(accepted=False, reason="number_outside_facts")
     return Verdict(accepted=True, text=rendered.text)
+
+
+def fact_lines(fact_set: FactSet) -> str:
+    """The facts a narration, a follow-up answer or an assessment's feedback may cite, one per
+    line for a prompt: the id, then its numbers (no names)."""
+    lines = []
+    for fact_id, fact in citable(fact_set).items():
+        seen = fact.state_seen
+        values = (
+            f"uke={format_number(fact.week)}, bestilling={format_number(fact.order)}, "
+            f"på_vei={format_number(seen.supply_line)}, "
+            f"ordre_inn={format_number(seen.incoming_order)}, "
+            f"senere_kostnad={format_money(fact.later_cost)}"
+        )
+        lines.append(f"{fact_id}: {values}")
+    return "\n".join(lines)
 
 
 def code_output(fact_set: FactSet) -> AiTextOutput | None:

@@ -24,7 +24,7 @@ import {
   useRegistrations,
 } from "./api";
 import { useFormArea } from "./one-form";
-import { barShares, filterRegistrations, reminderReach, STATUSES, statusLabel } from "./registration";
+import { barShares, filterRegistrations, reminderReach, STATUSES, statusLabel, testStudentLabel } from "./registration";
 import { EntryResult, ManualForm, RemoveConfirm, resultText } from "./roster-entry-forms";
 import { dayLabel, parseValidDays, VALID_DAYS } from "./roster";
 
@@ -549,7 +549,12 @@ function AddressList({
                 <span className="text-body-phone text-ink [overflow-wrap:anywhere] lg:text-body">{item.email}</span>
                 {item.user_id ? <StudentPageLinks email={item.email} userId={item.user_id} sessions={sessions} /> : null}
               </span>
-              <span className="text-body-phone text-ink-secondary lg:text-body">{statusLabel(item, today)}</span>
+              <span className="text-body-phone text-ink-secondary lg:text-body">
+                {statusLabel(item, today)}
+                {testStudentLabel(item) ? (
+                  <span className="block text-label text-ink">{testStudentLabel(item)}</span>
+                ) : null}
+              </span>
               {readOnly ? null : (
               <span className="flex flex-wrap gap-x-4 sm:justify-self-end">
                 {item.remindable ? (

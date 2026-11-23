@@ -10,7 +10,7 @@
     "output_usd_per_mtok": "0.40"
   },
   "rate_limit_rpm": 600,
-  "prompts": {"player_order": 1, "recognition_probe": 1, "debrief_narration": 1, "quiz_explanation": 1, "debrief_follow_up": 1, "replay_walkthrough": 1, "adapted_item_wording": 1},
+  "prompts": {"player_order": 1, "recognition_probe": 1, "debrief_narration": 1, "quiz_explanation": 1, "debrief_follow_up": 1, "replay_walkthrough": 1, "adapted_item_wording": 1, "assessment": 2},
   "effort_levels": [
     {
       "name": "standard",

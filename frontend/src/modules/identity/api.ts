@@ -125,3 +125,40 @@ export function useConfirmPasswordReset() {
     fallback: nb.auth.reset.failed,
   });
 }
+
+export type Consent = components["schemas"]["ConsentOut"];
+export type ConsentDecision = NonNullable<Consent["decision"]>;
+
+/** The query key of a test student's consent (Story 12.8). */
+export const consentKey = ["me", "test-student-consent"] as const;
+
+/** A test student's decision on the current consent text; only read for a test student. */
+export function useConsent(enabled: boolean) {
+  return useQuery({
+    queryKey: consentKey,
+    queryFn: () => request(() => api.GET("/api/me/test-student-consent")),
+    enabled,
+  });
+}
+
+/** «Jeg samtykker» or «Nei takk» on the text Hjem shows (`nb.homes.consent.version`). */
+export function useDecideConsent() {
+  const queryClient = useQueryClient();
+  const copy = nb.homes.consent;
+  return useAction<Consent, ConsentDecision>({
+    mutationFn: async (decision) => {
+      try {
+        return await request(() =>
+          api.PUT("/api/me/test-student-consent", { body: { decision, text_version: copy.version } }),
+        );
+      } catch (error) {
+        // Consent given in another tab: read it again, so the page shows what is stored.
+        void queryClient.invalidateQueries({ queryKey: consentKey, exact: true });
+        throw error;
+      }
+    },
+    messages: { consent_text_changed: copy.changed, consent_given: copy.alreadyGiven },
+    fallback: copy.failed,
+    onSuccess: (data) => queryClient.setQueryData(consentKey, data),
+  });
+}

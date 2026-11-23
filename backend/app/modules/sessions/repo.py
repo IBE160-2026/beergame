@@ -51,6 +51,27 @@ async def insert_session(session: AsyncSession, **values: Any) -> None:
     await session.execute(insert(class_sessions).values(**values))
 
 
+def control_test_ids() -> Select[tuple[uuid.UUID]]:
+    """The ids of the Control test Class sessions (Story 12.7, AD-27), as a subquery."""
+    return select(class_sessions.c.id).where(class_sessions.c.kind == "control_test")
+
+
+async def control_test_rows(session: AsyncSession) -> list[RowMapping]:
+    """Every Control test Class session with its Class's id and creation, newest first."""
+    result = await session.execute(
+        select(
+            class_sessions.c.id,
+            class_sessions.c.class_id,
+            class_sessions.c.model_config_id,
+            class_sessions.c.created_by,
+            class_sessions.c.created_at,
+        )
+        .where(class_sessions.c.kind == "control_test")
+        .order_by(class_sessions.c.id.desc())
+    )
+    return list(result.mappings())
+
+
 async def session_row(
     session: AsyncSession, session_id: uuid.UUID, *, lock: bool = False, share: bool = False
 ) -> RowMapping | None:
@@ -402,6 +423,7 @@ async def confirmed_sessions(session: AsyncSession) -> list[RowMapping]:
             class_sessions.c.locked_at,
             class_sessions.c.snapshot,
             class_sessions.c.allocation_method,
+            class_sessions.c.kind,
         )
         .join(allocation_drafts, allocation_drafts.c.class_session_id == class_sessions.c.id)
         .where(allocation_drafts.c.confirmed_at.is_not(None))

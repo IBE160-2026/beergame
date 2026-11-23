@@ -114,15 +114,22 @@ async def test_a_lecturer_gives_a_student_more_time_and_the_game_follows_at_once
     assert seen["can_adjust"] is True
     marked = {seat["role"] for seat in seen["seats"] if seat["extra_time"]}
     assert marked == {jonas_role}
-    # An Assistant lecturer sees neither, and is refused the Studentside like an outsider.
+    # An Assistant lecturer sees neither. Story 12.5: they open the Studentside, but without
+    # «Tilrettelegging» and «Frister»; they cannot save it, like an outsider.
     assistant = await make(ASSISTANT, roles=())
     put_staff(klass, assistant, "assistant")
     as_assistant = (await insight(ASSISTANT, game_id)).json()
     assert as_assistant["can_adjust"] is False
     assert not any(seat["extra_time"] for seat in as_assistant["seats"])
+    page = await call(ASSISTANT, "GET", page_path(session_id, jonas_id))
+    assert page.status_code == 200 and page.headers["cache-control"] == "no-store"
+    body = page.json()
+    assert (body["can_manage"], body["adjustment"], body["deadlines"]) == (False, None, None)
+    assert (await call(LECTURER, "GET", page_path(session_id, jonas_id))).json()["can_manage"]
     await make(OUTSIDER, roles=())
-    for who in (ASSISTANT, OUTSIDER, sara):
+    for who in (OUTSIDER, sara):
         assert code(await call(who, "GET", page_path(session_id, jonas_id))) == (403, "forbidden")
+    for who in (ASSISTANT, OUTSIDER, sara):
         refused = await save(who, session_id, jonas_id, {"time_factor": 3})
         assert code(refused) == (403, "forbidden")
 

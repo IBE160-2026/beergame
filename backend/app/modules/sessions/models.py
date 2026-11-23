@@ -104,6 +104,10 @@ class_sessions = Table(
     # When the sweep's `sessions.send_deletion_reminder` told its Students (Story 13.9); NULL
     # until then. The finder skips a session once set.
     Column("deletion_reminded_at", DateTime(timezone=True), nullable=True),
+    # `course`, or `control_test` for a Control test (Story 12.7, FR-82, AD-27): set at creation
+    # and never changed; a trigger also keeps a Control test's `model_config_id` (migration 0201).
+    Column("kind", Text, nullable=False, server_default="course"),
+    CheckConstraint("kind IN ('course', 'control_test')", name="ck_class_sessions_kind"),
     CheckConstraint("(locked_at IS NULL) = (snapshot IS NULL)", name="ck_class_sessions_lock"),
     CheckConstraint(
         "replay_scenario IN ('default', 'own')", name="ck_class_sessions_replay_scenario"

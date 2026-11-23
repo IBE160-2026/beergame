@@ -4,17 +4,16 @@ One page per Student for the Lecturers and Assistant lecturers of the Class: the
 per step from the one assembler (`service.completion_status`), the participation signals (pure
 `analysis.participation`, information only), and each part read through its owning module's
 `service.py`: the game (`games`), the Explanation, the Debrief summary and the quiz attempts
-(`debrief.staff_summary`), the Replay (`replay`), the Individual test (`tests`) and the AI
-assessment's state (`assessment`). `reports` reads no table itself.
+(`debrief.staff_summary`), the Replay (`replay`), the Individual test and Story 12.5's
+«KI-vurdering» with the Student's flags (`tests`). `reports` reads no table itself.
 
-Reach: `sessions.service.student_target` with `student_page.read`; None (403) is one answer for a
+Reach: `sessions.service.student_target` with `student_pages.read`; None (403) is one answer for a
 Class session that does not exist, a Class outside the caller's scope, an Admin without a staff
 role, and a User who is no Student of the Class now (FR-5)."""
 
 import uuid
 
 from app.analysis.participation import TimedOrder, participation
-from app.modules.assessment import service as assessment
 from app.modules.classes import service as classes
 from app.modules.debrief import service as debrief
 from app.modules.games import service as games
@@ -26,7 +25,6 @@ from app.modules.reports.schemas import (
     CompletionStepOut,
     CorrectionOut,
     ParticipationOut,
-    RecordAssessmentOut,
     RecordDebriefOut,
     RecordGameOut,
     RecordMakeupOut,
@@ -42,7 +40,7 @@ from app.platform.db import get_sessionmaker
 
 __all__ = ["CORRECT", "READ", "student_record"]
 
-READ = "student_page.read"
+READ = "student_pages.read"
 """The Class action of the Studentside's record (Story 13.2): owners and Assistant lecturers."""
 
 CORRECT = "completion.correct"
@@ -126,7 +124,6 @@ async def student_record(
             for step, each in latest.items()
         }
         adjustment = await sessions.get_adjustment(s, class_session_id, user_id)
-        switch = await assessment.switch_of(s, class_session_id)
         game = await games.student_game(s, user_id, class_session_id)
         if game is not None:
             status = await games.play_status(s, game.game_id)
@@ -160,6 +157,7 @@ async def student_record(
     if staff is None:
         return None
     attempt = await tests.attempt_summary(user_id, class_session_id)
+    assessed = await tests.staff_assessment(user, class_session_id, user_id)
     explanation = staff.explanation
     summary = staff.summary
     return StudentRecordOut(
@@ -215,5 +213,5 @@ async def student_record(
                 status=attempt.status, submitted_at=attempt.submitted_at, parts=attempt.parts
             )
         ),
-        assessment=RecordAssessmentOut(state="not_ready" if switch.enabled else "off"),
+        assessment=assessed,
     )

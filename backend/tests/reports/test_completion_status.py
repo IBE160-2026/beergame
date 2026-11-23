@@ -187,6 +187,12 @@ async def test_the_reporting_scope_leaves_out_test_data(klass, monkeypatch):
         ]
         assert set(await scope.reporting_students(s, sid)) == set(seated)
 
+    # Story 12.8's own mark, read through `identity.service.test_students`: no reporting Student.
+    execute("UPDATE users SET is_test_student = true WHERE id = %s", seated[1])
+    async with get_sessionmaker()() as s:
+        assert await scope.reporting_students(s, sid) == [seated[0]]
+    execute("UPDATE users SET is_test_student = false WHERE id = %s", seated[1])
+
     # A test student (Story 12.8's mark, through the hook) is no reporting Student.
     async def tests_students(session, ids):
         return {seated[1]} & set(ids)

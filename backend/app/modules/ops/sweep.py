@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 
 import structlog
 
+from app.modules.assessment import service as assessment
 from app.modules.debrief import service as debrief
 from app.modules.games import commands as games_commands
 from app.modules.games import service as games
@@ -333,6 +334,10 @@ DUE_ACTIONS: tuple[DueAction, ...] = (
     # `effective_deadline` has passed, handed in or not, one per transaction: an open one is
     # auto-submitted with its saved answers. Epic 12 starts the AI assessment there.
     DueAction("tests.close_attempt", tests_commands.due_closes, tests_commands.close_due),
+    # Story 12.4 (FR-54, AD-9, NFR-8): an AI assessment still not ready 24 hours after its
+    # attempt's `effective_deadline` is logged as `assessment_overdue` once, and its job is
+    # deferred again when none is alive and runs remain; a stopped Class session is skipped.
+    DueAction("assessment.overdue", assessment.due_overdue, assessment.overdue_due),
     # Story 9.2: release the Debriefs of a held Class session once its last Class game has
     # finished (by the last Week or the playout), and tell each seated Student (AD-9).
     DueAction("debrief.release", debrief.due_releases, debrief.release_due),

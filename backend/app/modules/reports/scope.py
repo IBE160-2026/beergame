@@ -6,11 +6,9 @@ statistic, an export, the funnel or Completion counts.
 - `reporting_students` is the registered Students of the Class less test students, and nobody
   for a Control test Class session.
 
-Control test Class sessions (`kind=control_test`, Story 12.7) and test students
-(`is_test_student`, Story 12.8) are built in Epic 12. Until `sessions.service` and
-`identity.service` expose them on this branch, the two reads below are hooks with a default of
-"none"; Epic 12's merge registers the real reads through `register_control_test_sessions` and
-`register_test_students`.
+Control test Class sessions (`kind=control_test`, Story 12.7) are read through
+`sessions.service.kind_of`, test students (`is_test_student`, Story 12.8) through
+`identity.service.test_students`; both are registered in the hooks below, which a test may swap.
 """
 
 import uuid
@@ -21,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.classes import service as classes
 from app.modules.games import service as games
 from app.modules.games.service import Purpose, SessionGame
+from app.modules.identity import service as identity
 from app.modules.sessions import service as sessions
 
 __all__ = [
@@ -41,16 +40,19 @@ TestStudents = Callable[[AsyncSession, Collection[uuid.UUID]], Awaitable[set[uui
 """`(session, user_ids)` → those of them that are test students."""
 
 
-async def _no_control_tests(session: AsyncSession, ids: Collection[uuid.UUID]) -> set[uuid.UUID]:
-    return set()
+async def _control_test_sessions(
+    session: AsyncSession, ids: Collection[uuid.UUID]
+) -> set[uuid.UUID]:
+    """Those of `ids` whose `kind` is `control_test` (Story 12.7)."""
+    return {
+        each
+        for each in ids
+        if await sessions.kind_of(each, session=session) == sessions.CONTROL_TEST
+    }
 
 
-async def _no_test_students(session: AsyncSession, ids: Collection[uuid.UUID]) -> set[uuid.UUID]:
-    return set()
-
-
-_control_tests: list[ControlTestSessions] = [_no_control_tests]
-_test_students: list[TestStudents] = [_no_test_students]
+_control_tests: list[ControlTestSessions] = [_control_test_sessions]
+_test_students: list[TestStudents] = [identity.test_students]
 
 
 def register_control_test_sessions(read: ControlTestSessions) -> None:

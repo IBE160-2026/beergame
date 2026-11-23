@@ -10,7 +10,7 @@ import asyncio
 import base64
 import math
 import uuid
-from collections.abc import Awaitable, Callable, Mapping, Set
+from collections.abc import Awaitable, Callable, Collection, Mapping, Set
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
@@ -101,6 +101,7 @@ def _user_out(row, roles: list[str]) -> UserOut:
         name=row["name"],
         email=row["email"],
         roles=[SessionRole(role) for role in roles],
+        is_test_student=row["is_test_student"],
     )
 
 
@@ -622,7 +623,17 @@ async def _usable_invitation(
         label = await _class_label(session, row["class_id"])
         if label is None or label.archived:
             return None
+    if row["kind"] == InvitationKind.student and not _same_kind(user, label):
+        return None
     return row, user, label
+
+
+def _same_kind(user: RowMapping | None, label: ClassLabel | None) -> bool:
+    """Whether the User an address has (None: no User yet) may be a Student in the Class: a
+    test student in a Control test Class only, any other User in an ordinary Class only (Story
+    12.8, AD-27)."""
+    control = label is not None and label.control_test
+    return user is None or bool(user["is_test_student"]) is control
 
 
 def _student_days_left(expires_at: datetime, now: datetime) -> int:
@@ -764,6 +775,9 @@ async def accept_invitation_new(
         if student and not await _roster_entry_open(s, row):
             log.info("invitation_accept_refused", error_code="invitation_link_invalid")
             return AcceptRefused("invitation_link_invalid")
+        # A User made from a Control test's Roster is a test student (Story 12.8, AD-27).
+        label = await _class_label(s, row["class_id"]) if student else None
+        test_student = label is not None and label.control_test
         await repo.insert_user(
             s,
             user_id=user_id,
@@ -774,6 +788,7 @@ async def accept_invitation_new(
             # A Student or an Assistant is no account role: the Roster entry or the Class staff
             # makes them one (Stories 4.5, 4.9).
             roles=[] if place else [row["role"]],
+            is_test_student=test_student,
         )
         await repo.mark_invitation_accepted(s, row["id"], now)
         if student:
@@ -791,7 +806,16 @@ async def accept_invitation_new(
             )
         roles = await _session_roles(s, user_id)
     log.info("invitation_accepted", invitation_id=str(row["id"]), user_id=str(user_id))
-    return LoginOk(UserOut(id=user_id, name=name, email=row["email"], roles=roles), 0)
+    return LoginOk(
+        UserOut(
+            id=user_id,
+            name=name,
+            email=row["email"],
+            roles=roles,
+            is_test_student=test_student,
+        ),
+        0,
+    )
 
 
 async def _roster_entry_open(s: AsyncSession, invitation: RowMapping) -> bool:
@@ -838,7 +862,13 @@ async def accept_invitation_existing(
             or user is None
             or not user["is_active"]
             or user["email"] != row["email"]
-            or (row["kind"] == InvitationKind.student and not await _roster_entry_open(s, row))
+            or (
+                row["kind"] == InvitationKind.student
+                and (
+                    not _same_kind(user, await _class_label(s, row["class_id"]))
+                    or not await _roster_entry_open(s, row)
+                )
+            )
         ):
             log.info("invitation_accept_refused", error_code="invitation_link_invalid")
             return AcceptRefused("invitation_link_invalid")
@@ -1206,6 +1236,10 @@ async def resend_invitation(
 INSTITUTION_CREATED = "institution.created"
 INSTITUTION_RENAMED = "institution.renamed"
 """The audit actions of an Institution the Admin creates or renames (FR-3, AD-15)."""
+INSTITUTION_OPERATOR_MARKED = "institution.operator_marked"
+"""The audit action of the Admin marking the operator's own Institution (Story 12.7, AD-15)."""
+INSTITUTION_NO_LETTER = "institution.no_letter_changed"
+"""The audit action of the Admin switching an Institution's no-letter mark (Story 12.6, FR-56)."""
 
 
 @dataclass(frozen=True)
@@ -1214,7 +1248,13 @@ class InstitutionRefused:
 
 
 def _institution_out(row) -> InstitutionOut:
-    return InstitutionOut(id=row["id"], name=row["name"], created_at=row["created_at"])
+    return InstitutionOut(
+        id=row["id"],
+        name=row["name"],
+        created_at=row["created_at"],
+        operator_owned=row["operator_owned"],
+        no_letter=row["no_letter"],
+    )
 
 
 async def create_institution(
@@ -1270,6 +1310,81 @@ async def rename_institution(
         )
     log.info("institution_renamed", institution_id=str(institution_id), actor_user_id=str(actor))
     return _institution_out(row)
+
+
+async def mark_operator_institution(
+    actor: uuid.UUID, institution_id: uuid.UUID, *, now: datetime
+) -> InstitutionOut | InstitutionRefused:
+    """Mark the Institution as the operator's own (Story 12.7, FR-82, AD-27, AD-15): the mark
+    moves from the one that held it, in one transaction holding the Institution names lock, with
+    one audit row (ids only). Marking the marked one again writes nothing. Control tests set up
+    before keep their Class's Institution. Refused with `not_found`."""
+    async with get_sessionmaker().begin() as s:
+        await repo.lock_institution_names(s)
+        row = await repo.lock_institution(s, institution_id)
+        if row is None:
+            return InstitutionRefused("not_found")
+        if row["operator_owned"]:
+            return _institution_out(row)
+        previous = await repo.operator_institution(s)
+        row = await repo.set_operator_owned(s, institution_id, now)
+        await audit.record(
+            s,
+            actor,
+            INSTITUTION_OPERATOR_MARKED,
+            {"institution_id": institution_id},
+            {"previous_institution_id": str(previous["id"]) if previous else None},
+            now,
+        )
+    log.info(
+        "institution_operator_marked",
+        institution_id=str(institution_id),
+        actor_user_id=str(actor),
+    )
+    return _institution_out(row)
+
+
+async def set_institution_no_letter(
+    actor: uuid.UUID, institution_id: uuid.UUID, on: bool, *, now: datetime
+) -> InstitutionOut | InstitutionRefused:
+    """The Institution's no-letter mark (Story 12.6, FR-56, FR-3, AD-15): on, no Indicative
+    letter is derived or shown in any Class session of the Institution. One transaction with one
+    audit row (ids and the new value); the same value again writes nothing. Refused with
+    `not_found`."""
+    async with get_sessionmaker().begin() as s:
+        row = await repo.lock_institution(s, institution_id)
+        if row is None:
+            return InstitutionRefused("not_found")
+        if row["no_letter"] == on:
+            return _institution_out(row)
+        row = await repo.set_no_letter(s, institution_id, on, now)
+        await audit.record(
+            s, actor, INSTITUTION_NO_LETTER, {"institution_id": institution_id}, {"on": on}, now
+        )
+    log.info(
+        "institution_no_letter_changed",
+        institution_id=str(institution_id),
+        actor_user_id=str(actor),
+        on=on,
+    )
+    return _institution_out(row)
+
+
+async def institution_forbids_letter(
+    institution_id: uuid.UUID, session: AsyncSession | None = None
+) -> bool:
+    """Story 12.6 (FR-56): whether the Institution's no-letter mark is on; in the caller's
+    `session` when given. False for an unknown id."""
+    async with reading(session) as s:
+        return await repo.no_letter_of(s, institution_id)
+
+
+async def operator_institution(session: AsyncSession | None = None) -> InstitutionOut | None:
+    """The operator's own Institution, where a Control test is set up (Story 12.7, AD-27), or
+    None while no Institution is marked. In the caller's `session` when given."""
+    async with reading(session) as s:
+        row = await repo.operator_institution(s)
+    return _institution_out(row) if row else None
 
 
 async def institution_page(cursor: str | None, limit: int) -> InstitutionListOut:
@@ -1557,6 +1672,7 @@ async def stage_roster_upload(
         await repo.delete_roster_upload(s, class_id)
         on_roster = await repo.roster_addresses(s, class_id)
         restored = await _restorable(s, class_id)
+        refused = await _refused_addresses(s, class_id, parsed.rows, suggested)
         await repo.insert_roster_upload(
             s,
             upload_id=upload_id,
@@ -1583,6 +1699,7 @@ async def stage_roster_upload(
         upload_id=upload_id,
         on_roster=on_roster,
         restored=restored,
+        refused=refused,
         source=RosterSource.file,
         file_name=file_name,
         headers=parsed.headers,
@@ -1614,6 +1731,7 @@ async def stage_roster_paste(
         await repo.delete_roster_upload(s, class_id)
         on_roster = await repo.roster_addresses(s, class_id)
         restored = await _restorable(s, class_id)
+        refused = await _refused_addresses(s, class_id, rows, 0)
         await repo.insert_roster_upload(
             s,
             upload_id=upload_id,
@@ -1640,6 +1758,7 @@ async def stage_roster_paste(
         upload_id=upload_id,
         on_roster=on_roster,
         restored=restored,
+        refused=refused,
         source=RosterSource.paste,
         file_name="",
         headers=[""],
@@ -1654,12 +1773,16 @@ def evaluate_roster_rows(
     rows: list[tuple[int, list[str]]],
     column: int,
     on_roster: Set[str] = frozenset(),
+    refused: Mapping[str, str] | None = None,
 ) -> tuple[int, list[RosterInvalidRow]]:
     """Judge each row's cell in `column` with `schemas.address_problem` (Story 4.3, FR-7): how
     many rows get an Invitation, and every other row with its reason, in row order. Addresses are
     compared trimmed and case-insensitively; an address already on the Class's Roster
-    (`on_roster`, normalised) is `on_roster` (Story 4.4); otherwise the first occurrence of an
-    address is valid and each later one is a `duplicate` naming the first row."""
+    (`on_roster`, normalised) is `on_roster` (Story 4.4); an address `refused` names (normalised)
+    has the reason it gives (Story 12.8: `not_test_student`, `test_student`); otherwise the first
+    occurrence of an address is valid and each later one is a `duplicate` naming the first
+    row."""
+    refused = refused or {}
     valid = 0
     invalid: list[RosterInvalidRow] = []
     first_seen: dict[str, int] = {}
@@ -1671,6 +1794,10 @@ def evaluate_roster_rows(
             invalid.append(RosterInvalidRow(row_number=number, value=value, reason=problem))
         elif address in on_roster:
             invalid.append(RosterInvalidRow(row_number=number, value=value, reason="on_roster"))
+        elif address in refused:
+            invalid.append(
+                RosterInvalidRow(row_number=number, value=value, reason=refused[address])
+            )
         elif address in first_seen:
             invalid.append(
                 RosterInvalidRow(
@@ -1686,6 +1813,43 @@ def evaluate_roster_rows(
     return valid, invalid
 
 
+async def _control_test(s: AsyncSession, class_id: uuid.UUID) -> bool:
+    label = await _class_label(s, class_id)
+    return label is not None and label.control_test
+
+
+def _kind_reason(control_test: bool) -> str:
+    """Why an address of a User of the other kind is refused on a Class's Roster (Story 12.8):
+    a Control test takes test students only, an ordinary Class none of them. On an ordinary
+    Class the reason names no Control test, so a Lecturer learns nothing about one."""
+    return "not_test_student" if control_test else "address_unavailable"
+
+
+async def _refused_addresses(
+    s: AsyncSession, class_id: uuid.UUID, rows: list[tuple[int, list[str]]], column: int | None
+) -> dict[str, str]:
+    """The addresses in `column` of the staged rows whose User may not be a Student in the Class,
+    each with its reason (Story 12.8, AD-27): on a Control test Roster a User who is no test
+    student, on an ordinary Roster a test student. An address with no User yet is not here."""
+    if column is None:
+        return {}
+    addresses = [
+        normalise_email(cells[column]) for _, cells in rows if column < len(cells) and cells[column]
+    ]
+    control = await _control_test(s, class_id)
+    found = await repo.addresses_of_kind(s, addresses, test_student=not control)
+    return dict.fromkeys(found, _kind_reason(control))
+
+
+async def _refuse_other_kind(s: AsyncSession, class_id: uuid.UUID, user: RowMapping | None) -> bool:
+    """Raises `RosterRefused` when the address's User is of the other kind than the Class takes
+    (Story 12.8); whether the Class is a Control test."""
+    control = await _control_test(s, class_id)
+    if user is not None and bool(user["is_test_student"]) is not control:
+        raise RosterRefused(_kind_reason(control))
+    return control
+
+
 async def _restorable(s: AsyncSession, class_id: uuid.UUID) -> set[str]:
     """The removed, registered addresses of the Class's Roster: sent again, each is put back with
     access and gets no Invitation (Stories 4.4, 4.8), so «Send N» leaves them out."""
@@ -1697,6 +1861,7 @@ def _roster_upload_out(
     upload_id: uuid.UUID,
     on_roster: Set[str],
     restored: Set[str] = frozenset(),
+    refused: Mapping[str, str] | None = None,
     source: RosterSource,
     file_name: str,
     headers: list[str],
@@ -1707,10 +1872,10 @@ def _roster_upload_out(
 ) -> RosterUploadOut:
     suggested = roster_file.suggested_column(counts)
     valid, invalid = (
-        evaluate_roster_rows(rows, chosen, on_roster) if chosen is not None else (0, [])
+        evaluate_roster_rows(rows, chosen, on_roster, refused) if chosen is not None else (0, [])
     )
     back = (
-        sum(a in restored for a in _valid_addresses(rows, chosen, on_roster))
+        sum(a in restored for a in _valid_addresses(rows, chosen, on_roster, refused))
         if restored and chosen is not None
         else 0
     )
@@ -1742,6 +1907,7 @@ async def _staged_out(s: AsyncSession, row: RowMapping) -> RosterUploadOut:
     rows = await repo.roster_rows(s, row["id"])
     on_roster = await repo.roster_addresses(s, row["class_id"])
     restored = await _restorable(s, row["class_id"])
+    refused = await _refused_addresses(s, row["class_id"], rows, row["chosen_column"])
     # Evaluating up to `ROSTER_MAX_ROWS` rows is CPU work: off the event loop.
     counts = await asyncio.to_thread(
         roster_file.address_counts, [cells for _, cells in rows], row["column_count"]
@@ -1751,6 +1917,7 @@ async def _staged_out(s: AsyncSession, row: RowMapping) -> RosterUploadOut:
         upload_id=row["id"],
         on_roster=on_roster,
         restored=restored,
+        refused=refused,
         source=RosterSource(row["source"]),
         file_name=row["file_name"],
         headers=row["headers"],
@@ -1812,6 +1979,8 @@ class ClassLabel:
     course_code: str | None
     archived: bool = False
     """An archived Class takes no one in: its links are unusable (Story 4.10)."""
+    control_test: bool = False
+    """A Control test Class (Story 12.7): its Roster takes test students only (Story 12.8)."""
 
 
 ClassLabelResolver = Callable[[AsyncSession, uuid.UUID], Awaitable[ClassLabel | None]]
@@ -1897,8 +2066,9 @@ async def send_roster_invitations(
     column = row["chosen_column"]
     rows = await repo.roster_rows(s, row["id"])
     on_roster = await repo.roster_addresses(s, class_id)
+    refused = await _refused_addresses(s, class_id, rows, column)
     addresses = (
-        await asyncio.to_thread(_valid_addresses, rows, column, on_roster)
+        await asyncio.to_thread(_valid_addresses, rows, column, on_roster, refused)
         if column is not None
         else []
     )
@@ -1950,10 +2120,13 @@ async def send_roster_invitations(
 
 
 def _valid_addresses(
-    rows: list[tuple[int, list[str]]], column: int, on_roster: Set[str]
+    rows: list[tuple[int, list[str]]],
+    column: int,
+    on_roster: Set[str],
+    refused: Mapping[str, str] | None = None,
 ) -> list[str]:
     """The normalised addresses `evaluate_roster_rows` finds valid, in row order."""
-    _, invalid = evaluate_roster_rows(rows, column, on_roster)
+    _, invalid = evaluate_roster_rows(rows, column, on_roster, refused)
     skip = {row.row_number for row in invalid}
     return [
         normalise_email(cells[column] if column < len(cells) else "")
@@ -2048,12 +2221,19 @@ class RosterFacts:
     user_id: uuid.UUID | None = None
     """The User linked to the entry, if any; only a registered entry's is ever shown (Story 13.2:
     the Roster's link to the Studentside)."""
+    test_student: bool = False
+    """The entry's User is a test student (Story 12.8)."""
+    consent: str | None = None
+    """A test student's consent: `given`, `declined` or `pending`; None for anyone else."""
 
 
 async def class_roster(class_id: uuid.UUID, *, now: datetime) -> list[RosterFacts]:
     """Every Roster entry of the Class that has not been removed, by address."""
     async with get_sessionmaker().begin() as s:
         rows = await repo.class_roster_facts(s, class_id)
+        decisions = await repo.latest_decisions(
+            s, [row["user_id"] for row in rows if row["test_student"]], CONSENT_TEXT_VERSION
+        )
     return [
         RosterFacts(
             entry_id=row["id"],
@@ -2064,6 +2244,16 @@ async def class_roster(class_id: uuid.UUID, *, now: datetime) -> list[RosterFact
             open=row["invitation_id"] is not None and _invitation_open(row, now),
             renewal_requested=row["renewal_requested"],
             user_id=row["user_id"],
+            test_student=row["test_student"],
+            consent=(
+                (
+                    decisions[row["user_id"]]["decision"]
+                    if row["user_id"] in decisions
+                    else "pending"
+                )
+                if row["test_student"]
+                else None
+            ),
         )
         for row in rows
     ]
@@ -2200,6 +2390,7 @@ async def add_roster_entry(
     `address_problem` or `on_roster`. The entry's id."""
     address = _checked_address(address)
     await repo.lock_roster_staging(s, class_id)
+    await _refuse_other_kind(s, class_id, await repo.user_by_email(s, address))
     entry = await repo.roster_entry_by_email(s, class_id, address, lock=True)
     if entry is None:
         entry_id = await repo.insert_roster_entry(
@@ -2271,6 +2462,7 @@ async def register_manually(
     ):
         raise RosterRefused("already_registered")
     user = await repo.user_by_email(s, address)
+    control = await _refuse_other_kind(s, class_id, user)
     if user is None:
         user_id = uuid.uuid7()
         await repo.insert_user(
@@ -2281,6 +2473,8 @@ async def register_manually(
             password_hash=None,
             is_active=True,
             roles=[],
+            # A User made from a Control test's Roster is a test student (Story 12.8).
+            is_test_student=control,
         )
     else:
         user_id = user["id"]
@@ -2448,3 +2642,98 @@ async def close_class(s: AsyncSession, class_id: uuid.UUID, now: datetime) -> in
 async def people(s: AsyncSession, ids: list[uuid.UUID]) -> dict[uuid.UUID, Person]:
     """Name and address of these Users, for the Class's staff list."""
     return {r["id"]: Person(r["id"], r["name"], r["email"]) for r in await repo.people(s, ids)}
+
+
+# Test students and their consent (Story 12.8, FR-82, AD-13, AD-27). The mark is set when a User is
+# made from a Control test's Roster; each decision on Hjem is a row with the text version read.
+
+CONSENT_TEXT_VERSION = "kontrolltest-samtykke-1"
+"""The version of the consent text Hjem shows (`nb.homes.consent.version` in the web app). A new
+text takes a new version, and every test student is asked again."""
+
+CONSENT_DECISIONS = frozenset({"given", "declined"})
+
+
+@dataclass(frozen=True)
+class ConsentState:
+    """A test student's decision on the current text: `given`, `declined` or None (not asked
+    yet), with when it was taken."""
+
+    decision: str | None
+    text_version: str
+    decided_at: datetime | None
+
+
+class NotTestStudent(Exception):
+    """The User is no test student: there is no consent to read or give."""
+
+
+class ConsentRefused(Exception):
+    """`consent_text_changed`: the text read is not the current one; `consent_given`: consent once
+    given is not taken back here (withdrawal is not built)."""
+
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
+
+
+def _consent_state(row: RowMapping | None) -> ConsentState:
+    if row is None:
+        return ConsentState(None, CONSENT_TEXT_VERSION, None)
+    return ConsentState(row["decision"], CONSENT_TEXT_VERSION, row["decided_at"])
+
+
+async def consent_of(user_id: uuid.UUID) -> ConsentState:
+    """The test student's decision on the current text. Raises `NotTestStudent`."""
+    async with get_sessionmaker().begin() as s:
+        user = await repo.user_by_id(s, user_id)
+        if user is None or not user["is_test_student"]:
+            raise NotTestStudent
+        found = await repo.latest_decisions(s, [user_id], CONSENT_TEXT_VERSION)
+    return _consent_state(found.get(user_id))
+
+
+async def decide_consent(
+    user_id: uuid.UUID, decision: str, text_version: str, *, now: datetime
+) -> ConsentState:
+    """Store the test student's decision on the text they read, under their User row's lock: one
+    row with the User, the time and the text version, and `user:<id>` so their pages read again.
+    The decision they hold already writes nothing. Raises `NotTestStudent`, `ConsentRefused`."""
+    if decision not in CONSENT_DECISIONS:
+        raise ValueError(decision)
+    async with get_sessionmaker().begin() as s:
+        user = await repo.lock_user(s, user_id)
+        if user is None or not user["is_test_student"]:
+            raise NotTestStudent
+        if text_version != CONSENT_TEXT_VERSION:
+            log.info("consent_refused", user_id=str(user_id), error_code="consent_text_changed")
+            raise ConsentRefused("consent_text_changed")
+        current = (await repo.latest_decisions(s, [user_id], CONSENT_TEXT_VERSION)).get(user_id)
+        if current is not None and current["decision"] == decision:
+            return _consent_state(current)
+        if current is not None and current["decision"] == "given":
+            log.info("consent_refused", user_id=str(user_id), error_code="consent_given")
+            raise ConsentRefused("consent_given")
+        await repo.insert_decision(
+            s, user_id=user_id, decision=decision, text_version=text_version, decided_at=now
+        )
+        await events.emit(s, "user", str(user_id))
+    log.info("consent_decided", user_id=str(user_id), decision=decision)
+    return ConsentState(decision, CONSENT_TEXT_VERSION, now)
+
+
+async def test_students(session: AsyncSession, user_ids: Collection[uuid.UUID]) -> set[uuid.UUID]:
+    """Those of `user_ids` who are test students, in the caller's `session`: the read
+    `reports.scope` (Epic 13) registers to leave them out (AD-13)."""
+    return await repo.test_student_ids(session, list(user_ids))
+
+
+async def is_test_student(session: AsyncSession, user_id: uuid.UUID) -> bool:
+    return user_id in await test_students(session, [user_id])
+
+
+async def consented_users(session: AsyncSession, user_ids: Collection[uuid.UUID]) -> set[uuid.UUID]:
+    """Those of `user_ids` whose decision on the current consent text is `given`, in the
+    caller's `session` (Story 12.8: a Control test seats no one else)."""
+    found = await repo.latest_decisions(session, list(user_ids), CONSENT_TEXT_VERSION)
+    return {user for user, row in found.items() if row["decision"] == "given"}

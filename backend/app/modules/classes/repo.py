@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.classes.models import class_staff, classes
 from app.modules.classes.schemas import StaffRole
 from app.platform import authz
+from app.platform.collation import nb_sort_sql
 
 
 async def insert_class(
@@ -44,11 +45,16 @@ async def insert_class(
     )
 
 
+_control_test = classes.c.id.in_(authz.control_test_classes())
+"""Whether a Class is a Control test Class (Story 12.7, AD-27): it holds a `control_test` Class
+session."""
+
+
 def _visible(user: authz.Principal | uuid.UUID):
     """The Class columns with the User's staff role, inside the User's scope."""
     user_id = user if isinstance(user, uuid.UUID) else user.id
     return (
-        select(classes, class_staff.c.role.label("staff_role"))
+        select(classes, class_staff.c.role.label("staff_role"), _control_test.label("control_test"))
         .join(
             class_staff,
             (class_staff.c.class_id == classes.c.id) & (class_staff.c.user_id == user_id),
@@ -58,9 +64,10 @@ def _visible(user: authz.Principal | uuid.UUID):
 
 
 async def classes_of(session: AsyncSession, user: authz.Principal) -> list[RowMapping]:
-    """The Classes the User is staff of, by name (case-insensitively), then id."""
+    """The Classes the User is staff of, by name (Norwegian order), then id. A Control test
+    Class is never among them (Story 12.7, AD-13): it is reached from the Admin-område only."""
     result = await session.execute(
-        _visible(user).order_by(func.lower(classes.c.name), classes.c.id)
+        _visible(user).where(~_control_test).order_by(nb_sort_sql(classes.c.name), classes.c.id)
     )
     return list(result.mappings())
 
@@ -79,7 +86,11 @@ async def count_owned_active(session: AsyncSession, user_id: uuid.UUID) -> int:
     result = await session.execute(
         _visible(user_id)
         .with_only_columns(func.count())
-        .where(class_staff.c.role == StaffRole.owner.value, classes.c.archived_at.is_(None))
+        .where(
+            class_staff.c.role == StaffRole.owner.value,
+            classes.c.archived_at.is_(None),
+            ~_control_test,
+        )
     )
     return result.scalar_one()
 
@@ -91,14 +102,31 @@ async def any_class_of(session: AsyncSession, user_id: uuid.UUID) -> bool:
 
 
 async def class_label(session: AsyncSession, class_id: uuid.UUID) -> RowMapping | None:
-    """The Class's name, course code and archive time, for its Invitations' mail and «Du er
-    invitert» (no User's scope: the Invitation names the Class by id)."""
+    """The Class's name, course code, archive time and whether it is a Control test, for its
+    Invitations' mail, «Du er invitert» and its Roster rule (no User's scope: the Invitation names
+    the Class by id)."""
     result = await session.execute(
-        select(classes.c.name, classes.c.course_code, classes.c.archived_at).where(
-            classes.c.id == class_id
-        )
+        select(
+            classes.c.name,
+            classes.c.course_code,
+            classes.c.archived_at,
+            _control_test.label("control_test"),
+        ).where(classes.c.id == class_id)
     )
     return result.mappings().one_or_none()
+
+
+async def class_rows(session: AsyncSession, class_ids: list[uuid.UUID]) -> list[RowMapping]:
+    """The Classes with these ids, no User's scope (Story 12.7: the Admin's Kontrolltest list,
+    behind its own policy)."""
+    if not class_ids:
+        return []
+    result = await session.execute(
+        select(classes.c.id, classes.c.name, classes.c.institution_id, classes.c.archived_at).where(
+            classes.c.id.in_(class_ids)
+        )
+    )
+    return list(result.mappings())
 
 
 def _enrolled(user: authz.Principal | uuid.UUID):
@@ -110,9 +138,9 @@ def _enrolled(user: authz.Principal | uuid.UUID):
 
 
 async def enrolled_classes(session: AsyncSession, user: authz.Principal) -> list[RowMapping]:
-    """The Classes the User is a Student in, by name (case-insensitively), then id."""
+    """The Classes the User is a Student in, by name (Norwegian order), then id."""
     result = await session.execute(
-        _enrolled(user).order_by(func.lower(classes.c.name), classes.c.id)
+        _enrolled(user).order_by(nb_sort_sql(classes.c.name), classes.c.id)
     )
     return list(result.mappings())
 

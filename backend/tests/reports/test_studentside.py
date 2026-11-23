@@ -84,9 +84,13 @@ async def test_the_staff_of_the_class_read_one_students_record(klass):
     assert body["debrief"]["explanation"].startswith("Jeg bestilte for mye")
     assert (body["debrief"]["finished_at"], body["debrief"]["moments"]) == (None, 0)
     assert (body["quiz"], body["replay"], body["test"]) == ([], None, None)
-    # The AI assessment's switch is on by default and nothing is assessed: not ready.
-    assert body["assessment"] == {"state": "not_ready"}
-    assert not any("letter" in key for key in keys(body))
+    # Story 12.5's «KI-vurdering» as the staff read it: no test attempt, so nothing to assess.
+    assert body["assessment"]["state"] == "no_test"
+    assert body["assessment"]["items"] == [] and body["assessment"]["letter"] is None
+    # Only the staff's own letter read (Story 12.6: shown to everyone, else null); never the
+    # Student's own choice.
+    assert [key for key in keys(body) if "letter" in key] == ["letter"]
+    assert not any("chosen" in key for key in keys(body))
 
     # An Assistant lecturer reads the same record, without the Lecturer-only blocks.
     put_staff(klass, await make(ASSISTANT, roles=()), "assistant")
@@ -94,8 +98,10 @@ async def test_the_staff_of_the_class_read_one_students_record(klass):
     assert assisted.status_code == 200
     assert assisted.json()["can_manage"] is False
     assert assisted.json()["completion"] == completion
+    # Story 12.5: the Studentside answers an Assistant lecturer too, without the owners' blocks.
     page = await call(ASSISTANT, "GET", f"/api/class-sessions/{session_id}/students/{me}")
-    assert code(page) == (403, "forbidden")
+    assert page.status_code == 200
+    assert (page.json()["can_manage"], page.json()["deadlines"]) == (False, None)
 
 
 async def test_anyone_else_is_refused_the_same_whether_or_not_the_student_exists(klass):
@@ -130,7 +136,8 @@ async def test_a_session_that_is_not_obligatory_and_an_ai_switch_that_is_off(kla
     assert (completion["obligatory"], completion["requirement_met"]) == (False, None)
     assert body["game"]["state"] == "running"
     assert all(not step["done"] for step in completion["steps"])
-    assert body["assessment"] == {"state": "off"}
+    # No test attempt: the staff view reads `no_test` before the switch (Story 12.5).
+    assert body["assessment"]["state"] == "no_test"
 
 
 async def test_an_adjusted_share_is_the_students_own(klass):

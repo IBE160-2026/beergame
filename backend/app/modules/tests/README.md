@@ -283,3 +283,28 @@ The Deferred item "Timing of Adapted items", closed here (`prepare.py`, `jobs.py
   `user:<student>` and `session:<id>` emitted. Answers `sessions.StudentDeadlinesOut`.
 - The sweep's `close_attempt` reads `effective_deadline`, so the extended Student's attempt closes at
   their own date; `sessions.lock_test` still runs at the Class session's original Test deadline.
+
+## Blind scoring of a Control test (Story 12.9, FR-82, AD-12, AD-27)
+
+`blind.py` serves the scorers and the Admin; the human scores live in `assessment`.
+
+- `GET /api/scoring` (`getMyScoring`): the Control tests the User is a named scorer of (their
+  home's Lenke «Sensur av Kontrolltest»).
+- `GET /api/scoring/{id}` (`listScoringAnswers`): after the Test deadline, every long-answer and
+  Adapted answer with text of the closed attempts, «Svar N» by item id then `ref`, each known only
+  by `ref` (a keyed hash of the answer id: the UUIDv7 id itself would carry its time), scored or
+  not by the reader; no name, address, user id, attempt id or answer id. Before the deadline,
+  `open: false` and no entries. Blank answers are left out (the AI scores them 0 by code).
+- `GET /api/scoring/{id}/answers/{ref}` (`getScoringAnswer`): the question, the original
+  text, an Adapted item's facts (`assessed.adapted_facts`) and the pinned guide entry and scale
+  (`assessed.read_for_assessment`); `ai` only once the reader's own score exists; never AI
+  feedback. 404 `not_found` for an answer the list does not hold.
+- `POST …` (`submitHumanScore`, `control_test_answers.score`): named scorers only (an Admin too
+  unless named: 403); 409 `human_score_exists` for a second score.
+- Access: a named scorer or the Admin (`control_tests.manage`); anyone else 403 `forbidden`,
+  whether or not the Control test exists. Every read by a User with the Admin role writes an audit
+  row `control_test.answers_read`.
+- `GET/POST /api/admin/control-tests/{id}/scorers` and `DELETE …/{user_id}` (`listScorers`,
+  `nameScorer`, `removeScorer`, `control_tests.manage`): name an active User by address (422
+  `fields.email` `unknown` or `test_student`), audited `control_test.scorer_named` /
+  `control_test.scorer_removed`; 404 for no such Control test.

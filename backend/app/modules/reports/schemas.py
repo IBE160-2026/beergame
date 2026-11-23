@@ -7,6 +7,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, StrictBool
 
+from app.modules.tests.service import StaffAssessmentOut
+
 CompletionStepName = Literal["class_game", "debrief", "quiz_passed", "replay", "test_submitted"]
 
 
@@ -142,15 +144,6 @@ class RecordTestOut(BaseModel):
     parts: dict[str, bool]
 
 
-class RecordAssessmentOut(BaseModel):
-    """The AI assessment part, as far as this branch has it: `off` when the Class session's
-    «KI-vurdering» switch is off, else `not_ready`. Story 12.5's «KI-vurdering» block replaces this
-    part. A self-enabled Indicative letter is never served to staff, so there is no field for one
-    (FR-56, AD-12)."""
-
-    state: Literal["off", "not_ready"]
-
-
 class StudentRecordOut(BaseModel):
     """The Studentside's record of one Student of a Class session (Story 13.2, FR-63, UX-DR55),
     for the Lecturers and Assistant lecturers of its Class. `can_manage`: the reader is a Lecturer
@@ -184,7 +177,10 @@ class StudentRecordOut(BaseModel):
     quiz: list[RecordQuizAttemptOut]
     replay: RecordReplayOut | None
     test: RecordTestOut | None
-    assessment: RecordAssessmentOut
+    assessment: StaffAssessmentOut | None
+    """Story 12.5's «KI-vurdering» as the staff read it (states, items, feedback, the Student's
+    flags); None only where `ai_assessments.read` is not granted. A self-enabled Indicative letter
+    is never served to staff (FR-56, AD-12)."""
     report: None = None
 
 

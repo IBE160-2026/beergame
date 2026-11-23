@@ -26,6 +26,8 @@ from app.modules.identity.schemas import (
     AccessRequestIn,
     AccessRequestListOut,
     AccountRole,
+    ConsentIn,
+    ConsentOut,
     InstitutionIn,
     InstitutionListOut,
     InstitutionOut,
@@ -37,6 +39,7 @@ from app.modules.identity.schemas import (
     InvitationTokenIn,
     LoginIn,
     NewPasswordIn,
+    NoLetterIn,
     PasswordResetIn,
     ResetCheckOut,
     ResetEmailOut,
@@ -583,6 +586,44 @@ async def rename_institution(
     return _institution_answer(outcome)
 
 
+@admin_router.put(
+    "/institutions/{institution_id}/operator-owned",
+    response_model=InstitutionOut,
+    responses=documented(401, 403, 404),
+    operation_id="markOperatorInstitution",
+)
+async def mark_operator_institution(
+    institution_id: uuid.UUID,
+    user: Annotated[UserOut, Depends(authz.require("institutions.manage"))],
+) -> Response:
+    """Mark the Institution as the operator's own, where Control tests are set up (Story 12.7,
+    FR-82, AD-27). The mark moves from the Institution that held it; at most one holds it. An
+    unknown id is `not_found`."""
+    outcome = await service.mark_operator_institution(user.id, institution_id, now=auth.utcnow())
+    return _institution_answer(outcome)
+
+
+@admin_router.put(
+    "/institutions/{institution_id}/no-letter",
+    response_model=InstitutionOut,
+    responses=documented(401, 403, 404, 422),
+    operation_id="setInstitutionNoLetter",
+)
+async def set_institution_no_letter(
+    institution_id: uuid.UUID,
+    body: NoLetterIn,
+    user: Annotated[UserOut, Depends(authz.require("institutions.manage"))],
+) -> Response:
+    """The Institution's no-letter Bryter (Story 12.6, FR-56, FR-3): on, its data protection
+    officer requires that no Indicative letter is shown, so every Class session of the
+    Institution can choose only «unavailable» and no letter is derived or shown. Each change is
+    audited; the same value again writes nothing. An unknown id is `not_found`."""
+    outcome = await service.set_institution_no_letter(
+        user.id, institution_id, body.on, now=auth.utcnow()
+    )
+    return _institution_answer(outcome)
+
+
 @admin_router.get(
     "/access-requests",
     response_model=AccessRequestListOut,
@@ -619,3 +660,58 @@ async def dismiss_access_request(
     if not await service.dismiss_access_request(user.id, access_request_id, now=auth.utcnow()):
         return error_response(404, "not_found", "No such open request.")
     return Response(status_code=204)
+
+
+me_router = APIRouter(prefix="/api/me", tags=["auth"])
+
+
+def _consent_out(state: service.ConsentState) -> ConsentOut:
+    return ConsentOut(
+        decision=state.decision, text_version=state.text_version, decided_at=state.decided_at
+    )
+
+
+@me_router.get(
+    "/test-student-consent",
+    response_model=ConsentOut,
+    responses=documented(401, 403),
+    operation_id="getTestStudentConsent",
+)
+async def get_test_student_consent(
+    user: Annotated[UserOut, Depends(authz.require("session.read"))],
+) -> Response:
+    """A test student's decision on the current consent text (Story 12.8, FR-82, AD-27): None
+    until they take one. 403 for a User who is no test student."""
+    try:
+        state = await service.consent_of(user.id)
+    except service.NotTestStudent:
+        raise authz.Forbidden from None
+    return JSONResponse(_consent_out(state).model_dump(mode="json"))
+
+
+@me_router.put(
+    "/test-student-consent",
+    response_model=ConsentOut,
+    responses=documented(401, 403, 409, 422),
+    operation_id="decideTestStudentConsent",
+)
+async def decide_test_student_consent(
+    body: ConsentIn,
+    user: Annotated[UserOut, Depends(authz.require("session.read"))],
+) -> Response:
+    """«Jeg samtykker» or «Nei takk» on Hjem (Story 12.8): one row with the User, the time and the
+    text version read. The decision held already changes nothing. 409 `consent_text_changed` when
+    `text_version` is not the current text (`fields.text_version`), 409 `consent_given` for a
+    decline after consent (`fields.decision`). 403 for a User who is no test student."""
+    try:
+        state = await service.decide_consent(
+            user.id, body.decision, body.text_version, now=auth.utcnow()
+        )
+    except service.NotTestStudent:
+        raise authz.Forbidden from None
+    except service.ConsentRefused as refused:
+        field = "text_version" if refused.code == "consent_text_changed" else "decision"
+        return error_response(
+            409, refused.code, "The consent was not stored.", {field: refused.code}
+        )
+    return JSONResponse(_consent_out(state).model_dump(mode="json"))

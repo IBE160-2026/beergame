@@ -98,6 +98,18 @@ export function stepItems(
   }));
 }
 
+/** Whether the Individual test step is done (Story 12.2): the test is handed in, so Hjem links the
+ * «KI-vurdering». From the api's step state alone (AD-10). */
+export function testHandedIn(steps: EnrolledSession["steps"]): boolean {
+  return (steps ?? []).some(({ step, state }) => step === "test" && state === "done");
+}
+
+/** Whether the Student's «KI-vurdering» is ready (Story 12.4): Stegene's last step, «Rapport», is
+ * done once the assessment has recorded `assessment_ready`. From the api's step state alone. */
+export function assessmentReady(steps: EnrolledSession["steps"]): boolean {
+  return (steps ?? []).some(({ step, state }) => step === "report" && state === "done");
+}
+
 function stepHref(step: EnrolledSession["steps"][number]["step"], sessionId: string): string | undefined {
   if (step === "debrief") return DEBRIEF_PATH(sessionId);
   if (step === "quiz") return `${DEBRIEF_PATH(sessionId)}#debrief-quiz`;

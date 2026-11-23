@@ -33,6 +33,7 @@ from app.modules.identity import service as identity
 from app.modules.messaging.models import message_recipients, messages
 from app.modules.sessions import service as sessions
 from app.platform import authz, events, notify
+from app.platform.collation import nb_sort_key
 from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker
 
@@ -334,10 +335,6 @@ async def send_message(
     )
 
 
-_NB = str.maketrans({"æ": "{", "ø": "|", "å": "}"})
-"""Æ, Ø and Å after Z, in that order, as the Norwegian alphabet has them."""
-
-
 @dataclass(frozen=True)
 class NotMetStudent:
     """One row of the Meldingsskjema's table for `requirement_not_met` (Story 13.6, FR-17): the
@@ -371,9 +368,7 @@ async def _not_met_rows(
         )
         for user_id, status in target.statuses
     ]
-    return sorted(
-        rows, key=lambda row: ((row.name or "").casefold().translate(_NB), str(row.user_id))
-    )
+    return sorted(rows, key=lambda row: (nb_sort_key(row.name or ""), str(row.user_id)))
 
 
 @dataclass(frozen=True)

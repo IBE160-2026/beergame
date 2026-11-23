@@ -30,7 +30,7 @@ from app.modules.content import service as content
 from app.modules.content.schemas import StartingTask, StartingTaskItem
 from app.modules.progress import service as progress
 from app.modules.sessions import service as sessions
-from app.modules.tests import sitting
+from app.modules.tests import assessed, sitting
 from app.modules.tests.adapted import ADAPTED
 from app.modules.tests.attempt import ReportItem, ReportTest, report_test
 from app.modules.tests.models import (
@@ -44,6 +44,7 @@ from app.modules.tests.schemas import (
     ColumnOut,
     GivenRowOut,
     ItemResultOut,
+    StaffAssessmentOut,
     StartingTaskItemOut,
     StartingTaskOut,
     SumTermOut,
@@ -61,6 +62,7 @@ __all__ = [
     "TableOut",
     "ReportItem",
     "ReportTest",
+    "StaffAssessmentOut",
     "answer",
     "attempt_status",
     "attempt_summary",
@@ -68,9 +70,14 @@ __all__ = [
     "parts_with_content",
     "read",
     "report_test",
+    "staff_assessment",
 ]
 
 Stored = Mapping[str, Mapping[str, Any]]
+
+staff_assessment = assessed.staff_read
+"""A Student's «KI-vurdering» as the staff of their Class read it, with the Student's flags (Story
+12.5); the Studentside's record (Story 13.2) carries it. None for anyone else (FR-5)."""
 
 
 class UnknownItem(Exception):
