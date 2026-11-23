@@ -935,6 +935,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/class-sessions/{session_id}/class-report/learning": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Class Learning Report
+         * @description The Klasserapport's learning part (Story 14.2): the Starting task beside the matching test
+         *     items, results per question and the AI assessment totals with the Core-only subscore, over the
+         *     Class session's reporting Students; every figure computed here (AD-10), never a letter
+         *     (FR-56). Access and answers as `getClassReport`.
+         */
+        get: operations["getClassLearningReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/class-sessions/{session_id}/debrief-quiz": {
         parameters: {
             query?: never;
@@ -3572,6 +3595,19 @@ export interface components {
             weight: number;
         };
         /**
+         * AdaptedPartOut
+         * @description The Adapted part, which differs between Students: its total weight in the selection, how many
+         *     handed-in tests had Adapted items and how many had the replacement items instead.
+         */
+        AdaptedPartOut: {
+            /** Adapted */
+            adapted: number;
+            /** Replaced */
+            replaced: number;
+            /** Weight */
+            weight: number;
+        };
+        /**
          * AdaptedPreviewItemOut
          * @description One Adapted item template filled for the sample Student (Story 11.9): its id, the Game it
          *     reads (`game`, the Class game, or `replay`), its fact kind, its weight (its share of the
@@ -4181,6 +4217,30 @@ export interface components {
              * @default
              */
             name: string;
+        };
+        /**
+         * ClassLearningOut
+         * @description The Klasserapport's learning part (Story 14.2) over the Class session's reporting Students
+         *     (`students`): how many handed in the Individual test and how many may still hand it in (an open
+         *     test, or none yet before their own Test deadline, an extension included).
+         */
+        ClassLearningOut: {
+            adapted: components["schemas"]["AdaptedPartOut"];
+            ai: components["schemas"]["LearningAiOut"];
+            /**
+             * Class Session Id
+             * Format: uuid
+             */
+            class_session_id: string;
+            /** Questions */
+            questions: components["schemas"]["QuestionResultOut"][];
+            starting_task: components["schemas"]["LearningStartingTaskOut"];
+            /** Still To Submit */
+            still_to_submit: number;
+            /** Students */
+            students: number;
+            /** Submitted */
+            submitted: number;
         };
         /**
          * ClassListItem
@@ -6150,6 +6210,62 @@ export interface components {
             week: number;
         };
         /**
+         * LearningAiOut
+         * @description The AI assessment totals (FR-55: AI-generated and not a grade): `switched_off` when the
+         *     «KI-vurdering» is off for the Class session, `not_ready` while no assessment of a handed-in test
+         *     is ready, else `ready` with how many are (`ready` of `submitted`). The totals and the Core-only
+         *     subscores in points of 100, as distributions and bands; null without a ready assessment.
+         */
+        LearningAiOut: {
+            /** Bands */
+            bands: components["schemas"]["ScoreBandOut"][];
+            core: components["schemas"]["DistributionOut"] | null;
+            /** Ready */
+            ready: number;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "switched_off" | "not_ready" | "ready";
+            /** Submitted */
+            submitted: number;
+            total: components["schemas"]["DistributionOut"] | null;
+        };
+        /**
+         * LearningStartingItemOut
+         * @description One Starting task item beside the matching Individual test item, over the Students who
+         *     finished the Starting task and handed in a test holding that item (`students`): how many
+         *     answered it right in the Starting task, and how many got the test item fully right with their
+         *     mean credit in percent (an unanswered test item counts 0).
+         */
+        LearningStartingItemOut: {
+            /** Number */
+            number: number;
+            /** Start Correct */
+            start_correct: number;
+            /** Start Percent */
+            start_percent: string | null;
+            /** Students */
+            students: number;
+            /** Test Percent */
+            test_percent: string | null;
+            /** Test Right */
+            test_right: number;
+            /** Title */
+            title: string;
+        };
+        /**
+         * LearningStartingTaskOut
+         * @description The Starting task beside the test: `students` is how many finished the Starting task and
+         *     handed in the test.
+         */
+        LearningStartingTaskOut: {
+            /** Items */
+            items: components["schemas"]["LearningStartingItemOut"][];
+            /** Students */
+            students: number;
+        };
+        /**
          * LecturerOverviewOut
          * @description The Lærerhjem's «Venter» and «Neste frist» (Story 5.2, UX-DR56): over the User's Classes
          *     that are not archived.
@@ -6951,6 +7067,50 @@ export interface components {
             type: "choice" | "table" | "number" | "long" | "drawn";
             /** Weight */
             weight: number;
+        };
+        /**
+         * QuestionResultOut
+         * @description One Core question of the selection in force, in the set's order. A question taken out
+         *     (`excluded`) has no number, no weight and no figures, and counts in no total. Over the handed-in
+         *     tests holding it (`students`): a computed question has right, partly, wrong and not answered
+         *     with the mean credit in percent; a long-answer question (`scoring = ai`) only how many answered
+         *     it, its scores being the AI assessment's.
+         */
+        QuestionResultOut: {
+            /** Answered */
+            answered: number;
+            /** Excluded */
+            excluded: boolean;
+            /** Id */
+            id: string;
+            /** Not Answered */
+            not_answered: number;
+            /** Number */
+            number: number | null;
+            /** Partly */
+            partly: number;
+            /** Percent */
+            percent: string | null;
+            /** Right */
+            right: number;
+            /**
+             * Scoring
+             * @enum {string}
+             */
+            scoring: "computed" | "ai" | "excluded";
+            /** Students */
+            students: number;
+            /** Title */
+            title: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "choice" | "table" | "number" | "long" | "drawn";
+            /** Weight */
+            weight: number | null;
+            /** Wrong */
+            wrong: number;
         };
         /**
          * QuestionSetIn
@@ -7890,6 +8050,21 @@ export interface components {
             label: string;
             /** Step */
             step: number;
+        };
+        /**
+         * ScoreBandOut
+         * @description How many ready AI assessments have their total, and their Core-only subscore, in `low` to
+         *     `high` points of 100 (each band holds its lower bound; the last also holds 100).
+         */
+        ScoreBandOut: {
+            /** Core */
+            core: number;
+            /** High */
+            high: number;
+            /** Low */
+            low: number;
+            /** Total */
+            total: number;
         };
         /** ScorerIn */
         ScorerIn: {
@@ -11951,6 +12126,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClassReportOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getClassLearningReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassLearningOut"];
                 };
             };
             /** @description Unauthorized */

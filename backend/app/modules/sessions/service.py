@@ -2437,6 +2437,22 @@ async def own_test_deadlines(
     return {user_id: row["test_deadline"] for user_id, row in rows.items()}
 
 
+async def effective_test_deadlines(
+    s: AsyncSession, class_session_id: uuid.UUID, user_ids: Collection[uuid.UUID]
+) -> dict[uuid.UUID, datetime | None]:
+    """Each of these Students' `effective_test_deadline` in the Class session, read in `s` in two
+    reads whatever their number (Story 14.2: who is still to submit, an extension included); empty
+    for a session that does not exist."""
+    row = await repo.session_row(s, class_session_id)
+    if row is None:
+        return {}
+    extensions = await repo.extensions_of_session(s, class_session_id)
+    return {
+        user_id: effective_test_deadline(user_id, _with_own_deadlines(row, extensions.get(user_id)))
+        for user_id in user_ids
+    }
+
+
 async def class_staff_may(user: authz.Principal, class_session_id: uuid.UUID, action: str) -> bool:
     """Whether `user` may do the Class action `action` on the Class of the Class session (its
     staff role there, `authz.can`): how another module asks without reading Classes itself

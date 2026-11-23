@@ -130,6 +130,9 @@ test("live: the report turns from no finished game to its figures as the game is
     await expect(section(lecturer, "amplification").locator("[data-covered]")).toHaveCount(0, { timeout: 30_000 });
     await expect(section(lecturer, "ai").locator("[data-ai-seats]")).toHaveText(/av 4 seter/);
     await expect(lecturer.locator("[data-report-table=llm] tbody tr")).toHaveText([/^Spill 1/]);
+    // Story 14.2: the learning part reads the real api too; nobody has handed in the test yet.
+    await expect(lecturer.locator("[data-learning-status]")).toHaveText(copy.learning.status(0, 2, 2));
+    await expect(lecturer.locator("[data-ai-state]")).toHaveText(copy.learning.ai.notReady);
     await expectAccessible(lecturer, false);
   } finally {
     await lecturer.context().close();
@@ -211,4 +214,139 @@ test("an Assistant lecturer gets the permission-denied page, as the api refuses 
   await page.goto(`/klasseokter/${SESSION}/klasserapport`);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(nb.access.denied);
   await expect(page.locator("[data-class-report]")).toHaveCount(0);
+});
+
+/** Story 14.2: the learning part of 20 Students (the api's shape,
+ * `backend/tests/reports/test_class_report_learning.py`): the Starting task beside the test, results
+ * per question with one question taken out, and 12 ready AI assessments. */
+function richLearning() {
+  const totals = Array.from({ length: 12 }, (_, i) => 38 + ((i * 37) % 55));
+  const cores = totals.map((t) => Math.min(100, t + 6));
+  const counts = (values: number[]) =>
+    Array.from({ length: 10 }, (_, b) => values.filter((v) => Math.min(9, Math.floor(v / 10)) === b).length);
+  const [totalBands, coreBands] = [counts(totals), counts(cores)];
+  const question = (number: number | null, id: string, title: string, type: string, over: object = {}) => {
+    const computed = number !== null && type !== "long";
+    return {
+      number,
+      id,
+      title,
+      type,
+      weight: number === null ? null : 10,
+      excluded: number === null,
+      scoring: number === null ? "excluded" : type === "long" ? "ai" : "computed",
+      students: number === null ? 0 : 18,
+      answered: number === null ? 0 : 16,
+      right: computed ? 9 : 0,
+      partly: computed ? 4 : 0,
+      wrong: computed ? 3 : 0,
+      not_answered: computed ? 2 : 0,
+      percent: computed ? "62.5" : null,
+      ...over,
+    };
+  };
+  return {
+    class_session_id: SESSION,
+    students: 20,
+    submitted: 18,
+    still_to_submit: 1,
+    starting_task: {
+      students: 15,
+      items: [
+        { number: 1, title: "Startoppgaven, enheter å sende", students: 15, start_correct: 9, start_percent: "60.0", test_right: 13, test_percent: "86.7" },
+        { number: 2, title: "Startoppgaven, restordre etter uka", students: 15, start_correct: 4, start_percent: "26.7", test_right: 10, test_percent: "70.0" },
+      ],
+    },
+    questions: [
+      question(1, "startoppgave-sende", "Startoppgaven, enheter å sende", "number"),
+      question(2, "startoppgave-restordre", "Startoppgaven, restordre etter uka", "number"),
+      question(null, "flervalg-arsaker", "Flervalg om årsaker", "choice"),
+      question(3, "tabell-nytt-monster", "Tabell med et etterspørselsmønster du ikke har sett", "table", { percent: "41.3" }),
+      question(4, "langsvar-forsinkelse", "Langsvar om forsinkelse", "long"),
+    ],
+    adapted: { weight: 30, adapted: 16, replaced: 2 },
+    ai: {
+      state: "ready",
+      ready: 12,
+      submitted: 18,
+      total: spreadOf(totals),
+      core: spreadOf(cores),
+      bands: totalBands.map((total, b) => ({ low: b * 10, high: b * 10 + 10, total, core: coreBands[b]! })),
+    },
+  };
+}
+
+function spreadOf(values: number[]) {
+  const sorted = [...values].sort((a, b) => a - b);
+  const at = (i: number) => sorted[Math.floor(i)]!.toFixed(1);
+  return {
+    values: sorted.map((v) => v.toFixed(1)),
+    median: at(sorted.length / 2),
+    lower_quartile: at(sorted.length / 4),
+    upper_quartile: at((sorted.length * 3) / 4),
+  };
+}
+
+async function stubbedLearning(page: Page, body: unknown) {
+  await page.route(`**/api/class-sessions/${SESSION}/class-report/learning`, (route) =>
+    route.fulfill({ json: body }).catch(() => undefined),
+  );
+}
+
+const learning = copy.learning;
+
+for (const viewport of VIEWPORTS.filter((v) => !v.text200)) {
+  test(`the learning part at ${viewport.name}: the Starting task, every question, the AI scores and no page scroll`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await loginByApi(page, "lecturer");
+    await stubbed(page, richReport());
+    await stubbedLearning(page, richLearning());
+    await page.goto(`/klasseokter/${SESSION}/klasserapport`);
+    const part = page.locator("[data-learning]");
+    await expect(part.getByRole("heading", { level: 2, name: learning.title })).toBeVisible();
+    await expect(part.locator("[data-learning-status]")).toHaveText(learning.status(18, 20, 1));
+    await expect(section(page, "starting").locator("[data-starting-item]")).toHaveCount(2);
+    await expect(section(page, "starting").locator("[data-bars=starting-1] li").first()).toContainText("60,0 %");
+    const questions = section(page, "questions").locator("[data-bars=questions] li");
+    await expect(questions).toHaveCount(5);
+    await expect(questions.nth(2)).toContainText(learning.questions.excluded);
+    await expect(section(page, "questions").locator("[data-excluded-note]")).toContainText("Flervalg om årsaker");
+    await expect(section(page, "questions").locator("[data-adapted-line]")).toHaveText(learning.questions.adapted(30, 16, 2));
+    const scores = section(page, "ai-scores");
+    await expect(scores.locator("[data-ai-label]")).toHaveText("KI-generert. Teller ikke. Ingen karakter.");
+    await expect(scores.locator("[data-ai-state=ready]")).toHaveText(learning.ai.ready(12, 18));
+    await expect(scores.locator("[data-score] h4")).toHaveText([learning.ai.totalTitle, learning.ai.coreTitle]);
+    await expect(scores.locator("[data-score-line]").first()).toHaveText(/^Median \d+,\d\. Midterste halvdel/);
+    // No Indicative letter anywhere (FR-56).
+    await expect(part).not.toContainText("bokstav");
+    await expectAccessible(page, viewport.phone);
+
+    // «Vis som tabell» under each of the three charts.
+    for (const name of ["starting", "questions", "ai-scores"]) {
+      const toggle = page.locator(`[data-table-toggle=${name}]`);
+      await expect(toggle).toHaveText(copy.showTable);
+      await toggle.click();
+      await expect(toggle).toHaveText(copy.showChart);
+    }
+    await expect(page.locator("[data-report-table=questions] tbody tr").nth(2)).toContainText(learning.questions.excluded);
+    await expect(page.locator("[data-report-table=starting] tbody tr").first()).toContainText("9 (60,0 %)");
+    await expect(page.locator("[data-report-table=ai-scores] tbody tr")).toHaveCount(10);
+    if (viewport.phone) await expectReflow(page, true);
+    else await expectAccessible(page, false);
+  });
+}
+
+test("the learning part says when the AI assessment is switched off and keeps the computed parts", async ({ page }) => {
+  await loginByApi(page, "lecturer");
+  await stubbed(page, richReport());
+  const off = richLearning();
+  await stubbedLearning(page, { ...off, ai: { ...off.ai, state: "switched_off", ready: 0, total: null, core: null, bands: [] } });
+  await page.goto(`/klasseokter/${SESSION}/klasserapport`);
+  const scores = section(page, "ai-scores");
+  await expect(scores.locator("[data-ai-state=switched_off]")).toHaveText(learning.ai.switchedOff);
+  await expect(scores.locator("[data-score]")).toHaveCount(0);
+  await expect(page.locator("[data-table-toggle=ai-scores]")).toHaveCount(0);
+  await expect(section(page, "questions").locator("[data-bars=questions] li").first()).toContainText("62,5 %");
 });

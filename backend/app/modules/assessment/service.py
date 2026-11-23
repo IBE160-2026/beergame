@@ -174,6 +174,7 @@ __all__ = [
     "set_switch",
     "stop_for_session",
     "summaries_for_session",
+    "item_scores_for_session",
     "switch_of",
     "HumanScore",
     "human_scores_by",
@@ -1561,6 +1562,23 @@ async def summaries_for_session(
         )
         for row in found
     }
+
+
+async def item_scores_for_session(
+    s: AsyncSession, class_session_id: uuid.UUID
+) -> dict[uuid.UUID, dict[str, int]]:
+    """The AI's step of every assessed item of the Class session, by attempt id and item id, in
+    one read in `s` (Story 14.2: the Klasserapport's distribution of totals). An attempt with no
+    scored item is left out. The caller judges access, the switch and each assessment's state."""
+    found = await s.execute(
+        select(ai_assessments.c.attempt_id, ai_item_scores.c.item_id, ai_item_scores.c.score)
+        .join(ai_item_scores, ai_item_scores.c.assessment_id == ai_assessments.c.id)
+        .where(ai_assessments.c.class_session_id == class_session_id)
+    )
+    scores: dict[uuid.UUID, dict[str, int]] = {}
+    for row in found:
+        scores.setdefault(row.attempt_id, {})[row.item_id] = row.score
+    return scores
 
 
 # Blind human scoring of a Control test (Story 12.9, FR-82, AD-27). Every function runs in the

@@ -174,6 +174,30 @@
         "title": "AdaptedOut",
         "type": "object"
       },
+      "AdaptedPartOut": {
+        "description": "The Adapted part, which differs between Students: its total weight in the selection, how many\nhanded-in tests had Adapted items and how many had the replacement items instead.",
+        "properties": {
+          "adapted": {
+            "title": "Adapted",
+            "type": "integer"
+          },
+          "replaced": {
+            "title": "Replaced",
+            "type": "integer"
+          },
+          "weight": {
+            "title": "Weight",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "weight",
+          "adapted",
+          "replaced"
+        ],
+        "title": "AdaptedPartOut",
+        "type": "object"
+      },
       "AdaptedPreviewItemOut": {
         "description": "One Adapted item template filled for the sample Student (Story 11.9): its id, the Game it\nreads (`game`, the Class game, or `replay`), its fact kind, its weight (its share of the\nAdapted total) and the code-rendered text; `text` is None when the sample has no such fact.",
         "properties": {
@@ -1587,6 +1611,56 @@
           }
         },
         "title": "ClassIn",
+        "type": "object"
+      },
+      "ClassLearningOut": {
+        "description": "The Klasserapport's learning part (Story 14.2) over the Class session's reporting Students\n(`students`): how many handed in the Individual test and how many may still hand it in (an open\ntest, or none yet before their own Test deadline, an extension included).",
+        "properties": {
+          "adapted": {
+            "$ref": "#/components/schemas/AdaptedPartOut"
+          },
+          "ai": {
+            "$ref": "#/components/schemas/LearningAiOut"
+          },
+          "class_session_id": {
+            "format": "uuid",
+            "title": "Class Session Id",
+            "type": "string"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/QuestionResultOut"
+            },
+            "title": "Questions",
+            "type": "array"
+          },
+          "starting_task": {
+            "$ref": "#/components/schemas/LearningStartingTaskOut"
+          },
+          "still_to_submit": {
+            "title": "Still To Submit",
+            "type": "integer"
+          },
+          "students": {
+            "title": "Students",
+            "type": "integer"
+          },
+          "submitted": {
+            "title": "Submitted",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "class_session_id",
+          "students",
+          "submitted",
+          "still_to_submit",
+          "starting_task",
+          "questions",
+          "adapted",
+          "ai"
+        ],
+        "title": "ClassLearningOut",
         "type": "object"
       },
       "ClassListItem": {
@@ -6131,6 +6205,145 @@
         "title": "LargestOrderOut",
         "type": "object"
       },
+      "LearningAiOut": {
+        "description": "The AI assessment totals (FR-55: AI-generated and not a grade): `switched_off` when the\n«KI-vurdering» is off for the Class session, `not_ready` while no assessment of a handed-in test\nis ready, else `ready` with how many are (`ready` of `submitted`). The totals and the Core-only\nsubscores in points of 100, as distributions and bands; null without a ready assessment.",
+        "properties": {
+          "bands": {
+            "items": {
+              "$ref": "#/components/schemas/ScoreBandOut"
+            },
+            "title": "Bands",
+            "type": "array"
+          },
+          "core": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DistributionOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "integer"
+          },
+          "state": {
+            "enum": [
+              "switched_off",
+              "not_ready",
+              "ready"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "submitted": {
+            "title": "Submitted",
+            "type": "integer"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DistributionOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "state",
+          "ready",
+          "submitted",
+          "total",
+          "core",
+          "bands"
+        ],
+        "title": "LearningAiOut",
+        "type": "object"
+      },
+      "LearningStartingItemOut": {
+        "description": "One Starting task item beside the matching Individual test item, over the Students who\nfinished the Starting task and handed in a test holding that item (`students`): how many\nanswered it right in the Starting task, and how many got the test item fully right with their\nmean credit in percent (an unanswered test item counts 0).",
+        "properties": {
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "start_correct": {
+            "title": "Start Correct",
+            "type": "integer"
+          },
+          "start_percent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Percent"
+          },
+          "students": {
+            "title": "Students",
+            "type": "integer"
+          },
+          "test_percent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test Percent"
+          },
+          "test_right": {
+            "title": "Test Right",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "number",
+          "title",
+          "students",
+          "start_correct",
+          "start_percent",
+          "test_right",
+          "test_percent"
+        ],
+        "title": "LearningStartingItemOut",
+        "type": "object"
+      },
+      "LearningStartingTaskOut": {
+        "description": "The Starting task beside the test: `students` is how many finished the Starting task and\nhanded in the test.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/LearningStartingItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "students": {
+            "title": "Students",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "students",
+          "items"
+        ],
+        "title": "LearningStartingTaskOut",
+        "type": "object"
+      },
       "LecturerOverviewOut": {
         "description": "The Lærerhjem's «Venter» and «Neste frist» (Story 5.2, UX-DR56): over the User's Classes\nthat are not archived.",
         "properties": {
@@ -8043,6 +8256,118 @@
           "starting_task"
         ],
         "title": "QuestionItemOut",
+        "type": "object"
+      },
+      "QuestionResultOut": {
+        "description": "One Core question of the selection in force, in the set's order. A question taken out\n(`excluded`) has no number, no weight and no figures, and counts in no total. Over the handed-in\ntests holding it (`students`): a computed question has right, partly, wrong and not answered\nwith the mean credit in percent; a long-answer question (`scoring = ai`) only how many answered\nit, its scores being the AI assessment's.",
+        "properties": {
+          "answered": {
+            "title": "Answered",
+            "type": "integer"
+          },
+          "excluded": {
+            "title": "Excluded",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "not_answered": {
+            "title": "Not Answered",
+            "type": "integer"
+          },
+          "number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number"
+          },
+          "partly": {
+            "title": "Partly",
+            "type": "integer"
+          },
+          "percent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Percent"
+          },
+          "right": {
+            "title": "Right",
+            "type": "integer"
+          },
+          "scoring": {
+            "enum": [
+              "computed",
+              "ai",
+              "excluded"
+            ],
+            "title": "Scoring",
+            "type": "string"
+          },
+          "students": {
+            "title": "Students",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "choice",
+              "table",
+              "number",
+              "long",
+              "drawn"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "weight": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weight"
+          },
+          "wrong": {
+            "title": "Wrong",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "number",
+          "id",
+          "title",
+          "type",
+          "weight",
+          "excluded",
+          "scoring",
+          "students",
+          "answered",
+          "right",
+          "partly",
+          "wrong",
+          "not_answered",
+          "percent"
+        ],
+        "title": "QuestionResultOut",
         "type": "object"
       },
       "QuestionSetIn": {
@@ -10168,6 +10493,35 @@
           "label"
         ],
         "title": "ScaleStepOut",
+        "type": "object"
+      },
+      "ScoreBandOut": {
+        "description": "How many ready AI assessments have their total, and their Core-only subscore, in `low` to\n`high` points of 100 (each band holds its lower bound; the last also holds 100).",
+        "properties": {
+          "core": {
+            "title": "Core",
+            "type": "integer"
+          },
+          "high": {
+            "title": "High",
+            "type": "integer"
+          },
+          "low": {
+            "title": "Low",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "low",
+          "high",
+          "total",
+          "core"
+        ],
+        "title": "ScoreBandOut",
         "type": "object"
       },
       "ScorerIn": {
@@ -17218,6 +17572,69 @@
           }
         },
         "summary": "Get Class Report",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/class-report/learning": {
+      "get": {
+        "description": "The Klasserapport's learning part (Story 14.2): the Starting task beside the matching test\nitems, results per question and the AI assessment totals with the Core-only subscore, over the\nClass session's reporting Students; every figure computed here (AD-10), never a letter\n(FR-56). Access and answers as `getClassReport`.",
+        "operationId": "getClassLearningReport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassLearningOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Class Learning Report",
         "tags": [
           "reports"
         ]

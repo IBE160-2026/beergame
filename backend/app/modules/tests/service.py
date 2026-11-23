@@ -31,6 +31,9 @@ from app.modules.progress import service as progress
 from app.modules.sessions import service as sessions
 from app.modules.tests import sitting
 from app.modules.tests.adapted import ADAPTED
+from app.modules.tests.class_results import ClassResults as ClassResults  # Story 14.2
+from app.modules.tests.class_results import StudentResult as StudentResult  # Story 14.2
+from app.modules.tests.class_results import class_results as class_results  # Story 14.2
 from app.modules.tests.models import (
     PLAYED_BEFORE,
     Choice,

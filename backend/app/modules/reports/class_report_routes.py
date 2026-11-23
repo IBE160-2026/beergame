@@ -11,9 +11,10 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Response
 
-from app.modules.reports import class_report
+from app.modules.reports import class_report, class_report_learning
+from app.modules.reports.class_report_learning_schemas import ClassLearningOut
 from app.modules.reports.class_report_schemas import ClassReportOut
-from app.platform import authz
+from app.platform import auth, authz
 from app.platform.errors import documented
 
 router = APIRouter(prefix="/api", tags=["reports"])
@@ -38,6 +39,32 @@ async def get_class_report(
     except ValueError:
         raise authz.Forbidden from None
     found = await class_report.class_report(user, key)
+    if found is None:
+        raise authz.Forbidden
+    response.headers["Cache-Control"] = "no-store"
+    return found
+
+
+@router.get(
+    "/class-sessions/{session_id}/class-report/learning",
+    response_model=ClassLearningOut,
+    responses=documented(401, 403),
+    operation_id="getClassLearningReport",
+)
+async def get_class_learning_report(
+    session_id: str,
+    response: Response,
+    user: Annotated[authz.Principal, Depends(authz.require(class_report.READ))],
+) -> ClassLearningOut:
+    """The Klasserapport's learning part (Story 14.2): the Starting task beside the matching test
+    items, results per question and the AI assessment totals with the Core-only subscore, over the
+    Class session's reporting Students; every figure computed here (AD-10), never a letter
+    (FR-56). Access and answers as `getClassReport`."""
+    try:
+        key = uuid.UUID(session_id)
+    except ValueError:
+        raise authz.Forbidden from None
+    found = await class_report_learning.class_learning(user, key, auth.utcnow())
     if found is None:
         raise authz.Forbidden
     response.headers["Cache-Control"] = "no-store"

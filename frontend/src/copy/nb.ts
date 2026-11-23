@@ -4456,6 +4456,80 @@ export const nb = {
       ratingColumn: "Verdi",
       countColumn: "Svar",
     },
+    /** Story 14.2 (FR-64, FR-55, FR-56, FR-61): the learning part. «Teller ikke. Ingen karakter.» is
+     * the spine's (C-2); the rest is [ASSUMPTION] draft copy for the founder's review. Faste
+     * oppgaver are the Core items (EXPERIENCE.md → Terms). */
+    learning: {
+      title: "Læringsresultater",
+      intro: "Fra Startoppgaven og den individuelle testen, for studentene i klassen.",
+      /** «14 av 20 studenter har levert testen. 3 kan fortsatt levere.» */
+      status: (submitted: number, students: number, still: number) =>
+        `${submitted} av ${students} ${students === 1 ? "student" : "studenter"} har levert testen.` +
+        (still > 0 ? ` ${still} kan fortsatt levere.` : ""),
+      noStudents: "Klasseøkta har ingen studenter å vise resultater for.",
+      failed: "Læringsresultatene kunne ikke lastes.",
+      percent: (value: string) => `${value} %`,
+      questionLabel: (number: number, title: string) => `${number}. ${title}`,
+      starting: {
+        title: "Startoppgaven og testen",
+        /** «… Studenter som har gjort begge: 12.» */
+        intro: (students: number) => `Samme oppgave i Startoppgaven og i testen. Studenter som har gjort begge: ${students}.`,
+        none: "Ingen har gjort både Startoppgaven og testen ennå.",
+        startLabel: "Startoppgaven, riktig",
+        testLabel: "Testen, snitt",
+        /** For screen readers: «Startoppgaven, riktig: 8 av 12 (66,7 %)». */
+        startReads: (count: number, students: number, percent: string) => `Startoppgaven, riktig: ${count} av ${students} (${percent} %)`,
+        testReads: (right: number, students: number, percent: string) => `Testen: ${right} av ${students} helt riktig, snitt ${percent} %`,
+        tableCaption: "Startoppgaven ved siden av samme oppgave i testen",
+        questionColumn: "Spørsmål",
+        studentsColumn: "Studenter",
+        startColumn: "Startoppgaven, riktig",
+        rightColumn: "Testen, helt riktig",
+        meanColumn: "Testen, snitt",
+      },
+      questions: {
+        title: "Resultater per spørsmål",
+        intro: "Snittet av poengene på hvert spørsmål, blant studentene som har levert. Langsvar vurderes i KI-vurderingen.",
+        excluded: "Tatt ut",
+        excludedNote: "Spørsmål som er tatt ut, teller ikke i noen sum:",
+        aiScored: "Vurderes av KI",
+        /** For screen readers: «3. Flervalg om årsaker: snitt 62,5 %, 16 av 20 svarte». */
+        reads: (label: string, percent: string, answered: number, students: number) =>
+          `${label}: snitt ${percent} %, ${answered} av ${students} svarte`,
+        longReads: (label: string, answered: number, students: number) => `${label}: ${answered} av ${students} svarte`,
+        noAnswers: "Ingen har levert ennå.",
+        tableCaption: "Resultater per spørsmål, i testens rekkefølge",
+        questionColumn: "Spørsmål",
+        handedInColumn: "Levert",
+        rightColumn: "Riktig",
+        partlyColumn: "Delvis",
+        wrongColumn: "Feil",
+        notAnsweredColumn: "Ikke svart",
+        meanColumn: "Snitt",
+        /** «Tilpassede oppgaver (vekt 30) er ulike for hver student … 18 fikk tilpassede oppgaver, 2 fikk erstatningsoppgaver.» */
+        adapted: (weight: number, adapted: number, replaced: number) =>
+          `Tilpassede oppgaver (vekt ${weight}) er ulike for hver student og vises ikke per spørsmål. ${adapted} fikk tilpassede oppgaver, ${replaced} fikk erstatningsoppgaver.`,
+      },
+      ai: {
+        title: "KI-vurdering",
+        /** FR-55, C-2: on the distribution, always. */
+        label: "KI-generert. Teller ikke. Ingen karakter.",
+        switchedOff: "KI-vurderingen er slått av for denne Klasseøkta. Resten av rapporten regnes ut som vanlig.",
+        notReady: "KI-vurderingene er ikke klare ennå. Resten av rapporten regnes ut som vanlig.",
+        /** «12 av 18 innleverte tester er vurdert.» */
+        ready: (ready: number, submitted: number) => `${ready} av ${submitted} innleverte tester er vurdert.`,
+        note: "Poeng på faste oppgaver regner bare de faste oppgavene, med samme vekter skalert til 100. Tilpassede oppgaver er ulike for hver student.",
+        totalTitle: "Totalpoeng",
+        coreTitle: "Poeng på faste oppgaver",
+        chartTitle: (which: string, count: number) => `${which} i ${count} KI-vurderinger, av 100`,
+        axis: "Poeng av 100. Hvert merke er én vurdering. Boksen er midterste halvdel.",
+        tableCaption: "KI-vurderinger per poengintervall",
+        bandColumn: "Poeng",
+        totalColumn: "Totalpoeng",
+        coreColumn: "Faste oppgaver",
+        band: (low: number, high: number) => `${low}–${high}`,
+      },
+    },
   },
 
   /** EXPERIENCE.md → State Patterns (UX-DR59). */
