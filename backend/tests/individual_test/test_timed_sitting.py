@@ -22,7 +22,7 @@ from tests.classes.test_roster_upload import NOW, clock, klass
 from tests.classes.test_staff import EMAIL, call, shared
 from tests.classes.test_student_registration import emitted
 from tests.individual_test.test_answer import first, put
-from tests.individual_test.test_open import code, locked_session, path, replayed
+from tests.individual_test.test_open import code, locked_session, no_playout, path, replayed
 from tests.individual_test.test_submit import scores, submit_path
 from tests.messaging.helpers import rows
 from tests.sessions.test_ai_assessment_switch import planned, save
@@ -31,7 +31,9 @@ from tests.sessions.test_lock import _empty
 from tests.sessions.test_rerun import copy, flag
 from tests.sessions.test_student_choice import email
 
-__all__ = ["_empty", "clock", "emitted", "klass", "shared"]
+__all__ = ["_empty", "clock", "emitted", "klass", "no_playout", "shared"]
+
+pytestmark = pytest.mark.usefixtures("no_playout")
 
 MINUTE = timedelta(minutes=1)
 HOUR = timedelta(hours=1)

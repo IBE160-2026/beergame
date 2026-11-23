@@ -3987,6 +3987,16 @@ export interface components {
             label: string | null;
         };
         /**
+         * AxisOut
+         * @description A drawn item's value axis (Story 11.14): the range its graph's points are placed in.
+         */
+        AxisOut: {
+            /** Max */
+            max: number;
+            /** Min */
+            min: number;
+        };
+        /**
          * Believability
          * @description The believability question of one Game for the Student who reads it (Story 10.8, FR-70):
          *     whether they are asked, and their own answer once given. Never anyone else's.
@@ -5588,12 +5598,12 @@ export interface components {
         /**
          * IndividualItemOut
          * @description One item of the Student's frozen Individual test (Story 11.3), in order: its number from 1,
-         *     its type and its text; a choice item's option ids (Story 11.4, `[]` for other types), a table
-         *     item's value table or a number item's column (Story 11.5, null otherwise or when the item has
-         *     none) and the Student's saved answer (null before the first save). An Adapted item (Story
-         *     11.7) is answered as a long answer; its `title` is its frozen text, and `wording` carries that
-         *     text with whether an AI wrote it (null for every other type). No weight, no answer key, no
-         *     rule, no fact and no score are sent to the Student.
+         *     its type and its text; a choice item's option ids (Story 11.4, `[]` for other types), a table or
+         *     drawn item's value table (Story 11.14) or a number item's column (Story 11.5, null otherwise or
+         *     when the item has none) and the Student's saved answer (null before the first save). An Adapted
+         *     item (Story 11.7) is answered as a long answer; its `title` is its frozen text, and `wording`
+         *     carries that text with whether an AI wrote it (null for every other type). No weight, no answer
+         *     key, no rule, no fact and no score are sent to the Student.
          */
         IndividualItemOut: {
             answer: components["schemas"]["StoredAnswerOut"] | null;
@@ -5611,7 +5621,7 @@ export interface components {
              * Type
              * @enum {string}
              */
-            type: "choice" | "table" | "number" | "long" | "adapted";
+            type: "choice" | "table" | "number" | "long" | "drawn" | "adapted";
             wording: components["schemas"]["WordingOut"] | null;
         };
         /**
@@ -6813,7 +6823,7 @@ export interface components {
              * Type
              * @enum {string}
              */
-            type: "choice" | "table" | "number" | "long";
+            type: "choice" | "table" | "number" | "long" | "drawn";
             /** Weight */
             weight: number;
         };
@@ -8835,11 +8845,13 @@ export interface components {
          * TableOut
          * @description A «Fyll inn kolonnen» item's value table (Story 11.5, FR-80, UX-DR38): its prompt and
          *     hint, the table's caption, one row label per Uke, the given columns, the asked column's label
-         *     (one answer cell per Uke) and whether a value may be negative. No expected value.
+         *     (one answer cell per Uke) and whether a value may be negative. A drawn item (Story 11.14) has
+         *     the same table and its graph's value `axis` (null for a table item). No expected value.
          */
         TableOut: {
             /** Asked Label */
             asked_label: string;
+            axis?: components["schemas"]["AxisOut"] | null;
             /** Caption */
             caption: string;
             /** Columns */
@@ -8925,9 +8937,9 @@ export interface components {
         /**
          * TestAnswerIn
          * @description One autosave of an item's answer (Story 11.4, AD-10): the value (a choice item: one of its
-         *     option ids; a table item: one whole number or null per row; a number item: a whole number or
-         *     null, Story 11.5; a long-answer item: its text as typed, Story 11.6; an Adapted item: the
-         *     same, Story 11.7) and the answer's revision, which rises by one per change on the Student's
+         *     option ids; a table or drawn item: one whole number or null per row; a number item: a whole
+         *     number or null, Story 11.5; a long-answer item: its text as typed, Story 11.6; an Adapted item:
+         *     the same, Story 11.7) and the answer's revision, which rises by one per change on the Student's
          *     device.
          */
         TestAnswerIn: {

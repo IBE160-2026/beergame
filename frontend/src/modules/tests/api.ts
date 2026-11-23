@@ -64,11 +64,14 @@ export function saveMyTestAnswer(
   classSessionId: string,
   itemId: string,
   body: { value: string | number | (number | null)[] | null; revision: number },
+  options: { keepalive?: boolean } = {},
 ): Promise<SavedAnswer> {
   return request(() =>
     api.PUT("/api/me/class-sessions/{session_id}/test/answers/{item_id}", {
       params: { path: { session_id: classSessionId, item_id: itemId } },
       body,
+      // A save while the page is hidden or left: the browser finishes it after the tab closes.
+      keepalive: options.keepalive ?? false,
     }),
   );
 }

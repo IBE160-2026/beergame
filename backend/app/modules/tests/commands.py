@@ -51,7 +51,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.analysis.scoring import INTERACTIVE_LIMIT
 from app.modules.assessment import service as assessment
 from app.modules.content import service as content
-from app.modules.content.schemas import QuestionSet, QuestionSetItem
+from app.modules.content.schemas import TABLE_TYPES, QuestionSet, QuestionSetItem
 from app.modules.debrief import service as debrief
 from app.modules.progress import service as progress
 from app.modules.sessions import service as sessions
@@ -220,7 +220,8 @@ async def open_attempt(
     questions close in the same transaction (FR-45, `debrief.service.close_follow_up`), and
     `user:<id>` is emitted so their other devices read the test again. The Student's Adapted items
     are built from their stored facts sets in this transaction and frozen with the rest (Story
-    11.7), or copied from the set the `tests.prepare_adapted` job prepared (Story 11.8): a second
+    11.7; a set not stored yet is built just before it, `adapted.warm`), or copied from the set
+    the `tests.prepare_adapted` job prepared (Story 11.8): a second
     open returns them as first stored, whatever template version or prepared set is newer."""
     if not await progress.has_step(user.id, class_session_id, progress.Step.REPLAY):
         async with get_sessionmaker()() as s:
@@ -228,6 +229,11 @@ async def open_attempt(
         if found is None:
             return None
         raise ReplayRequired
+    # A first open builds any facts set not stored yet before the transaction, not inside it.
+    async with get_sessionmaker()() as s:
+        first = await attempt_of(s, user.id, class_session_id) is None
+    if first:
+        await adapted.warm(user.id, class_session_id)
     async with get_sessionmaker().begin() as s:
         found = await sessions.individual_test_session_of(s, user, class_session_id)
         if found is None:
@@ -303,12 +309,12 @@ def _text(value: Any) -> bool:
 
 
 def _valid(item_type: str, item: QuestionSetItem | None, value: Any) -> bool:
-    """Whether `value` answers an item of this type: a choice item's option id (Story 11.4); a
-    table item's list of one whole number or null per row, and a number item's whole number or
-    null (cleared), negative only where the item allows it (Story 11.5; a Starting task item
-    always does); a long-answer item's text, stored as typed (Story 11.6), and so an Adapted
-    item's, whose text is frozen on the attempt rather than in the question set (Story 11.7). An
-    item with no table of its own (question set version 1) takes nothing."""
+    """Whether `value` answers an item of this type: a choice item's option id (Story 11.4); a table
+    or drawn item's list of one whole number or null per row, and a number item's whole number or
+    null (cleared), negative only where the item allows it (Story 11.5; a Starting task item always
+    does); a long-answer item's text, stored as typed (Story 11.6), and so an Adapted item's, whose
+    text is frozen on the attempt rather than in the question set (Story 11.7). An item with no
+    table of its own (question set version 1) takes nothing."""
     if item_type == adapted.ADAPTED:
         return _text(value)
     if item is None:
@@ -324,7 +330,7 @@ def _valid(item_type: str, item: QuestionSetItem | None, value: Any) -> bool:
         return False
     if item_type == "number":
         return value is None or _whole(value, spec.negative)
-    if item_type == "table":
+    if item_type in TABLE_TYPES:  # a drawn item's graph writes its table (Story 11.14)
         return (
             isinstance(value, list)
             and len(value) == len(spec.rows)

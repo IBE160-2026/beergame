@@ -118,7 +118,7 @@ export function SubmittedItems({ items }: { items: readonly MyTestItem[] }) {
               {lines.heading}
               <span className="ml-3 text-body-phone font-normal text-ink-secondary lg:text-body">{lines.type}</span>
             </h3>
-            {item.type === "table" && item.table ? (
+            {(item.type === "table" || item.type === "drawn") && item.table ? (
               <AnsweredTable item={item} table={item.table} />
             ) : (
               <>

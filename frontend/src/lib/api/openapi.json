@@ -1188,6 +1188,25 @@
         "title": "AuditTarget",
         "type": "object"
       },
+      "AxisOut": {
+        "description": "A drawn item's value axis (Story 11.14): the range its graph's points are placed in.",
+        "properties": {
+          "max": {
+            "title": "Max",
+            "type": "integer"
+          },
+          "min": {
+            "title": "Min",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "min",
+          "max"
+        ],
+        "title": "AxisOut",
+        "type": "object"
+      },
       "Believability": {
         "description": "The believability question of one Game for the Student who reads it (Story 10.8, FR-70):\nwhether they are asked, and their own answer once given. Never anyone else's.",
         "properties": {
@@ -4911,7 +4930,7 @@
         "type": "object"
       },
       "IndividualItemOut": {
-        "description": "One item of the Student's frozen Individual test (Story 11.3), in order: its number from 1,\nits type and its text; a choice item's option ids (Story 11.4, `[]` for other types), a table\nitem's value table or a number item's column (Story 11.5, null otherwise or when the item has\nnone) and the Student's saved answer (null before the first save). An Adapted item (Story\n11.7) is answered as a long answer; its `title` is its frozen text, and `wording` carries that\ntext with whether an AI wrote it (null for every other type). No weight, no answer key, no\nrule, no fact and no score are sent to the Student.",
+        "description": "One item of the Student's frozen Individual test (Story 11.3), in order: its number from 1,\nits type and its text; a choice item's option ids (Story 11.4, `[]` for other types), a table or\ndrawn item's value table (Story 11.14) or a number item's column (Story 11.5, null otherwise or\nwhen the item has none) and the Student's saved answer (null before the first save). An Adapted\nitem (Story 11.7) is answered as a long answer; its `title` is its frozen text, and `wording`\ncarries that text with whether an AI wrote it (null for every other type). No weight, no answer\nkey, no rule, no fact and no score are sent to the Student.",
         "properties": {
           "answer": {
             "anyOf": [
@@ -4968,6 +4987,7 @@
               "table",
               "number",
               "long",
+              "drawn",
               "adapted"
             ],
             "title": "Type",
@@ -7768,7 +7788,8 @@
               "choice",
               "table",
               "number",
-              "long"
+              "long",
+              "drawn"
             ],
             "title": "Type",
             "type": "string"
@@ -12342,11 +12363,21 @@
         "type": "object"
       },
       "TableOut": {
-        "description": "A «Fyll inn kolonnen» item's value table (Story 11.5, FR-80, UX-DR38): its prompt and\nhint, the table's caption, one row label per Uke, the given columns, the asked column's label\n(one answer cell per Uke) and whether a value may be negative. No expected value.",
+        "description": "A «Fyll inn kolonnen» item's value table (Story 11.5, FR-80, UX-DR38): its prompt and\nhint, the table's caption, one row label per Uke, the given columns, the asked column's label\n(one answer cell per Uke) and whether a value may be negative. A drawn item (Story 11.14) has\nthe same table and its graph's value `axis` (null for a table item). No expected value.",
         "properties": {
           "asked_label": {
             "title": "Asked Label",
             "type": "string"
+          },
+          "axis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AxisOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "caption": {
             "title": "Caption",
@@ -12577,7 +12608,7 @@
       },
       "TestAnswerIn": {
         "additionalProperties": false,
-        "description": "One autosave of an item's answer (Story 11.4, AD-10): the value (a choice item: one of its\noption ids; a table item: one whole number or null per row; a number item: a whole number or\nnull, Story 11.5; a long-answer item: its text as typed, Story 11.6; an Adapted item: the\nsame, Story 11.7) and the answer's revision, which rises by one per change on the Student's\ndevice.",
+        "description": "One autosave of an item's answer (Story 11.4, AD-10): the value (a choice item: one of its\noption ids; a table or drawn item: one whole number or null per row; a number item: a whole\nnumber or null, Story 11.5; a long-answer item: its text as typed, Story 11.6; an Adapted item:\nthe same, Story 11.7) and the answer's revision, which rises by one per change on the Student's\ndevice.",
         "properties": {
           "revision": {
             "maximum": 1000000.0,

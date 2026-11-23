@@ -1,29 +1,14 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 
 import { isSessionExpired } from "@/lib/api/client";
-import { errorCode } from "@/lib/api/mutation";
 import { clearDraft, loadDraft, saveDraft } from "@/lib/drafts";
 
 import { type MyTest, type MyTestItem, myTestKey, saveMyTestAnswer } from "./api";
-import {
-  type AnswerValue,
-  applyFailed,
-  applyRefused,
-  applySaved,
-  choose,
-  draftField,
-  draftText,
-  type Entry,
-  initial,
-  LONG_ANSWER_PAUSE_MS,
-  merge,
-  RETRY_MS,
-  refusedForGood,
-  statusLine,
-} from "./autosave";
+import { draftField, draftText, type Entry, initial, statusLine } from "./autosave";
+import { AnswerSaver } from "./saver";
 
 /** Where each item's autosave says whether it holds a change not yet stored (Story 11.10): the
  * review holds «Lever testen» back until every answer typed on this device is stored, so nothing
@@ -42,6 +27,8 @@ export const UnsentContext = createContext<((itemId: string, unsent: boolean) =>
  * Typing in a long answer (Story 11.6) uses `write`: each keystroke is kept on the device at once
  * and saved when typing pauses for `LONG_ANSWER_PAUSE_MS`; `flush` saves at once, which the field
  * does when it loses focus, and the hook does when the page is hidden or the item leaves the page.
+ * The loop itself is `AnswerSaver` (`saver.ts`); while the page is hidden its saves go with
+ * `keepalive`, so closing the tab does not cancel them.
  */
 export function useAutosave(classSessionId: string, userId: string, item: MyTestItem) {
   const queryClient = useQueryClient();
@@ -49,126 +36,72 @@ export function useAutosave(classSessionId: string, userId: string, item: MyTest
   const [start] = useState(() => initial(item.answer ?? null, loadDraft(userId, field)));
   // What shows: the entry and its status line (the last line stands while a save runs).
   const [shown, setShown] = useState(() => ({ entry: start.entry, line: statusLine(start.entry, "") }));
-  const current = useRef(start.entry);
-  const sending = useRef(false);
-  const timer = useRef<number | null>(null);
-  // A pending save after a pause in typing (`write`).
-  const pause = useRef<number | null>(null);
-  const live = useRef(true);
-
-  const update = useCallback((next: Entry) => {
-    current.current = next;
-    if (live.current) setShown((was) => ({ entry: next, line: statusLine(next, was.line) }));
-  }, []);
-
-  const send = useCallback(() => {
-    if (timer.current !== null) {
-      window.clearTimeout(timer.current);
-      timer.current = null;
-    }
-    const sent = current.current;
-    // Nothing newer than the stored answer (a cleared number is sent as null, too).
-    if (sending.current || sent.revision <= sent.stored) return;
-    sending.current = true;
-    saveMyTestAnswer(classSessionId, item.id, { value: sent.value, revision: sent.revision })
-      .then((saved) => {
-        sending.current = false;
-        const { entry: next, done } = applySaved(current.current, saved);
-        update(next);
-        // The cached test holds the stored answer, so the page shows it again on return.
-        queryClient.setQueryData<MyTest>(myTestKey(classSessionId), (test) =>
-          test
-            ? {
-                ...test,
-                items: test.items.map((i) =>
-                  i.id === item.id ? { ...i, answer: { value: saved.value, revision: saved.revision, saved_at: saved.saved_at } } : i,
-                ),
-              }
-            : test,
-        );
-        if (done) clearDraft(userId, field);
-        // Still typing: the newer text goes when the pause ends, not at once. Also after the item
-        // has left the page, so text typed during the last save is not left on the device only.
-        else if (pause.current === null) send();
-      })
-      .catch((error: unknown) => {
-        sending.current = false;
-        if (refusedForGood(error)) {
+  // The save loop (`saver.ts`); made once per item, which keeps its Class session and id.
+  const [saver] = useState(
+    () =>
+      new AnswerSaver(start.entry, {
+        save: (draft, { keepalive }) => saveMyTestAnswer(classSessionId, item.id, draft, { keepalive }),
+        keep: (draft) => saveDraft(userId, field, draftText(draft)),
+        show: (next: Entry) => setShown((was) => ({ entry: next, line: statusLine(next, was.line) })),
+        stored: (saved, done) => {
+          // The cached test holds the stored answer, so the page shows it again on return.
+          queryClient.setQueryData<MyTest>(myTestKey(classSessionId), (test) =>
+            test
+              ? {
+                  ...test,
+                  items: test.items.map((i) =>
+                    i.id === item.id ? { ...i, answer: { value: saved.value, revision: saved.revision, saved_at: saved.saved_at } } : i,
+                  ),
+                }
+              : test,
+          );
+          if (done) clearDraft(userId, field);
+        },
+        refused: () => {
           clearDraft(userId, field);
-          update(applyRefused(current.current, errorCode(error)));
           void queryClient.invalidateQueries({ queryKey: myTestKey(classSessionId) });
-          return;
-        }
-        update(applyFailed(current.current));
+        },
         // Read the test again: an ended session takes the Student to «Logg inn»; the draft stays.
-        if (isSessionExpired(error)) void queryClient.invalidateQueries({ queryKey: myTestKey(classSessionId) });
-        if (live.current) timer.current = window.setTimeout(send, RETRY_MS);
-      });
-  }, [classSessionId, field, item.id, queryClient, update, userId]);
-
-  const pick = useCallback(
-    (value: AnswerValue) => {
-      const next = choose(current.current, value);
-      saveDraft(userId, field, draftText({ value, revision: next.revision }));
-      update(next);
-      send();
-    },
-    [field, send, update, userId],
-  );
-
-  const flush = useCallback(() => {
-    if (pause.current !== null) {
-      window.clearTimeout(pause.current);
-      pause.current = null;
-    }
-    send();
-  }, [send]);
-
-  const write = useCallback(
-    (value: AnswerValue) => {
-      const next = choose(current.current, value);
-      saveDraft(userId, field, draftText({ value, revision: next.revision }));
-      update(next);
-      if (pause.current !== null) window.clearTimeout(pause.current);
-      pause.current = window.setTimeout(() => {
-        pause.current = null;
-        send();
-      }, LONG_ANSWER_PAUSE_MS);
-    },
-    [field, send, update, userId],
+        failed: (error) => {
+          if (isSessionExpired(error)) void queryClient.invalidateQueries({ queryKey: myTestKey(classSessionId) });
+        },
+      }),
   );
 
   // A draft the api does not have yet goes at once; one it has already is dropped.
   useEffect(() => {
-    live.current = true;
+    saver.start();
     if (start.drop) clearDraft(userId, field);
-    if (start.send) send();
-    const online = () => {
-      if (current.current.status === "failed") send();
+    if (start.send) saver.send();
+    // The page hidden or left: what is typed goes now, not after the pause, and with keepalive,
+    // so closing the tab or switching app does not cancel it.
+    const visibility = () => {
+      saver.hidden = document.visibilityState === "hidden";
+      if (saver.hidden) saver.flush();
     };
-    // The page hidden or left: what is typed goes now, not after the pause.
-    const hidden = () => {
-      if (document.visibilityState === "hidden") flush();
+    const leave = () => {
+      saver.hidden = true;
+      saver.flush();
     };
-    window.addEventListener("online", online);
-    document.addEventListener("visibilitychange", hidden);
-    window.addEventListener("pagehide", flush);
+    const back = () => {
+      saver.hidden = false;
+    };
+    window.addEventListener("online", saver.online);
+    document.addEventListener("visibilitychange", visibility);
+    window.addEventListener("pagehide", leave);
+    window.addEventListener("pageshow", back);
     return () => {
-      window.removeEventListener("online", online);
-      document.removeEventListener("visibilitychange", hidden);
-      window.removeEventListener("pagehide", flush);
-      if (pause.current !== null) flush();
-      live.current = false;
-      if (timer.current !== null) window.clearTimeout(timer.current);
+      window.removeEventListener("online", saver.online);
+      document.removeEventListener("visibilitychange", visibility);
+      window.removeEventListener("pagehide", leave);
+      window.removeEventListener("pageshow", back);
+      saver.stop();
     };
-  }, [field, flush, send, start, userId]);
+  }, [field, saver, start, userId]);
 
   // The test read again (a live update, another device): a higher stored revision replaces this one.
   const answer = item.answer ?? null;
-  useEffect(() => {
-    const next = merge(current.current, answer);
-    if (next !== current.current) update(next);
-  }, [answer, update]);
+  useEffect(() => saver.received(answer), [answer, saver]);
 
   // Tell the review whether this item waits on a save; an item that leaves the page waits on none.
   const report = useContext(UnsentContext);
@@ -178,7 +111,7 @@ export function useAutosave(classSessionId: string, userId: string, item: MyTest
   }, [report, item.id, unsent]);
   useEffect(() => () => report?.(item.id, false), [report, item.id]);
 
-  return { ...shown, pick, write, flush };
+  return { ...shown, pick: saver.pick, write: saver.write, flush: saver.flush };
 }
 
 /** The autosave line under an item: «Lagret 21:14», the failure line or a refusal, in a polite

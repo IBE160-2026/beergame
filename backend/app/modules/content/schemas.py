@@ -23,6 +23,7 @@ from app.analysis.sentences import MomentTemplates, SentenceTemplates
 
 __all__ = [
     "AdaptedTemplates",
+    "Axis",
     "CRITERIA_MAX",
     "CRITERIA_MIN",
     "ColumnRow",
@@ -46,6 +47,7 @@ __all__ = [
     "StartingTask",
     "StartingTaskItem",
     "SumTerm",
+    "TABLE_TYPES",
 ]
 
 _FROZEN = ConfigDict(frozen=True, extra="forbid")
@@ -159,12 +161,16 @@ class ReflectionQuestions(BaseModel):
         return self
 
 
-ITEM_TYPES = ("choice", "table", "number", "long")
+ITEM_TYPES = ("choice", "table", "number", "long", "drawn")
 """The Core item types of the Individual test (Story 11.1, FR-52): multiple choice, a table and a
-number Interactive item, and a long answer. No diagram item in v1; a drawn graph (Story 11.14)
-adds its type here."""
+number Interactive item, a long answer, and (Story 11.14, FR-80) a drawn Interactive item: a table
+item answered in a graph over its table as well. No diagram item in v1."""
 
-INTERACTIVE_TYPES = frozenset({"table", "number"})
+INTERACTIVE_TYPES = frozenset({"table", "number", "drawn"})
+
+TABLE_TYPES = frozenset({"table", "drawn"})
+"""The Interactive types answered by one value per row (Story 11.14: a drawn item's graph and
+table are one answer, the table's)."""
 
 _BEER = re.compile(r"\bøl\b", re.IGNORECASE)
 """Interactive items say «enheter», never «øl» (FR-80)."""
@@ -182,6 +188,26 @@ class GivenColumn(BaseModel):
         tuple[Annotated[int, Field(strict=True, ge=-80_000, le=80_000)], ...],
         Field(min_length=1, max_length=36),
     ]
+
+
+_Bound = Annotated[int, Field(strict=True, ge=-1_000_000, le=1_000_000)]
+
+
+class Axis(BaseModel):
+    """The value axis of a drawn item's graph (Story 11.14): the range a pointer places a point
+    in. A typed value outside it is still an answer; the graph widens to show it, and the keys move
+    a point within what the graph shows."""
+
+    model_config = _FROZEN
+
+    min: _Bound
+    max: _Bound
+
+    @model_validator(mode="after")
+    def _ordered(self) -> Axis:
+        if self.min >= self.max:
+            raise ValueError("an axis runs from a lower to a higher value")
+        return self
 
 
 class InteractiveSpec(BaseModel):
@@ -202,6 +228,9 @@ class InteractiveSpec(BaseModel):
     asked: _Text
     negative: Annotated[bool, Field(strict=True)] = False
     criteria: Annotated[tuple[Criterion, ...], Field(min_length=1, max_length=8)]
+    axis: Annotated[Axis | None, Field(exclude_if=lambda axis: axis is None)] = None
+    """A drawn item's value axis (Story 11.14), required there and refused elsewhere. Left out of
+    the stored body when absent, so the stored table and number items keep their bodies."""
 
     @model_validator(mode="after")
     def _columns_fit(self) -> InteractiveSpec:
@@ -215,12 +244,14 @@ class InteractiveSpec(BaseModel):
         for text in texts:
             if "!" in text or _BEER.search(text):
                 raise ValueError(f"an Interactive item may not say {text!r}")
+        if self.axis is not None and self.axis.min < 0 and not self.negative:
+            raise ValueError("an axis below zero needs negative values")
         return self
 
     def rule(self, item_type: str) -> InteractiveRule:
-        """The computed rule for an item of `item_type`: a table's values are its rows, a number
-        item's is its one asked value."""
-        labels = self.rows if item_type == "table" else (self.asked,)
+        """The computed rule for an item of `item_type`: a table's (and a drawn item's) values are
+        its rows, a number item's is its one asked value."""
+        labels = self.rows if item_type in TABLE_TYPES else (self.asked,)
         return InteractiveRule(
             labels=labels,
             columns={column.key: column.values for column in self.given},
@@ -244,7 +275,7 @@ class QuestionSetItem(BaseModel):
     model_config = _FROZEN
 
     id: _Key
-    type: Literal["choice", "table", "number", "long"]
+    type: Literal["choice", "table", "number", "long", "drawn"]
     title: _Text
     weight: Annotated[int, Field(strict=True, ge=0, le=100)]
     options: Annotated[tuple[_Key, ...], Field(max_length=8)] = ()
@@ -284,6 +315,10 @@ class QuestionSetItem(BaseModel):
             flows = [c for c in self.interactive.criteria if isinstance(c.check, FlowCheck)]
             if self.type == "number" and flows:
                 raise ValueError(f"number item {self.id!r} has no flow criterion")
+            if (self.type == "drawn") != (self.interactive.axis is not None):
+                raise ValueError(
+                    f"item {self.id!r}: a drawn item, and only a drawn item, has an axis"
+                )
             try:
                 self.interactive.rule(self.type)
             except ValueError as invalid:
@@ -291,8 +326,8 @@ class QuestionSetItem(BaseModel):
         return self
 
     def needs_interactive(self) -> bool:
-        """Whether the item is answered on its own table (Story 11.5): a table item, or a number
-        item that is not a Starting task item."""
+        """Whether the item is answered on its own table (Story 11.5): a table or drawn item, or a
+        number item that is not a Starting task item."""
         return self.type in INTERACTIVE_TYPES and self.starting_task_item is None
 
 

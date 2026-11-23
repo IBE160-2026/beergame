@@ -3040,6 +3040,8 @@ export const nb = {
         table: "Fyll inn kolonnen",
         number: "Tallsvar",
         long: "Langsvar",
+        /** [ASSUMPTION] a drawn Interactive item (Story 11.14): points in a graph over its table. */
+        drawn: "Tegn i grafen",
         /** [ASSUMPTION] an Adapted item (Story 11.7): asked about the Student's own game or Replay,
          * answered as a long answer. The Klasseøkt calls these «Tilpassede oppgaver». */
         adapted: "Tilpasset oppgave",
@@ -3072,10 +3074,32 @@ export const nb = {
         cell: (asked: string, row: string) => `${asked}, ${row}`,
         wholeNumber: "Skriv et helt tall.",
       },
+      /** A drawn Interactive item (Story 11.14, FR-80, UX-DR38): points in a graph over its value
+       * table, one answer. «Uke 3: 14 enheter» is the spine's; the rest is [ASSUMPTION] draft copy. */
+      drawn: {
+        /** Under the prompt: the three ways to answer, and that the table is the answer. */
+        howTo: "Dra eller trykk i grafen, bruk piltastene, eller skriv i tabellen. Grafen og tabellen er samme svar.",
+        /** The scroll region that holds the graph and its table. */
+        region: (caption: string) => `Graf og tabell: ${caption}`,
+        /** The group of points: the graph is a view of the table under it. */
+        graph: "Graf over tabellen",
+        /** A point's value as a slider reads it. */
+        valueText: (week: string, value: string, n: number) => `${week}: ${value} ${n === 1 || n === -1 ? "enhet" : "enheter"}`,
+        notAnsweredText: (week: string) => `${week}: ikke besvart`,
+        /** The SVGs' titles (AD-18). */
+        svg: (caption: string) => `Graf: ${caption}`,
+        axisSvg: "Verdiene på grafens akse",
+        /** [ASSUMPTION] as the charts' line: shown while later Uker are out of view. */
+        swipe: "Sveip for flere uker",
+      },
       /** Long answers (Story 11.6, FR-73, UX-DR65). [ASSUMPTION] draft copy: the advice shown
        * above the field on a phone. */
       long: {
         largerScreen: "Langsvar er lettere å skrive på en større skjerm, som en PC. Du kan likevel skrive og lagre her.",
+        /** [ASSUMPTION] draft copy: the count shown once the text nears the longest answer. */
+        count: (used: string, max: string) => `${used} av ${max} tegn`,
+        /** [ASSUMPTION] draft copy: pasted text went past the longest answer and was cut. */
+        cut: (max: string) => `Svaret kan være på høyst ${max} tegn. Det som gikk over, ble ikke tatt med.`,
       },
       /** Review and submit (Story 11.10, FR-51, UX-DR65, UX-DR59). «Lever testen», the unanswered
        * line, the warning, «Levert …» and the failure line are the spine's; the rest is
@@ -3169,6 +3193,8 @@ export const nb = {
         table: "Tabell",
         number: "Tall",
         long: "Langsvar",
+        /** [ASSUMPTION] Story 11.14. */
+        drawn: "Graf",
       } as Record<string, string>,
       startingTask: "Fra Startoppgaven",
       quantity: "Måler mengder",

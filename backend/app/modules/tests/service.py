@@ -201,12 +201,13 @@ PARTS: dict[str, str] = {
     "choice": "choice",
     "table": "interactive",
     "number": "interactive",
+    "drawn": "interactive",
     "long": "long",
     ADAPTED: "adapted",
 }
 """The parts of the Individual test by item type (Story 11.11, FR-17) [ASSUMPTION: the parts
-Completion's minimum counts]: multiple choice, Interactive items (table and number), long answers
-and Adapted items."""
+Completion's minimum counts]: multiple choice, Interactive items (table, number and drawn), long
+answers and Adapted items."""
 
 
 def _has_content(value: Any) -> bool:

@@ -11,8 +11,10 @@ import {
   draftField,
   draftText,
   initial,
+  LONG_ANSWER_MAX,
   merge,
   parseDraft,
+  pasteIsCut,
   refusedForGood,
   statusLine,
 } from "./autosave";
@@ -33,6 +35,13 @@ describe("the autosave of an Individual test answer (Story 11.4, AD-10)", () => 
     expect(initial(stored, draftText({ value: "c", revision: 2 }))).toMatchObject({ send: false, drop: true, entry: { value: "a" } });
     expect(initial(null, "not json")).toMatchObject({ send: false, drop: true, entry: { value: null, revision: 0 } });
     expect(initial(null, draftText({ value: "b", revision: 1 })).entry).toMatchObject({ value: "b", revision: 1, stored: 0 });
+  });
+
+  it("tells when a paste into a long answer goes past the longest answer (Story 11.6)", () => {
+    expect(pasteIsCut(0, 0, LONG_ANSWER_MAX)).toBe(false);
+    expect(pasteIsCut(0, 0, LONG_ANSWER_MAX + 1)).toBe(true);
+    expect(pasteIsCut(LONG_ANSWER_MAX, 10, 10)).toBe(false);
+    expect(pasteIsCut(LONG_ANSWER_MAX - 5, 0, 6)).toBe(true);
   });
 
   it("raises the revision by one per change", () => {

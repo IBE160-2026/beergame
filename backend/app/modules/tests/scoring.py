@@ -5,8 +5,9 @@ the Student (FR-54).
 - A multiple-choice item: `score_choice` against its answer key.
 - A Starting task item: `score_sum` over the Starting task item's terms, the same rule the
   Startoppgave scores with (FR-85).
-- A table or number Interactive item: `score_interactive` over the values alone (FR-80), so how
-  they were entered never counts.
+- A table, number or drawn Interactive item: `score_interactive` over the values alone (FR-80),
+  so how they were entered (typed, or a point dragged, tapped or moved by keyboard, Story 11.14)
+  never counts.
 
 Long answers and Adapted items are scored against the Scoring guide (Epic 12), not here."""
 
@@ -19,7 +20,7 @@ from app.analysis.scoring import (
     score_interactive,
     score_sum,
 )
-from app.modules.content.schemas import QuestionSetItem, StartingTask
+from app.modules.content.schemas import INTERACTIVE_TYPES, QuestionSetItem, StartingTask
 
 __all__ = ["ItemScore", "score_answer"]
 
@@ -56,7 +57,7 @@ def score_answer(item: QuestionSetItem, value: Any, task: StartingTask) -> ItemS
         summed = score_sum(((t.sign, rows[t.row]) for t in found.terms), answer)
         return ItemScore(answered=True, credit=1.0 if summed.correct else 0.0)
     spec = item.interactive
-    if spec is None or item.type not in ("table", "number"):
+    if spec is None or item.type not in INTERACTIVE_TYPES:
         return None
     rule = spec.rule(item.type)
     if item.type == "number":

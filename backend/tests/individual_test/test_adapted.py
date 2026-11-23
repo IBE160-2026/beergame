@@ -312,6 +312,31 @@ async def test_otherwise_the_replacement_items_carry_the_adapted_total(
     assert saved.status_code == 200
 
 
+async def test_a_first_open_builds_the_facts_sets_before_its_transaction(klass, monkeypatch):
+    """Epic 11 close-out: a facts set not stored yet is built before the opening transaction
+    (`adapted.warm`), so inside it `build` only reads; an attempt opened again builds nothing."""
+    stand_in(monkeypatch, own=range(1, 13))
+    calls: list[str] = []
+    read, build = adapted._facts, adapted.build
+
+    async def facts(game, role):
+        calls.append("facts")
+        return await read(game, role)
+
+    async def building(*args):
+        calls.append("build")
+        return await build(*args)
+
+    monkeypatch.setattr(adapted, "_facts", facts)
+    monkeypatch.setattr(adapted, "build", building)
+    session_id, _ = await locked_with(klass, 30)
+    await frozen(session_id)
+    assert calls[:3] == ["facts", "facts", "build"]
+    calls.clear()
+    await frozen(session_id)
+    assert calls == []
+
+
 async def test_an_adapted_total_of_0_serves_neither(klass, monkeypatch):
     stand_in(monkeypatch, own=range(1, 13))
     session_id, _ = await locked_with(klass, 0)

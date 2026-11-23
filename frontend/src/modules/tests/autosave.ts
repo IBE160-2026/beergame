@@ -192,3 +192,13 @@ export const LONG_ANSWER_PAUSE_MS = 1_500;
 /** The longest long answer in characters: the api's `commands.LONG_ANSWER_MAX`, so the field
  * stops where the api would refuse. */
 export const LONG_ANSWER_MAX = 20_000;
+
+/** From this length on, the count of characters shows under a long answer. The field counts as
+ * the browser does (UTF-16 units), so it never lets through more than the api's code points. */
+export const LONG_ANSWER_COUNT_FROM = 18_000;
+
+/** Whether a paste into a long answer goes past `LONG_ANSWER_MAX`, so the browser cuts it: the
+ * field's length, the length of the selection the paste replaces, and the pasted length. */
+export function pasteIsCut(length: number, selected: number, pasted: number): boolean {
+  return length - selected + pasted > LONG_ANSWER_MAX;
+}

@@ -1,6 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
+import { formatNumber } from "../src/lib/number-format";
 import { loginByApi } from "./support/auth";
 import { expectAccessible, test } from "./support/classes";
 import { liveClassGame } from "./support/live-game";
@@ -290,6 +291,8 @@ for (const vp of VIEWPORTS) {
       } else {
         await expect(advice).toBeHidden();
       }
+      // The advice is read with the field on a phone, and only there.
+      await expect(field).toHaveAccessibleDescription(vp.phone ? copy.long.largerScreen : "");
       await expect(status).toHaveText("");
 
       // Typing: kept on this device at once, one save for the whole word once typing pauses.
@@ -320,6 +323,21 @@ for (const vp of VIEWPORTS) {
       failing = false;
       await page.evaluate(() => window.dispatchEvent(new Event("online")));
       await expect(status).toHaveText(copy.saved("21:14"));
+
+      // Near the longest answer a count shows; a paste past it says what was left out, not silently.
+      const count = item.locator("[data-long-count]");
+      await expect(count).toHaveText("");
+      await field.fill("x".repeat(19_990));
+      await expect(count).toHaveText(copy.long.count(formatNumber(19_990), formatNumber(20_000)));
+      await expect(field).toHaveAccessibleDescription(new RegExp(copy.long.count(formatNumber(19_990), formatNumber(20_000))));
+      await field.evaluate((element: HTMLTextAreaElement) => {
+        element.setSelectionRange(element.value.length, element.value.length);
+        const data = new DataTransfer();
+        data.setData("text/plain", "y".repeat(20));
+        element.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
+      });
+      await expect(item.locator("[data-long-cut]")).toHaveText(copy.long.cut(formatNumber(20_000)));
+      await expectAccessible(page, vp.phone);
     });
 
     test("an Adapted item: its own-game question labels a long answer, saved after the pause; axe passes", async ({ page }) => {
@@ -352,7 +370,8 @@ for (const vp of VIEWPORTS) {
       const label = `KI-generert, kan ta feil: «${AI_TEXT}»`;
       const field = marked.getByRole("textbox", { name: label, exact: true });
       await expect(field).toBeVisible();
-      await expect(field).toHaveAccessibleDescription(nb.debrief.aiNote);
+      // The AI note first; on a phone the advice to use a larger screen after it.
+      await expect(field).toHaveAccessibleDescription(vp.phone ? `${nb.debrief.aiNote} ${copy.long.largerScreen}` : nb.debrief.aiNote);
       await expect(marked.locator("[data-ai-generated=true]")).toHaveCount(1);
       // The code-rendered Adapted item carries neither the prefix nor the mark.
       const plain = page.locator("[data-test-item=tilpasset-eget-spill]");
@@ -500,7 +519,9 @@ for (const vp of VIEWPORTS) {
       });
       await page.goto(`/individuell-test/${SESSION}`);
       const item = page.locator("[data-test-item=flervalg-1]");
-      await item.getByRole("radio", { name: copy.option("b") }).check();
+      // `click`, not `check`: the refusal replaces the item with the handed-in test at once, so a
+      // check's read-back of the radio would race it.
+      await item.getByRole("radio", { name: copy.option("b") }).click();
       const main = page.getByRole("main");
       await expect(main.locator("[data-submitted-line]")).toHaveText(/^Levert fr\. 18\. des\. kl\.\s21:40\./u);
       await expect(main.locator("input, textarea")).toHaveCount(0);
@@ -652,8 +673,8 @@ for (const vp of TABLE_VIEWPORTS) {
       await expect(cells.nth(1)).toHaveAttribute("aria-invalid", "true");
       await expect(cells.nth(1)).toHaveValue("1,5");
       // «1» was a whole number and was saved as typed; from «1,» the Uke holds no value, and the
-      // text itself is never sent.
-      expect(saves).toEqual([
+      // text itself is never sent. The last save waits for the one before it: polled, not read once.
+      await expect.poll(() => saves).toEqual([
         { value: [8, null, null, null, null, null], revision: 1 },
         { value: [8, 1, null, null, null, null], revision: 2 },
         { value: [8, null, null, null, null, null], revision: 3 },
@@ -926,6 +947,10 @@ test("live: Stegene leads to the statement, which opens the test once; a reload 
   await expect(page.getByRole("heading", { name: copy.itemsHeading })).toBeFocused();
   const count = await page.locator("[data-test-item]").count();
   expect(count).toBeGreaterThan(0);
+  // The Adapted total is not lost on the real path (Story 11.7): this Class game was never played,
+  // so the question set's two replacement items carry it, last in the list.
+  await expect(page.locator("[data-test-item^=erstatning-]")).toHaveCount(2);
+  await expect(page.locator("[data-test-item]").last()).toHaveAttribute("data-test-item", "erstatning-langsvar");
 
   // A multiple-choice item answered: stored, and there again after a reload (Story 11.4).
   const choice = page.locator("[data-test-item]").filter({ has: page.getByRole("radio") }).first();
