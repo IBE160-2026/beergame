@@ -4,7 +4,7 @@ such as `python -m app.sim endpoint`, a scope's cost per Game and day for
 `python -m app.sim report` (Story 2.11). Only `app/ai` reads the table (AD-6)."""
 
 import uuid
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
@@ -395,6 +395,25 @@ async def clear_bodies_of_user(session: AsyncSession, user_id: uuid.UUID) -> int
         update(llm_calls)
         .where(
             llm_calls.c.caller_ref["user_id"].astext == str(user_id),
+            or_(llm_calls.c.request != EMPTY_REQUEST, llm_calls.c.response.is_not(None)),
+        )
+        .values(request=EMPTY_REQUEST, response=None)
+    )
+    return result.rowcount or 0
+
+
+async def clear_bodies_by_ref(
+    session: AsyncSession, name: str, values: Collection[uuid.UUID]
+) -> int:
+    """As `clear_bodies_of_user`, for the calls whose `caller_ref[name]` is one of `values`: the
+    AI assessment's calls name the Test attempt (`attempt_id`), and their bodies hold the
+    Student's answer (Story 15.2 after Epic 12). Idempotent; returns how many rows held a body."""
+    if not values:
+        return 0
+    result = await session.execute(
+        update(llm_calls)
+        .where(
+            llm_calls.c.caller_ref[name].astext.in_(sorted(str(value) for value in values)),
             or_(llm_calls.c.request != EMPTY_REQUEST, llm_calls.c.response.is_not(None)),
         )
         .values(request=EMPTY_REQUEST, response=None)

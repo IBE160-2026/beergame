@@ -388,3 +388,30 @@ async def test_a_freeze_takes_a_locked_session_only_when_it_holds_the_config(
     assert response.json()["active"]["class_session_ids"] == [holding]
     # Locked, so nothing was written for it: only the pin made before the lock is audited.
     assert len(audited("model_config.pinned")) == 1
+
+
+async def test_a_control_test_keeps_its_config_and_is_never_pinned(admin, klass, two_levels):
+    """Story 12.7 after 15.5: a Control test checks the model config it was made with (a trigger
+    refuses any change), so the Admin's pin and a study freeze refuse it as frozen, not as a 500,
+    and the list shows it read-only."""
+    import psycopg
+
+    from tests.conftest import TEST_DATABASE_URL, libpq_dsn
+
+    other = await stored("andre", ["careful"], ["careful"])
+    session_id = await dated(klass, "llm")
+    # Made as a course session, turned into a Control test (the kind never changes in the app).
+    with psycopg.connect(libpq_dsn(TEST_DATABASE_URL)) as conn:
+        conn.execute("SET LOCAL session_replication_role = replica")
+        conn.execute("UPDATE class_sessions SET kind = 'control_test' WHERE id = %s", (session_id,))
+    assert refusal(await pin(session_id, other)) == (409, "model_config_frozen")
+    frozen = await call(
+        "POST", "/freezes", json={"model_config_id": str(other), "class_session_ids": [session_id]}
+    )
+    assert refusal(frozen) == (409, "model_config_frozen")
+    assert setting(session_id)[1] == two_levels
+    [item] = [
+        i for i in (await call("GET", "/class-sessions")).json()["items"] if i["id"] == session_id
+    ]
+    assert item["locked"] is True
+    assert audited("model_config.pinned") == []

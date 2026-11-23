@@ -2,35 +2,49 @@
 
 `reporting_games()`, `reporting_students()` and `reporting_seat_holders()` are subqueries for
 `WHERE … IN (…)`. They leave out Lecturer test Games and simulation Games (`games.purpose`), and
-are the one place that later stories narrow further:
+are the one place that narrows the scope further:
 
-- Story 12.7 adds Class sessions of kind `control_test` (AD-27) to `reporting_games()`;
-- Story 12.8 adds Users marked `is_test_student` to `reporting_students()`.
+- the Games of a Class session of kind `control_test` (Story 12.7, AD-27) are no reporting Games,
+  so its Students are no reporting seat holders either;
+- Users marked `is_test_student` (Story 12.8) are no reporting Students: the same mark
+  `identity.service.test_students` reads.
 
-Neither column exists on this branch yet, so today every User is a reporting Student. Tables are
-named by name only, as in `platform/authz`, so this module imports no feature module.
+Tables are named by name only, as in `platform/authz`, so this module imports no feature module.
 """
 
-from sqlalchemy import Select, column, select, table
+from sqlalchemy import Select, column, or_, select, table
 
 EXCLUDED_PURPOSES = ("lecturer_test", "simulation")
 """The Game purposes no report counts (AD-13)."""
+EXCLUDED_SESSION_KINDS = ("control_test",)
+"""The Class session kinds no report counts (Story 12.7, AD-27; `sessions.service.CONTROL_TEST`)."""
 
 _games = table("games", column("id"), column("purpose"), column("class_session_id"))
 _seats = table("seats", column("id"), column("game_id"))
 _seat_occupancy = table("seat_occupancy", column("seat_id"), column("user_id"))
-_users = table("users", column("id"))
+_users = table("users", column("id"), column("is_test_student"))
+_class_sessions = table("class_sessions", column("id"), column("kind"))
 
 
 def reporting_games() -> Select:
-    """The ids of the Games reports count: every Game but Lecturer test Games and simulations."""
-    return select(_games.c.id).where(_games.c.purpose.not_in(EXCLUDED_PURPOSES))
+    """The ids of the Games reports count: every Game but Lecturer test Games, simulations and
+    the Games of a Control test."""
+    excluded_sessions = select(_class_sessions.c.id).where(
+        _class_sessions.c.kind.in_(EXCLUDED_SESSION_KINDS)
+    )
+    return select(_games.c.id).where(
+        _games.c.purpose.not_in(EXCLUDED_PURPOSES),
+        or_(
+            _games.c.class_session_id.is_(None),
+            _games.c.class_session_id.not_in(excluded_sessions),
+        ),
+    )
 
 
 def reporting_students() -> Select:
-    """The ids of the Users reports count as Students: every User, until Story 12.8 marks test
-    Students."""
-    return select(_users.c.id)
+    """The ids of the Users reports count as Students: every User but a test student (Story
+    12.8, AD-13)."""
+    return select(_users.c.id).where(_users.c.is_test_student.is_not(True))
 
 
 def reporting_seat_holders() -> Select:

@@ -2336,7 +2336,7 @@ export const nb = {
      * [ASSUMPTION] Story 15.4, all of it. */
     evaluation: {
       title: "Pseudonymisert eksport",
-      lead: "Beslutningsloggen, Startoppgaven og Forklaringene fra valgte Klasseøkter, med hver Student byttet ut med et fast pseudonym. Eksporten har ingen navn, e-postadresser, studentnumre, KI-vurderinger eller veiledende karakterer, men Forklaringene står slik Studentene skrev dem og kan nevne navn. Dataene er fortsatt personopplysninger og må slettes innen slettedatoen.",
+      lead: "Beslutningsloggen, Startoppgaven, Forklaringene og svarene på Individuell test fra valgte Klasseøkter, med hver Student byttet ut med et fast pseudonym. Teststudenter og Kontrolltester er ikke med. Eksporten har ingen navn, e-postadresser, studentnumre, KI-vurderinger eller veiledende karakterer, men Forklaringene og de lange svarene står slik Studentene skrev dem og kan nevne navn. Dataene er fortsatt personopplysninger og må slettes innen slettedatoen.",
       sessions: {
         title: "Klasseøkter og avtaler",
         lead: "En Klasseøkt kan eksporteres bare når Institusjonens avtale om evalueringen er registrert.",

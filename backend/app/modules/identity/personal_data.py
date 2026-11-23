@@ -39,7 +39,16 @@ def _e(handling: Handling, note: str) -> Entry:
 
 REGISTRY: dict[str, Entry] = {
     # identity
-    "users": _e("anonymise", "Name, e-mail and password replaced; the id stays."),
+    "users": _e(
+        "anonymise",
+        "Name, e-mail and password replaced; the id stays, and so does `is_test_student` (Story "
+        "12.8), a mark of how the account was made, not of the person.",
+    ),
+    "test_student_consents": _e(
+        "keep",
+        "A test student's consent decision (Story 12.8): `given` or `declined`, the text version "
+        "and the time by User id, kept as the record of the consent; no text of the User.",
+    ),
     "user_roles": _e("delete", "The User's account roles."),
     "password_resets": _e("delete", "The User's reset links."),
     "invitations": _e("delete", "Every Invitation to the User's address; `invited_by` is an id."),
@@ -56,7 +65,14 @@ REGISTRY: dict[str, Entry] = {
     "allocation_drafts": _e("keep", "Seat assignments by User id."),
     "lab_hours": _e("keep", "`created_by` is an id; the place is the Lecturer's text."),
     "student_adjustments": _e("delete", "The Student's Tilrettelegging."),
-    "deadline_reminders": _e("none", "Which deadline reminder went out per Class session."),
+    "deadline_reminders": _e(
+        "keep",
+        "Which deadline reminder went out per Class session; a Student's own Test deadline "
+        "(Story 11.13) names the Student by id.",
+    ),
+    "student_deadline_extensions": _e(
+        "delete", "The Student's own Test and Debrief deadlines (Story 11.13), an accommodation."
+    ),
     # games
     "games": _e("keep", "Settings and lifecycle; `started_by` and `paused_by` are ids."),
     "seats": _e("none", "Seats by Role."),
@@ -88,6 +104,51 @@ REGISTRY: dict[str, Entry] = {
     "quiz_exclusions": _e("keep", "Questions a Lecturer excluded; who excluded is an id."),
     # tests (Starting task)
     "starting_task_answers": _e("keep", "Starting task choices by User id."),
+    # tests (Individual test, Epic 11)
+    "test_selections": _e(
+        "keep", "A Class session's question set selection; `updated_by` is an id."
+    ),
+    "test_scoring_guides": _e(
+        "keep", "The Scoring guide in force per Class session; `updated_by` is an id."
+    ),
+    "test_sittings": _e("keep", "A Class session's timed sitting; `updated_by` is an id."),
+    "test_attempts": _e(
+        "keep",
+        "The Student's Individual test attempt by User id: the frozen items, times and status; no "
+        "text of the Student.",
+    ),
+    "test_answers": _e(
+        "clear",
+        "The text of the Student's long and Adapted answers is emptied; the row, its computed "
+        "score and its id stay, so the AI and human scores that name it hold.",
+    ),
+    "test_prepared_items": _e(
+        "keep",
+        "The Student's prepared Adapted items by User id: wordings of computed facts of their "
+        "Game, no text of the Student.",
+    ),
+    # assessment (AI assessment and Control test, Epic 12)
+    "assessment_switches": _e(
+        "keep", "The «KI-vurdering» switch and its pin; `stopped_by` is a staff id (Story 12.4)."
+    ),
+    "ai_assessments": _e(
+        "keep",
+        "The AI assessment of an attempt by User id: status, a failure code, times and the "
+        "Student's own letter opt-in (`letter_chosen`); no text.",
+    ),
+    "ai_item_scores": _e(
+        "clear",
+        "The written feedback, which may quote the Student's answer, is emptied; the score and "
+        "the row stay.",
+    ),
+    "ai_feedback_flags": _e(
+        "keep", "Which pieces of feedback the Student marked as wrong, a mark per item."
+    ),
+    "control_test_scorers": _e(
+        "keep", "A named scorer of a Control test by User id; `named_by` is an id."
+    ),
+    "human_scores": _e("keep", "A scorer's score of an answer by `scorer_id`, a number."),
+    "scoring_guide_checks": _e("none", "Which Scoring guide a Control test checked, by ids."),
     # progress
     "progress_steps": _e("keep", "Steps reached by User id."),
     # replay
@@ -96,7 +157,12 @@ REGISTRY: dict[str, Entry] = {
     "replay_walkthroughs": _e("keep", "AI narration of computed facts; no text of the Student."),
     "replay_narrations": _e("none", "AI narration of computed facts."),
     # content
-    "content_records": _e("none", "Pinned content."),
+    "content_records": _e(
+        "keep",
+        "Pinned content. An edited Scoring guide (Story 11.2) is the Lecturer's text about the "
+        "questions, made for one Class session (`class_session_id`); it names no Student and "
+        "goes with its Class session.",
+    ),
     # messaging and notify
     "messages": _e("delete", "Messages written to the Student alone."),
     "message_recipients": _e("delete", "The Student among a Message's recipients."),

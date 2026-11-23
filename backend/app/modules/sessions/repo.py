@@ -154,6 +154,7 @@ async def model_setting_rows(
         _numbered.c.ai_mode,
         _numbered.c.model_config_id,
         _numbered.c.effort_level,
+        _numbered.c.kind,
         _numbered.c.snapshot["session_runtime"].label("session_runtime"),
     ).order_by(_numbered.c.id.desc())
     if ids is None:
@@ -819,4 +820,12 @@ async def delete_adjustments_of(session: AsyncSession, user_id: uuid.UUID) -> No
     """Drop the Student's Tilrettelegging in every Class session (Story 15.2, FR-76)."""
     await session.execute(
         delete(student_adjustments).where(student_adjustments.c.user_id == user_id)
+    )
+
+
+async def delete_extensions_of(session: AsyncSession, user_id: uuid.UUID) -> None:
+    """Drop the Student's own Test and Debrief deadlines in every Class session (Story 15.2 after
+    Story 11.13)."""
+    await session.execute(
+        delete(student_deadline_extensions).where(student_deadline_extensions.c.user_id == user_id)
     )

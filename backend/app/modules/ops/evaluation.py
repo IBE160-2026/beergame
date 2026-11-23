@@ -18,9 +18,10 @@ pseudonyms for evaluation (Story 15.4, FR-71, FR-67, FR-77, AD-12, AD-13, AD-14,
   those rows.
 
 **The seam for later epics.** A module that stores more Student data the evaluation needs
-(Individual test answers, Epic 11) adds a reader to its `service.py` with the signature of
-`Reader` and appends a `Section` to `SECTIONS`. A reader returns column names and rows, and puts
-the User id of a Student in a column named in `Section.student_columns`; this module replaces it.
+(as Epic 11's Individual test answers, `test_answers.csv`) adds a reader to its `service.py` with
+the signature of `Reader` and appends a `Section` to `SECTIONS`. A reader returns column names
+and rows, and puts the User id of a Student in a column named in `Section.student_columns`; this
+module replaces it.
 AI assessments and Indicative letters are never a section (FR-71).
 """
 
@@ -93,8 +94,10 @@ SECTIONS: list[Section] = [
     Section("decision_log.csv", games.export_decision_log),
     Section("starting_task.csv", tests.export_starting_task),
     Section("explanations.csv", debrief.export_explanations),
+    Section("test_answers.csv", tests.export_test_answers),
 ]
-"""The files of the export, in order (FR-71). Epic 11 appends the Individual test answers."""
+"""The files of the export, in order (FR-71): Epic 11's Individual test answers last. Epic 12's AI
+assessments and Indicative letters are never a section (FR-71, Story 15.4)."""
 CALLS_FILE = "llm_calls.csv"
 MANIFEST_FILE = "manifest.json"
 

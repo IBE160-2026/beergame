@@ -6368,15 +6368,18 @@ async def _hand_over_seats(user_id: uuid.UUID, now: datetime) -> None:
 
 
 async def _erase_session_data(s: AsyncSession, user_id: uuid.UUID) -> None:
-    """In the erasure's transaction: the Student's Tilrettelegging, and the bodies of the AI calls
-    made for them (a follow-up question quotes their own text)."""
+    """In the erasure's transaction: the Student's Tilrettelegging and own deadlines (Story 11.13),
+    and the bodies of the AI calls made for them (a follow-up question quotes their own text)."""
     await repo.delete_adjustments_of(s, user_id)
+    await repo.delete_extensions_of(s, user_id)
     await calls.clear_bodies_of_user(s, user_id)
 
 
 identity.register_erasure_preparation("games", {"seat_reclaims"}, _hand_over_seats)
 identity.register_erasure_step(
-    "sessions", {"student_adjustments", calls.CALL_TABLE}, _erase_session_data
+    "sessions",
+    {"student_adjustments", "student_deadline_extensions", calls.CALL_TABLE},
+    _erase_session_data,
 )
 
 
@@ -6460,7 +6463,8 @@ async def model_settings(
                 class_name=fact.name,
                 institution_name=fact.institution_name,
                 start_at=row["start_at"],
-                locked=is_locked(row, now=now),
+                # A Control test keeps the config it checks (Story 12.7's trigger): never pinnable.
+                locked=is_locked(row, now=now) or row["kind"] == CONTROL_TEST,
                 ai_mode=row["ai_mode"],
                 model_config_id=row["model_config_id"],
                 effort_level=row["effort_level"],
@@ -6474,7 +6478,8 @@ async def model_settings(
 
 class ModelConfigFrozen(Exception):
     """The Class session is locked or its Start date has passed: its model config is frozen in
-    `SessionRuntime` and can no longer change (AD-4, FR-68)."""
+    `SessionRuntime` and can no longer change (AD-4, FR-68). A Control test's never changes
+    (Story 12.7)."""
 
     code = "model_config_frozen"
 
@@ -6500,7 +6505,9 @@ async def pin_model_config(
     row = await repo.session_row(s, class_session_id, lock=True)
     if row is None:
         return None
-    if is_locked(row, now=now):
+    # A Control test's model config is the one its Scoring guide check names (Story 12.7, AD-27):
+    # a trigger refuses any change, so it is as frozen as a locked Class session's.
+    if is_locked(row, now=now) or row["kind"] == CONTROL_TEST:
         raise ModelConfigFrozen
     if row["model_config_id"] == model_config_id:
         return PinOutcome(False, model_config_id)

@@ -15,18 +15,22 @@ The Individual test's one timed sitting (Story 11.12, FR-51) is stored with the 
 through this module: `tests.sitting` keeps it, registered here with `sessions` for «Lagre
 Klasseøkt» and «Lag kopi» (FR-66)."""
 
+import json
 import uuid
 from collections.abc import Collection, Mapping
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import select, tuple_
+from sqlalchemy import select, text, tuple_
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai.calls import CALL_TABLE
 from app.analysis.scoring import score_sum
+from app.modules.assessment import service as assessment
 from app.modules.content import service as content
 from app.modules.content.schemas import StartingTask, StartingTaskItem
+from app.modules.identity import service as identity
 from app.modules.progress import service as progress
 from app.modules.sessions import service as sessions
 from app.modules.tests import sitting
@@ -243,6 +247,90 @@ async def export_starting_task(
     return STARTING_TASK_COLUMNS, [tuple(row) for row in rows]
 
 
+TEST_ANSWER_COLUMNS = (
+    "class_session_id",
+    "student",
+    "question_set_version",
+    "item_id",
+    "item_type",
+    "weight",
+    "answer",
+    "score",
+    "scored_version",
+    "saved_at",
+    "attempt_status",
+    "submitted_at",
+)
+"""The columns of the Individual test answers in the pseudonymised export (Story 15.4, FR-71,
+after Epic 11). `score` is the computed score (`analysis`), never an AI assessment (FR-71)."""
+
+
+def _export_answer(item_type: str | None, value: Any) -> Any:
+    """A long or Adapted answer as written (the CSV guards a formula); any other answer as compact
+    JSON, so a table's empty cells stay apart from its numbers."""
+    if item_type in TEXT_ITEM_TYPES and isinstance(value, str):
+        return value
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+
+
+async def export_test_answers(
+    s: AsyncSession,
+    class_session_ids: Collection[uuid.UUID],
+    in_scope: Any,
+    students: Any,
+) -> tuple[tuple[str, ...], list[tuple[Any, ...]]]:
+    """Every saved Individual test answer of the Class sessions for the pseudonymised export
+    (Story 15.4, FR-71, after Epic 11): one row per Student and item with the item's type and
+    weight from the attempt's frozen list, `student` the User id the caller replaces by a
+    pseudonym. Only the Students `students` keeps (`reports.scope`, AD-13: no test student, no
+    Control test); the answers belong to the Class session, so `in_scope` filters nothing here.
+    No AI assessment or Indicative letter is read (FR-71)."""
+    del in_scope
+    a, t = test_answers.c, test_attempts.c
+    rows = await s.execute(
+        select(
+            t.class_session_id,
+            t.user_id,
+            t.question_set_version,
+            t["items"],
+            t.status,
+            t.submitted_at,
+            a.item_id,
+            a.value,
+            a.score,
+            a.scored_version,
+            a.saved_at,
+        )
+        .join(test_attempts, test_attempts.c.id == a.attempt_id)
+        .where(
+            t.class_session_id.in_(list(class_session_ids)),
+            tuple_(t.class_session_id, t.user_id).in_(students),
+        )
+        .order_by(t.class_session_id, t.user_id, a.item_id)
+    )
+    found: list[tuple[Any, ...]] = []
+    for row in rows.mappings():
+        frozen = next((item for item in row["items"] if item["id"] == row["item_id"]), {})
+        kind = frozen.get("type")
+        found.append(
+            (
+                row["class_session_id"],
+                row["user_id"],
+                row["question_set_version"],
+                row["item_id"],
+                kind,
+                frozen.get("weight"),
+                _export_answer(kind, row["value"]),
+                row["score"],
+                row["scored_version"],
+                row["saved_at"],
+                row["status"],
+                row["submitted_at"],
+            )
+        )
+    return TEST_ANSWER_COLUMNS, found
+
+
 PARTS: dict[str, str] = {
     "choice": "choice",
     "table": "interactive",
@@ -307,3 +395,36 @@ async def parts_with_content(
 # «Lagre Klasseøkt» stores the timed sitting here (Story 11.12), and «Lag kopi» copies it (FR-66).
 sessions.register_test_sitting(sitting.minutes_of, sitting.write)
 sessions.register_copier(sitting.copy_sitting)
+
+
+TEXT_ITEM_TYPES = ("long", ADAPTED)
+"""The item types whose answer is text the Student wrote (Stories 11.6 and 11.7)."""
+
+_ERASE_ANSWER_TEXT = text(
+    """
+    UPDATE test_answers AS a SET value = to_jsonb(''::text)
+    FROM test_attempts AS t
+    WHERE a.attempt_id = t.id
+      AND t.user_id = :user_id
+      AND a.value IS DISTINCT FROM to_jsonb(''::text)
+      AND EXISTS (
+        SELECT 1 FROM jsonb_array_elements(t.items) AS item
+        WHERE item->>'id' = a.item_id AND item->>'type' = ANY(:types)
+      )
+    """
+)
+
+
+async def _erase_test_data(s: AsyncSession, user_id: uuid.UUID) -> None:
+    """In the erasure's transaction (Story 15.2, FR-76, after Epics 11 and 12): the text of the
+    Student's long and Adapted answers is emptied, as if they had cleared it; the answer rows, their
+    computed scores and ids stay, so the AI and human scores that name them hold. Then the written
+    feedback of their AI assessments and the bodies of the calls that assessed them
+    (`assessment.erase_feedback_of_user`). Idempotent."""
+    await s.execute(_ERASE_ANSWER_TEXT, {"user_id": user_id, "types": list(TEXT_ITEM_TYPES)})
+    await assessment.erase_feedback_of_user(s, user_id)
+
+
+identity.register_erasure_step(
+    "tests", {"test_answers", "ai_item_scores", CALL_TABLE}, _erase_test_data
+)

@@ -13,6 +13,7 @@ import unicodedata
 import uuid
 import zipfile
 
+import psycopg
 import pytest
 
 from app.ai import calls as ai_calls
@@ -111,6 +112,43 @@ def plant_starting_task(user_id: uuid.UUID, session_id: str) -> None:
     )
 
 
+LONG_ANSWER = "=Ordrene svinger fordi hvert ledd ser bare sine egne bestillinger."
+ITEMS = [
+    {"id": "valg-1", "type": "choice", "weight": 10},
+    {"id": "tabell-1", "type": "table", "weight": 20},
+    {"id": "langsvar-1", "type": "long", "weight": 30},
+]
+
+
+def plant_test_answers(user_id: uuid.UUID, session_id: str) -> None:
+    """A handed-in Individual test attempt with a choice, a table and a long answer."""
+    attempt = uuid.uuid7()
+    execute(
+        "INSERT INTO test_attempts (id, user_id, class_session_id, question_set_version, "
+        "selection, items, statement_accepted_at, status, submitted_at) VALUES (%s, %s, %s, 2, "
+        "'{}', %s, now(), 'submitted', now())",
+        attempt,
+        user_id,
+        session_id,
+        json.dumps(ITEMS),
+    )
+    for item_id, value, score in (
+        ("valg-1", "b", {"points": 1}),
+        ("tabell-1", [3, None, 5], {"points": 2}),
+        ("langsvar-1", LONG_ANSWER, None),
+    ):
+        execute(
+            "INSERT INTO test_answers (id, attempt_id, item_id, value, revision, saved_at, score, "
+            "scored_version) VALUES (%s, %s, %s, %s, 1, now(), %s, %s)",
+            uuid.uuid7(),
+            attempt,
+            item_id,
+            json.dumps(value),
+            None if score is None else json.dumps(score),
+            None if score is None else 2,
+        )
+
+
 async def test_an_agreed_export_gives_each_student_one_pseudonym_and_no_name(
     klass, admin, caplog, capsys
 ):
@@ -126,6 +164,7 @@ async def test_an_agreed_export_gives_each_student_one_pseudonym_and_no_name(
     for user_id in ids.values():
         plant_explanation(user_id, session_id, game_id)
         plant_starting_task(user_id, session_id)
+        plant_test_answers(user_id, session_id)
     # A Lecturer's test Game in the same Class session, played to its end by AI players, and an
     # Explanation of the Lecturer in it: neither is a reporting Game (AD-13).
     lecturer = user_id_of(LECTURER)
@@ -137,6 +176,7 @@ async def test_an_agreed_export_gives_each_student_one_pseudonym_and_no_name(
     await games_commands.start(test_game)
     plant_explanation(lecturer, session_id, test_game)
     plant_starting_task(lecturer, session_id)
+    plant_test_answers(lecturer, session_id)
 
     recorded = await agree(session_id)
     assert recorded.status_code == 200, recorded.text
@@ -164,6 +204,7 @@ async def test_an_agreed_export_gives_each_student_one_pseudonym_and_no_name(
         "llm_calls.csv",
         "starting_task.csv",
         "explanations.csv",
+        "test_answers.csv",
         "manifest.json",
     }
     named = {evaluation.pseudonym(KEY, user_id): user_id for user_id in ids.values()}
@@ -185,6 +226,19 @@ async def test_an_agreed_export_gives_each_student_one_pseudonym_and_no_name(
     assert {(row["student"], row["text"]) for row in explanations} == {
         (pseudonym, EXPLANATION) for pseudonym in named
     }
+    # The Individual test answers (Epic 11): a long answer as written, guarded against a formula,
+    # any other as JSON; the computed score, never an AI assessment (FR-71).
+    answers = found["test_answers.csv"]
+    assert {row["student"] for row in answers} == set(named)
+    by_item = {row["item_id"]: row for row in answers if row["student"] == stay_name}
+    assert (by_item["langsvar-1"]["item_type"], by_item["langsvar-1"]["answer"]) == (
+        "long",
+        f"'{LONG_ANSWER}",
+    )
+    assert by_item["tabell-1"]["answer"] == "[3,null,5]" and by_item["tabell-1"]["weight"] == "20"
+    assert by_item["valg-1"]["answer"] == '"b"'
+    assert json.loads(by_item["valg-1"]["score"]) == {"points": 1}
+    assert not {"letter", "ai_score", "feedback"} & set(answers[0])
     assert "key_fingerprint" not in found["manifest.json"]  # no help to guess the key offline
     assert found["manifest.json"]["class_sessions"] == [
         {"id": session_id, "deletion_date": retention.deletion_date(TEST).isoformat()}
@@ -215,7 +269,7 @@ async def test_an_agreed_export_gives_each_student_one_pseudonym_and_no_name(
 
     # The same key again: the same pseudonyms in every file.
     again = files(await export(session_id))
-    for name in ("decision_log.csv", "starting_task.csv", "explanations.csv"):
+    for name in ("decision_log.csv", "starting_task.csv", "explanations.csv", "test_answers.csv"):
         assert again[name] == found[name], name
 
     # The key is nowhere: not in any table (the job tables included) and not in any log line.
@@ -240,6 +294,38 @@ async def test_an_agreed_export_gives_each_student_one_pseudonym_and_no_name(
     [listed_session] = listed[0]["class_sessions"]
     assert listed_session["id"] == session_id
     assert listed_session["deletion_date"] == retention.deletion_date(TEST).isoformat()
+
+
+async def test_test_students_and_control_tests_are_left_out(klass, admin):
+    """AD-13 through `reports.scope`: a test student (Story 12.8) is in no file, and a Control
+    test's Class session (Story 12.7) gives no row at all."""
+    session_id, game_id, by_role = await running(klass, students=2)
+    await played_to(game_id, list(by_role), 2)
+    ids = [user_id_of(address) for address in by_role.values()]
+    for user_id in ids:
+        plant_explanation(user_id, session_id, game_id)
+        plant_starting_task(user_id, session_id)
+        plant_test_answers(user_id, session_id)
+    tester, student = ids
+    execute("UPDATE users SET is_test_student = true WHERE id = %s", tester)
+    assert (await agree(session_id)).status_code == 200
+
+    found = files(await export(session_id))
+    for name in ("decision_log.csv", "starting_task.csv", "explanations.csv", "test_answers.csv"):
+        assert {row["student"] for row in found[name]} - {""} == {
+            evaluation.pseudonym(KEY, student)
+        }, name
+
+    # The same Class session as a Control test (its kind never changes in the app: the trigger
+    # is bypassed here) holds nothing a report counts.
+    from tests.conftest import TEST_DATABASE_URL, libpq_dsn
+
+    with psycopg.connect(libpq_dsn(TEST_DATABASE_URL)) as conn:
+        conn.execute("SET LOCAL session_replication_role = replica")
+        conn.execute("UPDATE class_sessions SET kind = 'control_test' WHERE id = %s", (session_id,))
+    found = files(await export(session_id))
+    for name in ("decision_log.csv", "starting_task.csv", "explanations.csv", "test_answers.csv"):
+        assert found[name] == [], name
 
 
 async def test_a_changed_key_is_refused_until_the_fingerprint_is_replaced(klass, admin):
