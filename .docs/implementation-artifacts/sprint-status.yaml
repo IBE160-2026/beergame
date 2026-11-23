@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-17-2026 12:28
-last_updated: 11-23-2026 03:26
+last_updated: 11-23-2026 07:47
 project: beergame
 project_key: NOKEY
 tracking_system: file-system
@@ -242,18 +242,18 @@ development_status:
   13-5-continue-to-the-debrief-the-replay-and-the-test-from-a-finis: done
   13-6-message-the-students-who-have-not-met-the-requirement: done
   13-7-a-student-downloads-the-student-report-as-a-tagged-pdf: done
-  13-8-the-student-report-shows-the-game-with-its-charts: in-progress
-  13-9-a-student-is-told-when-their-data-will-be-deleted: backlog
-  13-10-the-student-report-documents-the-debrief-the-replay-and-the: backlog
+  13-8-the-student-report-shows-the-game-with-its-charts: done
+  13-9-a-student-is-told-when-their-data-will-be-deleted: done
+  13-10-the-student-report-documents-the-debrief-the-replay-and-the: in-progress
   13-11-the-person-downloading-can-add-the-ai-assessment-section: backlog
   13-12-staff-download-one-student-s-report-at-any-time: backlog
   13-13-download-all-student-reports-as-one-zip: backlog
   13-14-export-the-completion-status: backlog
   epic-13-retrospective: optional
 
-  epic-14: backlog
-  14-1-class-report-of-the-games: backlog
-  14-2-class-report-of-learning-results: backlog
+  epic-14: in-progress
+  14-1-class-report-of-the-games: done
+  14-2-class-report-of-learning-results: in-progress
   14-3-compare-class-sessions-in-tverrklasse-statistikk: backlog
   14-4-filter-comparisons-and-label-class-sessions-that-differ: backlog
   14-5-students-see-all-class-games-side-by-side: backlog
@@ -268,13 +268,13 @@ development_status:
   15-3-student-data-is-deleted-automatically-when-retention-ends: backlog
   15-4-the-admin-exports-pseudonymised-data-for-evaluation: done
   15-5-the-admin-pins-and-freezes-a-model-for-class-sessions: done
-  15-6-the-admin-sees-ai-cost-and-sets-the-cost-limit: in-progress
+  15-6-the-admin-sees-ai-cost-and-sets-the-cost-limit: done
   15-7-the-admin-is-alerted-when-daily-ai-spend-is-high: done
   15-8-the-admin-sees-errors-fallback-and-response-times-per-class: done
   15-9-the-database-connection-budget-is-written-and-checked: done
   15-10-a-load-test-shows-250-students-playing-at-once: backlog
   15-11-errors-reach-an-error-tracker-without-personal-data-and-back: done
-  15-12-hold-student-invitations-until-the-institution-s-data-proces: backlog
+  15-12-hold-student-invitations-until-the-institution-s-data-proces: in-progress
   15-13-publish-the-accessibility-statement-and-the-conformance-repo: done
   15-14-the-pre-pilot-checks-pass-before-the-first-class-session: backlog
   epic-15-retrospective: optional
