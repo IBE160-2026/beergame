@@ -926,10 +926,10 @@ export interface paths {
          *     one row per Student reports count, with the fixed columns `completion_export.COLUMNS` (name,
          *     email, the date each step was done, the shares, the Oppfølgingsspill, the correction mark and
          *     whether the requirement is met), every value from the one Completion assembler. Never an AI
-         *     score, AI feedback or Indicative letter. Built now and streamed, never stored; recorded in the
-         *     audit log. 409 `data_deleted` once the Student data is deleted; 403 `forbidden` for an
-         *     Assistant lecturer, anyone else outside the Class's Lecturers and a Class session that does
-         *     not exist (FR-5, AD-12).
+         *     score, AI feedback or Indicative letter. Built now and sent, never stored; recorded in the
+         *     audit log once the file is built. 409 `data_deleted` once the Student data is deleted; 403
+         *     `forbidden` for an Assistant lecturer, anyone else outside the Class's Lecturers and a Class
+         *     session that does not exist (FR-5, AD-12).
          */
         get: operations["downloadCompletionExport"];
         put?: never;

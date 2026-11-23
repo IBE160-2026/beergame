@@ -18839,7 +18839,7 @@
     },
     "/api/class-sessions/{session_id}/completion-export": {
       "get": {
-        "description": "«Last ned fullføringsliste (CSV eller Excel)» (Story 13.14, FR-60, FR-17, AD-14, AD-16):\none row per Student reports count, with the fixed columns `completion_export.COLUMNS` (name,\nemail, the date each step was done, the shares, the Oppfølgingsspill, the correction mark and\nwhether the requirement is met), every value from the one Completion assembler. Never an AI\nscore, AI feedback or Indicative letter. Built now and streamed, never stored; recorded in the\naudit log. 409 `data_deleted` once the Student data is deleted; 403 `forbidden` for an\nAssistant lecturer, anyone else outside the Class's Lecturers and a Class session that does\nnot exist (FR-5, AD-12).",
+        "description": "«Last ned fullføringsliste (CSV eller Excel)» (Story 13.14, FR-60, FR-17, AD-14, AD-16):\none row per Student reports count, with the fixed columns `completion_export.COLUMNS` (name,\nemail, the date each step was done, the shares, the Oppfølgingsspill, the correction mark and\nwhether the requirement is met), every value from the one Completion assembler. Never an AI\nscore, AI feedback or Indicative letter. Built now and sent, never stored; recorded in the\naudit log once the file is built. 409 `data_deleted` once the Student data is deleted; 403\n`forbidden` for an Assistant lecturer, anyone else outside the Class's Lecturers and a Class\nsession that does not exist (FR-5, AD-12).",
         "operationId": "downloadCompletionExport",
         "parameters": [
           {
