@@ -20,7 +20,7 @@ from tests.classes.test_classes import LECTURER, OTHER, make
 from tests.classes.test_invitation_counts import execute
 from tests.classes.test_staff import call, put_staff
 from tests.messaging.helpers import rows
-from tests.reports.test_class_report import add_game, report
+from tests.reports.test_class_report import add_game, fail, report
 from tests.sessions.test_dates import DAY, TEST, new_session
 from tests.sessions.test_game_end import (
     WEEKS,
@@ -516,5 +516,5 @@ async def test_a_job_that_failed_three_times_is_not_deferred_again(klass):
     for _ in range(aggregates.MAX_FAILURES):
         assert key in await aggregates.due_sessions(AFTER)
         assert await aggregates.defer_due(key, AFTER) is True
-        execute("UPDATE procrastinate_jobs SET status = 'failed' WHERE queueing_lock = %s", lock)
+        fail(lock)
     assert key not in await aggregates.due_sessions(AFTER)

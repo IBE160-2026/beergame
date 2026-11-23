@@ -13,6 +13,7 @@ from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
+from typing import Any
 
 from sqlalchemy import func, select, text, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -55,6 +56,7 @@ __all__ = [
     "student_count",
     "class_games_without_fact_sets",
     "latest_report_changes",
+    "sessions_without_fact_sets",
 ]
 
 
@@ -438,30 +440,63 @@ async def latest_report_changes(
     return {cs: at for cs, at in found if at is not None}
 
 
-async def class_games_without_fact_sets(
-    session: AsyncSession, finished_before: datetime, limit: int
-) -> list[tuple[uuid.UUID, uuid.UUID]]:
-    """Story 14.1 (FR-64): `(game_id, class_session_id)` of each finished Class game whose Seats
-    do not all have a facts set yet, finished (database time) at or before `finished_before`,
-    oldest first, at most `limit`: a game finished before the facts job existed, or whose job
-    failed. The caller leaves out Control test Class sessions and live or failed-out jobs."""
+def _missing_facts(finished_before: datetime) -> Any:
+    """The finished Class games whose Seats do not all have a facts set, finished (database time)
+    at or before `finished_before`, with the finish time."""
     stored = (
         select(func.count())
         .select_from(fact_sets)
         .where(fact_sets.c.game_id == games.c.id)
         .scalar_subquery()
     )
-    held = select(func.count()).select_from(seats).where(seats.c.game_id == games.c.id)
-    found = await session.execute(
-        select(games.c.id, games.c.class_session_id)
+    held = (
+        select(func.count()).select_from(seats).where(seats.c.game_id == games.c.id)
+    ).scalar_subquery()
+    return (
+        select(
+            games.c.id,
+            games.c.class_session_id,
+            game_weeks.c.created_at.label("finished_at"),
+        )
         .join(game_weeks, (game_weeks.c.game_id == games.c.id) & game_weeks.c.finished)
         .where(
             games.c.class_session_id.is_not(None),
             games.c.purpose == Purpose.CLASS.value,
             game_weeks.c.created_at <= finished_before,
-            stored < held.scalar_subquery(),
+            stored < held,
         )
+    )
+
+
+async def sessions_without_fact_sets(
+    session: AsyncSession, finished_before: datetime
+) -> list[uuid.UUID]:
+    """Story 14.1 (FR-64): the Class sessions with a finished Class game whose Seats do not all
+    have a facts set, finished (database time) at or before `finished_before`, once each, in one
+    read: the caller narrows them to reporting ones before it takes a batch of their games
+    (`class_games_without_fact_sets`), so games no job builds (a Control test's) never fill it."""
+    missing = _missing_facts(finished_before).subquery()
+    found = await session.scalars(select(missing.c.class_session_id).distinct())
+    return sorted(found)
+
+
+async def class_games_without_fact_sets(
+    session: AsyncSession,
+    finished_before: datetime,
+    limit: int,
+    class_session_ids: Collection[uuid.UUID],
+) -> list[tuple[uuid.UUID, uuid.UUID]]:
+    """Story 14.1 (FR-64): `(game_id, class_session_id)` of each finished Class game of
+    `class_session_ids` whose Seats do not all have a facts set yet, finished (database time) at
+    or before `finished_before`, oldest first, at most `limit`: a game finished before the facts
+    job existed, or whose job failed. The caller leaves out live or failed-out jobs."""
+    if not class_session_ids:
+        return []
+    query = (
+        _missing_facts(finished_before)
+        .where(games.c.class_session_id.in_(list(class_session_ids)))
         .order_by(game_weeks.c.created_at, games.c.id)
         .limit(limit)
     )
-    return [(game_id, class_session_id) for game_id, class_session_id in found]
+    found = await session.execute(query)
+    return [(row.id, row.class_session_id) for row in found]

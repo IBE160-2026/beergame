@@ -23,7 +23,7 @@ import asyncio
 import importlib
 import uuid
 from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import procrastinate
 import structlog
@@ -84,6 +84,9 @@ TASK_MODULES = (
     "app.modules.reports.aggregates",  # the stored aggregates of Story 14.3
 )
 """The modules that register tasks on `app`; a worker imports them before it runs."""
+
+FAILURE_WINDOW = timedelta(hours=24)
+"""How far back `failed_counts` counts a job's failures by default."""
 
 app = procrastinate.App(connector=procrastinate.PsycopgConnector())
 """Tasks register here (`@app.task(name=..., queue=...)`); `defer` and the worker use it."""
@@ -186,19 +189,25 @@ async def live_locks(session: AsyncSession, locks: Iterable[str]) -> set[str]:
     return {str(lock) for lock in result.scalars()}
 
 
-async def failed_counts(session: AsyncSession, locks: Iterable[str]) -> dict[str, int]:
-    """Of `locks`, how many jobs under each queueing lock ended `failed`: a sweep that defers a
-    lost job again stops after a few failures, so a job that always fails is not deferred every
-    minute (close-out of Epic 14). A lock with none is left out."""
+async def failed_counts(
+    session: AsyncSession, locks: Iterable[str], within: timedelta = FAILURE_WINDOW
+) -> dict[str, int]:
+    """Of `locks`, how many jobs under each queueing lock failed in the last `within` (database
+    time, by procrastinate's `failed` event): a sweep that defers a lost job again stops after a
+    few recent failures, so a job that always fails is not deferred every minute, and tries again
+    once they age out, so a failure a deploy fixed blocks nothing for good (close-out of Epic 14).
+    A lock with none is left out."""
     wanted = sorted(set(locks))
     if not wanted:
         return {}
     result = await session.execute(
         text(
-            "SELECT queueing_lock, count(*) FROM procrastinate_jobs "
-            "WHERE queueing_lock = ANY(:locks) AND status = 'failed' GROUP BY queueing_lock"
+            "SELECT j.queueing_lock, count(DISTINCT j.id) FROM procrastinate_jobs AS j "
+            "JOIN procrastinate_events AS e ON e.job_id = j.id AND e.type = 'failed' "
+            "WHERE j.queueing_lock = ANY(:locks) AND j.status = 'failed' "
+            "AND e.at > now() - :within GROUP BY j.queueing_lock"
         ),
-        {"locks": wanted},
+        {"locks": wanted, "within": within},
     )
     return {str(lock): int(count) for lock, count in result}
 

@@ -24,6 +24,7 @@ from app.engine.settings import ROLES
 from app.modules.games import service as games
 from app.modules.games.service import Purpose
 from app.modules.reports import scope
+from app.modules.sessions import service as sessions
 from app.platform import events, jobs
 from app.platform.db import get_sessionmaker
 
@@ -83,25 +84,28 @@ async def due_games(now: datetime) -> list[tuple[str, str]]:
     """The sweep's finder (close-out of Epic 14): `(game_id, class_session_id)` of each finished
     Class game of a reporting Class session that finished more than `SWEEP_AFTER` ago and whose
     Seats do not all have a facts set: one finished before this job existed, or whose job was
-    lost or failed. A game with a live job, or whose job failed `MAX_FAILURES` times, is left
-    out. At most `SWEEP_BATCH`."""
+    lost or failed. A game with a live job, or whose job failed `MAX_FAILURES` times in the last
+    day (`jobs.failed_counts`), is left out. At most `SWEEP_BATCH`."""
+    before = now - SWEEP_AFTER
     async with get_sessionmaker()() as s:
-        found = await games.class_games_without_fact_sets(s, now - SWEEP_AFTER, SWEEP_BATCH * 4)
-        if not found:
-            return []
+        wanted = []
+        for class_session_id in await games.sessions_without_fact_sets(s, before):
+            # A Control test's games get no job, and a Class session whose Student data
+            # retention deleted is built no more.
+            target = await sessions.retention_target(s, class_session_id)
+            if target is None or target.data_deleted_at is not None:
+                continue
+            if await scope.is_reporting_session(s, class_session_id):
+                wanted.append(class_session_id)
+        found = await games.class_games_without_fact_sets(s, before, SWEEP_BATCH * 4, wanted)
         keys = [facts_key(game_id) for game_id, _ in found]
         live = await jobs.live_locks(s, keys)
         failed = await jobs.failed_counts(s, keys)
-        reporting: dict[uuid.UUID, bool] = {}
-        due: list[tuple[str, str]] = []
-        for game_id, class_session_id in found:
-            key = facts_key(game_id)
-            if key in live or failed.get(key, 0) >= MAX_FAILURES:
-                continue
-            if class_session_id not in reporting:
-                reporting[class_session_id] = await scope.is_reporting_session(s, class_session_id)
-            if reporting[class_session_id]:
-                due.append((str(game_id), str(class_session_id)))
+    due = [
+        (str(game_id), str(class_session_id))
+        for game_id, class_session_id in found
+        if facts_key(game_id) not in live and failed.get(facts_key(game_id), 0) < MAX_FAILURES
+    ]
     return due[:SWEEP_BATCH]
 
 

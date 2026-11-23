@@ -262,11 +262,14 @@ def test_reports_reaches_other_modules_only_through_their_service_and_nothing_im
             # Story 13.7 (AD-14): the sweep purges the expired report snapshots a killed render
             # left behind, through `reports.snapshot.purge_expired`.
             # Story 14.3 (AD-9): and defers the job that stores a Class session's aggregate, through
-            # `reports.aggregates`, whose import registers retention's aggregate gate.
+            # `reports.aggregates`, whose import registers retention's aggregate gate; and
+            # (Epic 14's close-out) defers a missing facts job again, through
+            # `reports.class_report_jobs`.
             if path == APP / "modules" / "ops" / "sweep.py":
                 assert name in (
                     "app.modules.reports.snapshot",
                     "app.modules.reports.aggregates",
+                    "app.modules.reports.class_report_jobs",
                 ), f"{path.name}:{line} imports {name}"
                 continue
             # Story 15.4 (AD-13): the pseudonymised export reads through the one reporting scope,

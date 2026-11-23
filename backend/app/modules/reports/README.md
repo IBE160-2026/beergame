@@ -187,11 +187,9 @@ the AI player ordered in, not only the first. Headers and values are stored code
 (`games.game_data_rows`), streamed, never stored; one audit row `game_data_export.downloaded` with
 the number of Games and rows. `ZipStateOut.game_data_export` tells the block whether to offer it.
 
-## Waiting for Epic 12 on this branch
+## Control tests and test students
 
-Control test Class sessions (`kind=control_test`, Story 12.7) and test students
-(`is_test_student`, Story 12.8) are built in Epic 12. `scope` reads them through two hooks,
-`register_control_test_sessions` and `register_test_students`, that default to "none". At the
-merge with Epic 12, register the real reads from `sessions.service` and `identity.service` here
-(in `scope.py`). The staff list of AI assessments (Story 12.5) should then read its Students
-through `scope.reporting_students`.
+`scope` names Control test Class sessions (`kind=control_test`, Story 12.7) through
+`sessions.service.kind_of` and test students (`is_test_student`, Story 12.8) through
+`identity.service.test_students`, by default; `register_control_test_sessions` and
+`register_test_students` let a test swap either read.

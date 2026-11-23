@@ -147,7 +147,8 @@ test("each User refused a page gets a link to their own home", async ({ browser 
         const page = await context.newPage();
         await loginByApi(page, role);
         await page.goto(path);
-        await expect(page.getByRole("heading", { level: 1, name: nb.access.denied })).toBeVisible();
+        // Six pages render at once beside the other workers: the first one may take longer.
+        await expect(page.getByRole("heading", { level: 1, name: nb.access.denied })).toBeVisible({ timeout: 15_000 });
         await expect(page.getByRole("main").getByRole("link")).toHaveText([link]);
         await expect(page).toHaveTitle(`${nb.access.denied} – ${nb.product.name}`);
       } finally {

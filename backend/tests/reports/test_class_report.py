@@ -71,6 +71,21 @@ def add_game(session_id: str, number: int, status: str, purpose: str = "class") 
     return game_id
 
 
+def fail(lock: str) -> None:
+    """The waiting job under `lock` runs and fails, as a worker would mark it (procrastinate
+    records the `failed` event on the change from `doing`)."""
+    execute(
+        "UPDATE procrastinate_jobs SET status = 'doing' "
+        "WHERE queueing_lock = %s AND status = 'todo'",
+        lock,
+    )
+    execute(
+        "UPDATE procrastinate_jobs SET status = 'failed' "
+        "WHERE queueing_lock = %s AND status = 'doing'",
+        lock,
+    )
+
+
 def test_the_pure_helpers_round_half_up_and_take_the_middle_of_the_ratings():
     assert class_report.percent(1, 3) == Decimal("33.3")
     assert class_report.percent(2, 3) == Decimal("66.7")
@@ -330,10 +345,10 @@ async def test_the_sweep_builds_missing_facts_sets_until_the_job_has_failed_thre
     assert await class_report_jobs.defer_due(item, later) is True
     assert item not in await class_report_jobs.due_games(later)
     for _ in range(class_report_jobs.MAX_FAILURES - 1):
-        execute("UPDATE procrastinate_jobs SET status = 'failed' WHERE queueing_lock = %s", key)
+        fail(key)
         assert item in await class_report_jobs.due_games(later)
         assert await class_report_jobs.defer_due(item, later) is True
-    execute("UPDATE procrastinate_jobs SET status = 'failed' WHERE queueing_lock = %s", key)
+    fail(key)
     assert item not in await class_report_jobs.due_games(later)
     # Once its sets are stored, nothing is missing.
     execute("DELETE FROM procrastinate_jobs WHERE queueing_lock = %s", key)

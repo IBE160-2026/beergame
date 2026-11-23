@@ -176,3 +176,7 @@ Review: four layers (blind, edge case, verification gap, intent alignment; Sonne
 Verification: backend full suite 3912 passed before the review patches (`--maxprocesses=8`), touched tests 28 passed after; frontend typecheck, Vitest 1234 passed, lint:colours, check:copy, build (frontend image) passed; Playwright class-report, homes, order-field 37 passed after the patches. New test over 1 s: `test_the_read_takes_a_fixed_number_of_queries_whatever_the_number_of_students` (about 1.4 s, 12 Students).
 
 Residual risks: the Students stand-in must be relinked to `reports.scope.reporting_students` at the Epic 13 merge; `tests/service.py`, `sessions/service.py`, `nb.ts` touch lines near Epic 13's (small mechanical conflicts possible). Pre-existing on the branch: `backend/tests/reports/test_class_report.py` (14.1) fails `ruff check` (import line too long); left untouched.
+
+## Close-out of Epic 14 (2026-11-23)
+
+Both deferred test gaps are closed: `test_a_locked_session_reads_the_selection_its_lock_pinned` and `test_with_no_test_deadline_everyone_who_has_not_handed_in_is_still_to_submit`. The live report still has no minimum group size (the 10-Student rule is for stored aggregates), recorded as a founder decision.

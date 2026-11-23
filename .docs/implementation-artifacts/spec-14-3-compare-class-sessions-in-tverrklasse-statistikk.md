@@ -150,3 +150,7 @@ Blocking condition: none
 **New personal-data tables.** None: `class_aggregates` and `class_aggregate_measures` hold no `user_id` or user text (registry `none`).
 
 **Residual risks.** The deferred items.
+
+## Close-out of Epic 14 (2026-11-23)
+
+Follow-up review (sonnet, `review-closeout14-aggregate`): no high finding; the row-locked re-check and the header-then-measures write hold. Fixed: the aggregate is stamped in database time and is due again when a game finishes, a facts set is stored or a rating is given after it (`games.latest_report_changes`), the deferred refresh item; a job with three failures in the last 24 hours is not deferred again (the back-off item; failures age out, so a fixed bug blocks nothing for good); the deletion date is judged at the lock. 0401 now follows Epic 15's 0073. Left: late hand-ins with the AI assessment off and roster changes after the write do not make it due (low; the latest effective Test deadline already waits for extensions).

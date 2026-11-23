@@ -128,7 +128,7 @@ export function Bars({
   return (
     <ol className="mt-1" data-bars={name}>
       {rows.map((row) => (
-        <li key={row.key} className="grid grid-cols-[minmax(0,1fr)_3rem_minmax(4rem,1fr)] items-center lg:grid-cols-[minmax(0,12rem)_3.5rem_minmax(0,1fr)] gap-x-3 py-0.5 text-body-phone lg:text-body">
+        <li key={row.key} className="grid grid-cols-[minmax(0,1fr)_3rem_minmax(4rem,1fr)] items-center lg:grid-cols-[minmax(0,min(12rem,40%))_3.5rem_minmax(4rem,1fr)] gap-x-3 py-0.5 text-body-phone lg:text-body">
           <span className="sr-only">{row.reads}</span>
           <span aria-hidden="true" className="[overflow-wrap:anywhere]">
             {row.label}

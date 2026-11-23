@@ -381,7 +381,9 @@ async def reflected(me: str, mate: str, path: str, debrief: dict, emitted) -> No
     for qid, text in (("evidence", "Fabrikken svingte mest."), ("structure", "Forsinkelser.")):
         assert (await call(me, "POST", f"{answer}/{qid}", json={"text": text})).status_code == 200
     mine = user_id(me)
-    assert answers() == [
+    # In the questions' order: rows saved within one clock tick have no order of their own.
+    steps = ["feelings", "evidence", "structure"]
+    assert sorted(answers(), key=lambda row: steps.index(row[1])) == [
         (mine, "feelings", 1, " Stressende. ", 13),
         (mine, "evidence", 1, "Fabrikken svingte mest.", 23),
         (mine, "structure", 1, "Forsinkelser.", 13),

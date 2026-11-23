@@ -208,8 +208,8 @@ async def write_aggregate(
     now = now or auth.utcnow()
     async with get_sessionmaker()() as s:
         # Database time, read before the figures: the finder compares it with when a game, a facts
-        # set, a rating or an assessment last changed (also database time, Issue #63), so a change
-        # after this read makes the aggregate due again.
+        # set or a rating last changed (database time too, Issue #63; an assessment's `updated_at`
+        # is the app's clock, on the same host), so a change after this read makes it due again.
         started = await s.scalar(select(func.now()))
         target = await sessions.retention_target(s, class_session_id)
         reporting = target is not None and await scope.is_reporting_session(s, class_session_id)
@@ -227,7 +227,9 @@ async def write_aggregate(
         locked = await sessions.retention_target(s, class_session_id, lock=True)
         if locked is None or locked.data_deleted_at is not None:
             return False
-        today = now.astimezone(retention_rule.OSLO).date()
+        # Judged at the lock, not when the job began: a run across Oslo midnight writes nothing
+        # once the deletion date has come.
+        today = max(now, auth.utcnow()).astimezone(retention_rule.OSLO).date()
         if not for_retention and locked.deletion_date is not None and locked.deletion_date <= today:
             return False
         facts = (await classes.class_facts(s, [locked.class_id])).get(locked.class_id)

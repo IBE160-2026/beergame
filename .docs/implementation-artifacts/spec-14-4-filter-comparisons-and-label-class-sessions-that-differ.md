@@ -151,3 +151,7 @@ Blocking condition: none
 **New personal-data tables.** None (no migration).
 
 **Residual risks.** The deferred item.
+
+## Close-out of Epic 14 (2026-11-23)
+
+Follow-up review (sonnet, `review-closeout14-comparability`): the score-comparability rule matches the spec (all three keys stored and equal); tokens cannot leak or error. The deferred serialisation item is fixed: `sessions._comparable_settings` reads the Game settings through `GameSettings` with normalised rates, so a lock snapshot and a saved row of the same settings are one filter option (tested). Aggregates written before this keep their old form until rewritten (no production data yet). Low items left: the line reads «ulike» also when keys are missing; non-comparable score bars are drawn at full weight under the warning line.

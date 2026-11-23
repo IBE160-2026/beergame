@@ -191,7 +191,8 @@ test("two sessions made in the same minute have labels of their own (Issue #98)"
   await newSession(lecturer, klass.id);
   await newSession(lecturer, klass.id);
   await lecturer.goto(`/klasser/${klass.id}`);
-  const links = lecturer.getByRole("region", { name: copy.list.title }).getByRole("link");
+  // The sessions' own links (Epic 14 adds «Klasserapport» per session and «Tverrklasse-statistikk»).
+  const links = lecturer.getByRole("region", { name: copy.list.title }).getByRole("link", { name: /^Klasseøkt \d+, opprettet / });
   await expect(links).toHaveCount(2);
   const labels = await links.allTextContents();
   expect(new Set(labels).size).toBe(2);

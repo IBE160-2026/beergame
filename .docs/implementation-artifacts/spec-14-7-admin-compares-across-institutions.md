@@ -157,3 +157,7 @@ Blocking condition: none
 **New personal-data tables.** None (one column added to `class_aggregates`, an Institution id; registry stays `none`).
 
 **Residual risks.** Pilot-scale reads (all aggregates per request).
+
+## Close-out of Epic 14 (2026-11-23)
+
+Follow-up review (sonnet, `review-closeout14-access`): no defect. The REPEATABLE READ read is set before the first statement on one connection and does not leak; `_cross_institution_stats` is in-memory (flag and `authz.can`) and false for non-Admins or with the flag off; the route is 404 with the flag off; figures are medians of stored, non-withheld rows. Founder decision recorded earlier stands: an Institution with one compared Class session shows that session's figures (each over at least 10 Students).

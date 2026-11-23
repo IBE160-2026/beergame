@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useId, useRef, useState } from "react";
 
 import { ActionError } from "@/components/action-error";
-import { Button } from "@/components/button";
+import { Button, buttonClassName } from "@/components/button";
 import { nb } from "@/copy/nb";
 import { ApiRequestError } from "@/lib/api/client";
 import { useAction } from "@/lib/api/mutation";
@@ -173,7 +173,7 @@ export function ExportBlock({ sessionId }: { sessionId: string }) {
           {state.game_data_export ? (
             <a
               href={gameDataExportPath(sessionId)}
-              className={`${LINK} min-w-tap-target-min`}
+              className={buttonClassName("secondary")}
               download
               data-export-game-data=""
             >

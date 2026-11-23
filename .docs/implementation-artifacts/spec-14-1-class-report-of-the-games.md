@@ -162,3 +162,7 @@ Review: two layers (blind, edge case; verification-gap and intent-alignment skip
 Verification: backend full suite 3893 passed before the patches, touched tests 24 passed after; frontend typecheck, Vitest 1228 passed, lint:colours, check:copy, build passed; Playwright class-report, overview, homes, order-field, classes 49 passed after the patches, axe on the report at 320 px, 1280 px with 200 % text and 1440 px.
 
 Residual risks: games finished before deploy have no facts sets (deferred backfill); the scope stand-in must be relinked to reports.scope at the Epic 13 merge; `main.py`, `jobs/__init__.py`, `authz.py`, `topics.ts`, `nb.ts` touch lines near Epic 13's changes (small mechanical conflicts possible).
+
+## Close-out of Epic 14 (2026-11-23)
+
+The deferred backfill and retry are done: the sweep's `reports.class_facts` (`class_report_jobs.due_games`) defers the facts job again for a finished Class game of a reporting, undeleted Class session whose Seats lack facts sets ten minutes after it finished (games from before the job existed included), unless a job is alive or three failed in the last 24 hours (`jobs.failed_counts`, by procrastinate's `failed` events). The scope relink was done at the Epic 13 merge. Still open as a founder decision: plausibility ratings have no minimum group size in the live report.

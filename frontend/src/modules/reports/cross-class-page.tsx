@@ -175,7 +175,7 @@ export function CompareBars({ rows, name }: { rows: readonly CompareRow[]; name:
       {rows.map((row) => (
         <li
           key={row.key}
-          className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 py-1 text-body-phone lg:grid-cols-[minmax(0,12rem)_minmax(0,1fr)_auto] lg:text-body"
+          className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 py-1 text-body-phone lg:grid-cols-[minmax(0,min(12rem,40%))_minmax(4rem,1fr)_auto] lg:text-body"
           data-compare-row=""
         >
           <span className="sr-only">{row.reads}</span>

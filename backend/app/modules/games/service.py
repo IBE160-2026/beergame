@@ -38,6 +38,7 @@ from app.modules.games.class_figures import (
     report_class_games,
     seat_counts,
     seat_figures,
+    sessions_without_fact_sets,
     student_count,
 )
 from app.modules.games.insight import (
@@ -263,6 +264,7 @@ __all__ = [
     # The close-out of Epic 14: late changes reach the aggregate; missing facts sets are built.
     "latest_report_changes",
     "class_games_without_fact_sets",
+    "sessions_without_fact_sets",
     "FallbackCount",
     "SessionAiFigures",
     "class_session_of",
