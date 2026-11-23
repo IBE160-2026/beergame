@@ -343,7 +343,7 @@ function OverviewBody({
   const alertId = data.before_start ? null : (data.alert?.game_id ?? null);
   if (data.before_start) {
     return (
-      <RailLayout rail={<OverviewRail data={data} groups={groups} now={now} />}>
+      <RailLayout rail={<OverviewRail sessionId={sessionId} data={data} groups={groups} now={now} />}>
         <Allocation data={data} sessionId={sessionId} />
       </RailLayout>
     );
@@ -373,7 +373,7 @@ function OverviewBody({
         <AutoUpdate controls={controls} />
       </div>
       <RailLayout
-        rail={<OverviewRail data={data} groups={groups} now={now} alertId={alertId} />}
+        rail={<OverviewRail sessionId={sessionId} data={data} groups={groups} now={now} alertId={alertId} />}
         after={
           groups.length > 0 ? (
             <>

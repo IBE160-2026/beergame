@@ -1,7 +1,9 @@
 """Messages from staff to Students (Story 7.9, FR-40, AD-9, AD-12, AD-14).
 
 A Lecturer or Assistant lecturer of a Class writes one Message to one Student, a Class game or a
-whole Class session; a calling module may also pass an explicit list of Students (Epic 13).
+whole Class session; a calling module may also pass an explicit list of Students (Epic 13). Story
+13.6 adds the Students of an Obligatory class session who have not met the requirement, a list
+`reports.service` resolves when the Message is sent, so a Student who met it meanwhile is left out.
 `send_message` stores the Message and one recipient row per Student in the caller's transaction,
 asks `platform/notify` to tell each of them (kind `message`, delivered at once by Story 3.5's
 pipeline) and emits `session:<id>`. A repeated request carries the same client-made key and finds
@@ -17,18 +19,21 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
+from typing import Literal
 
 import structlog
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.analysis.completion import CompletionStatus
 from app.modules.classes import service as classes
 from app.modules.games import service as games
 from app.modules.identity import service as identity
 from app.modules.messaging.models import message_recipients, messages
 from app.modules.sessions import service as sessions
 from app.platform import authz, events, notify
+from app.platform.collation import nb_sort_key
 from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker
 
@@ -41,6 +46,7 @@ __all__ = [
     "SentListItem",
     "MessageForm",
     "MessageRefused",
+    "NotMetStudent",
     "Recipient",
     "RecipientKind",
     "SentMessage",
@@ -72,6 +78,9 @@ class RecipientKind(StrEnum):
     CLASS_SESSION = "class_session"
     LIST = "list"
     """Students a calling module names (Epic 13); never offered by the api."""
+    REQUIREMENT_NOT_MET = "requirement_not_met"
+    """The Students of an Obligatory class session who have not met the requirement when the
+    Message is sent (Story 13.6), through `reports.service.requirement_not_met`."""
 
 
 @dataclass(frozen=True)
@@ -89,13 +98,25 @@ class Recipient:
             raise ValueError("a Message to one Student names that Student, and only then")
         if self.kind == RecipientKind.CLASS_GAME and self.game_id is None:
             raise ValueError("a Message to a Class game names the game")
-        if self.kind in (RecipientKind.CLASS_SESSION, RecipientKind.LIST) and self.game_id:
+        if (
+            self.kind
+            in (RecipientKind.CLASS_SESSION, RecipientKind.LIST, RecipientKind.REQUIREMENT_NOT_MET)
+            and self.game_id
+        ):
             raise ValueError("a Message to a Class session or a list names no game")
 
 
-def recipient_of(game_id: uuid.UUID | None, student_id: uuid.UUID | None) -> Recipient:
+def recipient_of(
+    game_id: uuid.UUID | None, student_id: uuid.UUID | None, requirement_not_met: bool = False
+) -> Recipient | None:
     """The api's recipient: a Student when one is named (the game, if any, names the title), a
-    Class game when only a game is named, else the whole Class session."""
+    Class game when only a game is named, else the whole Class session. With
+    `requirement_not_met` (Story 13.6) the Students who have not met the requirement, and None,
+    refused as any recipient outside the Class session, when a game or a Student is named too."""
+    if requirement_not_met:
+        if game_id is not None or student_id is not None:
+            return None
+        return Recipient(RecipientKind.REQUIREMENT_NOT_MET)
     if student_id is not None:
         return Recipient(RecipientKind.STUDENT, game_id=game_id, user_id=student_id)
     if game_id is not None:
@@ -122,6 +143,8 @@ class Target:
     students: tuple[uuid.UUID, ...]
     game_number: int | None
     student_name: str | None
+    statuses: tuple[tuple[uuid.UUID, CompletionStatus], ...] = ()
+    """For `requirement_not_met`: each Student's Completion status, as the form's table shows."""
 
 
 async def _resolve(
@@ -152,6 +175,18 @@ async def _resolve(
         return Target(tuple(u for u in game.students if u in registered), game_number, None)
     if recipient.kind == RecipientKind.CLASS_SESSION:
         return Target(tuple(sorted(registered, key=str)), None, None)
+    if recipient.kind == RecipientKind.REQUIREMENT_NOT_MET:
+        # Read on use, not at import: `reports` imports `sessions`, which imports `classes`, which
+        # loads this module through `messaging.delivery` (the worker's import order).
+        from app.modules.reports import service as reports
+
+        # Judged now, in this transaction: a Student who met it since the form was read is out.
+        found = tuple(
+            (user_id, status)
+            for user_id, status in await reports.requirement_not_met(session_id, session=session)
+            if user_id in registered
+        )
+        return Target(tuple(user_id for user_id, _ in found), None, None, found)
     listed = tuple(dict.fromkeys(u for u in recipient.user_ids if u in registered))
     return Target(listed, None, None)
 
@@ -301,6 +336,42 @@ async def send_message(
 
 
 @dataclass(frozen=True)
+class NotMetStudent:
+    """One row of the Meldingsskjema's table for `requirement_not_met` (Story 13.6, FR-17): the
+    Student, the share of Weeks they ordered against the share required of them, and the share
+    the Play deadline's playout played, so a shortfall the playout or the group's pace caused can be
+    told from one the Student caused."""
+
+    user_id: uuid.UUID
+    name: str | None
+    ordered_share: int | None
+    required_share: int
+    playout_share: int | None
+    share_game: Literal["class", "makeup"] | None
+
+
+async def _not_met_rows(
+    session: AsyncSession, class_id: uuid.UUID, target: Target
+) -> list[NotMetStudent]:
+    """The table's rows, by name now (AD-14) in Norwegian order (Æ, Ø, Å after Z), then by id."""
+    names = await classes.student_names(
+        class_id, [user_id for user_id, _ in target.statuses], session=session
+    )
+    rows = [
+        NotMetStudent(
+            user_id=user_id,
+            name=names.get(user_id),
+            ordered_share=status.ordered_share,
+            required_share=status.required_share,
+            playout_share=status.playout_share,
+            share_game=status.share_game,
+        )
+        for user_id, status in target.statuses
+    ]
+    return sorted(rows, key=lambda row: (nb_sort_key(row.name or ""), str(row.user_id)))
+
+
+@dataclass(frozen=True)
 class MessageForm:
     """What the Meldingsskjema shows before a send (Story 7.9, UX-DR46)."""
 
@@ -312,6 +383,8 @@ class MessageForm:
     students: int
     sent_before: int
     max_length: int
+    not_met: tuple[NotMetStudent, ...] = ()
+    """For `requirement_not_met` (Story 13.6): the Students it would go to now, with shares."""
 
 
 async def message_form(
@@ -320,18 +393,22 @@ async def message_form(
     *,
     game_id: uuid.UUID | None,
     student_id: uuid.UUID | None,
+    requirement_not_met: bool = False,
 ) -> MessageForm | None:
     """The form for the recipient the params name, or None, one answer, when the User is not
     staff of the Class or the recipient is not of this Class session (FR-5)."""
     staffed = await sessions.staffed_session(user, session_id, SEND)
     if staffed is None:
         return None
-    recipient = recipient_of(game_id, student_id)
+    recipient = recipient_of(game_id, student_id, requirement_not_met)
+    if recipient is None:
+        return None
     async with get_sessionmaker()() as s:
         target = await _resolve(s, staffed.class_id, session_id, recipient)
         if target is None:
             return None
         before = await _sent_before(s, session_id, recipient)
+        rows = await _not_met_rows(s, staffed.class_id, target) if target.statuses else []
     return MessageForm(
         kind=recipient.kind,
         session=staffed,
@@ -341,6 +418,7 @@ async def message_form(
         students=len(target.students),
         sent_before=before,
         max_length=get_settings().message_max_length,
+        not_met=tuple(rows),
     )
 
 
@@ -352,12 +430,16 @@ async def send(
     game_id: uuid.UUID | None,
     student_id: uuid.UUID | None,
     text: str,
+    requirement_not_met: bool = False,
 ) -> SentMessage | None:
     """«Send Melding»: None, one answer, when the User is not staff of the Class or the recipient
     is not of this Class session (FR-5). Raises `MessageRefused` and, for an archived Class,
     `classes.ClassArchived`."""
     staffed = await sessions.staffed_session(user, session_id, SEND)
     if staffed is None:
+        return None
+    recipient = recipient_of(game_id, student_id, requirement_not_met)
+    if recipient is None:
         return None
     if staffed.archived:
         raise classes.ClassArchived
@@ -368,7 +450,7 @@ async def send(
             class_id=staffed.class_id,
             sender_id=user.id,
             key=key,
-            recipient=recipient_of(game_id, student_id),
+            recipient=recipient,
             text=text,
         )
 

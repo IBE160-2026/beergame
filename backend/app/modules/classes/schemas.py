@@ -260,6 +260,9 @@ class RegistrationOut(BaseModel):
     last_valid_day: date | None = None
     bounce_class: BounceClass | None = None
     remindable: bool
+    user_id: uuid.UUID | None = None
+    """The Student's User id, only while the address is registered (Story 13.2: the Roster's link
+    to the Studentside); None otherwise."""
     test_student: bool = False
     """The address's User is a test student of a Control test, listed «Teststudent» (Story
     12.8)."""

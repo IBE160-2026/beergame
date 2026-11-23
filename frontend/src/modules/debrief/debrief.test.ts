@@ -51,6 +51,7 @@ const DEBRIEF: Debrief = {
   class_session_id: "s1",
   game_id: "g1",
   game_number: 17,
+  makeup: false,
   role: "wholesaler",
   step: 1,
 };

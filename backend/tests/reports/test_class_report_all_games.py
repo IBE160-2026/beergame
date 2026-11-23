@@ -8,6 +8,7 @@ other games are written straight to the tables (`test_class_report.add_game`).""
 import uuid
 from datetime import timedelta
 
+import pytest
 from sqlalchemy import event
 
 from app.modules.games import commands
@@ -21,8 +22,18 @@ from tests.classes.test_classes import LECTURER, make
 from tests.classes.test_staff import call
 from tests.messaging.helpers import rows
 from tests.reports.test_class_report import CHAIN_ORDER, add_game
+from tests.reports.test_makeup import give
 from tests.sessions.test_dates import OUTSIDER, PLAY
-from tests.sessions.test_game_end import _empty, clock, emitted, klass, play_weeks, short_game
+from tests.sessions.test_game_end import (
+    WEEKS,
+    _empty,
+    clock,
+    emitted,
+    klass,
+    play_weeks,
+    short_game,
+)
+from tests.sessions.test_start_game import start
 from tests.sessions.test_student_choice import email
 
 __all__ = ["_empty", "clock", "emitted", "klass"]
@@ -162,6 +173,29 @@ async def test_a_student_whose_seat_was_taken_over_keeps_their_class_game_as_the
     body = (await all_games(email(0), session_id)).json()
     assert body["own_game"] == 1
     assert [g["own"] for g in body["roles"][0]["games"]] == [True, False]
+
+
+@pytest.mark.long
+async def test_a_student_whose_finished_makeup_is_their_game_keeps_the_class_game_marked(
+    klass, emitted, monkeypatch
+):
+    # Story 13.5: a finished Oppfølgingsspill becomes the game `student_game` names; it is no
+    # Class game, so the view still lists the Class games and marks the allocated one.
+    session_id, game_id, seated = await short_game(klass)
+    await play_weeks(game_id, WEEKS)
+    given = await give(LECTURER, session_id, seated[1])
+    assert given.status_code == 200, given.text
+    makeup_id = given.json()["makeup"]["game_id"]
+    assert (await start(email(1), makeup_id)).status_code == 200
+    await play_weeks(makeup_id, WEEKS)
+    await debriefed(seated[1], session_id)
+    monkeypatch.setattr(auth, "utcnow", lambda: AFTER_PLAY)
+    body = (await all_games(email(1), session_id)).json()
+    assert body["own_game"] == 1
+    assert [[(g["number"], g["own"]) for g in role["games"]] for role in body["roles"]] == [
+        [(1, True)]
+    ] * 4
+    assert makeup_id not in str(body)
 
 
 async def test_a_control_test_session_lists_no_game(klass, monkeypatch):

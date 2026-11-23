@@ -99,15 +99,21 @@ export const overviewReturnPath = (id: string, gameId: string, view: "wall" | "t
 export const gameInsightPath = (sessionId: string, gameId: string, view: "wall" | "table" = "wall") =>
   `${classOverviewPath(sessionId)}/spill/${encodeURIComponent(gameId)}${view === "table" ? "?visning=tabell" : ""}`;
 
-/** The Meldingsskjema (Story 7.9): to the whole Class session, a Class game (`game`), or one
- * Student (`student`, with the game it is written from, if any). */
-export const messagePath = (sessionId: string, to: { game?: string; student?: string } = {}) => {
+/** The Meldingsskjema (Story 7.9): to the whole Class session, a Class game (`game`), one
+ * Student (`student`, with the game it is written from, if any), or (Story 13.6, `requirement`)
+ * the Students who have not met the requirement. */
+export const messagePath = (sessionId: string, to: { game?: string; student?: string; requirement?: true } = {}) => {
   const params = new URLSearchParams();
+  if (to.requirement) params.set(REQUIREMENT_PARAM, REQUIREMENT_VALUE);
   if (to.game) params.set("spill", to.game);
   if (to.student) params.set("student", to.student);
   const query = params.toString();
   return `${classSessionPath(sessionId)}/melding${query ? `?${query}` : ""}`;
 };
+
+/** The Meldingsskjema's query for Story 13.6's recipient: `?krav=ikke-oppfylt`. */
+export const REQUIREMENT_PARAM = "krav";
+export const REQUIREMENT_VALUE = "ikke-oppfylt";
 
 /** «Meldinger» (Story 7.10): the Messages a Class session was sent, for its staff. */
 export const sentMessagesPath = (sessionId: string) => `${classSessionPath(sessionId)}/meldinger`;

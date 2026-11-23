@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.engine.settings import ROLES
 from app.modules.games import service as games
 from app.modules.games.service import Purpose
-from app.modules.sessions import service as sessions
+from app.modules.reports import scope
 from app.platform import events, jobs
 from app.platform.db import get_sessionmaker
 
@@ -43,8 +43,7 @@ async def _defer_on_finish(session: AsyncSession, finished: games.FinishedGame) 
     if finished.class_session_id is None or finished.purpose != Purpose.CLASS:
         return
     # A Control test Class session is in no report (AD-27): its games need no facts sets here.
-    kind = await sessions.kind_of(finished.class_session_id, session=session)
-    if kind == sessions.CONTROL_TEST:
+    if not await scope.is_reporting_session(session, finished.class_session_id):
         return
     await jobs.defer(
         session,

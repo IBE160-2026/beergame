@@ -24,6 +24,9 @@ export type OrderBarsProps = {
   chosen: number | null;
   /** The SVG `<title>` (AD-18). */
   title: string;
+  /** The scale's top when the game is drawn in several blocks of Uker (the Student report, Story
+   * 13.8), so every block shares the game's one scale; left out, the largest Order drawn. */
+  highest?: number;
 };
 
 /** Source Sans 3's box above and below the baseline, in em. */
@@ -50,9 +53,9 @@ export function orderRows(height: number, fontSize: number, count: number) {
  * Ukeskrubber has chosen. Drawn in a Graf over tabell field, so its columns are the Rolle × Uke
  * table's; `aria-hidden`, the table and Forsterkning as text are its alternative.
  */
-export function OrderBars({ width, height, fontSize, xs, columnWidth, rows, chosen, title }: OrderBarsProps) {
+export function OrderBars({ width, height, fontSize, xs, columnWidth, rows, chosen, title, highest: top }: OrderBarsProps) {
   const bands = orderRows(height, fontSize, rows.length);
-  const highest = Math.max(1, ...rows.flatMap((row) => row.orders.map((order) => order ?? 0)));
+  const highest = Math.max(1, top ?? 0, ...rows.flatMap((row) => row.orders.map((order) => order ?? 0)));
   const barWidth = Math.max(2, Math.round(columnWidth * 0.7));
   const dots = rows.flatMap((row, i) => {
     if (!row.firstLarge) return [];

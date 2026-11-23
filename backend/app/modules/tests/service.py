@@ -17,6 +17,7 @@ Klasseøkt» and «Lag kopi» (FR-66)."""
 
 import uuid
 from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
@@ -29,8 +30,9 @@ from app.modules.content import service as content
 from app.modules.content.schemas import StartingTask, StartingTaskItem
 from app.modules.progress import service as progress
 from app.modules.sessions import service as sessions
-from app.modules.tests import sitting
+from app.modules.tests import assessed, sitting
 from app.modules.tests.adapted import ADAPTED
+from app.modules.tests.attempt import ReportItem, ReportTest, report_test
 from app.modules.tests.class_results import ClassResults as ClassResults  # Story 14.2
 from app.modules.tests.class_results import StudentResult as StudentResult  # Story 14.2
 from app.modules.tests.class_results import class_results as class_results  # Story 14.2
@@ -42,18 +44,51 @@ from app.modules.tests.models import (
     test_attempts,
 )
 from app.modules.tests.schemas import (
+    AssessedItemOut,
+    ColumnOut,
     GivenRowOut,
     ItemResultOut,
+    StaffAssessmentOut,
     StartingTaskItemOut,
     StartingTaskOut,
     SumTermOut,
+    TableOut,
 )
 from app.platform import authz
 from app.platform.db import get_sessionmaker
 
-__all__ = ["PARTS", "ItemsOpen", "UnknownItem", "answer", "finish", "parts_with_content", "read"]
+__all__ = [
+    "PARTS",
+    "ItemsOpen",
+    "UnknownItem",
+    "AttemptSummary",
+    "ColumnOut",
+    "TableOut",
+    "ReportItem",
+    "ReportTest",
+    "AssessedItemOut",
+    "StaffAssessmentOut",
+    "answer",
+    "attempt_status",
+    "attempt_summary",
+    "finish",
+    "parts_with_content",
+    "read",
+    "report_test",
+    "staff_assessment",
+    "ReportAssessment",
+    "report_assessment",
+]
 
 Stored = Mapping[str, Mapping[str, Any]]
+
+staff_assessment = assessed.staff_read
+"""A Student's «KI-vurdering» as the staff of their Class read it, with the Student's flags (Story
+12.5); the Studentside's record (Story 13.2) carries it. None for anyone else (FR-5)."""
+
+ReportAssessment = assessed.ReportAssessment
+report_assessment = assessed.report_assessment
+"""The Student's own ready «KI-vurdering» for their Student report (Story 13.11)."""
 
 
 class UnknownItem(Exception):
@@ -259,6 +294,47 @@ async def parts_with_content(
         if part is not None:
             parts[part] = parts.get(part, False) or item["id"] in answered
     return parts
+
+
+async def attempt_status(user_id: uuid.UUID, class_session_id: uuid.UUID) -> str | None:
+    """The status of the Student's Individual test attempt (`open`, `submitted` or
+    `auto_submitted`), None without one (Story 13.1: Completion checks the parts of an
+    auto-submitted attempt only, FR-17)."""
+    async with get_sessionmaker()() as s:
+        return await s.scalar(
+            select(test_attempts.c.status).where(
+                test_attempts.c.user_id == user_id,
+                test_attempts.c.class_session_id == class_session_id,
+            )
+        )
+
+
+@dataclass(frozen=True)
+class AttemptSummary:
+    """The Student's Individual test attempt as the Studentside shows it (Story 13.2, FR-63): its
+    status (`open`, `submitted`, `auto_submitted`), when it was handed in (None while open) and
+    which parts hold content (`parts_with_content`). Never an answer."""
+
+    status: str
+    submitted_at: datetime | None
+    parts: dict[str, bool]
+
+
+async def attempt_summary(user_id: uuid.UUID, class_session_id: uuid.UUID) -> AttemptSummary | None:
+    """The `AttemptSummary` of the Student's attempt in the Class session, None without one."""
+    async with get_sessionmaker()() as s:
+        found = (
+            await s.execute(
+                select(test_attempts.c.status, test_attempts.c.submitted_at).where(
+                    test_attempts.c.user_id == user_id,
+                    test_attempts.c.class_session_id == class_session_id,
+                )
+            )
+        ).first()
+    if found is None:
+        return None
+    parts = await parts_with_content(user_id, class_session_id)
+    return AttemptSummary(status=found.status, submitted_at=found.submitted_at, parts=parts or {})
 
 
 # «Lagre Klasseøkt» stores the timed sitting here (Story 11.12), and «Lag kopi» copies it (FR-66).

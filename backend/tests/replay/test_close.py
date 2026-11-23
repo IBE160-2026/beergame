@@ -97,6 +97,12 @@ async def test_the_sweep_closes_an_unfinished_replay_at_the_test_deadline(
         assert (await order(email(1), finished_replay, week)).status_code == 204
     assert game_row(finished_replay) == ("finished", None, game_row(finished_replay)[2])
     finished_before = game_row(finished_replay)
+    # Story 13.10: the Student report's read of a Replay still running.
+    sid = uuid.UUID(session_id)
+    first, second = (rows("SELECT id FROM users WHERE email = %s", email(i))[0][0] for i in (0, 1))
+    running_report = await replay_service.report_replay(first, sid)
+    assert running_report is not None
+    assert (running_report.state, len(running_report.replay.weeks)) == ("open", 1)
 
     # Before the deadline the sweep leaves every Replay as it is.
     before = {g: game_row(g) for g in (open_replay, stored_replay)}
@@ -175,6 +181,17 @@ async def test_the_sweep_closes_an_unfinished_replay_at_the_test_deadline(
     assert replay_step(await home(email(1)))["state"] == "done"
     finished_card = (await call(email(1), "GET", f"/api/me/games/{finished_replay}")).json()
     assert finished_card["end_reason"] is None
+    # Story 13.10: the Student report reads the closed Replay as closed, with the Uke it had and
+    # no comparison; the finished one as finished, its Class game (played by AI players) left out
+    # as mostly AI, as the walkthrough leaves it out.
+    closed_report = await replay_service.report_replay(first, sid)
+    assert closed_report is not None
+    assert (closed_report.state, len(closed_report.replay.weeks)) == ("closed", 1)
+    assert closed_report.class_game is None
+    finished_report = await replay_service.report_replay(second, sid)
+    assert finished_report is not None
+    assert (finished_report.state, len(finished_report.replay.weeks)) == ("finished", WEEKS)
+    assert (finished_report.class_game, finished_report.mostly_ai) == (None, True)
 
     # Other modules read the reason through `games.service` (AD-13); staff on Spillinnsikt too.
     assert (await games_service.get_game(open_replay)).end_reason == "test_deadline"

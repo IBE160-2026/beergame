@@ -25,11 +25,13 @@ from app.modules.reports import (
     class_report_jobs,  # noqa: F401  its finish hook (Story 14.1)
     class_report_routes,
 )
+from app.modules.reports import routes as reports_routes
+from app.modules.reports import service as reports_service  # noqa: F401  registers Completion (Story 13.1)
 from app.modules.sessions import dev as sessions_dev
 from app.modules.sessions import routes as sessions_routes
 from app.modules.tests import dev as tests_dev
 from app.modules.tests import routes as tests_routes
-from app.platform import audit, auth, authz, db
+from app.platform import audit, auth, authz, db, storage
 from app.platform.auth import CsrfMiddleware
 from app.platform.config import get_settings
 from app.platform.errors import error_response
@@ -125,6 +127,7 @@ def create_app() -> FastAPI:
     app.include_router(message_routes.router)  # Messages from staff (Story 7.9)
     app.include_router(replay_routes.router)  # the Student's Replay (Story 10.3)
     app.include_router(class_report_routes.router)  # the Klasserapport (Story 14.1)
+    app.include_router(reports_routes.router)  # the Studentside's record (Story 13.2)
     app.include_router(messaging_webhooks.router)  # the provider's events (Story 4.6), signed
     if get_settings().app_env != "production":
         app.include_router(messaging_routes.router)  # the dev mailbox (Story 3.6), local only
@@ -132,6 +135,8 @@ def create_app() -> FastAPI:
         app.include_router(debrief_dev.router)  # Group debrief back-dating (9.11), local only
         app.include_router(replay_dev.router)  # the dev quiz pass (10.5), local only
         app.include_router(tests_dev.router)  # the dev close of a test (12.4), local only
+    if storage.uses_mock():
+        app.include_router(storage.router)  # the storage mock's downloads (13.7), never in prod
     authz.register_principal_loader(identity_service.load_user)
     # The audit page shows names, read at request time from the module that owns them (AD-14).
     audit.register_labels("user_id", identity_service.user_labels)

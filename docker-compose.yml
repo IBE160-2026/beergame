@@ -64,6 +64,10 @@ services:
       FEATURE_LECTURER_TEST_GAME: ${FEATURE_LECTURER_TEST_GAME:-true}
       FEATURE_GAME_DATA_EXPORT: ${FEATURE_GAME_DATA_EXPORT:-true}
       FEATURE_CAPACITY: ${FEATURE_CAPACITY:-true}
+    # The storage mock (Story 13.7, AD-17): no storage keys are passed, so the Student reports go
+    # to this volume, shared with `worker-batch`.
+    volumes:
+      - report-files:/app/.local-storage
     depends_on:
       postgres:
         condition: service_healthy
@@ -101,8 +105,16 @@ services:
     image: olspillet-backend:${IMAGE_TAG:-local}
     restart: unless-stopped
     # The mail queue and the per-minute sweeper (Story 3.5, AD-9): only this worker sweeps.
-    command: ["python", "-m", "app.worker", "--queues", "llm-batch,mail", "--sweeper"]
-    environment: *worker-env
+    # Story 13.7: one Student report at a time per request, on slots of its own
+    # (REPORTS_SINGLE_RESERVED); it fetches the print route from the frontend and stores the
+    # PDF in the storage mock's volume, which `backend` serves the signed downloads from.
+    # Story 13.12: `reports-bulk` (the ZIP of Story 13.13) runs beside it, never on its slots.
+    command: ["python", "-m", "app.worker", "--queues", "llm-batch,mail,reports-bulk,reports-single", "--sweeper"]
+    environment:
+      <<: *worker-env
+      WEB_INTERNAL_URL: ${WEB_INTERNAL_URL:-http://frontend:3000}
+    volumes:
+      - report-files:/app/.local-storage
     depends_on:
       backend:
         condition: service_healthy
@@ -142,3 +154,4 @@ services:
 
 volumes:
   pgdata:
+  report-files:

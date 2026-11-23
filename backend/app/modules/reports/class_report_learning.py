@@ -7,9 +7,7 @@ AI totals made by `analysis.total_score` and `analysis.core_total_score`) and co
 figure here, never in the web app (AD-10):
 
 - the Students: the reporting Students of the Class session, the Class's registered Students less
-  test students and none for a Control test Class session. Until Epic 13's `reports.scope` is on
-  this branch, `_reporting_students` stands in for `scope.reporting_students(session, id)`; the
-  merge replaces it with that call (AD-13);
+  test students and none for a Control test Class session (`scope.reporting_students`, AD-13);
 - handed in (`submitted`, `auto_submitted`) and still to submit (an open test, or none yet while
   the Student's own Test deadline, an extension included, is unset or ahead);
 - the Starting task beside the matching test items, over the Students who did both;
@@ -30,10 +28,7 @@ from collections.abc import Iterable, Sequence
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.modules.classes import service as classes
-from app.modules.identity import service as identity
+from app.modules.reports import scope
 from app.modules.reports.class_report import READ, distribution, percent
 from app.modules.reports.class_report_learning_schemas import (
     AdaptedPartOut,
@@ -84,18 +79,6 @@ def bands(totals: Iterable[float], cores: Iterable[float]) -> list[ScoreBandOut]
         ScoreBandOut(low=low, high=high, total=total_counts[i], core=core_counts[i])
         for i, (low, high) in enumerate(BANDS)
     ]
-
-
-async def _reporting_students(
-    s: AsyncSession, class_id: uuid.UUID, control_test: bool
-) -> list[uuid.UUID]:
-    """The Students the report counts: `scope.reporting_students(...)` of Epic 13 (AD-13), the
-    Class's registered Students less test students, none for a Control test Class session."""
-    if control_test:
-        return []
-    registered = await classes.registered_students(class_id)
-    excluded = await identity.test_students(s, registered) if registered else set()
-    return sorted((user for user in registered if user not in excluded), key=str)
 
 
 def _still_to_submit(result: tests.StudentResult, now: datetime) -> bool:
@@ -205,8 +188,7 @@ async def class_learning(
     if staffed is None:
         return None
     async with get_sessionmaker()() as s:
-        kind = await sessions.kind_of(class_session_id, session=s)
-        students = await _reporting_students(s, staffed.class_id, kind == sessions.CONTROL_TEST)
+        students = await scope.reporting_students(s, class_session_id)
         found = await tests.class_results(s, class_session_id, students)
     results = [found.students[student] for student in students]
     handed = [result for result in results if result.handed_in]

@@ -5,10 +5,13 @@ import { type ReactNode, type Ref, useEffect, useRef, useState } from "react";
 
 import { ActionError } from "@/components/action-error";
 import { Button } from "@/components/button";
+import { Link } from "@/components/link";
 import { SelectField } from "@/components/select-field";
 import { TextField } from "@/components/text-field";
 import { nb } from "@/copy/nb";
 import { useAction } from "@/lib/api/mutation";
+import { studentPagePath } from "@/modules/identity/homes";
+import { useClassSessions } from "@/modules/sessions/api";
 
 import {
   invitationSummaryKey,
@@ -119,6 +122,8 @@ function StatusView({
   onNotice: (text: string | null) => void;
 }) {
   const queryClient = useQueryClient();
+  // The Class's sessions, oldest first: a registered Student's Studentside in each (Story 13.2).
+  const sessions = [...(useClassSessions(classId).data?.items ?? [])].sort((a, b) => a.number - b.number);
   const [target, setTarget] = useState<Target | null>(null);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [rowAction, setRowAction] = useState<RowAction | null>(null);
@@ -273,6 +278,7 @@ function StatusView({
         onManual={(item, button) => openRow({ kind: "manual", item }, button)}
         onRemove={(item, button) => openRow({ kind: "remove", item }, button)}
         readOnly={readOnly}
+        sessions={sessions}
         onFilter={() => {
           // A row's form would vanish with its row: close it with the old view.
           if (target?.kind === "one" && !remind.isPending) {
@@ -479,6 +485,7 @@ function AddressList({
   onRemove,
   onFilter,
   readOnly,
+  sessions,
 }: {
   items: readonly Registration[];
   open: { id: string; kind: "resend" | "manual" | "remove" } | null;
@@ -488,6 +495,8 @@ function AddressList({
   onRemove: (item: Registration, button: HTMLButtonElement) => void;
   onFilter: () => void;
   readOnly: boolean;
+  /** The Class's sessions, for the Studentside links of a registered Student. */
+  sessions: readonly { id: string; number: number }[];
 }) {
   const [status, setStatus] = useState<Status | null>(null);
   const [query, setQuery] = useState("");
@@ -536,7 +545,10 @@ function AddressList({
         {shown.map((item) => (
           <li key={item.id} className="border-b border-hairline py-2">
             <div className="flex flex-col gap-1 sm:grid sm:min-h-tap-target-min sm:grid-cols-[minmax(0,1fr)_minmax(0,12rem)_minmax(0,21rem)] sm:items-center sm:gap-x-4">
-              <span className="text-body-phone text-ink [overflow-wrap:anywhere] lg:text-body">{item.email}</span>
+              <span className="flex min-w-0 flex-col items-start">
+                <span className="text-body-phone text-ink [overflow-wrap:anywhere] lg:text-body">{item.email}</span>
+                {item.user_id ? <StudentPageLinks email={item.email} userId={item.user_id} sessions={sessions} /> : null}
+              </span>
               <span className="text-body-phone text-ink-secondary lg:text-body">
                 {statusLabel(item, today)}
                 {testStudentLabel(item) ? (
@@ -584,6 +596,35 @@ function AddressList({
         ))}
       </ul>
     </section>
+  );
+}
+
+/** A registered Student's Studentside in each Class session of the Class (Story 13.2, FR-63):
+ * «Studentside» when there is one session, «Studentside, økt 2» for each when there are several. */
+function StudentPageLinks({
+  email,
+  userId,
+  sessions,
+}: {
+  email: string;
+  userId: string;
+  sessions: readonly { id: string; number: number }[];
+}) {
+  const links = nb.reports.studentPage;
+  if (sessions.length === 0) return null;
+  return (
+    <span className="flex flex-wrap gap-x-4" data-roster-student-page="">
+      {sessions.map((session) => (
+        <Link
+          key={session.id}
+          href={studentPagePath(session.id, userId)}
+          aria-label={links.rosterLinkLabel(email, session.number)}
+          standalone
+        >
+          {sessions.length === 1 ? links.rosterLink : links.rosterLinkSession(session.number)}
+        </Link>
+      ))}
+    </span>
   );
 }
 

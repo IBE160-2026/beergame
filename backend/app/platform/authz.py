@@ -155,6 +155,9 @@ POLICIES: dict[str, frozenset[str]] = {
     # The Student's own Individual test (Story 11.3, FR-51): any User, held to their own locked
     # Class session (`sessions.individual_test_session_of`); every other session is refused alike.
     "tests.take_own": frozenset({ANY_USER}),
+    # The Student's own Student report (Story 13.7, FR-57): any User, held to their own locked
+    # Class session (`sessions.own_report_session`); every other session is refused alike.
+    "reports.download_own": frozenset({ANY_USER}),
     # The Student's own Debrief (Story 9.2): any User, held to `own_seat` through
     # `games.service.student_game`; the service refuses every other Debrief alike.
     "debriefs.own": frozenset({ANY_USER}),
@@ -170,6 +173,15 @@ POLICIES: dict[str, frozenset[str]] = {
     # AD-12): its owners and Assistant lecturers read it; only its owners take questions out.
     "debrief_quiz.read": frozenset({LECTURER, ASSISTANT}),
     "debrief_quiz.exclude": frozenset({LECTURER}),
+    # A correction of a Student's Completion status with a reason (Story 13.3, FR-17, AD-12):
+    # only the Class's owners; never an Assistant lecturer.
+    "completion.correct": frozenset({LECTURER}),
+    # The Completion export of a Class session, CSV or Excel (Story 13.14, FR-60, AD-12): only
+    # the Class's owners; never an Assistant lecturer, who downloads the reports only.
+    "completion.export": frozenset({LECTURER}),
+    # An Oppfølgingsspill given to one Student (Story 13.4, FR-17, AD-12): only the Class's
+    # owners; never an Assistant lecturer.
+    "makeup.give": frozenset({LECTURER}),
     # The «KI-vurdering» switch of a Class session (Story 12.1, FR-61, AD-12): its Class's staff
     # read it with the Class session (`class_sessions.read`); only its owners change it.
     "ai_assessment.change": frozenset({LECTURER}),
@@ -185,9 +197,10 @@ POLICIES: dict[str, frozenset[str]] = {
     "session.read": frozenset({ANY_USER}),
     # The live event stream (Story 6.4, AD-8): any User; the scope decides which topics it sends.
     "events.read": frozenset({ANY_USER}),
-    # The Studentside (Story 8.9; Story 12.5 opens it to Assistant lecturers): the Class's owners
-    # and Assistant lecturers read it; its «Tilrettelegging» and «Frister» stay the owners'
-    # (`class_sessions.manage`).
+    # The Studentside (Story 8.9; Story 12.5 opens it to Assistant lecturers) and its record of
+    # one Student (Story 13.2, FR-63): the Class's owners and Assistant lecturers read it, never
+    # another Student, never an Admin without a staff role; its «Tilrettelegging» and «Frister»
+    # stay the owners' (`class_sessions.manage`).
     "student_pages.read": frozenset({LECTURER, ASSISTANT}),
     # A Student's AI assessment and the Klasseøkt's list of them (Story 12.5, FR-55, AD-12): the
     # Class's owners and Assistant lecturers; never the Admin without a staff role in the Class.
@@ -195,6 +208,10 @@ POLICIES: dict[str, frozenset[str]] = {
     # The Klasserapport of a Class session (Story 14.1, FR-64, FR-5, AD-12): only the Class's
     # owners; never an Assistant lecturer, never an Admin without a staff role in the Class.
     "class_report.read": frozenset({LECTURER}),
+    # One Student's Student report, made and downloaded by the staff of the Class at any time
+    # (Story 13.12, FR-59, AD-12): its owners and Assistant lecturers; never the Admin without a
+    # staff role in the Class.
+    "reports.download": frozenset({LECTURER, ASSISTANT}),
     # FR-5: no account role grants this. Epic 4+ adds the Class-scoped grants.
     "student_answers.read": frozenset(),
 }
@@ -215,6 +232,9 @@ CLASS_STAFF_ROLES: dict[str, frozenset[str]] = {
     "debrief_summaries.read": frozenset({OWNER, ASSISTANT_STAFF}),
     "debrief_quiz.read": frozenset({OWNER, ASSISTANT_STAFF}),
     "debrief_quiz.exclude": frozenset({OWNER}),
+    "completion.correct": frozenset({OWNER}),
+    "completion.export": frozenset({OWNER}),
+    "makeup.give": frozenset({OWNER}),
     "ai_assessment.change": frozenset({OWNER}),
     "question_set.change": frozenset({OWNER}),
     "scoring_guide.change": frozenset({OWNER}),
@@ -230,6 +250,7 @@ CLASS_STAFF_ROLES: dict[str, frozenset[str]] = {
     "student_pages.read": frozenset({OWNER, ASSISTANT_STAFF}),
     "ai_assessments.read": frozenset({OWNER, ASSISTANT_STAFF}),
     "class_report.read": frozenset({OWNER}),
+    "reports.download": frozenset({OWNER, ASSISTANT_STAFF}),
 }
 """Class action → the staff roles in the Class that may do it. Later stories add theirs."""
 

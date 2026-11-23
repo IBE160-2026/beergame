@@ -5,10 +5,10 @@ AD-15, AD-25): how the Class games went, for the Lecturers of the Class.
 its `service.py` and computes each figure here, never in the web app (AD-10):
 
 - the scope: the Class games (`purpose = class`) of the Class session, none for a Control test
-  Class session (AD-13, AD-27). Until Epic 13's `reports.scope` is on this branch, `_class_games`
-  stands in for `scope.reporting_games(session, id, purposes={Purpose.CLASS})`; the merge
-  replaces it with that call. Game figures are over the finished ones;
-- the Trakt, as the Oversikt counts it (`progress.funnel` over the Class's registered Students);
+  Class session (AD-13, AD-27): `report_games` keeps the figure rows of the games
+  `scope.reporting_games(session, id, purposes={Purpose.CLASS})` names, so 14.5 and 14.6 read
+  the same games. Game figures are over the finished ones;
+- the Trakt, as the Oversikt counts it (`reports.service.funnel`, over `scope.reporting_students`);
 - Kjedekost and Kostnad per Rolle from `game_summaries.chain_cost` and `games.cost_parts`;
 - Forsterkning and «Mønstre» from the stored facts sets only (`games.fact_figures`): a finished
   game whose Seats have no stored set yet is not covered, and `facts_games` says how many are.
@@ -29,11 +29,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.analysis.class_cost import FinishedGame, class_cost
 from app.analysis.wall import quartiles
 from app.engine.settings import ROLES, Role
-from app.modules.classes import service as classes
 from app.modules.content import service as content
 from app.modules.games import service as games
-from app.modules.games.service import ClassGameRow, OccupancyReason, OccupantKind
-from app.modules.progress import service as progress
+from app.modules.games.service import ClassGameRow, OccupancyReason, OccupantKind, Purpose
+from app.modules.reports import scope
+from app.modules.reports import service as report_service
 from app.modules.reports.class_report_schemas import (
     ClassReportOut,
     DistributionOut,
@@ -49,11 +49,11 @@ from app.modules.reports.class_report_schemas import (
     SwitchOut,
 )
 from app.modules.sessions import service as sessions
-from app.modules.sessions.schemas import FunnelStageOut
+from app.modules.sessions.service import FunnelStageOut
 from app.platform import authz
 from app.platform.db import get_sessionmaker
 
-__all__ = ["READ", "class_report", "distribution", "percent", "rating_median"]
+__all__ = ["READ", "class_report", "distribution", "percent", "rating_median", "report_games"]
 
 READ = "class_report.read"
 """The Klasserapport's policy (FR-64, FR-5): the Lecturers who own the Class, never an Assistant
@@ -92,10 +92,16 @@ def rating_median(counts: dict[int, int]) -> Decimal | None:
     return None if spread is None else spread[1]
 
 
-async def _class_games(s: AsyncSession, class_session_id: uuid.UUID, control_test: bool):
-    """The Class games the report counts: `scope.reporting_games(..., purposes={class})` of Epic
-    13 (AD-13), none for a Control test Class session (AD-27)."""
-    return [] if control_test else await games.report_class_games(s, class_session_id)
+async def report_games(s: AsyncSession, class_session_id: uuid.UUID) -> list[ClassGameRow]:
+    """The Class games the Class reports count, by game number: the figure rows
+    (`games.report_class_games`) of the games `scope.reporting_games(..., purposes={class})`
+    names (AD-13), so none for a Control test Class session (AD-27)."""
+    scoped = await scope.reporting_games(s, class_session_id, purposes={Purpose.CLASS})
+    if not scoped:
+        return []
+    ids = {game.game_id for game in scoped}
+    rows = await games.report_class_games(s, class_session_id)
+    return [game for game in rows if game.game_id in ids]
 
 
 def _cost_out(
@@ -284,11 +290,9 @@ async def class_report(user: authz.Principal, class_session_id: uuid.UUID) -> Cl
     if staffed is None:
         return None
     async with get_sessionmaker()() as s:
-        kind = await sessions.kind_of(class_session_id, session=s)
-        control_test = kind == sessions.CONTROL_TEST
-        class_games = await _class_games(s, class_session_id, control_test)
-        registered = [] if control_test else await classes.registered_students(staffed.class_id)
-        trakt = await progress.funnel(s, class_session_id, registered)
+        reporting = await scope.is_reporting_session(s, class_session_id)
+        class_games = await report_games(s, class_session_id)
+        trakt = await report_service.funnel(class_session_id, session=s)
         finished = [game for game in class_games if game.finished]
         ids = [game.game_id for game in finished]
         parts = await games.cost_parts(s, ids) if ids else {}
@@ -296,7 +300,7 @@ async def class_report(user: authz.Principal, class_session_id: uuid.UUID) -> Cl
         seat_counts = await games.seat_counts(s, ids)
         seat_figures = await games.seat_figures(s, ids)
         occupancy = await games.occupancy_figures(s, ids)
-        ratings = {} if control_test else await games.rating_counts(s, class_session_id)
+        ratings = await games.rating_counts(s, class_session_id) if reporting else {}
     covered = [
         game
         for game in finished

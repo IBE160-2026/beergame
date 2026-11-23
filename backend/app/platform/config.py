@@ -122,6 +122,12 @@ class Settings(BaseSettings):
     # The required share of Weeks a new Class session starts with (Story 5.7, FR-17), a whole
     # percent. PLACEHOLDER from FR-17's assumption; Completion itself is Epic 13's.
     completion_default_share_percent: int = Field(80, ge=1, le=100)
+    # Completion's minimums (Story 13.1, FR-17). PLACEHOLDERS [ASSUMPTION: these minimums], not
+    # final numbers: the fewest characters an Explanation needs for the Debrief step to count, and
+    # the parts (`tests.service.PARTS` values, comma-separated) an auto-submitted Individual test
+    # must have content in, among those its attempt holds, for the test step to count.
+    completion_explanation_min_length: int = Field(50, ge=1)
+    completion_test_required_parts: str = "choice,interactive,long,adapted"
     # One timed sitting for the Individual test (Story 11.12, FR-51). PLACEHOLDERS: the whole
     # minutes a Lecturer may set as the time limit, before any Student's time factor.
     test_sitting_min_minutes: int = Field(15, ge=1)
@@ -147,6 +153,12 @@ class Settings(BaseSettings):
     # by the founder: how long, in minutes, a Class game has waited for a Student's Order before
     # a `turn_reminder` digest notice is queued.
     turn_reminder_delay_minutes: int = Field(120, ge=1, le=10080)
+    # Retention (Story 13.9, FR-77, FR-57). PLACEHOLDER from the PRD's assumption (course end plus
+    # six months), to be confirmed by the founder; Epic 15 adds the Institution's own setting:
+    # how many calendar months after the latest effective Test deadline a Class session's Student
+    # data is deleted, and how many days before that each Student gets one `deletion_reminder`.
+    retention_months: int = Field(6, ge=1, le=120)
+    deletion_reminder_days: int = Field(14, ge=1, le=180)
     # Story 8.14 (FR-38, NFR-3, spine Deferred): placeholder, an open input set after the
     # prototype: how long, in minutes, a Class game may stay `playing_out` after the Play deadline
     # playout took it over; a Game still playing out after it is logged as an error.
@@ -186,9 +198,25 @@ class Settings(BaseSettings):
     resend_webhook_secret: str = LOCAL_RESEND_WEBHOOK_SECRET
 
     # Storage (AD-17): required in production from Story 3.14 on, used by `platform/storage`
-    # in a later epic. Server only, never sent to the browser.
+    # (Story 13.7). Server only, never sent to the browser. With both unset outside production
+    # the files go to `local_storage_dir` (the mock).
     supabase_url: str = ""
     supabase_service_role_key: str = ""
+    local_storage_dir: str = ".local-storage"
+    # A signed download URL's lifetime (NFR-7, AD-14).
+    signed_url_ttl_seconds: int = Field(300, ge=10, le=3600)
+
+    # The Student report (Story 13.7, AD-18): where `worker-batch` reaches the print route, the
+    # `reports-single` slots no other queue takes, and how long a pending render may run before
+    # a new request replaces it (a crashed worker never blocks the Student).
+    web_internal_url: str = "http://localhost:3000"
+    reports_single_reserved: int = Field(2, ge=1, le=16)
+    report_stale_seconds: int = Field(120, ge=30)
+    # The ZIP of all Student reports (Story 13.13, FR-59): how long a pending ZIP may run before
+    # a new press replaces it (above the 10-minute target), and how many reports it renders at
+    # once on its `reports-bulk` slot.
+    report_zip_stale_seconds: int = Field(900, ge=60)
+    report_zip_concurrency: int = Field(3, ge=1, le=8)
 
     # Comma-separated networks whose `X-Forwarded-For` the api believes (Story 3.14).
     trusted_proxy_cidrs: str = LOCAL_TRUSTED_PROXY_CIDRS

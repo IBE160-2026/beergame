@@ -5,11 +5,11 @@ session for the projector, without names and without ranking.
 (`class_sessions.overview`: the Lecturers and Assistant lecturers of the Class); anyone else and
 a Class session that does not exist get None, the route's 403 `forbidden` (FR-5).
 
-The games are the Klasserapport's scope (`class_report._class_games`: the Class games of this
-Class session, none for a Control test; the Epic 13 merge relinks it to
-`reports.scope.reporting_games`), so lecturer test Games, simulations, make-up games and Replays
-are never listed; games without a number are left out. Each game's stored Week states give its
-Netto lager per Role and opened Week, and its Decision log its Orders (`games.class_played`).
+The games are the Klasserapport's scope (`class_report.report_games`: the Class games of this
+Class session that `reports.scope.reporting_games` counts, none for a Control test), so
+lecturer test Games, simulations, make-up games and Replays are never listed; games without a
+number are left out. Each game's stored Week states give its Netto lager per Role and opened
+Week, and its Decision log its Orders (`games.class_played`).
 
 The answer is keyed by game number only and holds no name, id, occupant, status, wait, cost or
 result (AD-14): it is a dedicated read, so the page never calls the staff overview endpoints.
@@ -22,7 +22,7 @@ import uuid
 from app.analysis.wall import PlayedGame
 from app.engine.settings import ROLES
 from app.modules.games import service as games
-from app.modules.reports.class_report import _class_games
+from app.modules.reports.class_report import report_games
 from app.modules.reports.class_report_plenary_schemas import (
     PlenaryGameOut,
     PlenaryOut,
@@ -44,11 +44,8 @@ async def plenary(user: authz.Principal, class_session_id: uuid.UUID) -> Plenary
     if await sessions.staffed_session(user, class_session_id, READ) is None:
         return None
     async with get_sessionmaker()() as s:
-        kind = await sessions.kind_of(class_session_id, session=s)
         listed = [
-            game
-            for game in await _class_games(s, class_session_id, kind == sessions.CONTROL_TEST)
-            if game.number is not None
+            game for game in await report_games(s, class_session_id) if game.number is not None
         ]
         played = await games.class_played(s, [game.game_id for game in listed], True)
     # Each listed game beside its stored play (`class_played` answers in the order asked).

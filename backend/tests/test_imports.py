@@ -222,6 +222,37 @@ def test_messaging_reaches_other_modules_only_through_their_service():
             assert name.split(".")[3] == "service", f"{path.name}:{line} imports {name}"
 
 
+def test_reports_reaches_other_modules_only_through_their_service_and_nothing_imports_it():
+    """Story 13.1 (AD-16, AD-25): the Completion assembler gathers its inputs through each
+    module's `service.py`; `sessions` reaches it through the provider it registers, so only the
+    app factory imports `reports`. Story 13.4: the Oppfølgingsspill is made through
+    `games.commands`, the one write path for Games, as the Replay is. Story 13.6: `messaging`
+    resolves the Message recipient `requirement_not_met` by calling `reports.service` (the story's
+    own rule), from `messages.py` only and inside a function, since `messages` loads while
+    `sessions` does. Story 13.7: the sweep purges expired report snapshots."""
+    found = imports(APP / "modules" / "reports")
+    assert found
+    for path, line, name in found:
+        if name.startswith("app.modules.") and not name.startswith("app.modules.reports"):
+            if name == "app.modules.games.commands":
+                assert path.name == "makeup.py", f"{path.name}:{line} imports {name}"
+                continue
+            assert name.split(".")[3] == "service", f"{path.name}:{line} imports {name}"
+    for path, line, name in imports(APP):
+        if name.startswith("app.modules.reports") and (APP / "modules" / "reports") not in (
+            path.parents
+        ):
+            if path == APP / "modules" / "messaging" / "messages.py":
+                assert name == "app.modules.reports.service", f"{path.name}:{line} imports {name}"
+                continue
+            # Story 13.7 (AD-14): the sweep purges the expired report snapshots a killed render
+            # left behind, through `reports.snapshot.purge_expired`.
+            if path == APP / "modules" / "ops" / "sweep.py":
+                assert name == "app.modules.reports.snapshot", f"{path.name}:{line} imports {name}"
+                continue
+            assert path == APP / "main.py", f"{path.name}:{line} imports {name}"
+
+
 def test_the_check_sees_imports_inside_functions():
     names = {name for _, _, name in imports(APP / "modules" / "games")}
     assert "app.modules.players.service" in names

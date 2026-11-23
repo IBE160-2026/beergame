@@ -10,11 +10,13 @@ deadline has passed.
   (`sessions.play_deadline_passed`), else `Locked` (403 `all_games_locked`). Hjem's
   `all_games_open` asks the same two things.
 
-The games are the Klasserapport's scope (`class_report._class_games`: the Class games of this
-Class session, none for a Control test; the Epic 13 merge relinks it to
-`reports.scope.reporting_games`), so lecturer test Games, simulations, make-up games and Replays
-are never listed. The Student's own game is `games.student_game` (the Seat held now, else the one
-held last: a Student whose Seat was taken over keeps the Class game they were allocated to).
+The games are the Klasserapport's scope (`class_report.report_games`: the Class games of this
+Class session that `reports.scope.reporting_games` counts, none for a Control test), so
+lecturer test Games, simulations, make-up games and Replays are never listed. The Student's own
+game is `games.class_game_of`, never `games.student_game`: a finished Oppfølgingsspill (Story
+13.5) is the game `student_game` names, but it is no Class game, so the mark stays on the Class
+game the Student was allocated to (the Seat held now, else the one held last: a Student whose
+Seat was taken over keeps it).
 
 The answer is keyed by game number only and holds no name, id, occupant, cost or result (AD-14);
 games stay in game-number order, so nothing ranks them (UX-DR72). A fixed number of queries
@@ -27,7 +29,7 @@ from datetime import datetime
 from app.engine.settings import ROLES
 from app.modules.games import service as games
 from app.modules.progress import service as progress
-from app.modules.reports.class_report import _class_games
+from app.modules.reports.class_report import report_games
 from app.modules.reports.class_report_all_games_schemas import (
     ClassGamesOut,
     GameOrdersOut,
@@ -62,13 +64,10 @@ async def class_games(
         debriefed = await progress.has_step(user.id, class_session_id, progress.Step.DEBRIEF)
         if not (debriefed and sessions.play_deadline_passed(row, now)):
             raise Locked
-        kind = await sessions.kind_of(class_session_id, session=s)
         listed = [
-            game
-            for game in await _class_games(s, class_session_id, kind == sessions.CONTROL_TEST)
-            if game.number is not None
+            game for game in await report_games(s, class_session_id) if game.number is not None
         ]
-        own = await games.student_game(s, user.id, class_session_id)
+        own = await games.class_game_of(s, user.id, class_session_id)
         orders = await games.class_orders(s, [game.game_id for game in listed])
     own_id = own.game_id if own is not None else None
     weeks = max(

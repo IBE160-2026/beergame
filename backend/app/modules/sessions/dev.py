@@ -5,7 +5,9 @@ The local dev
 Takeover (Story 8.3): `POST /api/dev/games/{id}/seats/{role}/takeover` runs the sweep's Takeover
 of one Seat at its stored due time, the injected clock, so no test waits the Inactivity limit. The
 local dev playout (Story 8.14): `POST /api/dev/games/{id}/playout` runs the Play deadline playout
-of one Class game at its Class session's Play deadline.
+of one Class game at its Class session's Play deadline. Story 13.7:
+`POST /api/dev/class-sessions/{id}/test-deadline-passed` moves the dates into the past, so the
+Student report opens at once.
 
 A real started Class game needs its Start date to pass and the sweep; the end-to-end tests of the
 play screen use this route instead, as the stand-in for the Lecturer's early lock of Epic 8.
@@ -14,15 +16,18 @@ does not exist at all. It is not in the OpenAPI schema.
 """
 
 import uuid
+from datetime import timedelta
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+from sqlalchemy import update
 
 from app.engine.settings import Role
 from app.modules.games import commands as games_commands
 from app.modules.games import service as games_service
 from app.modules.sessions import repo, service
+from app.modules.sessions.models import class_sessions
 from app.platform import auth, authz
 from app.platform.db import get_sessionmaker
 from app.platform.errors import documented, error_response
@@ -145,3 +150,47 @@ async def play_out_now(game_id: str) -> DevPlayoutOut | JSONResponse:
     except games_commands.CommandError as refused:
         return error_response(refused.status, refused.code, "The playout was refused.")
     return DevPlayoutOut(played_out=played)
+
+
+class DevDeadlineOut(BaseModel):
+    test_deadline: str
+    """The Class session's new Test deadline, a minute ago."""
+
+
+@router.post(
+    "/class-sessions/{class_session_id}/test-deadline-passed",
+    response_model=DevDeadlineOut,
+    responses=documented(404),
+    operation_id="devPassTestDeadline",
+    dependencies=[Depends(authz.public)],  # local only: not mounted in production
+)
+async def pass_test_deadline(class_session_id: str) -> DevDeadlineOut | JSONResponse:
+    """Story 13.7: move the Class session's dates into the past, in order, so its Test deadline
+    passed a minute ago: the Student report opens without waiting. A date already earlier stays.
+    404 `not_found` for no such session."""
+    try:
+        session_id = uuid.UUID(class_session_id)
+    except ValueError:
+        return error_response(404, "not_found", "No such Class session.")
+    now = auth.utcnow()
+    async with get_sessionmaker().begin() as s:
+        row = await repo.session_row(s, session_id, lock=True)
+        if row is None:
+            return error_response(404, "not_found", "No such Class session.")
+        moved = {
+            name: min(row[name], now - timedelta(minutes=minutes))
+            if row[name] is not None
+            else now - timedelta(minutes=minutes)
+            for name, minutes in (
+                ("start_at", 4),
+                ("play_deadline", 3),
+                ("debrief_deadline", 2),
+                ("test_deadline", 1),
+            )
+        }
+        await s.execute(
+            update(class_sessions).where(class_sessions.c.id == session_id).values(**moved)
+        )
+        # Story 13.9: the deletion date follows the Test deadline.
+        await service.refresh_deletion_date(s, session_id)
+    return DevDeadlineOut(test_deadline=moved["test_deadline"].isoformat())

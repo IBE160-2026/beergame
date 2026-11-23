@@ -137,6 +137,8 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         "sessions.send_deadline_reminder": frozenset({"user"}),
         # One Student's reminder of their own Debrief or Test deadline (Story 11.13), likewise.
         "sessions.send_own_deadline_reminder": frozenset({"user"}),
+        # The deletion reminder (Story 13.9): one notice per Student, which emits `user`.
+        "sessions.send_deletion_reminder": frozenset({"user"}),
         # The Play deadline playout of one Class game (Story 8.14), through `games.playout`.
         "sessions.playout": frozenset({"game", "session", "user"}),
         # Student choice (Story 5.17). A save that opens it creates the empty Class games
@@ -150,6 +152,22 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # A step a Student has done (Story 6.1, AD-16): their Hjem and Stegene read it again, and
         # so does the Class session's overview. A step already recorded emits nothing.
         "progress.record_step": frozenset({"session", "user"}),
+        # A Lecturer corrected a step of a Student's Completion status (Story 13.3, AD-16): the
+        # open Studentside and the Student's Hjem read it again. It records no step event.
+        "reports.correct_completion": frozenset({"session", "user"}),
+        # Story 13.7: a press of «Lag Studentrapport» and the end of its render; the Student's
+        # page shows the pending state and then the download without a reload.
+        "reports.request_report": frozenset({"user"}),
+        "reports.render_report": frozenset({"user"}),
+        # Story 13.13: a press of «Last ned alle Studentrapporter (ZIP)» and the end of its job;
+        # the requester's Klasseøkt shows the pending line and then the download (its notice
+        # emits `user` too).
+        "reports.request_zip": frozenset({"user"}),
+        "reports.build_zip": frozenset({"user"}),
+        # A Lecturer gave a Student an Oppfølgingsspill (Story 13.4): the `makeup` Game is made and
+        # seated through `games.commands` in the same transaction (`game:<id>`), the Student's
+        # Hjem shows it and the open Studentside reads it again. A second press emits nothing.
+        "reports.give_makeup": frozenset({"game", "session", "user"}),
         # A Debrief session opened (Story 9.2, AD-21): created at step 1, its row locked;
         # opening one that exists emits nothing. A Group debrief's first open (Story 9.11) tells
         # the game's other Students, each `group_debrief_opened` notice emitting `user`.

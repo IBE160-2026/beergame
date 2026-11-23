@@ -11,8 +11,8 @@ from typing import Literal
 from pydantic import BaseModel
 
 from app.engine.settings import Role
-from app.modules.games.schemas import SeatMark
-from app.modules.sessions.schemas import FunnelStageOut
+from app.modules.games.service import SeatMark
+from app.modules.sessions.service import FunnelStageOut
 
 __all__ = [
     "ClassReportOut",

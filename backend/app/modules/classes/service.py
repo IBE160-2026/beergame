@@ -476,6 +476,7 @@ def _status(
         last_valid_day=last_day if status is RegistrationStatus.invited else None,
         bounce_class=BounceClass(bounce) if status is RegistrationStatus.bounced else None,
         remindable=not registered and bounce != BounceClass.hard,
+        user_id=facts.user_id if registered else None,
         test_student=facts.test_student,
         consent=ConsentStatus(facts.consent) if facts.consent is not None else None,
     )

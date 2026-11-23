@@ -11,10 +11,11 @@ const LINE = "text-body-phone text-ink lg:text-body";
  * no walkthrough and no button forward; the lines say why and that the Orders stand, and «Til Hjem»
  * leads back, where Stegene says the same. Every state is the api's (`end_reason`, AD-10).
  */
-export function ReplayClosed() {
+export function ReplayClosed({ makeup = false }: { makeup?: boolean }) {
   return (
     <div data-replay-closed="" className="mt-6 max-w-md">
-      <p className={LINE}>{copy.lead}</p>
+      {/* Story 13.4: an Oppfølgingsspill closed at the Testfrist says so in its own words. */}
+      <p className={LINE}>{makeup ? nb.games.play.makeupClosed.lead : copy.lead}</p>
       <p className={`${LINE} mt-3`}>{copy.kept}</p>
       <PageLink href={HOME_PATH.home}>{HOME_LINK.home}</PageLink>
     </div>

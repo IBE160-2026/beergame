@@ -20,7 +20,6 @@ from app.modules.classes import service as classes
 from app.modules.games import commands as games_commands
 from app.modules.games import service as games_service
 from app.modules.games.service import ClassGameSummary, GameStatus, SeatMark
-from app.modules.progress import service as progress
 from app.modules.sessions import repo
 from app.modules.sessions.schemas import (
     ClassCostOut,
@@ -57,7 +56,13 @@ from app.modules.sessions.schemas import (
     WallWeekOut,
     WeekSeatOut,
 )
-from app.modules.sessions.service import _class_for, current_lab_hour, is_locked, time_factors
+from app.modules.sessions.service import (
+    _class_for,
+    current_lab_hour,
+    funnel_of,
+    is_locked,
+    time_factors,
+)
 from app.platform import auth, authz
 from app.platform.db import get_sessionmaker
 
@@ -130,9 +135,9 @@ async def class_overview(user: authz.Principal, session_id: uuid.UUID) -> ClassO
             if finished and not before_start
             else {}
         )
-        # The registered Students of the Class: `progress` counts their steps and looks up no one.
-        registered = await classes.registered_students(row["class_id"])
-        trakt = await progress.funnel(s, session_id, registered)
+        # Story 13.1: the Trakt over the reporting Students (`reports.scope`), through
+        # `reports.service.funnel`; `progress` counts their steps and looks up no one.
+        trakt = await funnel_of(s, session_id)
         # «Start spill som ikke har startet (12)» (Story 8.10): for a Lecturer, after the lock.
         startable = (
             len(await games_service.startable_class_games(s, session_id))

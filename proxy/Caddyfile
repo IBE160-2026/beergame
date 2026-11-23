@@ -12,8 +12,15 @@
 }
 
 :{$PORT:8080} {
+	@internal path /api/internal /api/internal/*
 	@api path /api /api/*
 	@print path /print /print/*
+
+	# Before @api: the api's internal routes (the print route's report snapshot, Story 13.7) are
+	# reached only from inside, by the frontend server (AD-11, AD-18).
+	handle @internal {
+		respond 404
+	}
 
 	handle @api {
 		reverse_proxy {$API_UPSTREAM:backend:8000} {

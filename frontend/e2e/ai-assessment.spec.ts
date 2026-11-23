@@ -4,6 +4,7 @@ import { nb } from "../src/copy/nb";
 import { loginByApi } from "./support/auth";
 import { expectAccessible, lecturerPage, test } from "./support/classes";
 import { liveClassGame } from "./support/live-game";
+import { staffRecord } from "./support/record";
 
 /** The Student's «KI-vurdering» (Story 12.2, FR-54, FR-55, FR-61, FR-80, NFR-6, UX-DR5, UX-DR66):
  * not ready, switched off, ready, incomplete and failed at 320, 360 and 1440 px with axe, each
@@ -379,8 +380,8 @@ for (const vp of VIEWPORTS) {
       await page.route(`**/api/class-sessions/${SESSION}/students/${STUDENT_ID}`, (route) =>
         route.fulfill({ status: 200, json: STUDENT_PAGE }),
       );
-      await page.route(`**/api/class-sessions/${SESSION}/students/${STUDENT_ID}/assessment`, (route) =>
-        route.fulfill({ status: 200, json: FLAGGED }),
+      await page.route(`**/api/class-sessions/${SESSION}/students/${STUDENT_ID}/record`, (route) =>
+        route.fulfill({ status: 200, json: staffRecord({ session: SESSION, classId: STUDENT_PAGE.class_id, student: STUDENT_ID }, FLAGGED) }),
       );
       await page.goto(`/klasseokter/${SESSION}/studenter/${STUDENT_ID}`);
       const block = page.locator("[data-staff-assessment]");

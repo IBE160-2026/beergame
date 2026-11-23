@@ -45,7 +45,13 @@ from app.modules.games.insight import (
     unregister_insight_links,
 )
 from app.modules.games.marks import seat_mark
-from app.modules.games.policy import GamePolicy, PurposeNotSupportedError, policy, purposes_with
+from app.modules.games.policy import (
+    GamePolicy,
+    PurposeNotSupportedError,
+    policy,
+    purposes_with,
+    purposes_with_own_round,
+)
 from app.modules.games.ratings import BelievabilityRefused, believability, rate_believability
 from app.modules.games.schemas import (
     Believability,
@@ -136,10 +142,16 @@ __all__ = [
     "PendingTurn",
     "Purpose",
     "PurposeNotSupportedError",
+    "SeatLog",
     "SeatMark",
     "SeatOverview",
     "SeatState",
+    "SessionGame",
     "SessionRuntime",
+    "SeatTiming",
+    "seat_log",
+    "seat_timing",
+    "session_games",
     "SimulationBatch",
     "StudentGame",
     "TestGameRef",
@@ -193,6 +205,7 @@ __all__ = [
     "PlayStatus",
     "play_status",
     "student_game",
+    "class_game_of",
     "student_seated",
     "table_status",
     "decision_log",
@@ -523,18 +536,54 @@ class StudentGame:
     replay: bool = False
     """Whether it is the Student's own round outside the Class games: a Game of the Class session
     without a number that no Lecturer plays, the Replay (Story 10.4). Never `student_game`."""
+    makeup: bool = False
+    """Whether it is the Student's Oppfølgingsspill (`games.policy` `own_round`, Story 13.4): their
+    own round against AI players that a Lecturer gave them. `student_game` once it finished by its
+    last Week (Story 13.5)."""
     projection: bool = False
     """Whether the play screen draws the projection (`games.policy`, Story 10.4, UX-DR19)."""
+    debrief_personal: bool = False
+    """Whether its Debrief is always a Personal debrief (`games.policy`
+    `debrief_always_personal`, Story 13.5)."""
 
 
 async def student_game(
     session: AsyncSession, user_id: uuid.UUID, class_session_id: uuid.UUID
 ) -> StudentGame | None:
-    """The one way any module finds a Student's game (Story 6.1): the Class game of the Class
-    session in which the Student holds a Seat now, else the one in which they held a Seat last
-    (joined through `authz.own_seat`); None when they never held one. A Seat another Student
-    held after them is never theirs to read: it shows that Student's play (FR-5). Read in the
-    caller's transaction."""
+    """The one way any module finds a Student's game (Stories 6.1, 13.5): their Oppfølgingsspill
+    once it has finished by playing its last Week (one closed at the Test deadline never is),
+    else their Class game (`class_game_of`); None with neither. Read in the caller's
+    transaction."""
+    for row in await repo.finished_own_rounds(
+        session, class_session_id, user_id, purposes_with_own_round("makeup")
+    ):
+        role = await repo.held_role(session, row["game_id"], user_id)
+        if role is None:
+            continue
+        rules = policy(row["purpose"])
+        return StudentGame(
+            game_id=row["game_id"],
+            class_session_id=class_session_id,
+            number=None,
+            role=role,
+            pre_play_gate=rules.pre_play_gate,
+            makeup=True,
+            projection=rules.projection,
+            debrief_personal=rules.debrief_always_personal,
+        )
+    return await class_game_of(session, user_id, class_session_id)
+
+
+async def class_game_of(
+    session: AsyncSession, user_id: uuid.UUID, class_session_id: uuid.UUID
+) -> StudentGame | None:
+    """The Student's Class game: the one of the Class session in which they hold a Seat now, else
+    the one in which they held a Seat last (joined through `authz.own_seat`); None when they never
+    held one. A Seat another Student held after them is never theirs to read: it shows that
+    Student's play (FR-5). Only Completion's Class game share (Story 13.4), the own mark of «Alle
+    spill side om side» (Story 14.5), `own_game`, `game_students` and the turn-time recompute of
+    a Tilrettelegging read it directly; every other reader goes through `student_game`. Read in
+    the caller's transaction."""
     rows = [
         row
         for row in await repo.student_seats(session, class_session_id, user_id)
@@ -550,7 +599,91 @@ async def student_game(
         number=best["game_number"],
         role=best["role"],
         pre_play_gate=policy(best["purpose"]).pre_play_gate,
+        debrief_personal=policy(best["purpose"]).debrief_always_personal,
     )
+
+
+@dataclass(frozen=True)
+class SeatLog:
+    """A Seat's play as Completion reads it (Story 13.1, FR-17, AD-15): the snapshot's number of
+    Weeks and Guided Weeks, and per Decision log row its Week, `decided_by` and the occupancy
+    `reason`. Never a quantity or a time."""
+
+    weeks: int
+    guided_weeks: int
+    rows: tuple[tuple[int, str, str], ...]
+
+
+async def seat_log(session: AsyncSession, game_id: uuid.UUID, role: str) -> SeatLog | None:
+    """The `SeatLog` of the Game's Seat of `role`, read in the caller's transaction; None before
+    the Game has its snapshot or for an unknown Game."""
+    game = await repo.get_game(session, game_id)
+    if game is None or game["settings"] is None:
+        return None
+    settings = GameSettings.model_validate(game["settings"])
+    rows = await repo.seat_log(session, game_id, role)
+    return SeatLog(
+        weeks=settings.weeks,
+        guided_weeks=settings.guided_weeks,
+        rows=tuple((row["week"], row["decided_by"], row["reason"]) for row in rows),
+    )
+
+
+@dataclass(frozen=True)
+class SeatTiming:
+    """A Seat's Orders as the Studentside's participation signals read them (Story 13.2, FR-17):
+    the snapshot's Guided Weeks, and per Decision log row its Week, `decided_by`, occupancy
+    `reason`, quantity and the whole seconds from the turn's opening to the Order."""
+
+    guided_weeks: int
+    rows: tuple[tuple[int, str, str, int, int], ...]
+
+
+async def seat_timing(session: AsyncSession, game_id: uuid.UUID, role: str) -> SeatTiming | None:
+    """The `SeatTiming` of the Game's Seat of `role`, read in the caller's transaction; None before
+    the Game has its snapshot or for an unknown Game."""
+    game = await repo.get_game(session, game_id)
+    if game is None or game["settings"] is None:
+        return None
+    settings = GameSettings.model_validate(game["settings"])
+    return SeatTiming(
+        guided_weeks=settings.guided_weeks,
+        rows=tuple(
+            (
+                row["week"],
+                row["decided_by"],
+                row["reason"],
+                row["order"],
+                int((row["ordered_at"] - row["opened_at"]).total_seconds()),
+            )
+            for row in await repo.seat_timing(session, game_id, role)
+        ),
+    )
+
+
+@dataclass(frozen=True)
+class SessionGame:
+    """A Game of a Class session (Story 13.1): its purpose, number (None but for Class games) and,
+    for a Game closed without its last Week, why (`end_reason`, Story 10.6)."""
+
+    game_id: uuid.UUID
+    purpose: Purpose
+    number: int | None
+    end_reason: EndReason | None
+
+
+async def session_games(session: AsyncSession, class_session_id: uuid.UUID) -> list[SessionGame]:
+    """Every Game of the Class session, of any purpose, in the caller's transaction. For
+    `reports.scope`, which decides which of them a report counts."""
+    return [
+        SessionGame(
+            game_id=row["id"],
+            purpose=Purpose(row["purpose"]),
+            number=row["game_number"],
+            end_reason=EndReason(row["end_reason"]) if row["end_reason"] else None,
+        )
+        for row in await repo.session_games(session, class_session_id)
+    ]
 
 
 @dataclass(frozen=True)
@@ -564,16 +697,17 @@ class GameStudent:
 
 
 async def game_students(session: AsyncSession, game_id: uuid.UUID) -> list[GameStudent]:
-    """The Students whose game the Class game `game_id` is, through `student_game` (so a Student
-    moved to another game since is left out), with their own-Order counts, in the caller's
-    transaction; empty for a Game with no Class session."""
+    """The Students whose Class game `game_id` is, through `class_game_of` (so a Student moved to
+    another game since is left out, and one whose finished Oppfølgingsspill became their game,
+    Story 13.5, stays: their Debrief may run on this game), with their own-Order counts, in the
+    caller's transaction; empty for a Game with no Class session."""
     game = await repo.get_game(session, game_id)
     if game is None or game["class_session_id"] is None:
         return []
     orders = await repo.student_orders_by_role(session, game_id)
     found = []
     for user_id in await repo.named_students(session, game_id):
-        theirs = await student_game(session, user_id, game["class_session_id"])
+        theirs = await class_game_of(session, user_id, game["class_session_id"])
         if theirs is not None and theirs.game_id == game_id:
             found.append(GameStudent(user_id, theirs.role, orders.get(theirs.role, 0)))
     return sorted(found, key=lambda each: str(each.user_id))
@@ -784,24 +918,27 @@ async def turn_reminder_of(
 
 
 def _own_round(rules: GamePolicy) -> bool:
-    """Whether Games of this policy are a Student's own round outside the Class games: of a Class
-    session, without a number, and no Lecturer plays it — the Replay (Stories 10.4, 10.5)."""
-    return rules.class_session_game and not rules.game_number and not rules.played_by_staff
+    """Whether Games of this policy are the Student's Replay (Stories 10.4, 10.5): the policy's
+    `own_round`, so the Oppfølgingsspill (Story 13.4), also an own round, is never called one."""
+    return rules.own_round == "replay"
 
 
 async def own_game(
     session: AsyncSession, user_id: uuid.UUID, game_id: uuid.UUID
 ) -> StudentGame | None:
-    """The Game `game_id` when it is the Student's game, the one `student_game` gives for its
-    Class session (joined through `authz.own_seat`); None for any other Game, also one they held a
-    Seat in before a move, so another's reads the same as one that does not exist (FR-5)."""
+    """The Game `game_id` when it is one of the Student's own: their Class game (`class_game_of`,
+    also once a finished Oppfølgingsspill has become their game, Story 13.5) or an own round or
+    test Game whose Seat they hold (joined through `authz.own_seat`); None for any other Game,
+    also one they held a Seat in before a move, so another's reads the same as one that does not
+    exist (FR-5)."""
     game = await repo.own_game(session, user_id, game_id)
     if game is None or game["class_session_id"] is None:
         return None
     game_policy = policy(game["purpose"])
-    if game_policy.played_by_staff or _own_round(game_policy):
-        # A Lecturer's test Game (Story 6.20) or a Student's Replay (Story 10.4): theirs while they
-        # hold its Seat; no Class game of the session is ever one (`student_game` leaves it out).
+    if game_policy.played_by_staff or game_policy.own_round != "none":
+        # A Lecturer's test Game (Story 6.20), a Student's Replay (Story 10.4) or Oppfølgingsspill
+        # (Story 13.4): theirs while they hold its Seat; no Class game of the session is ever one
+        # (`student_game` leaves it out).
         role = await repo.held_role(session, game_id, user_id)
         if role is None:
             return None
@@ -813,9 +950,11 @@ async def own_game(
             pre_play_gate=game_policy.pre_play_gate,
             test_game=game_policy.played_by_staff,
             replay=_own_round(game_policy),
+            makeup=game_policy.own_round == "makeup",
             projection=game_policy.projection,
+            debrief_personal=game_policy.debrief_always_personal,
         )
-    found = await student_game(session, user_id, game["class_session_id"])
+    found = await class_game_of(session, user_id, game["class_session_id"])
     if found is None or found.game_id != game_id:
         return None
     return found

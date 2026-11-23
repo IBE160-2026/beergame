@@ -4,7 +4,8 @@ import { classesKey, enrolledClassesKey } from "@/modules/classes/api";
 import { debriefsKey } from "@/modules/debrief/api";
 import { classOverviewKey, gameInsightKey, startGamesKey, waitedForSeatsKey } from "@/modules/games/api";
 import { meKey } from "@/modules/identity/api";
-import { myMessagesKey, sentMessagesKey } from "@/modules/messaging/api";
+import { messageFormKey, myMessagesKey, sentMessagesKey } from "@/modules/messaging/api";
+import { myReportsKey, staffReportsKey } from "@/modules/reports/api";
 import { classReportKey } from "@/modules/reports/class-report-api";
 import {
   allocationKey,
@@ -41,6 +42,11 @@ export function topicKeys(event: ChangeEvent): QueryKey[] {
         debriefsKey,
         // Story 11.3: the Individual test opened on another device shows its items here too.
         myTestsKey,
+        // Story 13.7: the Student report's state, once its render has ended.
+        myReportsKey,
+        // Story 13.12: a staff download of a Student's report, once the render the User asked for
+        // has ended.
+        staffReportsKey,
       ];
     // A Class session, for its staff: the Klasseøkt, its allocation block, the Lærerhjem parts of
     // Stories 5.2 and 5.9, the Class page's list of its sessions, its Oversikt (Story 7.1) and its
@@ -62,6 +68,8 @@ export function topicKeys(event: ChangeEvent): QueryKey[] {
         sentMessagesKey(event.id),
         // Story 14.1: the Klasserapport, as a Game finishes or a step is recorded.
         classReportKey(event.id),
+        // Story 13.6: the Oversikt's «Send Melding til 12 som ikke har oppfylt kravet».
+        messageFormKey(event.id, { requirement: true }),
       ];
     // A Game: the Student's own game and what hangs under it (briefing, Starting task, the play
     // screen's envelope), Hjem, whose Setestatus shows who has ordered (Story 6.14), and the

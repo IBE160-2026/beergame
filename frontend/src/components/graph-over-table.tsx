@@ -1,6 +1,6 @@
 "use client";
 
-import { type CSSProperties, Fragment, type ReactNode, useCallback, useLayoutEffect, useRef, useState } from "react";
+import { type ComponentProps, type CSSProperties, Fragment, type ReactNode, useCallback, useLayoutEffect, useRef, useState } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -104,6 +104,17 @@ type Measured = {
 };
 
 const EMPTY: Measured = { fields: {}, nowLeft: null };
+
+/** A field row's axis cell: `td` in the browser, `th scope="row"` in print. */
+function AxisCell({ header, children, ...props }: { header: boolean; children: ReactNode } & ComponentProps<"td">) {
+  return header ? (
+    <th scope="row" {...props}>
+      {children}
+    </th>
+  ) : (
+    <td {...props}>{children}</td>
+  );
+}
 
 /** The join line's ends, from the table wrapper's top left. */
 type Join = { x1: number; y1: number; x2: number; y2: number };
@@ -380,7 +391,11 @@ export function GraphOverTable({
                         </tr>
                       ) : null}
                       <tr aria-hidden={field.interactive ? undefined : "true"} data-field={field.key} data-variant={variant.name} className={variant.rowClass}>
-                        <td
+                        {/* In print the axis cell is the field row's header (`th scope="row"`, its
+                            SVG titled): a tagged PDF's checker (veraPDF, PDF/UA-1 7.5) needs every
+                            cell's headers, and this cell's column has none (Story 13.8). */}
+                        <AxisCell
+                          header={fixed !== undefined}
                           data-axis=""
                           className={cn(STICKY_LABEL, "text-caption")}
                           style={fixed ? { ...fixedCell(fixed, "week"), width: fixed.labelWidth, minWidth: fixed.labelWidth, maxWidth: fixed.labelWidth } : undefined}
@@ -390,7 +405,7 @@ export function GraphOverTable({
                               {drawn.axis}
                             </div>
                           ) : null}
-                        </td>
+                        </AxisCell>
                         <td
                           data-plot=""
                           colSpan={span}

@@ -1,8 +1,8 @@
 """Whether a Student's Debrief is open (Story 9.2, FR-42, AD-25): the one rule every Debrief
 route, Hjem's Stegene and «Spillet er ferdig» use.
 
-- `not_open`: the Student's game (`games.service.student_game`, the one way to find it) has not
-  finished.
+- `not_open`: the Student's game (`games.service.student_game`, the one way to find it, or the
+  game of a Debrief they already started, `debrief_game`, Story 13.5) has not finished.
 - `held`: it has, but the Lecturer holds every Debrief until all Class games have finished, and
   one Game of `games.service.class_games` (Lecturer-overview purposes, so never a test Game) has
   not. Once all have finished the Debrief is open, also before the sweep's release.
@@ -23,15 +23,19 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from sqlalchemy import select
+from sqlalchemy import select, union
 from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.debrief.models import (
     INDIVIDUAL_STEP,
     debrief_alone,
+    debrief_explanations,
+    debrief_fact_sets,
     debrief_members,
     debrief_sessions,
+    debrief_step_marks,
+    debrief_summaries,
     quiz_attempts,
     quiz_exclusions,
 )
@@ -49,12 +53,57 @@ async def all_class_games_finished(session: AsyncSession, class_session_id: uuid
     return bool(found) and all(game.lifecycle == games.Lifecycle.FINISHED for game in found)
 
 
+async def _started_on(
+    session: AsyncSession, user_id: uuid.UUID, class_session_id: uuid.UUID
+) -> uuid.UUID | None:
+    """The Game of a Debrief the Student has already started in the Class session (Story 13.5):
+    the game a stored row of theirs names (the Explanation, the facts set of step 4, the summary,
+    a quiz attempt), or the Debrief session they joined, marked a shared step in or chose to go on
+    alone in. The 48-hour fallback's rows are the sweep's, not the Student's, and do not count."""
+    by_student = [
+        select(table.c.game_id).where(
+            table.c.user_id == user_id, table.c.class_session_id == class_session_id
+        )
+        for table in (debrief_explanations, debrief_fact_sets, debrief_summaries, quiz_attempts)
+    ]
+    in_session = [
+        select(debrief_sessions.c.game_id)
+        .join(table, table.c.debrief_id == debrief_sessions.c.id)
+        .where(
+            table.c.user_id == user_id,
+            debrief_sessions.c.class_session_id == class_session_id,
+            *extra,
+        )
+        for table, extra in (
+            (debrief_members, ()),
+            (debrief_step_marks, ()),
+            (debrief_alone, (debrief_alone.c.reason != "fallback",)),
+        )
+    ]
+    found = await session.scalars(union(*by_student, *in_session).limit(1))
+    return found.first()
+
+
+async def debrief_game(
+    session: AsyncSession, user_id: uuid.UUID, class_session_id: uuid.UUID
+) -> games.StudentGame | None:
+    """The game the Student's Debrief runs on (Stories 9.2, 13.5): the one they already started a
+    Debrief on, which it keeps once a finished Oppfølgingsspill becomes their game (nothing stored
+    is redone); else their game, `games.service.student_game`. Read in the caller's `session`."""
+    started = await _started_on(session, user_id, class_session_id)
+    if started is not None:
+        found = await games.own_game(session, user_id, started)
+        if found is not None:
+            return found
+    return await games.student_game(session, user_id, class_session_id)
+
+
 async def state(
     session: AsyncSession, user_id: uuid.UUID, class_session_id: uuid.UUID, hold: bool
 ) -> State | None:
     """The Student's Debrief state in the Class session, read in the caller's `session`; None
-    when they have no Class game there."""
-    found = await games.student_game(session, user_id, class_session_id)
+    when they have no game there (`debrief_game`)."""
+    found = await debrief_game(session, user_id, class_session_id)
     if found is None:
         return None
     if (await games.play_status(session, found.game_id)).status != "finished":
@@ -83,7 +132,7 @@ async def available(user: authz.Principal, class_session_id: uuid.UUID) -> Avail
         found = await sessions.debrief_session_of(s, user, class_session_id)
         if found is None:
             return None
-        game = await games.student_game(s, user.id, class_session_id)
+        game = await debrief_game(s, user.id, class_session_id)
         if game is None:
             return None
         judged = await state(s, user.id, class_session_id, found.hold)
@@ -138,7 +187,7 @@ async def group_open(
 ) -> bool:
     """Story 9.11: whether a Group debrief of the Student's game is under way that they have not
     joined, so Hjem offers to join and the `group_debrief_opened` mail still goes out."""
-    found = await games.student_game(session, user_id, class_session_id)
+    found = await debrief_game(session, user_id, class_session_id)
     if found is None:
         return False
     joined = (

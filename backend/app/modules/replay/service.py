@@ -23,6 +23,9 @@ from app.modules.games import commands as games_commands
 from app.modules.games import service as games_service
 from app.modules.progress import service as progress
 from app.modules.replay import repo
+from app.modules.replay.schemas import WalkthroughRunOut
+from app.modules.replay.walkthrough import ReplayReport
+from app.modules.replay.walkthrough import report as report_replay
 from app.modules.sessions import service as sessions
 from app.platform import auth, authz, events
 from app.platform.db import get_sessionmaker
@@ -30,10 +33,13 @@ from app.platform.db import get_sessionmaker
 __all__ = [
     "REPLAY_LINK",
     "ReplayRefused",
+    "ReplayReport",
+    "WalkthroughRunOut",
     "Started",
     "insight_links",
     "insight_path",
     "replay_game_of",
+    "report_replay",
     "start",
 ]
 

@@ -28,10 +28,13 @@ export async function liveClassGame(
     width = 360,
     gameSettings = {},
     debriefMode,
+    obligatory,
   }: {
     aiMode?: "llm" | "rule_based";
     /** The Class session's Debrief mode; left out, the session's default (Story 9.14). */
     debriefMode?: "group" | "personal";
+    /** Story 13.1: mark the Class session Obligatorisk. */
+    obligatory?: boolean;
     width?: number;
     /** More Game settings for the Class session, over `guided_weeks: 0` (Story 6.18: a short game). */
     gameSettings?: Record<string, unknown>;
@@ -42,6 +45,7 @@ export async function liveClassGame(
     width,
     gameSettings,
     debriefMode,
+    obligatory,
   });
   const { sessionId, students } = locked;
   // Each Student's Starting task, the Students side by side (each answers its own Seat's items).
@@ -85,11 +89,13 @@ export async function lockedClassGames(
     width = 360,
     gameSettings = {},
     debriefMode,
+    obligatory,
   }: {
     aiMode?: "llm" | "rule_based";
     width?: number;
     gameSettings?: Record<string, unknown>;
     debriefMode?: "group" | "personal";
+    obligatory?: boolean;
   } = {},
 ): Promise<LockedGames> {
   const lecturer = await lecturerPage(browser, lecturerSession, { width: 1280, height: 800 });
@@ -135,6 +141,7 @@ export async function lockedClassGames(
       data: {
         ai_mode: aiMode,
         ...(debriefMode ? { debrief_mode: debriefMode } : {}),
+        ...(obligatory ? { obligatory: true } : {}),
         dates: { start_at, play_deadline, debrief_deadline, test_deadline },
         game_settings: { guided_weeks: 0, ...gameSettings },
       },

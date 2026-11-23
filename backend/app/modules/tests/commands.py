@@ -602,7 +602,7 @@ async def extend_deadline(
     route's 403) unless `user` is a Lecturer of the Class (`class_sessions.manage`) and
     `student_id` a Student of it now (`sessions.student_target`).
 
-    One transaction: the Class session row share-locked (`sessions.test_session`), then the
+    One transaction: the Class session row locked (`sessions.test_session`), then the
     Student's attempt row `FOR UPDATE` when there is one: a handed-in attempt raises
     `AttemptSubmitted` before anything is stored. `sessions.save_extension` then judges the date
     (`InvalidExtension`: after the Class session's Test deadline and after now; `ClassArchived`),
@@ -614,7 +614,8 @@ async def extend_deadline(
     if target is None:
         return None
     async with get_sessionmaker().begin() as s:
-        if await sessions.test_session(s, class_session_id) is None:
+        # Locked for update, not shared: the extension stores the deletion date on the row.
+        if await sessions.test_session(s, class_session_id, lock=True) is None:
             return None
         attempt = (
             (
