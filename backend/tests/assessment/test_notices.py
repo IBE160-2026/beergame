@@ -353,9 +353,12 @@ async def test_an_overdue_assessment_is_logged_once_and_its_lost_job_deferred_ag
     assert await assessment.due_overdue(LATE + DAY) == []
 
 
-async def test_a_job_that_keeps_getting_lost_is_deferred_again_at_most_its_runs(klass, monkeypatch):
+async def test_a_job_that_keeps_getting_lost_is_deferred_again_at_most_its_runs_then_fails(
+    klass, monkeypatch
+):
     monkeypatch.setenv("ASSESSMENT_MAX_RUNS", "2")
     get_settings.cache_clear()
+    await make("admin1@example.com", (AccountRole.admin,))
     _, attempt_id = await ready_session(klass, monkeypatch)
     deferred = []
     for look in range(4):
@@ -364,7 +367,10 @@ async def test_a_job_that_keeps_getting_lost_is_deferred_again_at_most_its_runs(
         found = await assessment.due_overdue(now)
         deferred.append(bool(found) and await assessment.overdue_due(attempt_id, now))
     assert deferred == [True, True, False, False]
-    assert row_of(attempt_id)[:2] == ("incomplete", 2) and assess_jobs() == []
+    # The third look finds no runs left and no live job: the lost runs settle it, and the Admins
+    # are told as by a failed run; the fourth finds nothing.
+    assert row_of(attempt_id)[:2] == ("failed", 2) and assess_jobs() == []
+    assert notices("assessment_failed") != []
 
 
 async def test_the_overdue_action_skips_a_stopped_session_and_one_without_runs_left(
@@ -379,7 +385,8 @@ async def test_the_overdue_action_skips_a_stopped_session_and_one_without_runs_l
     assert await assessment.overdue_due(attempt_id, LATE + MINUTE) is False
     assert await assessment.resume_for_session(uuid.UUID(session_id), None, now=LATE) == 1
     execute("DELETE FROM procrastinate_jobs WHERE task_name = %s", assessment.ASSESS_TASK)
-    # Runs used up but still `incomplete` (a row left behind): logged, never deferred again.
+    # Runs used up but still `incomplete` (a row left behind): never deferred again, but settled
+    # `failed` once no job of it is live, so the Student is not left with «not ready».
     execute(
         "UPDATE ai_assessments SET runs = 2, overdue_at = %s, updated_at = %s "
         "WHERE attempt_id = %s",
@@ -387,9 +394,10 @@ async def test_the_overdue_action_skips_a_stopped_session_and_one_without_runs_l
         LATE,
         attempt_id,
     )
-    assert await assessment.due_overdue(LATE + DAY) == []
+    assert await assessment.due_overdue(LATE + DAY) == [attempt_id]
     assert await assessment.overdue_due(attempt_id, LATE + DAY) is False
-    assert assess_jobs() == []
+    assert row_of(attempt_id)[:2] == ("failed", 2) and assess_jobs() == []
+    assert await assessment.due_overdue(LATE + 2 * DAY) == []
 
 
 # Stop and resume.

@@ -242,6 +242,32 @@ async def test_an_open_attempt_keeps_the_control_test_unchecked(scored, monkeypa
     assert rows("SELECT count(*) FROM scoring_guide_checks") == [(0,)]
 
 
+async def test_an_extended_student_with_no_attempt_yet_keeps_the_control_test_unchecked(
+    scored, monkeypatch
+):
+    """Every attempt closed and scored, but one Student's own Test deadline is still ahead and
+    they have not opened the test: their answers may still come, so nothing is checked."""
+    session_id = scored["session"]
+    close_open_attempts(session_id)
+    late = uuid.uuid4()
+    execute("INSERT INTO users (id, email, name) VALUES (%s, 'sen-1210@x.no', 'Sen Student')", late)
+    execute(
+        "INSERT INTO student_deadline_extensions (class_session_id, user_id, test_deadline, "
+        "updated_at) VALUES (%s, %s, %s, %s)",
+        session_id,
+        late,
+        AFTER + timedelta(days=2),
+        AFTER,
+    )
+    at(monkeypatch, AFTER)
+    for entry in await entries(session_id):
+        await score(session_id, SCORER, entry["ref"], 2)
+    found = await results(session_id)
+    assert (found["missing"], found["open_attempts"]) == (0, 1)
+    assert (found["complete"], found["checked"]) == (False, False)
+    assert rows("SELECT count(*) FROM scoring_guide_checks") == [(0,)]
+
+
 async def test_an_admin_who_is_a_named_scorer_gets_no_ai_steps_before_their_own(
     scored, monkeypatch
 ):

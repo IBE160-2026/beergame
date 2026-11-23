@@ -226,16 +226,33 @@ async def entries(s: AsyncSession, class_session_id: uuid.UUID) -> list[_Entry]:
     return await _entries(s, class_session_id)
 
 
-async def open_attempts(s: AsyncSession, class_session_id: uuid.UUID) -> int:
-    """How many attempts of the Control test are still open (an extension, a timed sitting): its
-    answers are not listed yet, so the Control test is not complete (Story 12.10)."""
+async def open_attempts(s: AsyncSession, class_session_id: uuid.UUID, now: datetime) -> int:
+    """How many attempts of the Control test can still bring answers: those still open (an
+    extension, a timed sitting), and one for each Student whose own Test deadline is still ahead
+    with no attempt yet (an extension granted before they opened the test). While any can, the
+    Control test is not complete and no check is marked (Story 12.10)."""
     found = await s.scalar(
         select(func.count()).where(
             test_attempts.c.class_session_id == class_session_id,
             test_attempts.c.closed_at.is_(None),
         )
     )
-    return int(found or 0)
+    ahead = {
+        user_id
+        for user_id, deadline in (await sessions.own_test_deadlines(s, class_session_id)).items()
+        if deadline > now
+    }
+    if ahead:
+        started = set(
+            await s.scalars(
+                select(test_attempts.c.user_id).where(
+                    test_attempts.c.class_session_id == class_session_id,
+                    test_attempts.c.user_id.in_(ahead),
+                )
+            )
+        )
+        ahead -= started
+    return int(found or 0) + len(ahead)
 
 
 async def _reader(
@@ -418,6 +435,9 @@ async def submit(
         # The scorer rows first, then the answers: a concurrent last score waits here and then
         # reads this one.
         named = await assessment.hold_scorers(s, class_session_id)
+        # Whether attempts can still bring answers, read before the list: an attempt that closes
+        # in between leaves `settled` false rather than missing from `listed`.
+        settled = await open_attempts(s, class_session_id, now) == 0
         listed = await _entries(s, class_session_id)
         entry = next((e for e in listed if e.ref == ref), None)
         if entry is None:
@@ -433,7 +453,7 @@ async def submit(
                 score,
                 named=named,
                 listed=[e.answer_id for e in listed],
-                settled=await open_attempts(s, class_session_id) == 0,
+                settled=settled,
                 scoring_guide_id=in_force.record.id,
                 model_config_id=reader.test.model_config_id,
                 now=now,
@@ -547,11 +567,12 @@ async def remove_scorer(
             # The scorers left may now have scored everything (Story 12.10).
             if now >= facts.test_deadline:
                 in_force = await guide.in_force(s, class_session_id)
+                closed_all = await open_attempts(s, class_session_id, now) == 0  # before the list
                 settled = await assessment.settle_after_removal(
                     s,
                     class_session_id,
                     listed=[e.answer_id for e in await _entries(s, class_session_id)],
-                    settled=await open_attempts(s, class_session_id) == 0,
+                    settled=closed_all,
                     scoring_guide_id=in_force.record.id,
                     model_config_id=facts.model_config_id,
                     now=now,

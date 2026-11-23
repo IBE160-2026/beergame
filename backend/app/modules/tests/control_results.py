@@ -67,7 +67,7 @@ async def results(
         people = await identity.people(s, named)
         is_open = now >= facts.test_deadline
         listed = await blind.entries(s, class_session_id) if is_open else []
-        still_open = await blind.open_attempts(s, class_session_id)
+        still_open = await blind.open_attempts(s, class_session_id, now)
         given = await assessment.scores_of(s, [e.answer_id for e in listed])
         ai_steps: dict[uuid.UUID, int] = {}
         records: dict[uuid.UUID, assessment.AssessmentRecord | None] = {}

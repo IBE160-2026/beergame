@@ -1371,8 +1371,9 @@ async def due_overdue(now: datetime) -> list[uuid.UUID]:
     """The sweep's `assessment.overdue` finder (FR-54, AD-9, NFR-8): the attempts whose
     assessment is still `incomplete` `assessment_overdue_hours` after its `due_at`, in a Class
     session whose pinned switch is on and that is not stopped, either not yet logged as overdue
-    or untouched for `assessment_retry_minutes` with runs left (so a job that keeps failing is
-    deferred again at that pace, never each minute), the oldest first."""
+    or untouched for `assessment_retry_minutes` (so a job that keeps failing is deferred again at
+    that pace, never each minute, and one with no runs left is settled `failed`), the oldest
+    first."""
     settings = get_settings()
     late = now - timedelta(hours=settings.assessment_overdue_hours)
     quiet = now - timedelta(minutes=settings.assessment_retry_minutes)
@@ -1389,11 +1390,7 @@ async def due_overdue(now: datetime) -> list[uuid.UUID]:
                 assessment_switches.c.pinned_at.is_not(None),
                 assessment_switches.c.enabled,
                 assessment_switches.c.stopped_at.is_(None),
-                (ai_assessments.c.overdue_at.is_(None))
-                | (
-                    (ai_assessments.c.runs < settings.assessment_max_runs)
-                    & (ai_assessments.c.updated_at <= quiet)
-                ),
+                (ai_assessments.c.overdue_at.is_(None)) | (ai_assessments.c.updated_at <= quiet),
             )
             .order_by(ai_assessments.c.due_at, ai_assessments.c.id)
             .limit(OVERDUE_PER_SWEEP)
@@ -1406,8 +1403,11 @@ async def overdue_due(attempt_id: object, now: datetime) -> bool:
     `assessment_overdue` once (`overdue_at`), and defer its job again when it has no live job
     (`todo` or `doing`), runs left and no run or re-defer for `assessment_retry_minutes`. A
     re-defer counts as a run, so a job that keeps failing before it settles is deferred at most
-    `assessment_max_runs` times. Every look stamps `updated_at`, so the finder returns the row
-    again only after `assessment_retry_minutes`. True when a job was deferred."""
+    `assessment_max_runs` times. With no runs left and no live job `assessment_retry_minutes`
+    after the last run or re-defer, the lost runs settle it: `failed` (`runs_exhausted`), with the
+    Admins' `assessment_failed` notice, as `_finish` would have. Every look stamps `updated_at`,
+    so the finder returns the row again only after `assessment_retry_minutes`. True when a job
+    was deferred."""
     assert isinstance(attempt_id, uuid.UUID)
     settings = get_settings()
     async with get_sessionmaker().begin() as s:
@@ -1437,17 +1437,25 @@ async def overdue_due(attempt_id: object, now: datetime) -> bool:
             )
             values["overdue_at"] = now
         quiet = now - timedelta(minutes=settings.assessment_retry_minutes)
-        deferred = False
-        if row["runs"] < settings.assessment_max_runs and row["updated_at"] <= quiet:
+        deferred = exhausted = False
+        if row["updated_at"] <= quiet:
             values["updated_at"] = now
             if not await jobs.live_locks(s, [assessment_key(attempt_id)]):
-                deferred = await _defer(s, attempt_id)
-                values["runs"] = row["runs"] + 1
-                log.info("assessment_redeferred", attempt_id=str(attempt_id), runs=row["runs"])
+                if row["runs"] < settings.assessment_max_runs:
+                    deferred = await _defer(s, attempt_id)
+                    values["runs"] = row["runs"] + 1
+                    log.info("assessment_redeferred", attempt_id=str(attempt_id), runs=row["runs"])
+                else:
+                    exhausted = True
+                    values |= {"status": "failed", "reason": "runs_exhausted"}
         if values:
             await s.execute(
                 update(ai_assessments).where(ai_assessments.c.id == row["id"]).values(**values)
             )
+        if exhausted:
+            log.warning("assessment_runs_exhausted", attempt_id=str(attempt_id))
+            await events.emit(s, "user", str(row["user_id"]))
+            await _tell_failed(s, row["class_session_id"])
     return deferred
 
 
