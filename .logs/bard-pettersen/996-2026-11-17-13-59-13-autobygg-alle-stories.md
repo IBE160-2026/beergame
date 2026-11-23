@@ -4335,3 +4335,45 @@ Avslutte Epic 14 og merge den til `main`. Dette er den siste epicen.
 ### Åpne punkter
 - Issue #267: beslutninger og punkter som står igjen.
 - En tom, usporet fil `backend/migrations/versions/0401_class_aggregates.py` i hovedmappa, laget ved et uhell av avslutningsagenten. Agenten fikk ikke lov til å slette den; grunnleggeren bør slette den.
+
+## User journeys med Playwright (GOAL punkt 4)
+
+### Oppgave
+Gjennomføre alle user journeys UJ-1 til UJ-9 fra PRD §2.3 med Playwright mot appen bygd fra `main`, med et helt spill spilt av testbrukere og en testfaglærer.
+
+### Plan
+Én agent i en egen worktree (`journeys` fra `main`, stakk 8081/5433, fersk database). Ett serielt kurs-løp UJ-1 → UJ-9 i egne Playwright-prosjekt (`playwright.journeys.config.ts`, ikke i standard CI-kjøring), og en egen spec for sammenligningen i UJ-9.
+
+### Resultat
+- PR #268, CI grønn, merget (4681796). Commits: 1004e7f (produktfeil), 72dc6bd, fda8a36.
+- 15 av 15 tester grønne (7,6 min): UJ-1 til UJ-9 med kanttilfellene. Fire nettleserkontekster spilte et helt klassespill på 36 uker med pause, KI-spiller i et fravær og at studenten tok plassen tilbake. Debrief, quiz, Replay, test, oversikt, meldinger, KI-vurdering, rapporter, ZIP, fullføringseksport, Klasserapport, plenum, Tverrklasse-statistikk med filter og «Fjoråret», og neste års klasseøkt.
+- Produktfeil rettet: en student hvis plass var overtatt av en KI-spiller, ble regnet som uten plass og flyttet ved låsingen, og fikk 403 på sitt eget spill. Regresjonstest; backend 4308.
+- Avvik: UJ-6 uten tegneoppgave (spørsmålssettet har ingen ennå, Issue #16). UJ-8: e-posten om KI-vurdering er en samle-e-post som ikke sendes om natten; testen sjekker varselet på Hjem.
+- Skjermbilder og README: `.docs/implementation-artifacts/screenshots/journeys/`.
+
+### Åpne punkter
+- Issue #269: fire e2e-tester som feiler av og til.
+## Sluttstatus for autobygget (2026-11-24)
+
+### Oppgave
+Avslutte målet i `GOAL.md`: alle stories utenom 3.15, 15.10 og 15.14 som done, review eller blocked; alle epics merget med grønn CI; user journeys gjennomført.
+
+### Resultat
+- Epic 1–15 er merget til `main` (siste: Epic 13 #256, Epic 15 #261, Epic 14 #266, user journeys #268). CI er grønn på `main` etter mergen av Epic 14.
+- Ingen stories står som blocked.
+- Ikke bygget etter kjøreboka (krever produksjonskontoer): 3.15, 15.10, 15.14.
+- Stories i review, som venter på grunnleggeren:
+  - 2.7 Kall et ekte EU-endepunkt innenfor rate-grensen: Issue #56 (ekte modellkall, nøkkelen er sperret for agenter).
+  - 2.11 Mål modell og innsatsnivå på batcher av simulerte spill: Issue #60 (ekte modellkall).
+  - 9.14 KI-narrasjon som bare kobler beregnede fakta: Issue #173 (ekte modell).
+  - 9.15 Avgrensede oppfølgingsspørsmål om spillet: Issue #176 (ekte modell).
+  - 10.7 Gjennomgang av Replay: Issue #192 (ekte modell).
+  - 15.12 Hold studentinvitasjoner til institusjonens databehandleravtale er på plass: Issue #247 (grunnleggeren avgjør `REQUIRE_DPA_FOR_INVITATIONS`).
+- Åpne spørsmål til grunnleggeren: Issue #264 (brev og rader i «Mine data» etter sletting).
+- Tom, usporet fil `backend/migrations/versions/0401_class_aggregates.py` i hovedmappa, laget ved et uhell; agenten fikk ikke slette den. Grunnleggeren bør slette den.
+
+### Åpne punkter
+- Issue #56, #60, #173, #176, #192, #247: review-stories.
+- Issue #264: åpne spørsmål om «Mine data».
+- Issue #269: ustabile e2e-tester.
+- Issue #16: tegneoppgave mangler i spørsmålssettet.

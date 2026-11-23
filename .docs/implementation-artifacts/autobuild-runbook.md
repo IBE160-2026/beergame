@@ -149,6 +149,10 @@ Merged to `main`: Epics 1–12 (PRs #165, #179, #196, #199, #224, #240). Three f
 - Sprint status and the run log are committed on `epic-15` after its merge; they reach `main` through a last small PR at the end (or by merging `epic-15` into `epic-14` before Epic 14's PR).
 - Then: Epic 14 close-out and merge → user journeys with Playwright (GOAL item 4) → final log section (review: 2.7 #56, 2.11 #60, 9.14 #173, 9.15 #176, 10.7, 15.12 #247).
 
+## Finished (2026-11-24)
+
+Epic 14 merged (PR #266, Issue #267); user journeys UJ-1…UJ-9 pass with Playwright (PR #268, `npm run e2e:journeys` with `playwright.journeys.config.ts`). The final section of the run log lists the `review` stories. The last sprint and log commits reach `main` through a small PR from `epic-15`.
+
 ## Done
 
 The goal is reached when every story outside the skip list is `done`, `review` or (after three attempts) `blocked`, every epic is merged to `main` with CI green, and a final log section lists the `review` and `blocked` stories with their issues.
