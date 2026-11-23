@@ -3915,3 +3915,23 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet.
 
 ### Åpne punkter
 - Issue #239: beslutninger.
+
+## Story 13.7: Studenten laster ned Studentrapporten som tagget PDF (spor 2)
+
+### Oppgave
+Bygge Story 13.7 på `epic-13` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet, og en kontroll av tilgjengelighet i PDF-en.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-13-7-student-downloads-the-student-report-as-a-tagged-pdf.md`.
+- Commit: 8bfb115.
+- Studenten lager og laster ned Studentrapporten fra Hjem etter Testfristen. En jobb bygger rapporten og lager PDF med WeasyPrint. Seksjonene legges til gjennom et register.
+- veraPDF 1.30.4 kjørte lokalt fra Docker: PDF-en er i samsvar med PDF/UA-1. CI kjører samme kontroll.
+- Tester: backend 3775, Vitest 1210, tsc, `lint:colours`, `check:copy`, bygg, Playwright 127 med axe.
+- Gjennomgang: 45 funn, 15 middels, alle rettet; 3 utsatt; oppfølgende gjennomgang anbefalt.
+- Status: done.
+
+### Åpne punkter
+- Issue #242: beslutninger, utsatte punkter og nye tabeller med persondata.
