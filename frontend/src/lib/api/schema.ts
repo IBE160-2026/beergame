@@ -3492,6 +3492,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/institution-statistics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Institution Statistics
+         * @description «Tverrinstitusjonell statistikk» (Story 14.7, cut list, FR-65, FR-5, AD-12, AD-14): the
+         *     stored aggregates of every Institution's Class sessions, grouped by Institution, read from the
+         *     aggregates only; no Class, Lecturer or Student is named. The Admin only: anyone else answers
+         *     403 `forbidden`. The filters are Story 14.4's. An Institution whose one compared Class session
+         *     has a withheld measure is withheld as a whole.
+         */
+        get: operations["getInstitutionStatistics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/internal/report-snapshots/{snapshot_id}": {
         parameters: {
             query?: never;
@@ -5640,6 +5664,28 @@ export interface components {
             value: number;
         };
         /**
+         * ComparedInstitutionOut
+         * @description An Institution with at least one compared Class session: its name, how many of its Class
+         *     sessions are compared, and what its compared Class sessions differ in from the most common
+         *     setup. `withheld` when its one compared Class session has a shown measure over fewer than 10
+         *     Students: then it shows no figure and no difference.
+         */
+        ComparedInstitutionOut: {
+            /** Differs */
+            differs: ("game_settings" | "ai_mode" | "model" | "prompt_versions" | "effort_level" | "question_set" | "item_weights" | "scoring_guide")[];
+            /**
+             * Institution Id
+             * Format: uuid
+             */
+            institution_id: string;
+            /** Name */
+            name: string;
+            /** Sessions */
+            sessions: number;
+            /** Withheld */
+            withheld: boolean;
+        };
+        /**
          * ComparedMeasureOut
          * @description One measure across the ready Class sessions, in their order: `key` is the stored measure
          *     code the page names from `nb.ts`, `unit` how it is formatted.
@@ -7610,6 +7656,24 @@ export interface components {
             next_cursor: string | null;
         };
         /**
+         * InstitutionMeasureOut
+         * @description One measure across the listed Institutions, in their order (Story 14.3's codes and units);
+         *     `comparable` on a score measure as in Story 14.4.
+         */
+        InstitutionMeasureOut: {
+            /** Comparable */
+            comparable?: boolean | null;
+            /** Key */
+            key: string;
+            /**
+             * Unit
+             * @enum {string}
+             */
+            unit: "kroner" | "ratio" | "percent" | "points";
+            /** Values */
+            values: components["schemas"]["InstitutionValueOut"][];
+        };
+        /**
          * InstitutionOut
          * @description One Institution (Story 3.11): what the Admin's list shows and what other modules read.
          */
@@ -7644,6 +7708,43 @@ export interface components {
             retention_default_months: number;
             /** Retention Months */
             retention_months?: number | null;
+        };
+        /**
+         * InstitutionStatisticsOut
+         * @description The Institutions in Norwegian name order, the shown measures over them, and the filters
+         *     (one per dimension once two Class sessions have an aggregate). `ready` counts the Class
+         *     sessions with an aggregate, `compared` those matching the filters.
+         */
+        InstitutionStatisticsOut: {
+            /** Compared */
+            compared: number;
+            /** Filters */
+            filters: components["schemas"]["FilterOut"][];
+            /** Institutions */
+            institutions: components["schemas"]["ComparedInstitutionOut"][];
+            /** Measures */
+            measures: components["schemas"]["InstitutionMeasureOut"][];
+            /** Ready */
+            ready: number;
+        };
+        /**
+         * InstitutionValueOut
+         * @description One Institution's figure of a measure: the median of its compared Class sessions' stored,
+         *     unwithheld values (`sessions` of them). `withheld` with no value when only withheld figures
+         *     were stored (or the Institution is withheld); neither when the measure was not measured.
+         */
+        InstitutionValueOut: {
+            /**
+             * Institution Id
+             * Format: uuid
+             */
+            institution_id: string;
+            /** Sessions */
+            sessions: number;
+            /** Value */
+            value: string | null;
+            /** Withheld */
+            withheld: boolean;
         };
         /**
          * IntRange
@@ -12238,6 +12339,11 @@ export interface components {
         };
         /** UserOut */
         UserOut: {
+            /**
+             * Cross Institution Stats
+             * @default false
+             */
+            cross_institution_stats: boolean;
             /** Email */
             email: string;
             /**
@@ -21702,6 +21808,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    getInstitutionStatistics: {
+        parameters: {
+            query?: {
+                game_settings?: string | null;
+                ai_mode?: string | null;
+                model?: string | null;
+                prompt_versions?: string | null;
+                effort_level?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstitutionStatisticsOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

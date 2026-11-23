@@ -36,6 +36,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.assessment import service as assessment
+from app.modules.classes import service as classes
 from app.modules.content import service as content
 from app.modules.games import service as games
 from app.modules.identity import service as identity
@@ -219,8 +220,13 @@ async def write_aggregate(
         today = now.astimezone(retention_rule.OSLO).date()
         if not for_retention and locked.deletion_date is not None and locked.deletion_date <= today:
             return False
+        facts = (await classes.class_facts(s, [locked.class_id])).get(locked.class_id)
+        if facts is None:  # pragma: no cover - a Class session always has its Class
+            return False
         header = {
             "written_at": now,
+            # Story 14.7: the Institution the figures speak for, as it is when they are written.
+            "institution_id": facts.institution_id,
             "students": registered,
             "game_students": game_students,
             "games_finished": report.finished,

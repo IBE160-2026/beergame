@@ -137,9 +137,12 @@ def test_the_classic_preset_is_named_and_no_filter_under_two():
 def store(session_id: str, stored: dict[str, object]) -> None:
     execute(
         "INSERT INTO class_aggregates (class_session_id, written_at, students, game_students, "
-        "games_finished, keys) VALUES (%s, now(), 12, 12, 3, %s::jsonb)",
+        "games_finished, keys, institution_id) VALUES (%s, now(), 12, 12, 3, %s::jsonb, "
+        "(SELECT c.institution_id FROM class_sessions s JOIN classes c ON c.id = s.class_id "
+        "WHERE s.id = %s))",
         session_id,
         json.dumps(stored),
+        session_id,
     )
     execute(
         "INSERT INTO class_aggregate_measures (class_session_id, measure, group_size, value, "

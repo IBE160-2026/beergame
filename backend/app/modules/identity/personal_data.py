@@ -202,8 +202,9 @@ _HANDLED: dict[str, Entry] = {
     # reports (Story 14.3): Cross-class statistics, kept when retention runs.
     "class_aggregates": _e(
         "none",
-        "A Class session's anonymised aggregate header: when it was written, group sizes and the "
-        "comparability keys (settings and ids); no User, Seat, Game, name or text. Kept at "
+        "A Class session's anonymised aggregate header: when it was written, group sizes, the "
+        "comparability keys (settings and ids) and its Institution's id (Story 14.7); no User, "
+        "Seat, Game, name or text. Kept at "
         "retention, which writes it first.",
     ),
     "class_aggregate_measures": _e(

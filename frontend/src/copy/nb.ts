@@ -2275,6 +2275,8 @@ export const nb = {
 
       // EXPERIENCE.md → Terms («Kontrolltest»); Story 12.7.
       controlTests: "Kontrolltest",
+      // [ASSUMPTION] Story 14.7 (cut list).
+      crossInstitution: "Tverrinstitusjonell statistikk",
     },
     /** «Revisjonslogg» (Story 3.12, FR-3): every Admin action with who did it and when. The page
      * renders any action from these entries; a later epic adds its own action names here and the
@@ -5737,6 +5739,29 @@ export const nb = {
     readsWithDiffers: (session: string, value: string, differs: string) => `${session}: ${value}. ${differs}`,
     scoresComparable: "Skårene kan sammenlignes: samme spørsmålssett, vekter og vurderingsveiledning.",
     scoresNotComparable: "Skårene kan ikke sammenlignes: spørsmålssett, vekter eller vurderingsveiledning er ulike.",
+  },
+  /** «Tverrinstitusjonell statistikk» (Story 14.7, cut list, FR-65, FR-5): the stored aggregates
+   * grouped by Institution, for the Admin. Measure names, filters and difference words are
+   * `crossClass`'s. [ASSUMPTION] Story 14.7: every string but «Samme mål, samme regnestykke.». */
+  crossInstitution: {
+    title: "Tverrinstitusjonell statistikk",
+    intro: "Samme mål, samme regnestykke.",
+    about:
+      "Hver institusjon viser medianen av sine Klasseøkters lagrede tall. Ingen Klasse, faglærer eller student vises, og et mål over færre enn 10 studenter er ikke med.",
+    empty: "Ingen institusjoner har lagrede tall ennå.",
+    institutionColumn: "Institusjon",
+    sessionsColumn: "Klasseøkter",
+    /** A withheld Institution's figure, and the line that says why once, above the charts: one
+     * compared Class session with a measure over fewer than 10 Students. */
+    withheld: "Holdt tilbake.",
+    withheldNote: (name: string) => `${name}. Holdt tilbake: én Klasseøkt med et mål under 10 studenter.`,
+    tableCaption: (measure: string) => `${measure}, per institusjon`,
+    /** A bar row and its `<title>`: «NTNU: 1 954 kr (2 Klasseøkter)». */
+    value: (value: string, sessions: number) =>
+      `${value} (${sessions} ${sessions === 1 ? "Klasseøkt" : "Klasseøkter"})`,
+    /** The polite line after a filter changes. */
+    comparing: (n: number, of: number) => `Sammenligner ${n} av ${of} Klasseøkter.`,
+    tooFewMatch: "Ingen Klasseøkter passer filtrene.",
   },
   /** «Alle spill side om side» (Story 14.5, FR-86, UX-DR64, `09-alle-sider.png`): every Class
    * game's Orders per Role beside the Student's own, after their Debrief and the Play deadline.

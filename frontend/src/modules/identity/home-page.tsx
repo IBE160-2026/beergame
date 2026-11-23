@@ -16,6 +16,7 @@ import {
   ADMIN_AI_COST_PATH,
   ADMIN_AUDIT_PATH,
   ADMIN_CONTROL_TESTS_PATH,
+  ADMIN_CROSS_INSTITUTION_PATH,
   ADMIN_EVALUATION_PATH,
   ADMIN_INSTITUTIONS_PATH,
   ADMIN_OPERATIONS_PATH,
@@ -63,7 +64,7 @@ export function HomePage({ page, children }: { page: Home; children?: ReactNode 
           >
             {other && canView(other, user) ? <PageLink href={HOME_PATH[other]}>{HOME_LINK[other]}</PageLink> : null}
             <ScoringLink />
-            {page === "adminArea" ? <AdminSections /> : null}
+            {page === "adminArea" ? <AdminSections user={user} /> : null}
             {children}
           </PageShell>
         );
@@ -73,8 +74,9 @@ export function HomePage({ page, children }: { page: Home; children?: ReactNode 
 }
 
 /** The pages of the Admin-område (Story 3.7 on; `09-alle-sider.png`): one Lenke per page, in a
- * list under the heading. Later stories add theirs. */
-function AdminSections() {
+ * list under the heading. Later stories add theirs. «Tverrinstitusjonell statistikk» (Story 14.7,
+ * cut list) only while its flag is on. */
+export function AdminSections({ user }: { user: Pick<SessionUser, "cross_institution_stats"> }) {
   return (
     <ul className="mt-6 flex max-w-md flex-col border-t border-hairline">
       <li className="border-b border-hairline">
@@ -113,6 +115,13 @@ function AdminSections() {
           {nb.admin.sections.controlTests}
         </Link>
       </li>
+      {user.cross_institution_stats ? (
+        <li className="border-b border-hairline">
+          <Link href={ADMIN_CROSS_INSTITUTION_PATH} standalone>
+            {nb.admin.sections.crossInstitution}
+          </Link>
+        </li>
+      ) : null}
     </ul>
   );
 }

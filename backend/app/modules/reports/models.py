@@ -171,6 +171,16 @@ class_aggregates = Table(
     # What a comparison must hold equal (Game settings, AI mode, model config, prompt versions,
     # Effort level, question set, Item weights, Scoring guide): settings and ids, no text.
     Column("keys", JSONB, nullable=False),
+    # Story 14.7 (revision 0402): the Institution of the Class session's Class when the aggregate
+    # was written, so the Admin's cross-Institution view groups the aggregates without reading the
+    # live Class tables. An Institution id, no personal data.
+    Column(
+        "institution_id",
+        Uuid,
+        ForeignKey("institutions.id", ondelete="RESTRICT", name="fk_class_aggregates_institution"),
+        nullable=False,
+        index=True,
+    ),
     CheckConstraint(
         "students >= 0 AND game_students >= 0 AND games_finished >= 0",
         name="ck_class_aggregates_counts",

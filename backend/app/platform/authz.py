@@ -232,6 +232,10 @@ POLICIES: dict[str, frozenset[str]] = {
     # The Klasserapport of a Class session (Story 14.1, FR-64, FR-5, AD-12): only the Class's
     # owners; never an Assistant lecturer, never an Admin without a staff role in the Class.
     "class_report.read": frozenset({LECTURER}),
+    # «Tverrinstitusjonell statistikk» (Story 14.7, cut list, FR-65, AD-12, AD-14): the stored,
+    # anonymised aggregates grouped by Institution, no Class, Lecturer or Student named. The Admin
+    # only in v1; never a Lecturer or an Assistant lecturer.
+    "institution_statistics.read": frozenset({ADMIN}),
     # One Student's Student report, made and downloaded by the staff of the Class at any time
     # (Story 13.12, FR-59, AD-12): its owners and Assistant lecturers; never the Admin without a
     # staff role in the Class.

@@ -13,12 +13,16 @@ Story 14.6: `GET /api/class-sessions/{id}/plenary`, «Alle spill i plenum» for 
 Oversikt (`class_report_plenary`).
 
 Story 14.3: `GET /api/class-statistics`, Tverrklasse-statistikk over the caller's own Class
-sessions (`cross_class`), from the stored aggregates only."""
+sessions (`cross_class`), from the stored aggregates only.
+
+Story 14.7 (cut list): `GET /api/institution-statistics`, the Admin's «Tverrinstitusjonell
+statistikk» (`cross_institution`), the same aggregates grouped by Institution; it does not exist
+while `FEATURE_CROSS_INSTITUTION_STATS` is off."""
 
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from fastapi.responses import JSONResponse
 
 from app.modules.reports import (
@@ -27,12 +31,14 @@ from app.modules.reports import (
     class_report_learning,
     class_report_plenary,
     cross_class,
+    cross_institution,
 )
 from app.modules.reports.class_report_all_games_schemas import ClassGamesOut
 from app.modules.reports.class_report_learning_schemas import ClassLearningOut
 from app.modules.reports.class_report_plenary_schemas import PlenaryOut
 from app.modules.reports.class_report_schemas import ClassReportOut
 from app.modules.reports.cross_class_schemas import CrossClassOut, FilterDimension
+from app.modules.reports.cross_institution_schemas import InstitutionStatisticsOut
 from app.platform import auth, authz
 from app.platform.errors import documented, error_response
 
@@ -177,3 +183,42 @@ async def get_class_statistics(
         "effort_level": effort_level,
     }
     return await cross_class.class_statistics(user, chosen)
+
+
+def _cross_institution_exists() -> None:
+    """While `FEATURE_CROSS_INSTITUTION_STATS` is off the route does not exist (AD-17): it answers
+    what an unknown route answers, before any policy or read."""
+    if not cross_institution.enabled():
+        raise HTTPException(status_code=404)
+
+
+@router.get(
+    "/institution-statistics",
+    dependencies=[Depends(_cross_institution_exists)],
+    response_model=InstitutionStatisticsOut,
+    responses=documented(401, 403, 404, 422),
+    operation_id="getInstitutionStatistics",
+)
+async def get_institution_statistics(
+    response: Response,
+    user: Annotated[authz.Principal, Depends(authz.require(cross_institution.READ))],
+    game_settings: Annotated[str | None, Query(max_length=64)] = None,
+    ai_mode: Annotated[str | None, Query(max_length=64)] = None,
+    model: Annotated[str | None, Query(max_length=64)] = None,
+    prompt_versions: Annotated[str | None, Query(max_length=64)] = None,
+    effort_level: Annotated[str | None, Query(max_length=64)] = None,
+) -> InstitutionStatisticsOut:
+    """«Tverrinstitusjonell statistikk» (Story 14.7, cut list, FR-65, FR-5, AD-12, AD-14): the
+    stored aggregates of every Institution's Class sessions, grouped by Institution, read from the
+    aggregates only; no Class, Lecturer or Student is named. The Admin only: anyone else answers
+    403 `forbidden`. The filters are Story 14.4's. An Institution whose one compared Class session
+    has a withheld measure is withheld as a whole."""
+    response.headers["Cache-Control"] = "no-store"
+    chosen: dict[FilterDimension, str | None] = {
+        "game_settings": game_settings,
+        "ai_mode": ai_mode,
+        "model": model,
+        "prompt_versions": prompt_versions,
+        "effort_level": effort_level,
+    }
+    return await cross_institution.institution_statistics(chosen)

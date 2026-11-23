@@ -169,7 +169,7 @@ function Measure({ measure, sessions }: { measure: ComparedMeasure; sessions: re
 }
 
 /** One bar per Class session, its value printed beside it; the words are read, the bars are not. */
-function CompareBars({ rows, name }: { rows: readonly CompareRow[]; name: string }) {
+export function CompareBars({ rows, name }: { rows: readonly CompareRow[]; name: string }) {
   return (
     <ol className="mt-1" data-compare-bars={name}>
       {rows.map((row) => (
@@ -211,7 +211,7 @@ function CompareBars({ rows, name }: { rows: readonly CompareRow[]; name: string
 
 /** The filters (Story 14.4): one group per dimension, «Alle» and each stored value, one pressed per
  * group, the api's counts beside them; as the Matrisevegg's `WallFilters`. */
-function Filters({
+export function Filters({
   filters,
   chosen,
   onChoose,

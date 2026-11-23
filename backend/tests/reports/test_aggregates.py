@@ -467,9 +467,12 @@ async def test_the_oversikt_draws_fjoraret_from_the_previous_sessions_aggregate(
     )
     execute(
         "INSERT INTO class_aggregates (class_session_id, written_at, students, game_students, "
-        "games_finished, keys) VALUES (%s, %s, 12, 12, 3, '{}')",
+        "games_finished, keys, institution_id) VALUES (%s, %s, 12, 12, 3, '{}', "
+        "(SELECT c.institution_id FROM class_sessions s JOIN classes c ON c.id = s.class_id "
+        "WHERE s.id = %s))",
         earlier,
         TEST,
+        earlier,
     )
     execute(
         "INSERT INTO class_aggregate_measures (class_session_id, measure, group_size, value, "

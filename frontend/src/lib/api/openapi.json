@@ -2935,6 +2935,54 @@
         "title": "ColumnRowOut",
         "type": "object"
       },
+      "ComparedInstitutionOut": {
+        "description": "An Institution with at least one compared Class session: its name, how many of its Class\nsessions are compared, and what its compared Class sessions differ in from the most common\nsetup. `withheld` when its one compared Class session has a shown measure over fewer than 10\nStudents: then it shows no figure and no difference.",
+        "properties": {
+          "differs": {
+            "items": {
+              "enum": [
+                "game_settings",
+                "ai_mode",
+                "model",
+                "prompt_versions",
+                "effort_level",
+                "question_set",
+                "item_weights",
+                "scoring_guide"
+              ],
+              "type": "string"
+            },
+            "title": "Differs",
+            "type": "array"
+          },
+          "institution_id": {
+            "format": "uuid",
+            "title": "Institution Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "sessions": {
+            "title": "Sessions",
+            "type": "integer"
+          },
+          "withheld": {
+            "title": "Withheld",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "institution_id",
+          "name",
+          "sessions",
+          "withheld",
+          "differs"
+        ],
+        "title": "ComparedInstitutionOut",
+        "type": "object"
+      },
       "ComparedMeasureOut": {
         "description": "One measure across the ready Class sessions, in their order: `key` is the stored measure\ncode the page names from `nb.ts`, `unit` how it is formatted.",
         "properties": {
@@ -7524,6 +7572,50 @@
         "title": "InstitutionListOut",
         "type": "object"
       },
+      "InstitutionMeasureOut": {
+        "description": "One measure across the listed Institutions, in their order (Story 14.3's codes and units);\n`comparable` on a score measure as in Story 14.4.",
+        "properties": {
+          "comparable": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comparable"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "unit": {
+            "enum": [
+              "kroner",
+              "ratio",
+              "percent",
+              "points"
+            ],
+            "title": "Unit",
+            "type": "string"
+          },
+          "values": {
+            "items": {
+              "$ref": "#/components/schemas/InstitutionValueOut"
+            },
+            "title": "Values",
+            "type": "array"
+          }
+        },
+        "required": [
+          "key",
+          "unit",
+          "values"
+        ],
+        "title": "InstitutionMeasureOut",
+        "type": "object"
+      },
       "InstitutionOut": {
         "description": "One Institution (Story 3.11): what the Admin's list shows and what other modules read.",
         "properties": {
@@ -7584,6 +7676,86 @@
           "created_at"
         ],
         "title": "InstitutionOut",
+        "type": "object"
+      },
+      "InstitutionStatisticsOut": {
+        "description": "The Institutions in Norwegian name order, the shown measures over them, and the filters\n(one per dimension once two Class sessions have an aggregate). `ready` counts the Class\nsessions with an aggregate, `compared` those matching the filters.",
+        "properties": {
+          "compared": {
+            "title": "Compared",
+            "type": "integer"
+          },
+          "filters": {
+            "items": {
+              "$ref": "#/components/schemas/FilterOut"
+            },
+            "title": "Filters",
+            "type": "array"
+          },
+          "institutions": {
+            "items": {
+              "$ref": "#/components/schemas/ComparedInstitutionOut"
+            },
+            "title": "Institutions",
+            "type": "array"
+          },
+          "measures": {
+            "items": {
+              "$ref": "#/components/schemas/InstitutionMeasureOut"
+            },
+            "title": "Measures",
+            "type": "array"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "institutions",
+          "measures",
+          "filters",
+          "ready",
+          "compared"
+        ],
+        "title": "InstitutionStatisticsOut",
+        "type": "object"
+      },
+      "InstitutionValueOut": {
+        "description": "One Institution's figure of a measure: the median of its compared Class sessions' stored,\nunwithheld values (`sessions` of them). `withheld` with no value when only withheld figures\nwere stored (or the Institution is withheld); neither when the measure was not measured.",
+        "properties": {
+          "institution_id": {
+            "format": "uuid",
+            "title": "Institution Id",
+            "type": "string"
+          },
+          "sessions": {
+            "title": "Sessions",
+            "type": "integer"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "withheld": {
+            "title": "Withheld",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "institution_id",
+          "value",
+          "withheld",
+          "sessions"
+        ],
+        "title": "InstitutionValueOut",
         "type": "object"
       },
       "IntRange": {
@@ -18483,6 +18655,11 @@
       },
       "UserOut": {
         "properties": {
+          "cross_institution_stats": {
+            "default": false,
+            "title": "Cross Institution Stats",
+            "type": "boolean"
+          },
           "email": {
             "title": "Email",
             "type": "string"
@@ -31353,6 +31530,155 @@
           }
         },
         "summary": "Health"
+      }
+    },
+    "/api/institution-statistics": {
+      "get": {
+        "description": "«Tverrinstitusjonell statistikk» (Story 14.7, cut list, FR-65, FR-5, AD-12, AD-14): the\nstored aggregates of every Institution's Class sessions, grouped by Institution, read from the\naggregates only; no Class, Lecturer or Student is named. The Admin only: anyone else answers\n403 `forbidden`. The filters are Story 14.4's. An Institution whose one compared Class session\nhas a withheld measure is withheld as a whole.",
+        "operationId": "getInstitutionStatistics",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "game_settings",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Game Settings"
+            }
+          },
+          {
+            "in": "query",
+            "name": "ai_mode",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ai Mode"
+            }
+          },
+          {
+            "in": "query",
+            "name": "model",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Model"
+            }
+          },
+          {
+            "in": "query",
+            "name": "prompt_versions",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Prompt Versions"
+            }
+          },
+          {
+            "in": "query",
+            "name": "effort_level",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Effort Level"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstitutionStatisticsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Get Institution Statistics",
+        "tags": [
+          "reports"
+        ]
       }
     },
     "/api/internal/report-snapshots/{snapshot_id}": {

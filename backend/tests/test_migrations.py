@@ -207,8 +207,8 @@ HEAD_TABLES = (
 # 0209 (12.10), 0208 (12.9), 0207 (12.8), 0206 (12.6), 0205 (12.5), 0204 (12.4), 0203 (12.3)
 # and 0202 (12.2) follow 0201 (12.7);
 # 0120-0130 follow 0064
-# 0401 (Story 14.3, Epic 14) follows 0072.
-HEAD = "0401"  # 0401 the stored aggregates of Cross-class statistics (Story 14.3)
+# 0401 (Story 14.3, Epic 14) follows 0072; 0402 (Story 14.7) follows 0401.
+HEAD = "0402"  # 0402 the Institution of each stored aggregate (Story 14.7)
 
 
 def reset_schema(url: str) -> None:
@@ -343,6 +343,43 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     assert "'class_session'" in sent["ck_messages_recipient_kind"]
     # 0303 (Story 13.6): and the Students who have not met the requirement.
     assert "'requirement_not_met'" in sent["ck_messages_recipient_kind"]
+
+    # 0402 (Story 14.7): each aggregate header names its Institution; and back.
+    assert "institution_id" in columns(url, "class_aggregates")
+    assert "ON DELETE RESTRICT" in definition(url, "fk_class_aggregates_institution")
+    command.downgrade(cfg, "0401")
+    assert "institution_id" not in columns(url, "class_aggregates")
+    # Its backfill: an aggregate written before 0402 gets its Class's Institution.
+    with psycopg.connect(libpq_dsn(url), autocommit=True) as conn:
+        conn.execute(
+            "INSERT INTO institutions (id, name, created_at, updated_at) VALUES "
+            "('00000000-0000-0000-0000-000000004029', 'I', now(), now())"
+        )
+        conn.execute(
+            "INSERT INTO classes (id, name, institution_id, created_at) VALUES "
+            "('00000000-0000-0000-0000-000000004022', 'K', "
+            "'00000000-0000-0000-0000-000000004029', now())"
+        )
+        conn.execute(
+            "INSERT INTO class_sessions (id, class_id, game_settings, ai_mode, debrief_mode, "
+            "inactivity_limit_hours, obligatory, required_share_percent, created_at) VALUES "
+            "('00000000-0000-0000-0000-000000004021', '00000000-0000-0000-0000-000000004022', "
+            "'{}', 'rule_based', 'group', 24, false, 80, now())"
+        )
+        conn.execute(
+            "INSERT INTO class_aggregates (class_session_id, written_at, students, "
+            "game_students, games_finished, keys) VALUES "
+            "('00000000-0000-0000-0000-000000004021', now(), 12, 12, 3, '{}')"
+        )
+    command.upgrade(cfg, "0402")
+    assert rows(url, "SELECT institution_id::text FROM class_aggregates") == [
+        ("00000000-0000-0000-0000-000000004029",)
+    ]
+    command.downgrade(cfg, "0401")
+    with psycopg.connect(libpq_dsn(url), autocommit=True) as conn:
+        conn.execute("DELETE FROM class_sessions WHERE id::text LIKE '%%4021'")
+        conn.execute("DELETE FROM classes WHERE id::text LIKE '%%4022'")
+        conn.execute("DELETE FROM institutions WHERE id::text LIKE '%%4029'")
 
     # 0401 (Story 14.3): one aggregate header per Class session and its measure rows, a withheld
     # one with no value; and back.

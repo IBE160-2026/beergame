@@ -45,6 +45,8 @@ async def test_the_right_login_sets_the_session_cookie_and_returns_the_user(admi
             "email": "kari.admin@example.com",
             "roles": ["admin"],
             "is_test_student": False,
+            # Story 14.7: an Admin while `FEATURE_CROSS_INSTITUTION_STATS` is on (the default).
+            "cross_institution_stats": True,
         }
         cookie = response.headers["set-cookie"]
         assert "HttpOnly" in cookie and "Secure" in cookie and "SameSite=lax" in cookie

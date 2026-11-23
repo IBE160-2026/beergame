@@ -55,6 +55,10 @@ export function adminOperationsPath(classSessionId: string): string {
   return `${ADMIN_OPERATIONS_PATH}/${encodeURIComponent(classSessionId)}`;
 }
 
+/** «Tverrinstitusjonell statistikk» in the Admin-område (Story 14.7, cut list): only while
+ * `FEATURE_CROSS_INSTITUTION_STATS` is on (`SessionUser.cross_institution_stats`). */
+export const ADMIN_CROSS_INSTITUTION_PATH = "/admin/tverrinstitusjonell-statistikk";
+
 /** «Kontrolltest» in the Admin-område (Story 12.7). */
 export const ADMIN_CONTROL_TESTS_PATH = "/admin/kontrolltest";
 

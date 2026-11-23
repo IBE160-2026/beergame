@@ -61,7 +61,7 @@ from app.modules.identity.schemas import (
 from app.modules.identity.schemas import (
     RosterStagingOut as RosterStagingOut,  # re-exported for `classes.routes`
 )
-from app.platform import audit, auth, email, events, notify, ratelimit
+from app.platform import audit, auth, authz, email, events, notify, ratelimit
 from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker, reading
 
@@ -98,6 +98,20 @@ class LoginRefused:
     retry_after: int | None = None
 
 
+@dataclass(frozen=True)
+class _Holder:
+    id: uuid.UUID
+    roles: list[str]
+
+
+def _cross_institution_stats(user_id: uuid.UUID, roles: list[str]) -> bool:
+    """Story 14.7 (AD-12, AD-17): whether the User may open «Tverrinstitusjonell statistikk», which
+    exists only while `FEATURE_CROSS_INSTITUTION_STATS` is on (the policy decides who)."""
+    return get_settings().feature_cross_institution_stats and authz.can(
+        _Holder(user_id, [str(role) for role in roles]), "institution_statistics.read"
+    )
+
+
 def _user_out(row, roles: list[str]) -> UserOut:
     return UserOut(
         id=row["id"],
@@ -105,6 +119,7 @@ def _user_out(row, roles: list[str]) -> UserOut:
         email=row["email"],
         roles=[SessionRole(role) for role in roles],
         is_test_student=row["is_test_student"],
+        cross_institution_stats=_cross_institution_stats(row["id"], roles),
     )
 
 
@@ -816,6 +831,7 @@ async def accept_invitation_new(
             email=row["email"],
             roles=roles,
             is_test_student=test_student,
+            cross_institution_stats=_cross_institution_stats(user_id, roles),
         ),
         0,
     )

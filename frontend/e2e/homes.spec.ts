@@ -85,6 +85,8 @@ for (const vp of VIEWPORTS) {
                   nb.admin.sections.aiCost,
                   nb.admin.sections.operations,
                   nb.admin.sections.controlTests,
+                  // Story 14.7 (cut list): the stack runs with `FEATURE_CROSS_INSTITUTION_STATS` on.
+                  nb.admin.sections.crossInstitution,
                 ]
               : [];
           await expect(mainLinks).toHaveText(links);
