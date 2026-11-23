@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "e2e:journeys": "playwright test -c playwright.journeys.config.ts",
     "check:copy": "node scripts/check-copy.mjs",
     "conformance": "node scripts/conformance.mjs",
     "lint:colours": "node scripts/lint-colours.mjs",

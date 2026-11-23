@@ -4,6 +4,8 @@ import { defineConfig, devices } from "@playwright/test";
 // a local WSL relay listens on ::1.
 export default defineConfig({
   testDir: "e2e",
+  // The whole-course journeys run on their own (`npm run e2e:journeys`, playwright.journeys.config.ts).
+  testIgnore: "**/journeys/**",
   // One login per demo User for the whole run, shared by the workers (see the file).
   globalSetup: "./e2e/support/global-setup.ts",
   fullyParallel: true,
