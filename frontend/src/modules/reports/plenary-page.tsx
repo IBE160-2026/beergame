@@ -72,6 +72,7 @@ function PlenaryView({ sessionId, user, updatedAt }: { sessionId: string; user: 
   // No `user`: display mode shows no header with a name on the projector.
   return (
     <PageShell
+      wide
       title={copy.title}
       updatedAt={found.dataUpdatedAt || updatedAt}
       phase={data ? "ready" : phase === "ready" ? "loading" : phase}

@@ -73,6 +73,7 @@ function SharedView({ debriefId, user, updatedAt }: { debriefId: string; user: S
   // No `user`: display mode shows no header with the Student's name.
   return (
     <PageShell
+      wide
       title={copy.title}
       updatedAt={found.dataUpdatedAt || updatedAt}
       phase={shared ? "ready" : phase === "ready" ? "loading" : phase}

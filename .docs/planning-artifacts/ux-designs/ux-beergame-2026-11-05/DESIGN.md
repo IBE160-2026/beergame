@@ -146,6 +146,7 @@ spacing:
   gutter-phone: 20px
   gutter-phone-chart: 16px
   margin-laptop: 80px
+  page-max: 1360px
   row-phone: 20px
   row-laptop: 26px
   row-label-phone: 76px
@@ -525,6 +526,8 @@ Light theme only. Dark mode is out of scope for v1 (founder decision 2026-11-09)
 ## Layout & Spacing
 
 **One grammar, top to bottom:** chain band → graph (Netto lager field with the Posisjon line, then Kost per uke field) → table with one column per Uke → the now-line through all of them. Graph and table share one x-axis. Every mark has its number directly beneath it. Graph fields sit `{spacing.field-gap}` apart. Use whitespace, not boxes, to group things.
+
+**Page frame.** Header, content and footer stop at `{spacing.page-max}` (1360 px including the laptop margins, so 1200 px of content) and sit centred on wider screens (founder, 2026-11-24). Only the projection views (plenum, delt skjerm) fill the screen.
 
 **Widths.** `{spacing.design-min}` (360 px) is the design target: the phone layout is drawn and tuned there. `{spacing.reflow-min}` (320 CSS px, WCAG 1.4.10, the same as 1280 px at 400 % zoom) is the reflow floor: every Student, Faglærer and Admin surface works there without page-level horizontal scroll (NFR-6). Faglærer and Admin surfaces keep the laptop as their design target; 320 px is a floor they must pass, not a layout to tune. Components fall into two groups:
 
