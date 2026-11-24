@@ -31,7 +31,7 @@ export function LandingPage() {
       <AppHeader />
       {/* The hairline sits directly under the header, as in 01-landing.png; the headline column is
           wide enough at 1280 px to break between the two sentences. */}
-      <main className="@container px-gutter-phone pt-5 pb-16 lg:px-margin-laptop lg:pt-6">
+      <main className="page-frame @container px-gutter-phone pt-5 pb-16 lg:px-margin-laptop lg:pt-6">
         {/* One `minmax(0, 1fr)` column on phone, and the lead breaks a word that is wider than it
             («forsyningskjedeøvelsen» at 200 % text), so the page never scrolls sideways. Two
             columns from `lg`, and only while the container is 48 rem wide: a container query reads

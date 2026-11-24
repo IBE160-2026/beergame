@@ -16,12 +16,15 @@ import { LogoutButton } from "./logout-button";
 export function SessionHeader({
   user,
   profileLink,
+  wide = false,
 }: {
   user: SessionUser;
   profileLink?: { href: string; label: string };
+  /** The projection views fill the screen instead of the page frame. */
+  wide?: boolean;
 }) {
   return (
-    <AppHeader>
+    <AppHeader wide={wide}>
       <div className="flex min-w-min flex-1 items-start justify-end gap-x-4">
         <p className="flex min-h-control-height-phone min-w-0 items-center text-right text-body-phone text-ink-secondary [overflow-wrap:anywhere] lg:text-body">
           {user.name}

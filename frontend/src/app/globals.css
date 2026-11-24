@@ -1,6 +1,14 @@
 @import "tailwindcss";
 @import "../theme/theme.css";
 
+/* The page frame: header, content and footer stop at `page-max` (1200 px of content inside the
+   80 px laptop margins) and sit centred on wider screens. The projection views opt out. */
+@utility page-frame {
+  width: 100%;
+  max-width: var(--spacing-page-max);
+  margin-inline: auto;
+}
+
 /* Light theme only, on `paper` (DESIGN.md → Colors). No literal colours here: tokens only. */
 @layer base {
   html {

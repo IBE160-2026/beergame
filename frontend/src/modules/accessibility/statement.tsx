@@ -36,7 +36,7 @@ export function AccessibilityStatement() {
   return (
     <div className="min-h-dvh">
       <AppHeader />
-      <main className="px-gutter-phone pt-10 pb-16 lg:px-margin-laptop lg:pt-16">
+      <main className="page-frame px-gutter-phone pt-10 pb-16 lg:px-margin-laptop lg:pt-16">
         <article className="max-w-prose break-words">
           <h1 className="text-title-phone text-ink lg:text-title-page">{copy.title}</h1>
           <p className="mt-2 text-body-phone text-ink-secondary lg:text-body">{copy.updated}</p>

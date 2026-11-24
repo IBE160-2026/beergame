@@ -7,9 +7,9 @@ import { nb } from "@/copy/nb";
  * button, so it stands at the same height whether or not the right side holds «Logg ut»
  * (Issue #68). No global navigation bar (UX-DR77): the right side holds only the session.
  */
-export function AppHeader({ children }: { children?: ReactNode }) {
+export function AppHeader({ children, wide = false }: { children?: ReactNode; wide?: boolean }) {
   return (
-    <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 px-gutter-phone pt-6 lg:px-margin-laptop">
+    <header className={`flex flex-wrap items-start justify-between gap-x-4 gap-y-2 px-gutter-phone pt-6 lg:px-margin-laptop${wide ? "" : " page-frame"}`}>
       <p className="flex min-h-control-height-phone items-center text-label text-ink">{nb.product.name}</p>
       {children}
     </header>
